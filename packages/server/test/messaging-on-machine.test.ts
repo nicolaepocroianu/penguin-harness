@@ -16,8 +16,8 @@
  *   the same binding through its proxy answers 503 `not_connected`.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { assistantText } from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import { assistantText } from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import type { MessagingBindingsResponse } from "../src/api/types.js";
 import type {
   TelegramTransportOpts,

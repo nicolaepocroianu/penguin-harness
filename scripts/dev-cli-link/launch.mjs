@@ -1,6 +1,6 @@
 /**
- * The globally linked `penguin` and `penguin-hmr` of a source checkout (`pnpm link:cli`, which
- * `pnpm build` runs): this checkout's built CLI, run with the environment `pnpm penguin` gives
+ * The globally linked `wafh` and `wafh-hmr` of a source checkout (`pnpm link:cli`, which
+ * `pnpm build` runs): this checkout's built CLI, run with the environment `pnpm wafh` gives
  * the same CLI from source. Linked bare, it would run on the installed release's data root and
  * port, and write that root in this checkout's formats, which the release may not read.
  *
@@ -11,11 +11,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-/** The root `penguin` script's run-with-env assignments; dev-entry-isolation.test.ts pins them. */
+/** The root `wafh` script's run-with-env assignments; dev-entry-isolation.test.ts pins them. */
 const DEV_CLI_ENV = [
-  "--unset=PENGUIN_CLI_ENTRY",
-  "PENGUIN_HOME=~/.penguin/dev-data-cli",
-  "PENGUIN_PROFILE=dev",
+  "--unset=WAFH_CLI_ENTRY",
+  "WAFH_HOME=~/.waf-harness/dev-data-cli",
+  "WAFH_PROFILE=dev",
   "PORT=7369",
 ];
 
@@ -34,11 +34,11 @@ export async function launch(entry) {
     const value = raw.startsWith("~/") ? path.join(os.homedir(), raw.slice(2)) : raw;
     if (!process.env[name]) process.env[name] = value;
     else if (process.env[name] !== value) {
-      console.error(`penguin (dev link): ${name}=${process.env[name]} overrides ${value}`);
+      console.error(`wafh (dev link): ${name}=${process.env[name]} overrides ${value}`);
     }
   }
   const file = path.join(checkout, "packages", "cli", "dist", entry);
-  // argv[1] is how the CLI finds itself: the entry `penguin server|web` re-runs and names to
+  // argv[1] is how the CLI finds itself: the entry `wafh server|web` re-runs and names to
   // the server, and the place the server resolves plugin packages from.
   process.argv[1] = file;
   await import(pathToFileURL(file).href);

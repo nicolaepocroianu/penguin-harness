@@ -7,7 +7,7 @@
  * plugin loading with the names the stages ask for, which is what this pins.
  */
 import { describe, expect, it } from "vitest";
-import { libraryPlugin, librarySkill } from "@prismshadow/penguin-core";
+import { libraryPlugin, librarySkill } from "@waterford/waf-harness-core";
 
 /** Every skill Loom vendors that the ported pipeline still needs. */
 const EXPECTED = [

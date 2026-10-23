@@ -128,7 +128,7 @@ describe("auth", () => {
     expect(wrong.status).toBe(401);
 
     const { cookie } = await loginUser(t.app, "carol", "password-123");
-    expect(cookie.startsWith("penguin_session=")).toBe(true);
+    expect(cookie.startsWith("wafh_session=")).toBe(true);
 
     const api = apiClient(t.app, cookie);
     const me = (await (await api.get("/api/me")).json()) as MeResponse;

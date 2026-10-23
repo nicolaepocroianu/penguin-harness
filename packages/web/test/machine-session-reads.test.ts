@@ -21,7 +21,7 @@ import type {
   MachinesResponse,
   ModelInfo,
   ModelsResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { ADMIN_ME } from "./helpers/admin-settings";
 import { mount, settle, unmountAll } from "./helpers/dom";
 import { apiError, json, stubFetch } from "./helpers/fetch";
@@ -151,7 +151,7 @@ describe("the models a page on a machine offers", () => {
         ? { reconnect: { since: "2026-10-15T00:00:00.000Z", attempts: 1, nextAt: null } }
         : {}),
       api: null,
-      root: "~/.penguin/data",
+      root: "~/.waf-harness/data",
       status: null,
     } as unknown as MachineInfo;
     return {

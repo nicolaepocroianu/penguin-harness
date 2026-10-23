@@ -1,5 +1,5 @@
 {
-  "name": "@prismshadow/penguin-hmr",
+  "name": "@waterford/waf-harness-hmr",
   "version": "0.2.16",
   "private": true,
   "type": "module",
@@ -32,7 +32,7 @@
     "build": "tsup"
   },
   "dependencies": {
-    "@prismshadow/penguin-core": "workspace:*"
+    "@waterford/waf-harness-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.3.0",

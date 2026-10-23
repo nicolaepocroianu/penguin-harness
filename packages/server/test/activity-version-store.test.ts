@@ -39,7 +39,7 @@ describe("version blobs", () => {
     for (const root of roots.splice(0)) await fs.rm(root, { recursive: true, force: true });
   });
   async function activityDir() {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-versions-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-versions-"));
     roots.push(root);
     return path.join(root, "activities", "act_1");
   }

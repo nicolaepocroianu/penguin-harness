@@ -20,8 +20,8 @@
  */
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { sessionMeta, userText } from "@prismshadow/penguin-core";
-import type { SessionSource } from "@prismshadow/penguin-core";
+import { sessionMeta, userText } from "@waterford/waf-harness-core";
+import type { SessionSource } from "@waterford/waf-harness-core";
 import type {
   MeResponse,
   OrgSessionsResponse,

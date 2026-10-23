@@ -15,6 +15,6 @@ export default defineConfig({
   external: [/^@deepseek-ai\//, "koffi"],
   // Bundled CommonJS calls require(); an ESM bundle has none of its own.
   banner: {
-    js: 'import { createRequire as __penguinCreateRequire } from "node:module"; const require = __penguinCreateRequire(import.meta.url);',
+    js: 'import { createRequire as __wafHarnessCreateRequire } from "node:module"; const require = __wafHarnessCreateRequire(import.meta.url);',
   },
 });

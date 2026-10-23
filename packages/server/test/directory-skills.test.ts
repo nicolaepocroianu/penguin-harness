@@ -21,7 +21,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { skillsDir, librarySkill } from "@prismshadow/penguin-core";
+import { skillsDir, librarySkill } from "@waterford/waf-harness-core";
 import type {
   AgentCreateResponse,
   AgentsResponse,
@@ -88,7 +88,7 @@ describe("directory skills api", () => {
     projectId = created.project.projectId;
   });
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-dirskills-"));
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-dirskills-"));
   });
   afterEach(async () => {
     const listed = (await (
@@ -262,20 +262,20 @@ describe("directory skills api", () => {
   });
 
   it("lets a directory Skill shadow a library Skill of the same name", async () => {
-    await writeSkill(".agents/skills", "penguin-sdk", { description: "the checkout's own" });
+    await writeSkill(".agents/skills", "wafh-sdk", { description: "the checkout's own" });
     const created = await owner.post(`/api/projects/${projectId}/agents`, {
       agentId: "shadow_agent",
-      skills: ["penguin-sdk"],
+      skills: ["wafh-sdk"],
       skillsDirectory: dir,
-      directorySkills: ["penguin-sdk"],
+      directorySkills: ["wafh-sdk"],
     });
     expect(created.status).toBe(201);
     const onDisk = await fs.readFile(
-      path.join(skillsDir(t.root, projectId, "shadow_agent"), "penguin-sdk", "SKILL.md"),
+      path.join(skillsDir(t.root, projectId, "shadow_agent"), "wafh-sdk", "SKILL.md"),
       "utf8",
     );
-    expect(onDisk).toBe(skillMd("penguin-sdk", "the checkout's own"));
-    expect(onDisk).not.toBe(librarySkill("penguin-sdk")!.skill.content);
+    expect(onDisk).toBe(skillMd("wafh-sdk", "the checkout's own"));
+    expect(onDisk).not.toBe(librarySkill("wafh-sdk")!.skill.content);
   });
 
   it("is 404 with no Agent created when a picked directory Skill is gone", async () => {

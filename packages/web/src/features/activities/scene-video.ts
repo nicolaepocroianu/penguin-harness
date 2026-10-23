@@ -9,7 +9,7 @@ import type {
   VideoCheck,
   VideoCheckFinding,
   VideoProblemCode,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
 
@@ -42,7 +42,7 @@ export function comparedRecording(
   );
 }
 
-/** Which agent made a run: its coding agent, else its Penguin agent; null for none. */
+/** Which agent made a run: its coding agent, else its WAF Harness agent; null for none. */
 export function madeBy(run: Pick<ActivityRunSummary, "agentId" | "codingAgentId">): string | null {
   return run.codingAgentId || run.agentId || null;
 }

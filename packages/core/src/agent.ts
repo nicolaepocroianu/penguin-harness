@@ -127,7 +127,7 @@ const MAX_SUBAGENT_DEPTH = 1;
 export interface CreateAgentOptions {
   agentId?: string;
   projectId?: string;
-  /** Local data root directory; defaults to `resolveRoot()` (PENGUIN_HOME or ~/.penguin/data). */
+  /** Local data root directory; defaults to `resolveRoot()` (WAFH_HOME or ~/.waf-harness/data). */
   root?: string;
   /**
    * Proxy policy for exec_command subprocess environments of every Session this Agent
@@ -153,7 +153,7 @@ export interface CreateAgentOptions {
    * Directories put at the FRONT of PATH for the command subprocesses — and the hook
    * scripts — of every Session this Agent creates or resumes, and of its subagents'
    * Sessions, which inherit the getter like `proxyEnv`. The Web server points it at the
-   * shim directory holding its own `penguin`, so a command an Agent runs reaches the CLI
+   * shim directory holding its own `wafh`, so a command an Agent runs reaches the CLI
    * of the harness that is running it rather than whatever is installed globally. Re-read
    * at every spawn, and evaluated with the Session's own coordinates like `controlEnv`, so
    * a host can leave the PATH of a Session alone because of where it works. Absent = PATH
@@ -280,7 +280,7 @@ export interface CreateSessionOptions {
   /**
    * What kind of conversation this is, recorded in session_meta; absent = `user`, a person's.
    * The subagent spawn site passes `subagent`; a host passes the source its caller stands for
-   * (the server: `schedule` for a scheduled task, `cli` for `penguin run`, `api` for the Agent API,
+   * (the server: `schedule` for a scheduled task, `cli` for `wafh run`, `api` for the Agent API,
    * `company` for company mode's desk and ticket Sessions).
    */
   source?: SessionSource;
@@ -476,7 +476,7 @@ function checkEntryClient(
 
 /** The message for a model reference that names no entry in the Project config. */
 function modelNotConfigured(ref: ModelRef): string {
-  return `Model is not in the Project config: ${formatModelRef(ref)}. Use \`penguin config model list\` to see the configured models, or \`penguin config model add\` to add one.`;
+  return `Model is not in the Project config: ${formatModelRef(ref)}. Use \`wafh config model list\` to see the configured models, or \`wafh config model add\` to add one.`;
 }
 
 /**
@@ -759,7 +759,7 @@ export class Agent {
       ref = this.projectConfig.default_model;
     } else {
       throw new Error(
-        "No modelId was specified and the Project config has no default_model. Use `penguin config model add/default` to set the default model.",
+        "No modelId was specified and the Project config has no default_model. Use `wafh config model add/default` to set the default model.",
       );
     }
     const modelEntry = getModel(this.projectConfig, ref);
@@ -905,7 +905,7 @@ export class Agent {
     const modelEntry = getModel(this.projectConfig, ref);
     if (!modelEntry) {
       throw new Error(
-        `The original Session's Model is not in the Project config: ${formatModelRef(ref)}. Use \`penguin config model add\` to configure it again before resuming.`,
+        `The original Session's Model is not in the Project config: ${formatModelRef(ref)}. Use \`wafh config model add\` to configure it again before resuming.`,
       );
     }
     // Same check as createSession (see checkEntryClient): a key deleted since the Session was

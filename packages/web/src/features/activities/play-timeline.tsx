@@ -4,7 +4,7 @@
  * as long. Choosing a scene plays the activity again from it. The scene playing is marked;
  * one shown for a line chosen elsewhere is ringed.
  */
-import { Dot, GlyphIcon, ICON_SIZE, ICONS } from "@prismshadow/penguin-ui";
+import { Dot, GlyphIcon, ICON_SIZE, ICONS } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneName } from "../../lib/tone";
 import { MediaThumb } from "./media-thumb";

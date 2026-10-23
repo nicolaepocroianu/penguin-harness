@@ -7,10 +7,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { boot, initialDoc, parseManifest } from "@prismshadow/penguin-core/kernel";
-import type { Json } from "@prismshadow/penguin-core/kernel";
-import { HotResources } from "@prismshadow/penguin-hmr";
-import { PENGUIN_FAMILY, HMR_INTERFACES_RESOURCE_ID } from "../src/hmr/capabilities.js";
+import { boot, initialDoc, parseManifest } from "@waterford/waf-harness-core/kernel";
+import type { Json } from "@waterford/waf-harness-core/kernel";
+import { HotResources } from "@waterford/waf-harness-hmr";
+import { WAFH_FAMILY, HMR_INTERFACES_RESOURCE_ID } from "../src/hmr/capabilities.js";
 import { packagedPlatform } from "../src/hmr/platform.js";
 import { PluginHost, PLUGINS_RESOURCE_ID } from "../src/plugin/host.js";
 import { SandboxService } from "../src/sandbox/index.js";
@@ -19,7 +19,7 @@ import type {
   SandboxPolicy,
   SandboxProvider,
   SandboxProviderSource,
-} from "@prismshadow/penguin-core/plugin";
+} from "@waterford/waf-harness-core/plugin";
 
 const ARGV = ["bash", "-lc", "echo hi"] as const;
 const OPTS = { cwd: "/work/project/sub", workspaceDir: "/work/project" };
@@ -45,7 +45,7 @@ function fake(label: string, dimensions?: readonly SandboxDimension[]) {
 const tmpDirs: string[] = [];
 /** A fresh directory on disk, for the cases where the confiner touches the scratchpad. */
 function tmp(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-sandbox-svc-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-sandbox-svc-"));
   tmpDirs.push(dir);
   return dir;
 }
@@ -232,7 +232,7 @@ describe("sandbox service — the built-in interface and its optional dimensions
   it("outside workspace-write the scratchpad is neither bound nor created", async () => {
     const scratchpad = path.join(tmp(), "scratchpad", "session-1");
     const bwrap = fake("bwrap", ["fs-write", "network"]);
-    const svc = await service([["penguin-bwrap", bwrap.provider]]);
+    const svc = await service([["wafh-bwrap", bwrap.provider]]);
     for (const policy of [
       { mode: "read-only" },
       { mode: "danger-full-access", network: "none" },
@@ -267,14 +267,14 @@ describe("sandbox service — capability routing across backends", () => {
       const { dsh, bwrap } = entries();
       const both: Array<[string, SandboxProviderSource]> = [
         ["dsh-local", dsh.provider],
-        ["penguin-bwrap", bwrap.provider],
+        ["wafh-bwrap", bwrap.provider],
       ];
       const svc = await service(order === "dsh first" ? both : both.reverse());
       svc.configure({ mode: "workspace-write" });
       expect(svc.confiner()([...ARGV], OPTS).argv).toEqual(["bwrap", "--", ...ARGV]);
       expect(dsh.calls).toHaveLength(0);
       // The card reads them in the same preference.
-      expect(svc.backends().map((b) => b.name)).toEqual(["penguin-bwrap", "dsh-local"]);
+      expect(svc.backends().map((b) => b.name)).toEqual(["wafh-bwrap", "dsh-local"]);
     }
   });
 
@@ -282,7 +282,7 @@ describe("sandbox service — capability routing across backends", () => {
     const { dsh, bwrap } = entries();
     const svc = await service([
       ["dsh-local", dsh.provider],
-      ["penguin-bwrap", bwrap.provider],
+      ["wafh-bwrap", bwrap.provider],
     ]);
     svc.configure({ mode: "workspace-write", network: "none", maskPaths: ["/home/u/.ssh"] });
     expect(svc.confiner()([...ARGV], OPTS).argv).toEqual(["bwrap", "--", ...ARGV]);
@@ -294,7 +294,7 @@ describe("sandbox service — capability routing across backends", () => {
     const { dsh, bwrap } = entries();
     const svc = await service([
       ["dsh-local", dsh.provider],
-      ["penguin-bwrap", bwrap.provider],
+      ["wafh-bwrap", bwrap.provider],
     ]);
     // Full access + no network is genuinely unconfined: it passes through.
     svc.configure({ mode: "danger-full-access" });
@@ -312,8 +312,8 @@ describe("sandbox service — capability routing across backends", () => {
     const seatbelt = fake("seatbelt", ["fs-write", "network", "network-local", "mask-paths"]);
     const svc = await service([
       ["dsh-local", dsh.provider],
-      ["penguin-bwrap", bwrap.provider],
-      ["penguin-seatbelt", seatbelt.provider],
+      ["wafh-bwrap", bwrap.provider],
+      ["wafh-seatbelt", seatbelt.provider],
     ]);
     svc.configure({ mode: "workspace-write", network: "local" });
     expect(svc.confiner()([...ARGV], OPTS).argv).toEqual(["seatbelt", "--", ...ARGV]);
@@ -328,7 +328,7 @@ describe("sandbox service — capability routing across backends", () => {
     const { dsh, bwrap } = entries();
     const svc = await service([
       ["dsh-local", dsh.provider],
-      ["penguin-bwrap", bwrap.provider],
+      ["wafh-bwrap", bwrap.provider],
     ]);
     svc.configure({ mode: "workspace-write", network: "local" });
     expect(() => svc.confiner()([...ARGV], OPTS)).toThrow(/requires fs-write \+ network-local/);
@@ -340,7 +340,7 @@ describe("sandbox service — capability routing across backends", () => {
     const { dsh, bwrap } = entries();
     const svc = await service([
       ["dsh-local", dsh.provider],
-      ["penguin-bwrap", bwrap.provider],
+      ["wafh-bwrap", bwrap.provider],
     ]);
     svc.configure({ mode: "read-only", maskPaths: [] });
     // Either backend serves it: the one implementing more does.
@@ -353,7 +353,7 @@ describe("sandbox service — capability routing across backends", () => {
         "boom",
         {
           confine() {
-            throw new Error("penguin-bwrap cannot confine on this host");
+            throw new Error("wafh-bwrap cannot confine on this host");
           },
         },
       ],
@@ -436,7 +436,7 @@ describe("sandbox settings ride the parked context across a swap", () => {
     // A bare-kernel declaration — right family, no capabilities offered — is what makes a
     // terminals-only boot legal (see capabilities.ts's HmrClaim). The sandbox floor is
     // business-independent, so this is all these tests need behind the platform.
-    resources.register(HMR_INTERFACES_RESOURCE_ID, { family: PENGUIN_FAMILY });
+    resources.register(HMR_INTERFACES_RESOURCE_ID, { family: WAFH_FAMILY });
     // The observer is itself a plugin module requiring the sandbox — the surface an
     // actual consumer has.
     let seen: SandboxService | null = null;
@@ -449,7 +449,7 @@ describe("sandbox settings ride the parked context across a swap", () => {
           manifest: parseManifest({
             name: "observer",
             requires: {
-              sandbox: { iface: "@prismshadow/penguin-server#Sandbox", from: "SandboxModule" },
+              sandbox: { iface: "@waterford/waf-harness-server#Sandbox", from: "SandboxModule" },
             },
             provides: {},
             contributes: {},

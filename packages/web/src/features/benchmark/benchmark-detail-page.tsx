@@ -12,7 +12,7 @@ import type {
   BenchmarkManifestProblem,
   BenchmarkSummary,
   ModelsResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   CopyButton,
@@ -23,7 +23,7 @@ import {
   PageHeader,
   Skeleton,
   toastError,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import type { MergedBenchmark } from "../../lib/benchmark-merge";
 import { nameOnMachine } from "../../lib/workspace-machines";

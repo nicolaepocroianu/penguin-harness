@@ -8,7 +8,7 @@ import { choosePort, readPreferredPort, rememberPreferredPort } from "../src/por
 let tmpDir: string | null = null;
 
 function memoryFile(): string {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-port-memory-"));
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-port-memory-"));
   return path.join(tmpDir, "nested", "preferred-port");
 }
 

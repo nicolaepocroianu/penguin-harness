@@ -33,7 +33,7 @@ import {
 const usage = [{ sceneId: "intro", sourceKey: "k", occurrence: 1, sceneOccurrenceCount: 1 }];
 
 /** Where the fake runs' folders are, one folder per world: only player checks write there. */
-const workspaces = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-pipeline-run-"));
+const workspaces = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-pipeline-run-"));
 let worlds = 0;
 afterAll(() => fs.rmSync(workspaces, { recursive: true, force: true }));
 
@@ -802,11 +802,11 @@ describe("running the stages", () => {
     }).done;
     const final = w.runner.status("act")!;
     expect(final.status).toBe("succeeded");
-    expect(final.steps.map((step) => step.note)).not.toContain("needsPenguinAgent");
-    // The same stages a Penguin agent runs, media included.
-    const penguin = world();
-    await penguin.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
-    expect(w.started).toEqual(penguin.started);
+    expect(final.steps.map((step) => step.note)).not.toContain("needsWafHarnessAgent");
+    // The same stages a WAF Harness agent runs, media included.
+    const wafh = world();
+    await wafh.runner.start("proj", "act", { selection: "all", agentId: "agent" }).done;
+    expect(w.started).toEqual(wafh.started);
     // The generation service gives media runs to the Media Agent; the sequence names no runtime.
     const media = /^(audio|image|sound):/;
     w.started.forEach((entry, i) =>

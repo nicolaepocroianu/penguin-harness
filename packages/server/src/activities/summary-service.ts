@@ -3,7 +3,7 @@
  * activity of a list. A few reads per activity (its draft, its runs, whether a module
  * exists); a project holds tens of refs, not thousands.
  */
-import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use } from "@waterford/waf-harness-core/kernel";
 import type { Log } from "../hmr/capabilities.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { ActivitySandbox } from "./sandbox-service.js";

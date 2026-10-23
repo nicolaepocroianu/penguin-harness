@@ -132,7 +132,7 @@ export function syncStateMachineConfiguration(
 
 /**
  * The module's state machine: the product's `spec/state-machine.json`, where Loom keeps it,
- * else the ref's, where Penguin's scaffold writes it. Null when the module has neither, as
+ * else the ref's, where WAF Harness's scaffold writes it. Null when the module has neither, as
  * a legacy sequence module does — and then its configuration is left alone, as Loom does.
  */
 export async function readModuleStateMachine(

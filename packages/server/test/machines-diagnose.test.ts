@@ -50,7 +50,7 @@ import type { ExecResult } from "../src/machines/transport/index.js";
 import { makeTempRoot, waitFor } from "./helpers.js";
 
 const DEV = remoteLayoutFor("dev");
-const LINUX_PROBE = "Linux x86_64\n---penguin---\n---penguin---\n";
+const LINUX_PROBE = "Linux x86_64\n---wafh---\n---wafh---\n";
 const said = (stdout: string, code = 0): ExecResult => ({
   code,
   stdout,
@@ -64,7 +64,7 @@ function answer(
     Record<"missing" | "disk" | "libc" | "oss" | "github" | "lock" | "port", string>
   > = {},
 ) {
-  const lines = ["@@who penguin box-1"];
+  const lines = ["@@who wafh box-1"];
   if (over.missing !== undefined)
     lines.push(...over.missing.split(" ").map((t) => `@@missing ${t}`));
   lines.push(`@@disk ${over.disk ?? String(50 * 1024 * 1024)}`);
@@ -141,7 +141,7 @@ describe("the connection check", () => {
       "disk:pass",
       "port:pass",
     ]);
-    expect(byId.ssh).toMatchObject({ user: "penguin", host: "box-1" });
+    expect(byId.ssh).toMatchObject({ user: "wafh", host: "box-1" });
     expect(byId.platform).toMatchObject({ os: "linux", arch: "x64" });
     expect(byId.port).toMatchObject({ port: DEV.defaultPort, holder: "free" });
   });
@@ -217,7 +217,7 @@ describe("the connection check", () => {
         ? said(answer({ port: "401 0", lock: String(DEV.defaultPort) }))
         : said(LINUX_PROBE),
     );
-    expect(ours.byId.port).toMatchObject({ state: "pass", holder: "penguin" });
+    expect(ours.byId.port).toMatchObject({ state: "pass", holder: "wafh" });
   });
 
   it("fails a glibc older than the release's Node needs and a musl system, and warns about terminals on one in between", async () => {

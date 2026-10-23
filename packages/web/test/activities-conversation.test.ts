@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import {
   composerDraftKey,
   conversationThreads,
@@ -41,7 +41,7 @@ describe("conversation panel", () => {
     const activity = { projectId: "p1", activityId: "act_1" };
     // The same slot the chat page reads for that Session, so the text follows it there.
     expect(composerDraftKey("u1", "s-1", activity)).toBe(sessionDraftKey("u1", "s-1"));
-    expect(composerDraftKey("u1", null, activity)).toBe("penguin.chatDraft.activity.u1.p1.act_1");
+    expect(composerDraftKey("u1", null, activity)).toBe("wafh.chatDraft.activity.u1.p1.act_1");
     expect(composerDraftKey("u2", null, activity)).not.toBe(composerDraftKey("u1", null, activity));
     expect(composerDraftKey(null, "s-1", activity)).toBeNull();
   });

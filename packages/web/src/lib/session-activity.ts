@@ -1,4 +1,4 @@
-import type { SessionInfo, SessionStatus } from "@prismshadow/penguin-server/api";
+import type { SessionInfo, SessionStatus } from "@waterford/waf-harness-server/api";
 import { isSessionUnread } from "./session-seen";
 import type { SessionSeenState } from "./session-seen";
 import { S } from "./strings";

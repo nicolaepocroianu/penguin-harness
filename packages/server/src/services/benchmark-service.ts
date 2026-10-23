@@ -37,7 +37,7 @@ import {
   readBenchmarkManifest,
   writeBenchmarkManifest,
   type BenchmarkManifest,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   BenchmarkArchiveGitOrigin,
   BenchmarkCaseScore,
@@ -54,7 +54,7 @@ import type {
 import type { WorkspaceFileContent, WorkspaceFileReadOptions } from "./workspace-files-service.js";
 import { packBenchmark, readBenchmarkArchive } from "./benchmark-archive.js";
 import { HttpError } from "../http/errors.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Paths } from "../hmr/capabilities.js";
 import type { Benchmarks } from "../mechanisms/agents.js";
 import type { WorkspaceFiles } from "../mechanisms/workspace.js";

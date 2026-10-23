@@ -51,18 +51,18 @@ describe("buildExampleFill — what lands in the skills dropdown", () => {
   it("drops skills the selected Agent has not installed", () => {
     // Pinning a Skill that isn't there is what the old auto-submit filtered out too.
     const f = fill({
-      exampleSkills: ["penguin-sdk", "web-design"],
+      exampleSkills: ["wafh-sdk", "web-design"],
       installedSkills: ["web-design"],
     });
     expect(f.skills).toEqual(["web-design"]);
   });
 
   it("switching examples replaces equally sized selections without duplicates", () => {
-    const installedSkills = ["penguin-plugin", "web-design", "memory"];
+    const installedSkills = ["wafh-plugin", "web-design", "memory"];
     const first = fill({ exampleSkills: ["memory"], installedSkills });
-    const next = fill({ exampleSkills: ["penguin-plugin", "penguin-plugin"], installedSkills });
+    const next = fill({ exampleSkills: ["wafh-plugin", "wafh-plugin"], installedSkills });
     expect(first.skills).toEqual(["memory"]);
-    expect(next.skills).toEqual(["penguin-plugin"]);
+    expect(next.skills).toEqual(["wafh-plugin"]);
     expect(buildSkillsMessage(next.skills, next.text)).not.toContain("memory");
   });
 

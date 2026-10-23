@@ -21,7 +21,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement as h } from "react";
-import type { AgentSummary, SessionsBatchRequest } from "@prismshadow/penguin-server/api";
+import type { AgentSummary, SessionsBatchRequest } from "@waterford/waf-harness-server/api";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { AgentsPage } from "../src/features/agents/agents-page";

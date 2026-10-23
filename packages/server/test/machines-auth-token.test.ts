@@ -25,9 +25,9 @@ describe("parseToken", () => {
   it("takes the first line after the marker, not a shell banner before it", () => {
     // The command runs through a shell whose profile may print anything; a banner is not a
     // credential, and taking the wrong line would send junk as a cookie.
-    expect(parseToken("Welcome to nas!\nMOTD\n---penguin-auth-token---\nabc123\n")).toBe("abc123");
-    expect(parseToken("---penguin-auth-token---\n\n  abc123  \n")).toBe("abc123");
-    expect(parseToken("command not found: penguin")).toBeNull();
+    expect(parseToken("Welcome to nas!\nMOTD\n---wafh-auth-token---\nabc123\n")).toBe("abc123");
+    expect(parseToken("---wafh-auth-token---\n\n  abc123  \n")).toBe("abc123");
+    expect(parseToken("command not found: wafh")).toBeNull();
   });
 
   it("asks for a bounded lifetime, and refuses a nonsensical one", () => {
@@ -46,7 +46,7 @@ describe("mintTokenOnRemote", () => {
     // Separate from a failure on purpose: the caller still has the seeded-password path, and
     // treating this as fatal would strand every machine carrying an older build.
     const outcome = await mintTokenOnRemote({ alias: "nas", user: "me" }, RELEASE, async () =>
-      ok("penguin: unknown command 'auth-token'"),
+      ok("wafh: unknown command 'auth-token'"),
     );
     expect(outcome.kind).toBe("unsupported");
   });

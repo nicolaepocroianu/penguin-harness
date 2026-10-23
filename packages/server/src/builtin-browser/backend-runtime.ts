@@ -11,7 +11,7 @@
  *   claim; closing one is the same. The shell measures its guests every ~10 s and throttles the
  *   ones nobody looks at or drives.
  * - Chrome (`createsTabs: true`): the extension opens, closes and focuses tabs itself, in its
- *   Penguin tab group. A tab the user takes back from the agent (Chrome's debugging bar Cancel,
+ *   WAF Harness tab group. A tab the user takes back from the agent (Chrome's debugging bar Cancel,
  *   a restricted page) is `tab-released`: it leaves the registry, and an action on it answers
  *   409 `tab_released`. The registry outlives a disconnect and is replaced by the extension's
  *   tab list when it reconnects.
@@ -244,7 +244,7 @@ export class BrowserBackendRuntime {
       throw new HttpError(
         409,
         "too_many_tabs",
-        `${capitalized(browserLabel(this.backend))} holds ${MAX_TABS} tabs, the most it keeps; close some first (penguin browser close <tab-id>).`,
+        `${capitalized(browserLabel(this.backend))} holds ${MAX_TABS} tabs, the most it keeps; close some first (wafh browser close <tab-id>).`,
       );
     }
     const activate = opts.activate !== false;
@@ -455,14 +455,14 @@ export class BrowserBackendRuntime {
         throw new HttpError(
           403,
           "cdp_refused",
-          `${method} is not available on your own Chrome: its cookies, stores and other tabs stay in Chrome. Open, switch and close tabs with penguin browser open, switch and close.`,
+          `${method} is not available on your own Chrome: its cookies, stores and other tabs stay in Chrome. Open, switch and close tabs with wafh browser open, switch and close.`,
         );
       }
     } else if (["Target.", "Browser.", "Storage."].some((domain) => method.startsWith(domain))) {
       throw new HttpError(
         403,
         "cdp_refused",
-        `${method} is not available through the built-in browser; open, switch and close tabs with penguin browser open, switch and close.`,
+        `${method} is not available through the built-in browser; open, switch and close tabs with wafh browser open, switch and close.`,
       );
     }
     if (method === "Page.navigate") this.deps.url(params?.url, false);
@@ -637,14 +637,14 @@ export class BrowserBackendRuntime {
   }): OpenRequest {
     const request = this.tabs.createOpen({
       url: opts.url,
-      partition: opts.partition ?? "persist:penguin-browser",
+      partition: opts.partition ?? "persist:wafh-browser",
       activate: opts.activate,
       ...(opts.sessionId !== undefined ? { sessionId: opts.sessionId } : {}),
       ...(opts.openerTabId !== undefined ? { openerTabId: opts.openerTabId } : {}),
     });
     this.deps.publish({
       type: "builtin_browser_open",
-      partition: opts.partition ?? "persist:penguin-browser",
+      partition: opts.partition ?? "persist:wafh-browser",
       requestId: request.requestId,
       url: opts.url,
       activate: opts.activate,

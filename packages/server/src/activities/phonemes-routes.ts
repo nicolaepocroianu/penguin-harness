@@ -4,7 +4,7 @@
  * names it with `{ espeakPath: string | null }` (null or empty runs `espeak-ng` from PATH).
  * The program runs on the server, which is why only an admin may name it.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import { HttpError } from "../http/errors.js";

@@ -6,11 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { verifyWindowsSignature } = require("./verify-windows-signature.cjs");
 
-const SIGNED_BASENAMES = new Set([
-  "PenguinHarness.exe",
-  "elevate.exe",
-  "penguin-desktop-win32-x64.exe",
-]);
+const SIGNED_BASENAMES = new Set(["WAF Harness.exe", "elevate.exe", "wafh-desktop-win32-x64.exe"]);
 
 function isGitBundleExecutable(file) {
   return file.split(path.sep).includes("git");

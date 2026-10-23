@@ -1,7 +1,7 @@
 ---
 name: a2ui
 description: Make a reply easier to read and act on with rich blocks inside ordinary Markdown — a choice the user picks from, a form that collects several answers, a procedure as steps with warnings in place, a callout, a Mermaid diagram, a weather card, a live clock or countdown, and a dashboard of gauges for a system snapshot, a quota or a job's progress — written as fenced blocks the app renders with its own components; a pick comes back as the user's plain text. Use when a reply asks the user to decide, collects several inputs, gives a procedure, explains a structure or flow, or reports the weather, a time, a deadline or a few readings. Includes STE-style writing rules for Chinese and English, scripts that print real weather and system data as blocks, and a checker script to run on the draft before sending.
-version: 2026.10.09.1
+version: 2026.10.23.1
 ---
 
 # A2UI blocks
@@ -166,11 +166,11 @@ A procedure, Chinese. The warning sits on the step it protects:
   "type": "steps",
   "title": "迁移数据目录",
   "steps": [
-    { "text": "停止服务。", "code": "penguin stop", "lang": "sh" },
+    { "text": "停止服务。", "code": "wafh stop", "lang": "sh" },
     {
       "warning": "复制完成并核对大小之前，不要删除旧目录。",
       "text": "把旧目录完整复制到新磁盘。",
-      "code": "cp -a ~/.penguin/data /mnt/disk2/penguin-data",
+      "code": "cp -a ~/.waf-harness/data /mnt/disk2/wafh-data",
       "lang": "sh"
     },
     { "text": "在配置里把数据目录指向新路径，然后启动服务。", "note": "首次启动会重建索引，需要约 1 分钟。" }

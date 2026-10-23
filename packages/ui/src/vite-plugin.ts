@@ -1,5 +1,5 @@
 /**
- * `penguinUi()` — the Vite plugin that ships the bundled fonts' licences.
+ * `wafHarnessUi()` — the Vite plugin that ships the bundled fonts' licences.
  *
  * On a build it emits the licence texts in `src/fonts/LICENSES/*.txt` (mirrored from the font
  * packages by `scripts/sync-font-licenses.mjs`, and MiSans's transcribed from its licensor) as
@@ -14,13 +14,13 @@
 import { readFileSync, readdirSync } from "node:fs";
 
 /** The slice of Rollup's plugin context the licence emission uses. */
-export interface PenguinUiEmitContext {
+export interface WafHarnessUiEmitContext {
   emitFile(file: { type: "asset"; fileName: string; source: string }): string;
 }
 
-export interface PenguinUiPlugin {
+export interface WafHarnessUiPlugin {
   name: string;
-  generateBundle: (this: PenguinUiEmitContext) => void;
+  generateBundle: (this: WafHarnessUiEmitContext) => void;
 }
 
 /** Where the emitted licence texts land in a consumer's dist. */
@@ -38,9 +38,9 @@ export function fontLicenseAssets(): { fileName: string; source: string }[] {
     }));
 }
 
-export function penguinUi(): PenguinUiPlugin {
+export function wafHarnessUi(): WafHarnessUiPlugin {
   return {
-    name: "penguin:ui",
+    name: "wafh:ui",
     // Build only: Vite never calls generateBundle from the dev server.
     generateBundle() {
       for (const asset of fontLicenseAssets()) this.emitFile({ type: "asset", ...asset });

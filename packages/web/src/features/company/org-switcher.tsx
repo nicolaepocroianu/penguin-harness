@@ -26,7 +26,7 @@ import {
   MenuRadioItem,
   MenuSeparator,
   SkeletonList,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { useCompany } from "../../state/company";
 import { projectDisplayName, useProject } from "../../state/project";

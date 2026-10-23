@@ -9,7 +9,7 @@
  * `devDependencies` — bundling is a build-time input, and `devDependencies` are not rewritten
  * into the published manifest.
  *
- * This is the shape that broke the 0.2.12 release: `packages/server` took `@prismshadow/penguin-hmr`
+ * This is the shape that broke the 0.2.12 release: `packages/server` took `@waterford/waf-harness-hmr`
  * — private, and bundled — as a runtime dependency.
  *
  * With `--registry`, it additionally asks npm which of the packages a release publishes do not
@@ -36,7 +36,7 @@ const read = (file) => JSON.parse(readFileSync(file, "utf8"));
 
 /**
  * Every workspace package under `packages/` and `plugins/`, by npm name. Both, because the
- * dependency runs across them: `penguin-core` depends on the Agent plugins, so a plugin marked
+ * dependency runs across them: `wafh-core` depends on the Agent plugins, so a plugin marked
  * private would ship core naming a version npm does not have. Names and private flags are read
  * from each manifest, never assumed from the directory.
  */

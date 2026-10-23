@@ -17,7 +17,7 @@
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use, type ClassCtx } from "@waterford/waf-harness-core/kernel";
 import type { Log } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";

@@ -31,8 +31,8 @@ import type {
   AgentConfigResponse,
   AgentConfigUpdateRequest,
   AgentKernelUpdateResponse,
-} from "@prismshadow/penguin-server/api";
-import type { ToolPermission } from "@prismshadow/penguin-core/interfaces";
+} from "@waterford/waf-harness-server/api";
+import type { ToolPermission } from "@waterford/waf-harness-core/interfaces";
 import {
   Button,
   Card,
@@ -62,8 +62,8 @@ import {
   toastError,
   toastSuccess,
   useFormDraft,
-} from "@prismshadow/penguin-ui";
-import type { OptionMenuChoice } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { OptionMenuChoice } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";

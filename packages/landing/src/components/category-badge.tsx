@@ -2,8 +2,8 @@
  * Blog badges on the shared site pill: category (news = brand fill, practice = brand outline,
  * perspectives = teal fill, changelog = neutral) and the pinned marker.
  */
-import { SitePill } from "@prismshadow/penguin-ui/site";
-import type { SitePillTone } from "@prismshadow/penguin-ui/site";
+import { SitePill } from "@waterford/waf-harness-ui/site";
+import type { SitePillTone } from "@waterford/waf-harness-ui/site";
 import { S } from "../lib/strings";
 import type { BlogCategory } from "../lib/blog";
 

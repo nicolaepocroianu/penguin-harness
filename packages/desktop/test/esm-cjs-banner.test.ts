@@ -25,7 +25,7 @@ import { ESM_CJS_BANNER } from "../../../scripts/esm-cjs-banner.mjs";
 
 /** The banner as it shipped in 0.2.6 — `require` alone, which is how `__dirname` slipped through. */
 const REQUIRE_ONLY_BANNER =
-  'import { createRequire as __penguinCreateRequire } from "node:module"; const require = __penguinCreateRequire(import.meta.url);';
+  'import { createRequire as __wafHarnessCreateRequire } from "node:module"; const require = __wafHarnessCreateRequire(import.meta.url);';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
@@ -36,7 +36,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 // so dropping the realpathSync fails here rather than on one runner only. `fs.realpathSync`
 // and not its `.native` variant: that is the one the ESM loader uses, and the two disagree
 // about Windows 8.3 short paths.
-const tmpTarget = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-esm-cjs-banner-"));
+const tmpTarget = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-esm-cjs-banner-"));
 const tmpLink = `${tmpTarget}-link`;
 fs.symlinkSync(tmpTarget, tmpLink, "junction");
 const tmp = fs.realpathSync(tmpLink);

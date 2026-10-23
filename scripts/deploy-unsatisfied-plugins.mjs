@@ -10,7 +10,7 @@
  */
 
 /** The request header by which a pusher accepts running without those plugins, and its value. */
-export const UNSATISFIED_PLUGINS_HEADER = "x-penguin-unsatisfied-plugins";
+export const UNSATISFIED_PLUGINS_HEADER = "x-wafh-unsatisfied-plugins";
 export const LEAVE_OUT = "leave-out";
 
 const isPlugin = (p) =>

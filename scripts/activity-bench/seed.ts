@@ -1,12 +1,12 @@
 /**
- * `pnpm bench seed`: prepares the bench's seed home, the Penguin home every trial starts from,
+ * `pnpm bench seed`: prepares the bench's seed home, the WAF Harness home every trial starts from,
  * step by step and again without harm — each step is skipped once it is done. A throwaway
  * server runs on the seed while it is prepared; what it leaves behind is the seed.
  *
  *   1. the Project, with the built-in Activity Agent;
  *   2. its default model, with an API key typed at the terminal and sent to that loopback
  *      server only — never printed, logged, stored anywhere else, or put in argv or env;
- *   3. a WAF workspace Penguin prepares in the seed (never a checkout from elsewhere);
+ *   3. a WAF workspace WAF Harness prepares in the seed (never a checkout from elsewhere);
  *   4. the test browser;
  *   5. the bench home's bench.json, keeping what it already says (its vault);
  *   6. the bench's own preflight of the seed, which says ready or what is missing.
@@ -288,7 +288,7 @@ async function pickAtTerminal(models: ModelRow[], ports: SeedPorts): Promise<Mod
   return pickNamed(models, answer);
 }
 
-/** The WAF workspace Penguin prepares in the seed; a checkout named from elsewhere is refused. */
+/** The WAF workspace WAF Harness prepares in the seed; a checkout named from elsewhere is refused. */
 async function ensureWorkspace(
   server: Server,
   pollMs: number,
@@ -299,7 +299,7 @@ async function ensureWorkspace(
   let { status } = await read();
   if (!status.managed)
     throw new SeedRefusal(
-      "The seed names a WAF checkout outside it (WAF_ROOT_DIR, or the workspace's externalRoot): every trial copies the seed, so clear it and let Penguin prepare a workspace in the seed.",
+      "The seed names a WAF checkout outside it (WAF_ROOT_DIR, or the workspace's externalRoot): every trial copies the seed, so clear it and let WAF Harness prepare a workspace in the seed.",
     );
   if (status.ready && !status.preparing) {
     log("The WAF workspace is prepared.");
@@ -343,7 +343,7 @@ async function ensureBrowser(
   let { browser } = await read();
   if (!browser.available)
     throw new SeedRefusal(
-      "This copy of Penguin cannot install the test browser: run the seed from a checkout that ships Playwright.",
+      "This copy of WAF Harness cannot install the test browser: run the seed from a checkout that ships Playwright.",
     );
   if (browser.installed && !browser.installing) {
     log("The test browser is installed.");

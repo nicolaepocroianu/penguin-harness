@@ -1,7 +1,7 @@
 /**
- * `penguin server stop` — stops the server on this data root, and answers in one line of JSON.
+ * `wafh server stop` — stops the server on this data root, and answers in one line of JSON.
  *
- * Machine-facing, like `penguin server status`: a CONTROLLER runs it over ssh. It lives here
+ * Machine-facing, like `wafh server status`: a CONTROLLER runs it over ssh. It lives here
  * rather than as an HTTP call to the server itself because it has to work on a server whose
  * PLATFORM is older than this build — a machine mid-upgrade, which is exactly when something
  * needs stopping. A platform route can only be relied on once the machine already runs it,
@@ -10,9 +10,9 @@
  * A signal, not a shell `kill`: the controller has no portable way to send one (`kill` and
  * `taskkill` are different commands with different spellings), while `process.kill` is the
  * same call on every platform this runs on.
- * Docs: /docs/cli § "penguin server / penguin web".
+ * Docs: /docs/cli § "wafh server / wafh web".
  */
-import { liveServerLock, readServerLock } from "@prismshadow/penguin-server/lock";
+import { liveServerLock, readServerLock } from "@waterford/waf-harness-server/lock";
 import type { Command } from "commander";
 import type { Messages } from "../i18n.js";
 import { resolveRootOption } from "../root-option.js";

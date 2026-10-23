@@ -18,8 +18,8 @@
  * dock costs no live view.
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ConfirmModal, GlyphIcon, ICON_SIZE, PanelTabs } from "@prismshadow/penguin-ui";
-import type { PanelTabItem } from "@prismshadow/penguin-ui";
+import { ConfirmModal, GlyphIcon, ICON_SIZE, PanelTabs } from "@waterford/waf-harness-ui";
+import type { PanelTabItem } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { NAV_ICONS } from "../../lib/nav-icons";
 import { useShortcutLabel } from "../../lib/shortcuts/use-keymap";

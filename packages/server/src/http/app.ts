@@ -1,5 +1,5 @@
-import { Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
-import type { Opaque, Slot, ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Interface, Module, Provide, Use } from "@waterford/waf-harness-core/kernel";
+import type { Opaque, Slot, ClassCtx } from "@waterford/waf-harness-core/kernel";
 import { Hono } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import { Config } from "../hmr/capabilities.js";

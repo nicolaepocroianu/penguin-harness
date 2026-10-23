@@ -88,7 +88,7 @@ describe("shipsNodePtyFile", () => {
 describe("stageNodePty", () => {
   const tmps: string[] = [];
   const tmpdir = () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-pty-payload-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-pty-payload-"));
     tmps.push(dir);
     return dir;
   };

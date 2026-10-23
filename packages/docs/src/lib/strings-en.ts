@@ -2,7 +2,7 @@
 import type { Strings } from "./strings-types";
 
 export const en: Strings = {
-  siteName: "PenguinHarness",
+  siteName: "WAF Harness",
 
   nav: {
     home: "Home",

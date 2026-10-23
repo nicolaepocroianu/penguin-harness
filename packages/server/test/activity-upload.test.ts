@@ -22,7 +22,7 @@ afterEach(async () => {
 
 /** A ref's uploads folder in a fresh WAF root: `media/loom/words/words-1/uploads/`. */
 async function workspace(): Promise<UploadHome> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-upload-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-upload-test-"));
   cleanups.push(async () => {
     await fs.rm(root, { recursive: true, force: true, maxRetries: 10 });
   });

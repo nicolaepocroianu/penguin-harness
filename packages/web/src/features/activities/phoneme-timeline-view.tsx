@@ -3,8 +3,8 @@
  * whole word: the highlighting a child sees in the book, checked here first. A recording
  * without sound timings says so rather than showing sounds that never light up.
  */
-import type { AssetManifest } from "@prismshadow/penguin-server/api";
-import { InfoPopover } from "@prismshadow/penguin-ui";
+import type { AssetManifest } from "@waterford/waf-harness-server/api";
+import { InfoPopover } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { activeCue, wordTimeline } from "./phoneme-timeline";
 

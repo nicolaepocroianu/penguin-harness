@@ -9,7 +9,7 @@
  * - An entry that no longer has the editor's shape reads as nothing remembered.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import type { MessagingBindingsResponse } from "@prismshadow/penguin-server/api";
+import type { MessagingBindingsResponse } from "@waterford/waf-harness-server/api";
 import { cachedBinding, rememberBinding } from "../src/features/messaging/messaging-binding-cache";
 import { blockedStorage, stubLocalStorage, type MemoryStorage } from "./helpers/storage";
 

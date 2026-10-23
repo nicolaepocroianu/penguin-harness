@@ -1,5 +1,5 @@
 /**
- * A library plugin carries its quick start in its package.json (`penguin.quick_start`), listed
+ * A library plugin carries its quick start in its package.json (`wafh.quick_start`), listed
  * on GET /api/plugins. The page only pre-fills a draft from it, so what is checked here is that
  * the demo reaches it.
  */

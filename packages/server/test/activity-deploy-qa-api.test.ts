@@ -6,7 +6,7 @@
  * git, npm, Jenkins and the clock are fakes behind the deploy ports: nothing here reaches a
  * network, a real remote or a real program. The clones are the WAF checkout's: its
  * activity-data, media and module repositories are there already (its owner cloned the module,
- * and Penguin writes the product's files into it).
+ * and WAF Harness writes the product's files into it).
  */
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -91,7 +91,7 @@ describe("activity deploy to QA", () => {
   });
 
   async function setup(tracked: string[]) {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-qa-waf-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-qa-waf-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
     await fs.mkdir(path.join(root, "framework", "src"), { recursive: true });
     await fs.writeFile(path.join(root, "framework", "package.json"), "{}");

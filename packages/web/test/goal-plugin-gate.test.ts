@@ -14,7 +14,7 @@
  */
 import { createElement as h } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { toastStore } from "@prismshadow/penguin-ui";
+import { toastStore } from "@waterford/waf-harness-ui";
 import { goalPluginGate, useGoalPluginGate } from "../src/features/chat/goal-plugin-gate";
 import type { GoalPluginGate } from "../src/features/chat/goal-plugin-gate";
 import { apiError, json, stubFetch } from "./helpers/fetch";

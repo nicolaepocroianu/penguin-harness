@@ -4,11 +4,11 @@
  */
 
 export const strings = {
-  appName: "PenguinHarness Browser",
-  titleConnected: (labels: string) => `PenguinHarness Browser — connected to ${labels}`,
-  titleNotConnected: "PenguinHarness Browser — not connected",
-  titlePaused: "PenguinHarness Browser — paused",
-  groupTitle: "Penguin",
+  appName: "WAF Harness Browser",
+  titleConnected: (labels: string) => `WAF Harness Browser — connected to ${labels}`,
+  titleNotConnected: "WAF Harness Browser — not connected",
+  titlePaused: "WAF Harness Browser — paused",
+  groupTitle: "WAF Harness",
   themeLabel: "Theme",
   themeLight: "Light",
   themeDark: "Dark",
@@ -16,9 +16,9 @@ export const strings = {
   /** A switch's tooltip: what it sets, and to what. */
   choice: (setting: string, value: string) => `${setting}: ${value}`,
 
-  pairHeading: "PenguinHarness Browser",
+  pairHeading: "WAF Harness Browser",
   pairIntro:
-    "Lets the agents of a PenguinHarness server drive the Chrome tabs you hand them: the tabs they open in the Penguin group, and tabs you add with the toolbar icon. Your other tabs, your browsing history and Chrome's cookie store stay out of reach.",
+    "Lets the agents of a WAF Harness server drive the Chrome tabs you hand them: the tabs they open in the WAF Harness group, and tabs you add with the toolbar icon. Your other tabs, your browsing history and Chrome's cookie store stay out of reach.",
   pairedTitle: "Paired servers",
   pairedNone: "No server is paired yet.",
   pairedBy: (user: string) => `paired by ${user}`,
@@ -26,13 +26,13 @@ export const strings = {
   removeHint: "Forgets the server here. Revoke it in the Web App too, under Settings › Browser.",
   addTitle: "Add a server",
   serverUrlLabel: "Server address",
-  serverUrlPlaceholder: "https://penguin.example.com",
+  serverUrlPlaceholder: "https://wafh.example.com",
   codeLabel: "Pairing code",
   codePlaceholder: "Paste the code from the Web App",
   connect: "Connect",
   connecting: "Connecting…",
   stepsTitle: "How to pair",
-  step1: "In the PenguinHarness Web App, open the Browser panel and choose Connect your Chrome.",
+  step1: "In the WAF Harness Web App, open the Browser panel and choose Connect your Chrome.",
   step2:
     "Copy the server address and the pairing code it shows. The code works once, for 10 minutes.",
   step3: "Paste both here and choose Connect.",
@@ -58,7 +58,7 @@ export const strings = {
   errorUnreachable: (origin: string) =>
     `${origin} did not answer. Check the address, and that the server is running.`,
   errorRefused: (message: string) => `The server refused the code: ${message}`,
-  errorBadResponse: "The server's answer is not a pairing. Is this a PenguinHarness server?",
+  errorBadResponse: "The server's answer is not a pairing. Is this a WAF Harness server?",
   paired: (label: string) => `Paired with ${label}.`,
 
   popupTabs: (count: number) =>

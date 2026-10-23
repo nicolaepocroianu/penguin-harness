@@ -15,12 +15,12 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement as h } from "react";
-import { Toaster, hasUnsaved, ClipboardWriterProvider } from "@prismshadow/penguin-ui";
+import { Toaster, hasUnsaved, ClipboardWriterProvider } from "@waterford/waf-harness-ui";
 import type {
   ModelInfo,
   AgentConfigResponse,
   ChatDefaultsDto,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { ApiTab } from "../src/features/agents/api-tab";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
@@ -207,7 +207,7 @@ describe("API Session settings", () => {
     expect(copied[0]).toContain(link.href);
     expect(copied[0]).toContain(`${window.location.origin}/api/amsp/v1`);
     expect(copied[0]).toContain(`${PROJECT_ID}/${AGENT_ID}`);
-    expect(copied[0]).toContain("PENGUIN_AGENT_KEY");
+    expect(copied[0]).toContain("WAFH_AGENT_KEY");
     expect(copied[0]).toContain("stream()");
     expect(copied[0]).toContain("await run()");
   });

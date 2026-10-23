@@ -1,7 +1,7 @@
 /**
  * Workbenches: code an Agent keeps in its own directory and the server boots as a module
  * tree of its own — the same manifests and the same tree check the platform's plugins go
- * through (`package.json#penguin.modules` + the default export of `index.ts`). Two
+ * through (`package.json#wafh.modules` + the default export of `index.ts`). Two
  * interfaces cross the boundary:
  *
  * - `WorkbenchHost` is what the server PUBLISHES into every workbench tree (the workbench's
@@ -15,7 +15,7 @@
  * serve a UI file, and the version history every successful load appends to — which is
  * what makes an Agent's own edits to its workbench reversible.
  */
-import { Interface } from "@prismshadow/penguin-core/kernel";
+import { Interface } from "@waterford/waf-harness-core/kernel";
 
 /** A request the workbench's handler receives (the HTTP shape, minus the transport). */
 export interface WorkbenchRequest {
@@ -71,7 +71,7 @@ export interface WorkbenchResult {
   error: string | null;
 }
 
-/** What a workbench provides (its manifest: `provides: { main: "@prismshadow/penguin-server#WorkbenchMain" }`). */
+/** What a workbench provides (its manifest: `provides: { main: "@waterford/waf-harness-server#WorkbenchMain" }`). */
 @Interface()
 export abstract class WorkbenchMain {
   abstract handle(request: WorkbenchRequest): Promise<WorkbenchResponse>;

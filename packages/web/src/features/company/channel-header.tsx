@@ -16,7 +16,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
-import type { OrgChannelDetail, OrgChannelMember } from "@prismshadow/penguin-server/api";
+import type { OrgChannelDetail, OrgChannelMember } from "@waterford/waf-harness-server/api";
 import {
   AvatarStack,
   Button,
@@ -37,8 +37,8 @@ import {
   toastError,
   toastSuccess,
   usePortalPanel,
-} from "@prismshadow/penguin-ui";
-import type { AvatarStackItem } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { AvatarStackItem } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";

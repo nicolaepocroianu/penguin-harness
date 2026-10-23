@@ -44,9 +44,9 @@ const HARDENED_ENV: NodeJS.ProcessEnv = {
  * checks `PORT` for presence rather than value must see nothing at all).
  *
  * `PORT` / `HOST` are stripped because they are never about the command being run. On the
- * serving paths they are the harness's own listener: `penguin web` / `penguin server` write both
+ * serving paths they are the harness's own listener: `wafh web` / `wafh server` write both
  * into their own `process.env` as the channel to the server module (see the CLI's `startServer`).
- * On the CLI-only paths (`penguin run`, `penguin chat`, the REPL) nothing listens at all, but the
+ * On the CLI-only paths (`wafh run`, `wafh chat`, the REPL) nothing listens at all, but the
  * CLI still loads `dotenv/config`, so a `PORT` there is the one the *user's own project* picked
  * for *its* server. `npm run dev`, Vite, Next and most Express templates read `PORT`, so either
  * way an inherited value makes a server the Agent starts bind a port it was never asked to take —
@@ -54,13 +54,13 @@ const HARDENED_ENV: NodeJS.ProcessEnv = {
  * a particular port should be told so in its own invocation (or through the vault), never by
  * ambient inheritance.
  *
- * `PENGUIN_CLI_ENTRY` is internal plumbing: the CLI uses it to tell the server which script to
+ * `WAFH_CLI_ENTRY` is internal plumbing: the CLI uses it to tell the server which script to
  * re-run for self-update. It means nothing to any other program and leaks the install path.
  *
- * `PENGUIN_WEB_DIST` is *not* internal — it is a documented deployment override (see the
+ * `WAFH_WEB_DIST` is *not* internal — it is a documented deployment override (see the
  * configuration reference and the server README) — and is stripped anyway because it names this
  * installation's front-end build. In the self-development case an Agent that starts a
- * PenguinHarness server would otherwise serve the deployment's assets instead of the ones it just
+ * WAF Harness server would otherwise serve the deployment's assets instead of the ones it just
  * built in the workspace, silently and with no error to read.
  *
  * `FORCE_COLOR` / `CLICOLOR_FORCE` are color-forcing overrides that Node (and the chalk-family
@@ -70,8 +70,8 @@ const HARDENED_ENV: NodeJS.ProcessEnv = {
  * colors on". The vault still wins, so a user who genuinely wants forced color in commands can
  * set it there.
  *
- * Every `PENGUIN_*` variable is removed as well — see {@link HARNESS_ENV_PREFIX}. That covers
- * `PENGUIN_HOME` and `PENGUIN_WEB_DB`, which select the *data* an Agent-started harness works
+ * Every `WAFH_*` variable is removed as well — see {@link HARNESS_ENV_PREFIX}. That covers
+ * `WAFH_HOME` and `WAFH_WEB_DB`, which select the *data* an Agent-started harness works
  * against. They were once left inheriting on the grounds that the self-development case may
  * legitimately want the same data root, but inheriting them is not that decision being made — it
  * is an accident of where this process happens to be running. Whenever an Agent spawns a command
@@ -80,28 +80,28 @@ const HARDENED_ENV: NodeJS.ProcessEnv = {
  * that handed it the root.
  *
  * Any of it really wanted is asked for rather than inherited: the vault is applied after this
- * environment (see the spread in `spawn`), so a `PENGUIN_HOME` set there reaches commands exactly
+ * environment (see the spread in `spawn`), so a `WAFH_HOME` set there reaches commands exactly
  * as before. Same escape hatch as `FORCE_COLOR` above.
  */
 const STRIPPED_ENV_KEYS = new Set([
   "PORT",
   "HOST",
-  "PENGUIN_CLI_ENTRY",
-  "PENGUIN_WEB_DIST",
+  "WAFH_CLI_ENTRY",
+  "WAFH_WEB_DIST",
   "FORCE_COLOR",
   "CLICOLOR_FORCE",
   // Desktop-mode process credentials and wiring: the shell's token authorizes the
   // server shutdown endpoint (and the claim link until redeemed), and the port file is
   // the shell's private channel — neither is a user-facing setting, and leaking them
   // into Agent-run commands would let a prompt-injected command stop the server.
-  "PENGUIN_DESKTOP_TOKEN",
-  "PENGUIN_PORT_FILE",
+  "WAFH_DESKTOP_TOKEN",
+  "WAFH_PORT_FILE",
   // Pinned seed password (tests/e2e): a credential, not a data-selection setting.
-  "PENGUIN_SEED_ADMIN_PASSWORD",
+  "WAFH_SEED_ADMIN_PASSWORD",
 ]);
 
 /**
- * Every variable named `PENGUIN_*` is this installation's own configuration — where its data
+ * Every variable named `WAFH_*` is this installation's own configuration — where its data
  * lives, which shell it resolved, which release feed it checks, which language its UI speaks —
  * and none of it describes the command an Agent is running. Stripping by prefix rather than by
  * name is the point: the harness reads two dozen of them today and gains more with each feature,
@@ -109,14 +109,14 @@ const STRIPPED_ENV_KEYS = new Set([
  * existed when this was written and a by-name list had caught seven.
  *
  * Outbound proxy settings are the deliberate exception to "the harness's environment stays out of
- * the child", and they are not `PENGUIN_*` — they are HTTP_PROXY and friends, governed by
- * {@link PROXY_ENV_KEYS} and the host's policy just below. `PENGUIN_TRUST_PROXY` only looks like
+ * the child", and they are not `WAFH_*` — they are HTTP_PROXY and friends, governed by
+ * {@link PROXY_ENV_KEYS} and the host's policy just below. `WAFH_TRUST_PROXY` only looks like
  * one: it decides whether the server trusts an inbound `x-forwarded-proto`, and means nothing to
  * a child.
  *
  * The vault still wins, so any single variable that is genuinely wanted can be set there.
  */
-const HARNESS_ENV_PREFIX = "PENGUIN_";
+const HARNESS_ENV_PREFIX = "WAFH_";
 
 /**
  * Proxy variables removed IN ADDITION when the host supplies a proxy policy (`proxyEnv`,
@@ -142,7 +142,7 @@ function hostEnvForChild(policy: ProxyEnvPolicy | null): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   // Matched case-insensitively rather than deleting the upper-case spellings: Windows resolves
   // environment names without regard to case but stores whatever casing was written, so a
-  // `set Port=3000` before `penguin web` would survive a `delete env.PORT` and still reach the
+  // `set Port=3000` before `wafh web` would survive a `delete env.PORT` and still reach the
   // child as PORT. On POSIX the two are distinct names and only the exact one exists.
   for (const [key, value] of Object.entries(process.env)) {
     const name = key.toUpperCase();
@@ -209,7 +209,7 @@ export class CommandSessionManager {
    */
   private readonly proxyEnv: (() => ProxyEnvPolicy | null) | undefined;
   /**
-   * Harness-control variables (PENGUIN_API_URL / PENGUIN_API_TOKEN / the Session
+   * Harness-control variables (WAFH_API_URL / WAFH_API_TOKEN / the Session
    * coordinates, see {@link EnvironmentConfig.controlEnv}): injected on every spawn AFTER
    * the vault, so the host's sanctioned wiring wins over a vault entry of the same name.
    * A getter like `proxyEnv`, re-read at every spawn. Absent = nothing injected.
@@ -218,7 +218,7 @@ export class CommandSessionManager {
   /**
    * Directories the host puts at the front of PATH for every command (see
    * {@link EnvironmentConfig.pathPrepend}): the hosting server points this at the shim
-   * directory holding its own `penguin`, so an Agent's `penguin` is the harness it is
+   * directory holding its own `wafh`, so an Agent's `wafh` is the harness it is
    * running inside rather than whatever the machine has installed globally. A getter like
    * `proxyEnv`, re-read at every spawn. Absent, or returning nothing = untouched PATH.
    */
@@ -296,7 +296,7 @@ export class CommandSessionManager {
     // it below: a vault `PATH` is an explicit per-Agent decision and still replaces the
     // whole value, prepended directories included. The same list is handed to the session
     // so the command string can re-assert it after the login profile has run — that is the
-    // half that actually decides which `penguin` a command resolves (see ManagedSession).
+    // half that actually decides which `wafh` a command resolves (see ManagedSession).
     const prepend = this.pathPrepend?.() ?? [];
     const hostEnv = prependPathEnv(hostEnvForChild(this.proxyEnv?.() ?? null), prepend);
     const confiner = this.confineSpawn?.() ?? null;
@@ -327,8 +327,8 @@ export class CommandSessionManager {
       //
       // The strip governs inheritance only: it runs inside hostEnvForChild and never
       // re-applies to entries spread in after it, so the vault and controlEnv carry
-      // authoritative values into the child — stripped names, PENGUIN_* included, and all.
-      // Both guarantees hold because of that order: no PENGUIN_* reaches a command by
+      // authoritative values into the child — stripped names, WAFH_* included, and all.
+      // Both guarantees hold because of that order: no WAFH_* reaches a command by
       // inheritance, while the control variables the host does sanction arrive as injected
       // values rather than as surviving copies. Pinned by the "an explicit injection
       // layered after the strip wins" test.

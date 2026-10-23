@@ -35,8 +35,8 @@ import {
   markerBlock,
   MARKER_TAGS,
   userSteeringText,
-} from "@prismshadow/penguin-core/markers";
-import type { BackgroundTaskDone } from "@prismshadow/penguin-core/markers";
+} from "@waterford/waf-harness-core/markers";
+import type { BackgroundTaskDone } from "@waterford/waf-harness-core/markers";
 import { IDS } from "./ids";
 import {
   abortEvent,
@@ -88,7 +88,7 @@ export function orgDeskTimeline(now: number): { startedAt: number; endedAt: numb
   return { startedAt, endedAt: startedAt + 24_000 };
 }
 
-const AGENT_DIR = `/home/demo/.penguin/data/projects/${IDS.project}/agents/${IDS.agents.docs}`;
+const AGENT_DIR = `/home/demo/.waf-harness/data/projects/${IDS.project}/agents/${IDS.agents.docs}`;
 const SCRATCHPAD = `${AGENT_DIR}/scratchpad/${IDS.sessions.harness}`;
 const DRAFT = `${SCRATCHPAD}/release-0.2.13-draft.md`;
 const GOAL_FILE = `${SCRATCHPAD}/GOAL.json`;
@@ -97,7 +97,7 @@ const LINKS = { id: "proc-8d24f7b1", cmd: "node scripts/check-links.mjs --all" }
 const GOAL_BUDGET = 200_000;
 const HOOKS_URL = "https://docs.claude.com/en/docs/claude-code/hooks";
 
-const DRAFT_TEXT = `# PenguinHarness 0.2.13
+const DRAFT_TEXT = `# WAF Harness 0.2.13
 
 ## Notable in this release
 
@@ -514,7 +514,7 @@ export function orgDeskTranscript(lang: Lang, now: number, ref: ModelRef): Trans
       model_id: ref.modelId,
       model_context_window: ref.contextWindow,
       system_prompt: "You are Release Notes. Draft release notes from the changelog.",
-      agent_state: `/home/demo/.penguin/data/projects/${IDS.project}/agents/${IDS.agents.notes}/agent_state`,
+      agent_state: `/home/demo/.waf-harness/data/projects/${IDS.project}/agents/${IDS.agents.notes}/agent_state`,
       workspace: "/home/demo/projects/release-notes",
       // A desk Session is a person's conversation; its row's `org` client is what marks it.
       source: "user",

@@ -1,23 +1,23 @@
 /**
  * Where a preview's module comes from.
  *
- * Two places, and the difference is who may write there. A module Penguin assembled lives
+ * Two places, and the difference is who may write there. A module WAF Harness assembled lives
  * in one of its own run workspaces; it is built in place, because that workspace is
- * Penguin's. A module Loom generated lives in the WAF checkout under `modules/<folder>`,
- * which Penguin reads and never writes -- so its build goes to a directory of Penguin's own,
+ * WAF Harness's. A module Loom generated lives in the WAF checkout under `modules/<folder>`,
+ * which WAF Harness reads and never writes -- so its build goes to a directory of WAF Harness's own,
  * and a request for one of its files looks in that build first and in the checkout second.
  *
- * Penguin's own build wins when both exist: an author who assembled the module here is
+ * WAF Harness's own build wins when both exist: an author who assembled the module here is
  * looking at what they assembled, not at what Loom left behind.
  */
 import path from "node:path";
 
 export type ModuleSource =
-  /** A module Penguin assembled, built in its own run workspace. */
+  /** A module WAF Harness assembled, built in its own run workspace. */
   | { kind: "run"; root: string }
   /**
-   * A module in the WAF checkout, read only. `output` is where Penguin builds it, since the
-   * checkout is not Penguin's to write.
+   * A module in the WAF checkout, read only. `output` is where WAF Harness builds it, since the
+   * checkout is not WAF Harness's to write.
    */
   | { kind: "checkout"; root: string; output: string; moduleFolder: string };
 
@@ -51,9 +51,9 @@ export function runBuildOutput(moduleRoot: string): string {
  */
 export const RUN_BUILD_NPM_CACHE = ".npm-cache";
 
-/** The directory, under Penguin's root, that a checkout module is built into. */
-export function checkoutOutputRoot(penguinRoot: string, moduleFolder: string): string {
-  return path.join(penguinRoot, "activity-sandbox", "modules", moduleFolder);
+/** The directory, under WAF Harness's root, that a checkout module is built into. */
+export function checkoutOutputRoot(wafHarnessRoot: string, moduleFolder: string): string {
+  return path.join(wafHarnessRoot, "activity-sandbox", "modules", moduleFolder);
 }
 
 /**

@@ -1,9 +1,9 @@
-import type { OrgChannelNoticeKind } from "@prismshadow/penguin-server/api";
+import type { OrgChannelNoticeKind } from "@waterford/waf-harness-server/api";
 
 /**
  * CLI text internationalization (i18n).
  *
- * Language comes from the `PENGUIN_LANG` env var (`en`), defaulting to English (en) —
+ * Language comes from the `WAFH_LANG` env var (`en`), defaulting to English (en) —
  * independent of Project config or CLI options. This module centralizes all user-visible text:
  * command/option help descriptions and runtime output, one implementation per language.
  */
@@ -20,7 +20,7 @@ export type WebProbeFailureKind =
 
 /** Unsupported language preferences fall back to the shipped English catalog. */
 export function resolveLanguage(): Language {
-  const candidate = (process.env.PENGUIN_LANG ?? "en").trim().toLowerCase();
+  const candidate = (process.env.WAFH_LANG ?? "en").trim().toLowerCase();
   return Object.hasOwn(DICTIONARIES, candidate) ? candidate : "en";
 }
 
@@ -34,7 +34,7 @@ export interface Messages {
     modelId: string;
     /** run/chat's --provider: must be given together with --model-id (the group is never inferred). */
     provider: string;
-    /** Data root directory option (priority: --root > PENGUIN_HOME > ~/.penguin/data). */
+    /** Data root directory option (priority: --root > WAFH_HOME > ~/.waf-harness/data). */
     root: string;
     workspace: string;
     approve: string;
@@ -42,7 +42,7 @@ export interface Messages {
     thinking: string;
     /** Machine-readable output (raw JSON instead of the rendered/tabular form). */
     json: string;
-    /** --server: explicit server URL (overrides PENGUIN_API_URL, the local lock and auto-start). */
+    /** --server: explicit server URL (overrides WAFH_API_URL, the local lock and auto-start). */
     server: string;
     /** --timeout: soft-yield wait budget on run / session input / session log -f (30s / 5m / 2h / bare seconds). */
     timeout: string;
@@ -129,11 +129,11 @@ export interface Messages {
     /** run's --title: name the Session being run (manual rename; the auto-title never overwrites it; with --session it renames the reused Session). */
     title: string;
   };
-  /** `penguin session`: the group that lists, reads, messages and renames sessions. */
+  /** `wafh session`: the group that lists, reads, messages and renames sessions. */
   session: {
     /** Group description. */
     desc: string;
-    /** `penguin session rename`'s own description. */
+    /** `wafh session rename`'s own description. */
     renameDesc: string;
     /** rename's optional session_id argument. */
     renameSessionId: string;
@@ -148,7 +148,7 @@ export interface Messages {
     /** chat's --verbose: start with full tool output (collapsing off). */
     verbose: string;
   };
-  /** `penguin session ls`: session listing. */
+  /** `wafh session ls`: session listing. */
   ls: {
     desc: string;
     /** -a/--all: include archived sessions. */
@@ -166,14 +166,14 @@ export interface Messages {
     stateIdle(): string;
     stateRunning(): string;
   };
-  /** `penguin session input`: send a message into an existing session (steer when running, task when idle). */
+  /** `wafh session input`: send a message into an existing session (steer when running, task when idle). */
   input: {
     desc: string;
     message: string;
     /** Poll form on a session that has produced no assistant text yet. */
     noReplyYet(): string;
   };
-  /** `penguin session log`: render a session's history, optionally following the live stream. */
+  /** `wafh session log`: render a session's history, optionally following the live stream. */
   log: {
     desc: string;
     tail: string;
@@ -182,7 +182,7 @@ export interface Messages {
     /** --timeout without -f: there is no wait to bound. */
     timeoutNeedsFollow(): string;
   };
-  /** `penguin agent`: agent listing and creation. */
+  /** `wafh agent`: agent listing and creation. */
   agent: {
     desc: string;
     lsDesc: string;
@@ -197,7 +197,7 @@ export interface Messages {
     colName(): string;
     colSessions(): string;
     colDescription(): string;
-    /** `penguin agent api …`: an agent's public API (this server's switches, approval mode and keys). */
+    /** `wafh agent api …`: an agent's public API (this server's switches, approval mode and keys). */
     apiDesc: string;
     apiStatusDesc: string;
     apiEnableDesc: string;
@@ -250,7 +250,7 @@ export interface Messages {
     /** On stderr after `--open` switched keyless access on. */
     apiOpenWarning(): string;
   };
-  /** `penguin project`: project listing. */
+  /** `wafh project`: project listing. */
   project: {
     desc: string;
     lsDesc: string;
@@ -258,7 +258,7 @@ export interface Messages {
     colName(): string;
     colRole(): string;
   };
-  /** `penguin plugin`: the plugins installed on the server (an admin's, via the local API token). */
+  /** `wafh plugin`: the plugins installed on the server (an admin's, via the local API token). */
   plugin: {
     desc: string;
     listDesc: string;
@@ -303,7 +303,7 @@ export interface Messages {
     restartNext(): string;
     removed(name: string): string;
   };
-  /** `penguin cost`: token/cost aggregates. */
+  /** `wafh cost`: token/cost aggregates. */
   cost: {
     desc: string;
     days: string;
@@ -324,7 +324,7 @@ export interface Messages {
     colCost(): string;
     colGroup(dimension: string): string;
   };
-  /** `penguin schedule`: scheduled-task listing and management (a validated writer over the schedules API; the TOML file stays the single source of truth). */
+  /** `wafh schedule`: scheduled-task listing and management (a validated writer over the schedules API; the TOML file stays the single source of truth). */
   schedule: {
     desc: string;
     lsDesc: string;
@@ -369,7 +369,7 @@ export interface Messages {
     colLastFired(): string;
     colStatus(): string;
   };
-  /** `penguin org`: company mode — a thin client over the organization API (the organization's files stay the single source of truth; every DTO is a projection). */
+  /** `wafh org`: company mode — a thin client over the organization API (the organization's files stay the single source of truth; every DTO is a projection). */
   org: {
     desc: string;
     lsDesc: string;
@@ -423,7 +423,7 @@ export interface Messages {
     handbookWriteDesc: string;
     handbookRmDesc: string;
     financeDesc: string;
-    /** --org-id: the organization (defaults to PENGUIN_ORG_ID, the control environment of desk and ticket sessions). */
+    /** --org-id: the organization (defaults to WAFH_ORG_ID, the control environment of desk and ticket sessions). */
     orgId: string;
     /** create's --org-id: the id to create (never taken from the environment). */
     newOrgId: string;
@@ -451,7 +451,7 @@ export interface Messages {
     /** create's --ceo-budget: the CEO's monthly USD, which is the whole company's. */
     ceoBudget: string;
     duties: string;
-    /** calendar's --agent-id: the employee the event belongs to (defaults to PENGUIN_AGENT_ID); a filter on `ls`. */
+    /** calendar's --agent-id: the employee the event belongs to (defaults to WAFH_AGENT_ID); a filter on `ls`. */
     calendarAgentId: string;
     calendarTitle: string;
     /** ticket ls filters. */
@@ -504,7 +504,7 @@ export interface Messages {
     refSession: string;
     /** finance's --period: yyyy-mm (default: the current month). */
     period: string;
-    /** No --org-id and no PENGUIN_ORG_ID: there is no default organization. */
+    /** No --org-id and no WAFH_ORG_ID: there is no default organization. */
     orgIdMissing(): string;
     /** hire: --agent-id XOR --new-agent. */
     hireTargetConflict(): string;
@@ -657,7 +657,7 @@ export interface Messages {
     colMentions(): string;
     colPrincipal(): string;
   };
-  /** `penguin browser`: the desktop app's built-in browser (commands/browser.ts, browser-output.ts). */
+  /** `wafh browser`: the desktop app's built-in browser (commands/browser.ts, browser-output.ts). */
   browser: {
     desc: string;
     statusDesc: string;
@@ -805,7 +805,7 @@ export interface Messages {
   /** Server-connection layer: resolution, auto-start, tokens, streams. */
   client: {
     invalidServerUrl(value: string): string;
-    /** --server names a non-loopback URL and no PENGUIN_API_TOKEN is set (the local token file must not travel). */
+    /** --server names a non-loopback URL and no WAFH_API_TOKEN is set (the local token file must not travel). */
     remoteNeedsToken(url: string): string;
     /** No server reachable and auto-start was disabled by the caller. */
     noServer(): string;
@@ -829,7 +829,7 @@ export interface Messages {
     timeoutInvalid(value: string): string;
     /** Soft-yield detach: the wait budget expired, the task keeps running server-side. */
     stillRunning(shortId: string): string;
-    /** Caller-context lookup failed (PENGUIN_SESSION_ID names a session this server cannot answer for): plain defaults apply. */
+    /** Caller-context lookup failed (WAFH_SESSION_ID names a session this server cannot answer for): plain defaults apply. */
     callerDefaultsFailed(sessionId: string): string;
     /** Dim stderr note naming the session a bare `session log` / `input` / `rename` resolved to (the agent's most recent). */
     latestSession(sessionId: string): string;
@@ -848,7 +848,7 @@ export interface Messages {
     restarting: string;
     app: string;
   };
-  /** `penguin server reset-admin-password`: help text and every line the command can print. */
+  /** `wafh server reset-admin-password`: help text and every line the command can print. */
   auth: {
     desc: string;
     loginDesc: string;
@@ -882,12 +882,12 @@ export interface Messages {
     noServer(root: string): string;
     failed(detail: string): string;
   };
-  /** `penguin server status`: help text. */
+  /** `wafh server status`: help text. */
   serverStatus: {
-    /** One-line description in `penguin server --help`. */
+    /** One-line description in `wafh server --help`. */
     desc: string;
   };
-  /** `penguin server stop`: help text. */
+  /** `wafh server stop`: help text. */
   serverStop: {
     desc: string;
   };
@@ -904,12 +904,12 @@ export interface Messages {
     /** Hint printed below the notice. */
     next(): string;
   };
-  /** `penguin version`: help text only — the command's output is data, never prose. */
+  /** `wafh version`: help text only — the command's output is data, never prose. */
   version: {
     description: string;
     json: string;
   };
-  /** `penguin update`: help text and every line the command can print. */
+  /** `wafh update`: help text and every line the command can print. */
   update: {
     desc: string;
     check: string;
@@ -962,7 +962,7 @@ export interface Messages {
 
   // —— Runtime output ——
   /**
-   * Startup banner: product + subcommand + the CLI's build identity (`penguin --version`'s
+   * Startup banner: product + subcommand + the CLI's build identity (`wafh --version`'s
    * string, which names a source build's commit) on the first line, then Agent / Workspace /
    * Model / Server each on its own line — the server as client.ts connectionLabel spells it.
    */
@@ -1084,7 +1084,7 @@ export interface Messages {
   switchModelBusy(): string;
   /** 409 `same_model`: the Session already runs on the target. */
   switchModelSame(model: string): string;
-  /** 409 `model_not_configured`: the target is not in the Project config; names the `penguin config model` commands to list and add models. */
+  /** 409 `model_not_configured`: the target is not in the Project config; names the `wafh config model` commands to list and add models. */
   switchModelNotConfigured(model: string, listCommand: string, addCommand: string): string;
   /** 409 `model_unavailable`: the target is configured but cannot be constructed (e.g. no credential); `detail` is the server's message, verbatim (may be empty). */
   switchModelUnavailable(model: string, detail: string): string;
@@ -1163,13 +1163,13 @@ export interface Messages {
   vaultKeyMissing(key: string): string;
   vaultListTitle(): string;
   vaultListEmpty(): string;
-  /** URL prompt once the `penguin web` service is ready. */
+  /** URL prompt once the `wafh web` service is ready. */
   webReady(url: string): string;
-  /** Refusal when `penguin server` finds a live server on the same data root. */
+  /** Refusal when `wafh server` finds a live server on the same data root. */
   serverAlreadyRunning(url: string): string;
-  /** Notice when `penguin web` finds a live server on the same data root (it opens that instance instead). */
+  /** Notice when `wafh web` finds a live server on the same data root (it opens that instance instead). */
   webAlreadyRunning(url: string): string;
-  /** Diagnostic shown after the `penguin web` ready-poll times out (15s). */
+  /** Diagnostic shown after the `wafh web` ready-poll times out (15s). */
   webProbeFailed(url: string, detail: string, kind: WebProbeFailureKind, port: number): string;
 }
 
@@ -1182,7 +1182,7 @@ function headerEn(
   server: string,
 ): string {
   return [
-    `PenguinHarness ${kind} ${version}`,
+    `WAF Harness ${kind} ${version}`,
     `Agent: ${agentId}`,
     `Workspace: ${workspace}`,
     `Model: ${model}`,
@@ -1191,7 +1191,7 @@ function headerEn(
 }
 
 const en: Messages = {
-  cliDescription: "PenguinHarness CLI",
+  cliDescription: "WAF Harness CLI",
   versionDesc: "output the version number",
   common: {
     projectId: "Project id",
@@ -1199,7 +1199,7 @@ const en: Messages = {
     modelId: "Model to use (upstream model id; defaults to the Project default model)",
     provider:
       "Provider group of --model-id; required whenever --model-id is given (the group is never inferred)",
-    root: "Data root directory (overrides PENGUIN_HOME and ~/.penguin/data)",
+    root: "Data root directory (overrides WAFH_HOME and ~/.waf-harness/data)",
     workspace: "Workspace directory; must already exist (defaults to the current directory)",
     approve:
       "Approval mode: allow-all (auto-approve, default), deny-all (auto-reject), read-only (auto-approve read-only tools, prompt for the rest), always-ask (prompt per tool)",
@@ -1207,7 +1207,7 @@ const en: Messages = {
       "Thinking level for this session: low, medium, high, xhigh, or max (defaults to the Agent's configured level)",
     json: "Print raw JSON instead of the rendered output",
     server:
-      "Server URL to connect to (defaults to PENGUIN_API_URL, then the local running server, then auto-start)",
+      "Server URL to connect to (defaults to WAFH_API_URL, then the local running server, then auto-start)",
     timeout:
       "Wait at most this long (30s / 5m / 2h, or bare seconds), then detach and leave the task running (exit 0)",
     latestAgentId: "Agent whose most recent session is used when no session id is given",
@@ -1262,14 +1262,14 @@ const en: Messages = {
     visionDesc:
       "Set the vision model that reads images for non-vision session models (read_file hands images to it)",
     refModelId: "Upstream model id; forms the (provider, model_id) pair reference with --provider",
-    refProvider: "Provider group of the referenced entry (see `penguin config model list`)",
+    refProvider: "Provider group of the referenced entry (see `wafh config model list`)",
     listDesc:
       "List the groups' connections, then the Project's models with the connection each one uses: (provider) marks a group value, (env) an environment key (API keys hidden)",
     removeDesc:
       "Remove a model from the Project (clears the default / vision pointers naming it); without --model-id, remove the group's connection",
     removeModelId:
       "Upstream model id of the entry to remove; omit it to remove the group's connection instead (its models stay)",
-    langDesc: "Set the interface language (en); persists PENGUIN_LANG to your shell startup file",
+    langDesc: "Set the interface language (en); persists WAFH_LANG to your shell startup file",
     langArg: "Language: en",
     vaultDesc: "Manage an Agent's vault (environment variables injected into its shell commands)",
     vaultSetDesc: "Set a vault environment variable (added or overwritten)",
@@ -1287,11 +1287,11 @@ const en: Messages = {
     title:
       "Name the Session (manual rename; the auto-generated title never overwrites it; with --session, renames the reused Session)",
     sessionNoOverride: () =>
-      "--session reuses an existing Session: --workspace, --model-id and --provider cannot be combined with it (the Session keeps its own; /switch-model inside penguin chat --resume changes its model, compacting first).",
+      "--session reuses an existing Session: --workspace, --model-id and --provider cannot be combined with it (the Session keeps its own; /switch-model inside wafh chat --resume changes its model, compacting first).",
     sourceInvalid: (value) =>
-      `Invalid --source value "${value}". penguin run takes no --source: every Session it creates is a CLI Session.`,
+      `Invalid --source value "${value}". wafh run takes no --source: every Session it creates is a CLI Session.`,
     sourceIgnored: () =>
-      "--source benchmark is no longer needed and is ignored: every Session penguin run creates is a CLI Session, archived until you unarchive it (Web App: Settings › Archived chats).",
+      "--source benchmark is no longer needed and is ignored: every Session wafh run creates is a CLI Session, archived until you unarchive it (Web App: Settings › Archived chats).",
     timeoutWithBackground: () =>
       "--timeout bounds the wait, and --background does not wait: drop one of them.",
   },
@@ -1327,7 +1327,7 @@ const en: Messages = {
     renameDesc:
       "Set a session's title (the manual rename; the auto-generated title never overwrites it)",
     renameSessionId:
-      "The session to rename (full id or a unique fragment, e.g. the 8-hex tail; default: PENGUIN_SESSION_ID, else the agent's most recent session)",
+      "The session to rename (full id or a unique fragment, e.g. the 8-hex tail; default: WAFH_SESSION_ID, else the agent's most recent session)",
     renameTitle: "The new title",
     renamed: (sessionId, title) => `Renamed ${sessionId} to \u201c${title}\u201d`,
   },
@@ -1397,7 +1397,7 @@ const en: Messages = {
         ? "The Agent API is on for this server."
         : "The Agent API is off for this server: every request is refused; per-agent settings and keys are kept.",
     apiSignInRequired: () =>
-      "Sign in first: `penguin auth login` (or `penguin auth token` on the server's machine). The local API token may not change an Agent's exposure.",
+      "Sign in first: `wafh auth login` (or `wafh auth token` on the server's machine). The local API token may not change an Agent's exposure.",
     apiOpenWarning: () =>
       "Warning: keyless access is on. Anything that can reach this server's address can now talk to the agent without a key, on the Project's models and credentials. Keep it on only for a server that listens on loopback; `--no-open` turns it off.",
   },
@@ -1434,7 +1434,7 @@ const en: Messages = {
     dirRefused: (dir, reason) =>
       `${dir} is not a package the plugin library can read, so nothing was sent: ${reason}`,
     dirNotPlugin: (dir) =>
-      `${dir} is not a PenguinHarness plugin: it carries neither skills/ nor hooks/ nor MCP servers (penguin.mcp_servers) nor the ifaces.json of server modules. Nothing was sent.`,
+      `${dir} is not a WAF Harness plugin: it carries neither skills/ nor hooks/ nor MCP servers (wafh.mcp_servers) nor the ifaces.json of server modules. Nothing was sent.`,
     dirTooLarge: (dir) =>
       `${dir} exceeds what a plugin package may hold (2000 files, 5MB per file, 50MB in all, a 14MB zip). Nothing was sent.`,
     uploading: (name, version, files) => `Uploading ${name} ${version} (${files} files)…`,
@@ -1517,7 +1517,7 @@ const en: Messages = {
     employeeDesc: "Manage employees",
     employeeSetDesc: "Update an employee's entry in the tree (only the given fields change)",
     employeeAvatarDesc:
-      "Set or clear an employee's avatar (the employee defaults to PENGUIN_AGENT_ID, so an employee can set its own)",
+      "Set or clear an employee's avatar (the employee defaults to WAFH_AGENT_ID, so an employee can set its own)",
     avatarFile: "Image file to use: PNG, JPEG or WebP, at most about 96 KiB",
     avatarClear: "Remove the avatar",
     leaveDesc: "Remove an employee from the organization (not the CEO); the Agent itself stays",
@@ -1567,7 +1567,7 @@ const en: Messages = {
     handbookRmDesc: "Delete a handbook document (the index cannot be deleted)",
     financeDesc: "Spend per employee (along the reporting line) and per ticket, against budgets",
     orgId:
-      "Organization id (defaults to PENGUIN_ORG_ID, set inside desk and ticket sessions; no other default)",
+      "Organization id (defaults to WAFH_ORG_ID, set inside desk and ticket sessions; no other default)",
     newOrgId:
       "Id of the organization to create (letters, digits, underscores; also its directory name)",
     mission: "The organization's mission",
@@ -1593,7 +1593,7 @@ const en: Messages = {
       "The CEO's monthly budget in USD, which is the whole company's (budgets accumulate along the reporting line)",
     duties: "Duties, in prose",
     calendarAgentId:
-      "Employee the event belongs to (defaults to PENGUIN_AGENT_ID); on ls, list only this employee's events",
+      "Employee the event belongs to (defaults to WAFH_AGENT_ID); on ls, list only this employee's events",
     calendarTitle: "Event title",
     statusFilter: "Only this column: proposed, in_progress, review, done or rejected",
     ownerFilter: "Only tickets owned by this principal (agent:<id> / user:<id>)",
@@ -1619,7 +1619,7 @@ const en: Messages = {
     startAgentId:
       "Which employee the session runs as: a colleague you enlist on your own ticket (defaults to you inside a session, otherwise the ticket's owner)",
     attachSession:
-      "The session to attach, full id or unique fragment (defaults to PENGUIN_SESSION_ID)",
+      "The session to attach, full id or unique fragment (defaults to WAFH_SESSION_ID)",
     channelOpt: "Channel to read or write in (default: default_channel, the all-hands channel)",
     channelName: "Display name (defaults to the id)",
     channelPurpose: "What the channel is for",
@@ -1635,7 +1635,7 @@ const en: Messages = {
     refSession: "Session the message refers to",
     period: "Month to report (yyyy-mm; defaults to the current month)",
     orgIdMissing: () =>
-      "No organization given: pass --org-id <id>, or set PENGUIN_ORG_ID (desk and ticket sessions carry it in their environment).",
+      "No organization given: pass --org-id <id>, or set WAFH_ORG_ID (desk and ticket sessions carry it in their environment).",
     hireTargetConflict: () =>
       "Pass exactly one of --agent-id (an existing Agent) and --new-agent (create one).",
     newAgentFieldsOnly: () => "--name, --description and --skills describe --new-agent only.",
@@ -1653,7 +1653,7 @@ const en: Messages = {
     pathSegmentInvalid: (value) =>
       `Invalid name "${value}": "." and ".." are neither an id nor a handbook path.`,
     attachSessionMissing: () =>
-      "No session to attach: pass --session <id>, or run inside a session (PENGUIN_SESSION_ID).",
+      "No session to attach: pass --session <id>, or run inside a session (WAFH_SESSION_ID).",
     created: (orgId, ceoDeskSessionId) =>
       `Organization ${orgId} created${ceoDeskSessionId !== undefined ? ` (CEO desk session ${ceoDeskSessionId})` : ""}.`,
     hired: (agentId, title, reportsTo) =>
@@ -1661,7 +1661,7 @@ const en: Messages = {
     employeeUpdated: (agentId) => `Employee ${agentId} updated.`,
     avatarNeedsOne: () => "Give exactly one of --file <path> and --clear.",
     avatarNoAgent: () =>
-      "Name the employee: pass <agent_id>, or run inside a desk or ticket session (PENGUIN_AGENT_ID).",
+      "Name the employee: pass <agent_id>, or run inside a desk or ticket session (WAFH_AGENT_ID).",
     avatarUnreadable: (file, reason) => `Cannot read ${file}: ${reason}`,
     avatarFormat: (file) => `${file} is not a PNG, JPEG or WebP image.`,
     avatarTooLarge: (file, kib, maxKib) =>
@@ -1860,21 +1860,21 @@ const en: Messages = {
         : `${backend} (${extension.name}, extension ${extension.version})`,
     unavailableHint: (reason) => {
       const base =
-        "The built-in browser needs the PenguinHarness desktop app, and the app must be open";
+        "The built-in browser needs the WAF Harness desktop app, and the app must be open";
       if (reason === "shell_unsupported")
         return `${base}: this desktop app is too old for it, so update the app.`;
       if (reason === "no_window") return `${base}: it has no open window, so open it.`;
       if (reason === "not_desktop") return `${base}: this server is not running inside it.`;
       if (reason === "extension_not_paired")
-        return "No Chrome is paired for this user. Ask the user to install the PenguinHarness Browser extension and pair it: Browser panel → Connect your Chrome.";
+        return "No Chrome is paired for this user. Ask the user to install the WAF Harness Browser extension and pair it: Browser panel → Connect your Chrome.";
       if (reason === "extension_disconnected")
-        return "The user's Chrome is not connected. Ask the user to open Chrome with the PenguinHarness Browser extension enabled, or to pair it again in the Browser panel.";
+        return "The user's Chrome is not connected. Ask the user to open Chrome with the WAF Harness Browser extension enabled, or to pair it again in the Browser panel.";
       if (reason === "extension_disabled")
         return "An admin has turned off Chrome extension connections on this server, so the user's Chrome cannot be driven.";
-      return "The browser is driven through a running PenguinHarness server, and none was reached: open the desktop app, or point --server or PENGUIN_API_URL at the server.";
+      return "The browser is driven through a running WAF Harness server, and none was reached: open the desktop app, or point --server or WAFH_API_URL at the server.";
     },
     notSupported: () =>
-      "This belongs to the built-in browser; this user's agents drive their own Chrome, which keeps its own sign-ins and history. Ask the user to sign in in the Penguin tab in Chrome instead.",
+      "This belongs to the built-in browser; this user's agents drive their own Chrome, which keeps its own sign-ins and history. Ask the user to sign in in the WAF Harness tab in Chrome instead.",
     memoryLine: (total, tabs, system) =>
       `${total} across ${tabs} ${tabs === 1 ? "tab" : "tabs"}` +
       (system !== undefined ? ` · this computer: ${system.free} free of ${system.total}` : ""),
@@ -1885,7 +1885,7 @@ const en: Messages = {
         warnings.includes("many_tabs") ? "many tabs are open" : "",
       ].filter(Boolean);
       const text = said.join(", and ") || "the browser is heavy";
-      return `${text.charAt(0).toUpperCase()}${text.slice(1)}. Close the tabs you no longer need (penguin browser close <tab-id>).`;
+      return `${text.charAt(0).toUpperCase()}${text.slice(1)}. Close the tabs you no longer need (wafh browser close <tab-id>).`;
     },
     closed: (tab) => `Closed tab ${tab}.`,
     closedActive: () => "Closed the active tab.",
@@ -1924,49 +1924,49 @@ const en: Messages = {
       `"${value}" is not a CDP method: write Domain.method, e.g. DOM.getDocument.`,
     scriptSources: () => "Give the script one way only: as an argument, with --file, or on stdin.",
     scriptMissing: () =>
-      "No script: pass it as an argument, with --file, or on stdin (penguin browser exec <<'EOF' … EOF).",
+      "No script: pass it as an argument, with --file, or on stdin (wafh browser exec <<'EOF' … EOF).",
     scriptEmpty: () => "The script is empty.",
     fileUnreadable: (path, detail) => `Cannot read ${path}: ${detail}`,
     fileUnwritable: (path, detail) => `Cannot write ${path}: ${detail}`,
     importMode: () =>
       "Use --list to see the browser profiles, or --from <source-id|browser> to import from one.",
     sourceNotFound: (from, known) =>
-      `No browser profile matches "${from}"${known.length > 0 ? ` (this machine has: ${known.join(", ")})` : ""}; see penguin browser import --list.`,
+      `No browser profile matches "${from}"${known.length > 0 ? ` (this machine has: ${known.join(", ")})` : ""}; see wafh browser import --list.`,
     sourceAmbiguous: (from, ids) =>
       `${from} has several profiles and none is Default: ${ids.join(", ")}. Pass one with --from.`,
   },
   client: {
     invalidServerUrl: (value) => `Invalid server URL "${value}": expected http(s)://host[:port].`,
     remoteNeedsToken: (url) =>
-      `${url} is not this machine: set PENGUIN_API_TOKEN to authenticate against a remote server (the local api-token file never leaves its own data root).`,
+      `${url} is not this machine: set WAFH_API_TOKEN to authenticate against a remote server (the local api-token file never leaves its own data root).`,
     noServer: () => "No running server found for this data root.",
     autoStartUnavailable: () =>
-      "No running server found, and this CLI entry cannot auto-start one (development run). Start it yourself with `penguin server`.",
+      "No running server found, and this CLI entry cannot auto-start one (development run). Start it yourself with `wafh server`.",
     autoStartFailed: (logPath) =>
       `The auto-started server did not come up. Its output is in ${logPath}.`,
     autoStarted: (url, logPath) => `Started a local server at ${url} (log: ${logPath}).`,
     noToken: (url, tokenPath) =>
-      `${url} rejected the request (401) and no API token is available: set PENGUIN_API_TOKEN, or make sure the server's token file is readable at ${tokenPath}.`,
+      `${url} rejected the request (401) and no API token is available: set WAFH_API_TOKEN, or make sure the server's token file is readable at ${tokenPath}.`,
     authFailed: (url) =>
-      `${url} rejected the API token (401). If the server restarted, its token rotated — check PENGUIN_API_TOKEN, or let the CLI read the current api-token file.`,
+      `${url} rejected the API token (401). If the server restarted, its token rotated — check WAFH_API_TOKEN, or let the CLI read the current api-token file.`,
     httpError: (status, code, message) =>
       `Server error ${status} (${code})${message ? `: ${message}` : ""}`,
     sessionNotFound: (ref, projectId) =>
-      `No session matching "${ref}" in project ${projectId} (try \`penguin session ls\`).`,
+      `No session matching "${ref}" in project ${projectId} (try \`wafh session ls\`).`,
     sessionAmbiguous: (ref, candidates) =>
       `"${ref}" matches ${candidates.length} sessions:\n  ${candidates.join("\n  ")}\nUse a longer fragment or the full id.`,
     streamLost: (detail) => `Lost the server stream and reconnecting failed: ${detail}`,
     streamResynced: () =>
-      "[stream] reconnected past the server's replay buffer; some output may be missing here (penguin session log shows the full history)",
+      "[stream] reconnected past the server's replay buffer; some output may be missing here (wafh session log shows the full history)",
     timeoutInvalid: (value) =>
       `Invalid --timeout value "${value}": expected 30s, 5m, 2h, or a bare number of seconds.`,
     stillRunning: (shortId) =>
-      `[still running] session ${shortId} continues on the server — follow with \`penguin session log -f ${shortId}\` or poll with \`penguin session input ${shortId}\``,
+      `[still running] session ${shortId} continues on the server — follow with \`wafh session log -f ${shortId}\` or poll with \`wafh session input ${shortId}\``,
     callerDefaultsFailed: (sessionId) =>
       `[caller context] could not read calling session ${sessionId}; using the plain defaults`,
     latestSession: (sessionId) => `[latest] session ${sessionId}`,
     noSessionsYet: (agentId, projectId) =>
-      `Agent ${agentId} has no sessions in project ${projectId} yet: start one with \`penguin run -m "..."\` or \`penguin chat\`.`,
+      `Agent ${agentId} has no sessions in project ${projectId} yet: start one with \`wafh run -m "..."\` or \`wafh chat\`.`,
   },
   chatThinkingConfigured: () => "agent default",
   serve: {
@@ -1980,13 +1980,13 @@ const en: Messages = {
     app: "Open one workbench page as the whole app: <project>/<agent>/<workbench>[/<tab>] (Ctrl+P or Ctrl+Shift+P in the page opens the command palette to leave)",
   },
   auth: {
-    desc: "Sign in to a PenguinHarness server from the terminal",
+    desc: "Sign in to a WAF Harness server from the terminal",
     loginDesc: "Sign in with a password and remember the session",
     statusDesc: "Show the remembered session, if there is one",
     logoutDesc: "Revoke the remembered session and forget it",
     server: "Server URL (default: the server running on this data root)",
     userId: "Account to sign in as (asked for when omitted; default admin)",
-    password: "Password (also read from PENGUIN_PASSWORD; prompted when neither is given)",
+    password: "Password (also read from WAFH_PASSWORD; prompted when neither is given)",
     print: "Also print the session token to stdout",
     accountPrompt: (fallback) => `Account [${fallback}]: `,
     prompt: (userId) => `Password for ${userId}: `,
@@ -2024,32 +2024,32 @@ const en: Messages = {
   resetPassword: {
     desc: "Reset the Web admin account so the next server start prints a new first-login link (the server must be stopped)",
     serverRunning: (url) =>
-      `A PenguinHarness server is running on this data root: ${url}\n` +
-      `Stop it first, then run \`penguin server reset-admin-password\` again.`,
+      `A WAF Harness server is running on this data root: ${url}\n` +
+      `Stop it first, then run \`wafh server reset-admin-password\` again.`,
     noDatabase: (dbPath) =>
       `No Web database at ${dbPath} — nothing to reset. ` +
-      `Start the service once (\`penguin web\`) to create the admin account.`,
+      `Start the service once (\`wafh web\`) to create the admin account.`,
     noAdmin: () =>
       "The Web database has no admin account yet — nothing to reset. " +
-      "Start the service once (`penguin web`) to seed it.",
+      "Start the service once (`wafh web`) to seed it.",
     done: (root) =>
       `The admin account on data root ${root} was returned to its unclaimed state, and all of its sign-in sessions were revoked.`,
     next: () =>
-      "Start the service (`penguin web`): it will print a sign-in link that claims the account — usable until a password is set.",
+      "Start the service (`wafh web`): it will print a sign-in link that claims the account — usable until a password is set.",
   },
   version: {
     description: "Show which build is running",
     json: "Print the full build info as JSON (the body of GET /api/version)",
   },
   update: {
-    desc: "Upgrade this PenguinHarness install in place",
+    desc: "Upgrade this WAF Harness install in place",
     check: "Only report the current and latest versions; change nothing",
     releaseOpt:
       "Target a specific release tag instead of the latest (e.g. v0.1.2 or 0.1.2); named --release because -v/--version is the CLI's own version flag",
     yes: "Skip the confirmation prompt",
     checkReport: (current, latest) => `Installed ${current} · latest ${latest}`,
     upgradeAvailable: (target) =>
-      `An upgrade is available: run \`penguin update\` to install ${target}.`,
+      `An upgrade is available: run \`wafh update\` to install ${target}.`,
     upToDate: (current) => `Already on the latest version (${current}); nothing to do.`,
     targetIsOlder: (target) =>
       `${target} is older than the installed version — this would be a downgrade.`,
@@ -2072,23 +2072,23 @@ const en: Messages = {
       "Not running in a terminal, so the confirmation cannot be answered. Re-run with --yes to upgrade non-interactively.",
     cancelled: () => "Cancelled; nothing was changed.",
     done: (version) =>
-      `PenguinHarness ${version} installed. Run \`penguin --version\` in a new shell to confirm.`,
+      `WAF Harness ${version} installed. Run \`wafh --version\` in a new shell to confirm.`,
     failed: () => "Upgrade failed; the previous install was left in place where possible.",
     noReleases: (repository) =>
-      `This penguin is built from ${repository}, which publishes no releases, so there is nothing to update to. Rebuild or redeploy it from that repository instead.`,
+      `This wafh is built from ${repository}, which publishes no releases, so there is nothing to update to. Rebuild or redeploy it from that repository instead.`,
     sourceCheckout: () =>
-      "This penguin runs from a source checkout, so there is nothing to download — update it with `git pull` and rebuild (`pnpm install && pnpm -r build`).",
+      "This wafh runs from a source checkout, so there is nothing to download — update it with `git pull` and rebuild (`pnpm install && pnpm -r build`).",
     desktopApp: () =>
-      "This penguin ships inside the PenguinHarness desktop app and is replaced when the app updates — check for updates from the application menu.",
+      "This wafh ships inside the WAF Harness desktop app and is replaced when the app updates — check for updates from the application menu.",
     unknownInstall: (modulePath) =>
-      `Cannot tell how this penguin was installed (running from ${modulePath}), so it will not be replaced. Re-install with the official installer, or upgrade with the package manager you used.`,
+      `Cannot tell how this wafh was installed (running from ${modulePath}), so it will not be replaced. Re-install with the official installer, or upgrade with the package manager you used.`,
     npmUnknownManager: (globalRoot, target) =>
-      `This is a global install under ${globalRoot}, but the package manager that owns it could not be identified. Upgrade it yourself with that manager, e.g. \`npm install -g @prismshadow/penguin-cli@${target}\`.`,
+      `This is a global install under ${globalRoot}, but the package manager that owns it could not be identified. Upgrade it yourself with that manager, e.g. \`npm install -g @waterford/waf-harness-cli@${target}\`.`,
     windowsUnsupported: () =>
       "The official installer is a POSIX shell script and does not run on Windows. Re-install from the GitHub Releases page, or use a global npm install instead.",
     windowsGlobalInstall: (command) =>
       [
-        "On Windows, penguin cannot run your package manager for you: Node will not execute an npm/pnpm/yarn `.cmd` shim without a shell.",
+        "On Windows, wafh cannot run your package manager for you: Node will not execute an npm/pnpm/yarn `.cmd` shim without a shell.",
         "Run this yourself in a terminal, then reopen it:",
         `  ${command}`,
       ].join("\n"),
@@ -2098,7 +2098,7 @@ const en: Messages = {
     apiFailed: (status) => `The GitHub release lookup failed with HTTP ${status}.`,
     apiMalformed: () =>
       "The GitHub release lookup returned an unexpected response with no usable version tag.",
-    invalidDownloadSource: () => "PENGUIN_DOWNLOAD_SOURCE must be auto, oss, or github.",
+    invalidDownloadSource: () => "WAFH_DOWNLOAD_SOURCE must be auto, oss, or github.",
     downloadBaseMustBeHttps: (name) => `${name} must be an absolute HTTPS URL.`,
     ossUnavailable: () => "The OSS mirror is unavailable or its release metadata is invalid.",
     installerFetchFailed: (sources) =>
@@ -2116,7 +2116,7 @@ const en: Messages = {
   header: headerEn,
   chatHints: () =>
     "Type a message to start a conversation; end a line with \\; typing while a task runs steers the agent; /goal runs a goal to completion; /compact to compact the context; /clear to start a fresh session; /thinking changes the thinking level; /switch-model <provider> <model_id> switches the model (compacting the context first); /verbose toggles full tool output; /exit to quit; and Ctrl-C interrupts the current conversation.",
-  confirmExit: () => "Exit penguin? [y/N] ",
+  confirmExit: () => "Exit wafh? [y/N] ",
   taskInterrupted: () => "[current conversation interrupted]",
   steerQueued: (text) => `» steering queued (delivered with the next turn): ${text}`,
   steerLinePrefix: () => "↪ user: ",
@@ -2217,7 +2217,7 @@ const en: Messages = {
   switchModelCurrent: (model) =>
     `[model switch] current model: ${model} — switch with /switch-model <provider> <model_id> (the context is compacted on the current model first)`,
   switchModelUsage: () =>
-    "Usage: /switch-model <provider> <model_id>  (e.g. /switch-model deepseek deepseek-v4-pro; penguin config model list shows the configured models)",
+    "Usage: /switch-model <provider> <model_id>  (e.g. /switch-model deepseek deepseek-v4-pro; wafh config model list shows the configured models)",
   switchModelDone: (previous, next) => `[model switch] model: ${previous} → ${next}`,
   switchModelHeld: (model) => `[model switch] the new conversation will use ${model}`,
   switchModelBusy: () =>
@@ -2251,9 +2251,9 @@ const en: Messages = {
   resumeHint: (command) => `To continue this conversation: ${command}`,
   langInvalid: (value) => `Invalid language "${value}". Use en.`,
   langWindowsUnsupported: (lang) =>
-    `penguin config lang persists via POSIX shell startup files, which Windows does not have.\n` +
-    `Set the user environment variable instead: setx PENGUIN_LANG ${lang} (new terminals pick it up).`,
-  langSet: (lang, rcPath) => `Language set to ${lang}; wrote PENGUIN_LANG to ${rcPath}.`,
+    `wafh config lang persists via POSIX shell startup files, which Windows does not have.\n` +
+    `Set the user environment variable instead: setx WAFH_LANG ${lang} (new terminals pick it up).`,
+  langSet: (lang, rcPath) => `Language set to ${lang}; wrote WAFH_LANG to ${rcPath}.`,
   langRestartConfirm: () => "Open a new shell now to apply? [y/N] ",
   langRestart: () => "Opening a new shell with the new language (type exit to return)…",
   langRestartHint: (rcPath) => `Open a new terminal, or run: source ${rcPath}`,
@@ -2274,7 +2274,7 @@ const en: Messages = {
     `with --client-type and --base-url.`,
   visionModelCleared: () => "It was also the vision model; that setting is now unset.",
   modelListTitle: () => "Models:",
-  modelListEmpty: () => "No models configured yet. Add one with `penguin config model add`.",
+  modelListEmpty: () => "No models configured yet. Add one with `wafh config model add`.",
   groupListTitle: () => "Groups:",
   modelGroupOnlyFlags: (group) =>
     `--context-window, --max-tokens, --vision, --fast-mode, the --price-* flags and --set-default ` +
@@ -2315,18 +2315,18 @@ const en: Messages = {
     `Removed vault entry ${key}. New conversations pick it up right away; running ones after their next compaction.`,
   vaultKeyMissing: (key) => `Vault entry ${key} does not exist.`,
   vaultListTitle: () => "Vault environment variables (values masked):",
-  vaultListEmpty: () => "The vault is empty. Add one with `penguin config vault set`.",
+  vaultListEmpty: () => "The vault is empty. Add one with `wafh config vault set`.",
   webReady: (url) => `Web UI ready: ${url}`,
   serverAlreadyRunning: (url) =>
-    `A PenguinHarness server is already running on this data root: ${url}\n` +
-    `Stop it first, or point PENGUIN_HOME at a separate data root.`,
+    `A WAF Harness server is already running on this data root: ${url}\n` +
+    `Stop it first, or point WAFH_HOME at a separate data root.`,
   webAlreadyRunning: (url) =>
     `Already running on this data root — opening the existing instance: ${url}`,
   webProbeFailed: (url, detail, kind, port) => {
     const hint = {
       timeout:
         `The connection timed out. Check whether a firewall or security application is blocking it. ` +
-        `Allow PenguinHarness to communicate on local port ${port}.`,
+        `Allow WAF Harness to communicate on local port ${port}.`,
       refused:
         "Nothing accepted the connection. Check whether the server exited or HOST/PORT points somewhere else.",
       reset:

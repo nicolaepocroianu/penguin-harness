@@ -12,7 +12,7 @@
  * disappearing (folder removed, Agent switched) falls back to Chat rather than leaving
  * the strip pointing at nothing.
  */
-import type { WorkbenchInfo } from "@prismshadow/penguin-server/api";
+import type { WorkbenchInfo } from "@waterford/waf-harness-server/api";
 import { apiUrl } from "./server-context";
 
 export interface WorkbenchTab {
@@ -42,7 +42,7 @@ export interface WorkbenchTab {
  * removed. The detail names the Agent only: the listener refetches the list, which is the
  * one shape that covers both.
  */
-export const WORKBENCH_UPDATED_EVENT = "penguin:workbench-updated";
+export const WORKBENCH_UPDATED_EVENT = "wafh:workbench-updated";
 
 export interface WorkbenchUpdatedDetail {
   projectId: string;
@@ -117,7 +117,7 @@ export function settleActiveTab(
 
 /**
  * The route that shows one workbench page as the whole app (no sidebar, no chat, no tab
- * strip): what `penguin web --app <project>/<agent>/<workbench>[/<tab>]` opens, and what a
+ * strip): what `wafh web --app <project>/<agent>/<workbench>[/<tab>]` opens, and what a
  * tab's "fill the app" action navigates to. Without a tab key the workbench's first tab is
  * shown. The command palette is the way out.
  */
@@ -144,5 +144,5 @@ export function appPageTab(
   return (tabKey === undefined ? own[0] : own.find((t) => t.key === tabKey)) ?? null;
 }
 
-/** A page's own request to fill the app, posted to its parent: `{ type: "penguin:fill-app" }`. */
-export const FILL_APP_MESSAGE = "penguin:fill-app";
+/** A page's own request to fill the app, posted to its parent: `{ type: "wafh:fill-app" }`. */
+export const FILL_APP_MESSAGE = "wafh:fill-app";

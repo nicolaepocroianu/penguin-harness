@@ -17,7 +17,7 @@ import {
   Menu,
   MenuItem,
   MenuSeparator,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import {
   BUILT_IN_PRESETS,

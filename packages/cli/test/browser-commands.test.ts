@@ -1,5 +1,5 @@
 /**
- * `penguin browser`, driven through `cli()` in-process against the fake server's browser
+ * `wafh browser`, driven through `cli()` in-process against the fake server's browser
  * handler: each command's request (method, path, body), the three sources of an exec script
  * (argument, --file, stdin), --save, the output contract of status / scan / exec / click /
  * import / history, and the one-line errors with exit code 1, API errors and argument errors
@@ -9,7 +9,7 @@
  *   its name and the extension's version — and, when it cannot be driven, why and what to tell
  *   the user: Chrome not paired, not connected, or switched off by an admin. A server that names
  *   no backend gets the status alone.
- * - Inside a session every call carries PENGUIN_SESSION_ID — in the body, or in the query of a
+ * - Inside a session every call carries WAFH_SESSION_ID — in the body, or in the query of a
  *   GET or DELETE — so the server acts for the person driving the session (their Chrome).
  * - What only the built-in browser has (import, history), asked of the user's Chrome, says to
  *   have the user sign in in Chrome instead; an unavailable browser with no reason (the user
@@ -20,7 +20,10 @@ import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { BuiltinBrowserExecResult, BuiltinBrowserTab } from "@prismshadow/penguin-server/api";
+import type {
+  BuiltinBrowserExecResult,
+  BuiltinBrowserTab,
+} from "@waterford/waf-harness-server/api";
 import { cli } from "../src/index.js";
 import { getMessages } from "../src/i18n.js";
 import { localMinute, RETURN_LIMIT, renderExec } from "../src/browser-output.js";
@@ -69,7 +72,7 @@ beforeEach(() => {
       ? handler(body, query)
       : { status: 404, body: { error: { code: "not_found", message: `no fake ${route}` } } };
   };
-  scratch = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-browser-cli-"));
+  scratch = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-browser-cli-"));
   stdout = [];
   stderr = [];
   outSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
@@ -94,7 +97,7 @@ const browserRequests = () =>
   server.requests.filter((r) => r.path.startsWith("/api/builtin-browser/"));
 const lastBody = () => browserRequests().at(-1)?.body;
 
-/** Runs `penguin browser <args>` with `input` as a non-terminal stdin (a heredoc or a pipe). */
+/** Runs `wafh browser <args>` with `input` as a non-terminal stdin (a heredoc or a pipe). */
 async function withStdin(input: string | null, args: string[]): Promise<number> {
   const stdin = new PassThrough();
   const real = process.stdin;
@@ -217,7 +220,7 @@ describe("status and tabs", () => {
     expect(out()).toBe(
       "status: available\ntabs: *12 Your Orders | 15 Google\n" +
         "memory: 2.1 GB across 2 tabs · this computer: 3.2 GB free of 16.0 GB\n" +
-        "warning: The browser holds a lot of memory. Close the tabs you no longer need (penguin browser close <tab-id>).\n",
+        "warning: The browser holds a lot of memory. Close the tabs you no longer need (wafh browser close <tab-id>).\n",
     );
   });
 
@@ -268,7 +271,7 @@ describe("status and tabs", () => {
 
 describe("open, switch, close", () => {
   it("open navigates the active tab, a bare host as typed (the server picks its scheme)", async () => {
-    process.env.PENGUIN_SESSION_ID = SESSION;
+    process.env.WAFH_SESSION_ID = SESSION;
     routes["POST /tabs/active/navigate"] = () => ({ body: { tab: ORDERS } });
     expect(await cli(["browser", "open", " amazon.com/your-orders/orders "])).toBe(0);
     expect(lastBody()).toEqual({ url: "amazon.com/your-orders/orders", sessionId: SESSION });
@@ -344,7 +347,7 @@ describe("scan", () => {
 
 describe("exec", () => {
   it("sends the script with its options and prints the labelled lines", async () => {
-    process.env.PENGUIN_SESSION_ID = SESSION;
+    process.env.WAFH_SESSION_ID = SESSION;
     routes["POST /tabs/active/exec"] = () => ({
       body: execResult({
         value: { added: true },
@@ -550,7 +553,7 @@ describe("click, type, screenshot, cdp", () => {
   });
 
   it("type sends the text, the selector and submit", async () => {
-    process.env.PENGUIN_SESSION_ID = SESSION;
+    process.env.WAFH_SESSION_ID = SESSION;
     routes["POST /tabs/12/type"] = () => ({ body: execResult({ diff: { changed: 1 } }) });
     expect(
       await cli([
@@ -763,8 +766,8 @@ describe("import and history", () => {
 });
 
 describe("the calling session", () => {
-  it("every call carries PENGUIN_SESSION_ID: in the query of a GET or DELETE, in the body otherwise", async () => {
-    process.env.PENGUIN_SESSION_ID = SESSION;
+  it("every call carries WAFH_SESSION_ID: in the query of a GET or DELETE, in the body otherwise", async () => {
+    process.env.WAFH_SESSION_ID = SESSION;
     const scan = { tab: ORDERS, tabs: [ORDERS], activeTabId: 12, content: "" };
     Object.assign(routes, {
       "GET /status": () => ({ body: { available: true, tabs: [], activeTabId: null } }),
@@ -810,7 +813,7 @@ describe("the calling session", () => {
   });
 
   it("a screenshot carries it too, beside its own options", async () => {
-    process.env.PENGUIN_SESSION_ID = SESSION;
+    process.env.WAFH_SESSION_ID = SESSION;
     routes["POST /tabs/active/screenshot"] = () => ({
       body: { mime: "image/png", data: Buffer.from("png").toString("base64") },
     });
@@ -854,7 +857,7 @@ describe("errors", () => {
 
   it("an unavailable browser with no reason prints the server's own words (the user paused Chrome)", async () => {
     const paused =
-      "The user paused the PenguinHarness Browser extension in Chrome; ask them to resume it.";
+      "The user paused the WAF Harness Browser extension in Chrome; ask them to resume it.";
     routes["POST /tabs/active/scan"] = () => ({
       status: 503,
       body: { error: { code: "browser_unavailable", message: paused } },
@@ -889,7 +892,7 @@ describe("errors", () => {
   });
 
   it("no server running means the desktop app is not running; nothing is auto-started", async () => {
-    delete process.env.PENGUIN_API_URL;
+    delete process.env.WAFH_API_URL;
     expect(await cli(["browser", "tabs"])).toBe(1);
     expect(err()).toBe(`error: browser_unavailable: ${t.browser.unavailableHint(undefined)}\n`);
     expect(server.requests).toEqual([]);

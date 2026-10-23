@@ -109,7 +109,7 @@ describe.skipIf(process.platform === "win32")("seatbelt profile", () => {
   });
 
   it("mask-paths: a masked path is denied for read AND write", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "penguin-sb-mask-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "wafh-sb-mask-"));
     try {
       const profile = seatbeltProfile({
         mode: "read-only",

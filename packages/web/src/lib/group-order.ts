@@ -81,11 +81,11 @@ export type GroupOrderStorage = SessionOrderStorage;
 
 /**
  * Storage key of one Project's manual GROUP order (sidebar key-naming convention,
- * `penguin.sessionOrder.<projectId>.<mode>` &c.), scoped by grouping mode for the same
+ * `wafh.sessionOrder.<projectId>.<mode>` &c.), scoped by grouping mode for the same
  * reason the row order is: the modes have unrelated group lists.
  */
 export const groupOrderKey = (projectId: string, mode: OrderableGroupMode): string =>
-  `penguin.groupOrder.${projectId}.${mode}`;
+  `wafh.groupOrder.${projectId}.${mode}`;
 
 /**
  * Reads a Project+mode's manual group order. No Project, an unorderable mode, nothing

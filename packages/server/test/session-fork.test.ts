@@ -4,7 +4,7 @@
  * - A fork copies the history through the selected reply, snapshots the scratchpad, rewrites
  *   the local attachment markers to its own copy, and outlives the source's deletion.
  * - A fork is a person's conversation (`user`), whatever kind its source was: a fork of a
- *   `penguin run` (`cli`) Session lists as `user` and its Trace head records `user`.
+ *   `wafh run` (`cli`) Session lists as `user` and its Trace head records `user`.
  * - Forks of one source share a persistent number sequence, whatever reply they start from; a
  *   source with no title forks under a readable numbered fallback.
  * - A fork that fails after its row was committed removes the row and the cloned files.
@@ -35,8 +35,8 @@ import {
   tokenUsage,
   tracesDir,
   userText,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage, SessionMetaPayload, TokenCounts } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage, SessionMetaPayload, TokenCounts } from "@waterford/waf-harness-core";
 import type {
   MessagesResponse,
   ProjectCreateResponse,

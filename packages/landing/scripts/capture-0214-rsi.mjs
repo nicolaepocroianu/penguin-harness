@@ -22,7 +22,7 @@
  *   and the plugin cards read as the release does. SHOT_VERSION="" shows the real value.
  *
  * Files (into $SHOT_OUT, default <data>/out; PNGs straight from Chromium, quantize afterwards):
- *   penguinharness-0-2-14-{start-page,rsi-plugins,benchmarks,benchmark-detail}-en.png
+ *   waf-harness-0-2-14-{start-page,rsi-plugins,benchmarks,benchmark-detail}-en.png
  *   rsi-toolkits-{method,optimize-chat,optimize-cells,evaluation}-en.png
  *
  * Prereqs: a built tree (`pnpm -r build`) and Playwright's chromium. Run from this tree:
@@ -39,13 +39,13 @@ import { chromium } from "@playwright/test";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "../../..");
-const DATA = path.resolve(process.env.SHOT_DATA ?? path.join(os.tmpdir(), "penguin-0214-rsi"));
+const DATA = path.resolve(process.env.SHOT_DATA ?? path.join(os.tmpdir(), "wafh-0214-rsi"));
 const OUT_DIR = path.resolve(process.env.SHOT_OUT ?? path.join(DATA, "out"));
 const HOME = path.join(DATA, "home");
 const SRV_PORT = Number(process.env.SHOT_PORT ?? 19100);
 const MOCK_PORT = SRV_PORT + 1;
-const SEED_PASSWORD = "penguin-2026";
-const ADMIN_PASSWORD = "penguin-rsi-0214";
+const SEED_PASSWORD = "wafh-2026";
+const ADMIN_PASSWORD = "wafh-rsi-0214";
 const BASE = `http://localhost:${SRV_PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
 const LANGS = (process.env.SHOT_LANGS ?? "en").split(",");
@@ -53,8 +53,8 @@ const LANGS = (process.env.SHOT_LANGS ?? "en").split(",");
 // label is set to the version the shots ship with; SHOT_VERSION="" keeps the real one.
 const SHOW_VERSION = process.env.SHOT_VERSION ?? "0.2.14";
 
-const TRAIN = "penguinharness-benchmark-gdpevo-train";
-const TEST = "penguinharness-benchmark-gdpevo-test";
+const TRAIN = "waf-harness-benchmark-gdpevo-train";
+const TEST = "waf-harness-benchmark-gdpevo-test";
 const TESTED = "biz_analyst";
 const MODEL = { provider: "deepseek", modelId: "deepseek-v4-pro" };
 
@@ -902,12 +902,12 @@ console.log(`[rsi] mock LLM on ${MOCK}`);
 const srv = spawn("node", [path.join(ROOT, "packages/server/dist/index.js")], {
   env: {
     ...NO_PROXY_ENV,
-    PENGUIN_HOME: HOME,
-    PENGUIN_WEB_DB: path.join(DATA, "web.db"),
-    PENGUIN_WEB_DIST: path.join(ROOT, "packages/web/dist"),
+    WAFH_HOME: HOME,
+    WAFH_WEB_DB: path.join(DATA, "web.db"),
+    WAFH_WEB_DIST: path.join(ROOT, "packages/web/dist"),
     PORT: String(SRV_PORT),
     HOST: "127.0.0.1",
-    PENGUIN_SEED_ADMIN_PASSWORD: SEED_PASSWORD,
+    WAFH_SEED_ADMIN_PASSWORD: SEED_PASSWORD,
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -939,7 +939,7 @@ const STR = {
     trend: "Score over time",
     evaluations: "Evaluations",
     evalCenter: "Evaluation Center",
-    gdpevoTrain: "PenguinHarness Benchmark GDPevo Train",
+    gdpevoTrain: "WAF Harness Benchmark GDPevo Train",
   },
 };
 
@@ -967,10 +967,10 @@ async function openPage(lang, url, viewport = { width: 1440, height: 900 }) {
   await context.addInitScript(
     ([l, p]) => {
       try {
-        localStorage.setItem("penguin.theme", "light");
-        localStorage.setItem("penguin.themeId", "modern");
-        localStorage.setItem("penguin.lang", l);
-        localStorage.setItem("penguin.lastProjectId", p);
+        localStorage.setItem("wafh.theme", "light");
+        localStorage.setItem("wafh.themeId", "modern");
+        localStorage.setItem("wafh.lang", l);
+        localStorage.setItem("wafh.lastProjectId", p);
       } catch {}
     },
     [lang, `rsi_${lang}`],
@@ -1174,7 +1174,7 @@ try {
           { timeout: 30000 },
         );
         await page.waitForTimeout(1500);
-        await shootPage(page, `penguinharness-0-2-14-start-page-${lang}.png`);
+        await shootPage(page, `waf-harness-0-2-14-start-page-${lang}.png`);
       } catch (err) {
         await dump(page, `start-${lang}`);
         throw err;
@@ -1198,7 +1198,7 @@ try {
         const section = title.locator(
           "xpath=ancestor::*[count(.//*[contains(text(),'rsi-toolkit')]) >= 5][1]",
         );
-        await shootUnion(page, [section], `penguinharness-0-2-14-rsi-plugins-${lang}.png`, 12);
+        await shootUnion(page, [section], `waf-harness-0-2-14-rsi-plugins-${lang}.png`, 12);
       } catch (err) {
         await dump(page, `plugins-${lang}`);
         throw err;
@@ -1214,14 +1214,13 @@ try {
         height: 1700,
       });
       try {
-        await page.getByText("PenguinHarness Benchmark Sec E").first().waitFor({ timeout: 30000 });
+        await page.getByText("WAF Harness Benchmark Sec E").first().waitFor({ timeout: 30000 });
         await page.waitForTimeout(1500);
         // From the page title down to the bottom of the last card.
         const box = await page.evaluate(() => {
           const title = [...document.querySelectorAll("h1, h2")].find((h) => h.offsetParent);
           const last = [...document.querySelectorAll("*")].find(
-            (el) =>
-              el.childElementCount === 0 && el.textContent === "PenguinHarness Benchmark Sec E",
+            (el) => el.childElementCount === 0 && el.textContent === "WAF Harness Benchmark Sec E",
           );
           let card = last;
           while (card && card.parentElement && card.parentElement.childElementCount < 7)
@@ -1232,7 +1231,7 @@ try {
           return { x: frame.x, y: t.y, width: frame.width, bottom: c.bottom };
         });
         await page.screenshot({
-          path: path.join(OUT_DIR, `penguinharness-0-2-14-benchmarks-${lang}.png`),
+          path: path.join(OUT_DIR, `waf-harness-0-2-14-benchmarks-${lang}.png`),
           clip: {
             x: box.x - 24,
             y: box.y - 24,
@@ -1240,7 +1239,7 @@ try {
             height: box.bottom - box.y + 48,
           },
         });
-        console.log(`[rsi] penguinharness-0-2-14-benchmarks-${lang}.png`);
+        console.log(`[rsi] waf-harness-0-2-14-benchmarks-${lang}.png`);
       } catch (err) {
         await dump(page, `benchmarks-${lang}`);
         throw err;
@@ -1263,7 +1262,7 @@ try {
         await shootUnion(
           page,
           [trend.locator("xpath=.."), table],
-          `penguinharness-0-2-14-benchmark-detail-${lang}.png`,
+          `waf-harness-0-2-14-benchmark-detail-${lang}.png`,
           20,
         );
         // The newest evaluation's dialog: every case of v3 with its run.

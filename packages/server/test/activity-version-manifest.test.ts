@@ -1,5 +1,5 @@
 /**
- * The version manifest: which bound files Penguin owns and keeps, which are references to
+ * The version manifest: which bound files WAF Harness owns and keeps, which are references to
  * media it did not make and only records, and a hash that follows content and nothing else.
  */
 import { createHash } from "node:crypto";

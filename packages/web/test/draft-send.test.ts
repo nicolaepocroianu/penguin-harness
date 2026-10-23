@@ -18,7 +18,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
-import { toastStore } from "@prismshadow/penguin-ui";
+import { toastStore } from "@waterford/waf-harness-ui";
 import { currentDockScope } from "../src/features/dock/dock-state";
 import { LISTING_CHANGE_DELAY_MS } from "../src/state/sessions";
 import { S } from "../src/lib/strings";

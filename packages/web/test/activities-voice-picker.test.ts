@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MediaAsset, VoiceOption } from "@prismshadow/penguin-server/api";
+import type { MediaAsset, VoiceOption } from "@waterford/waf-harness-server/api";
 import {
   NO_VOICE_FILTERS,
   applyVoice,
@@ -109,7 +109,7 @@ describe("narration voices", () => {
     expect(mixedVoice([music])).toBeNull();
   });
 
-  it("counts a saved voice Penguin cannot speak as naming none", () => {
+  it("counts a saved voice WAF Harness cannot speak as naming none", () => {
     expect(
       mixedVoice([narration("a", "Retired"), narration("b", "Retired")], catalogue),
     ).toBeNull();

@@ -4,19 +4,19 @@
  * Every plugin is one row and one card, whatever it carries: a library plugin (Skills, a hook
  * package and/or MCP servers, installed per Agent), a server module (installed on the server,
  * listed per Project), or a package that is both — a library plugin `x` and the module
- * `@penguinharness/x` are one row.
+ * `@waf-harness/x` are one row.
  *
  * Groups default to the plugin's category; the page can group by status or by what a plugin
  * carries instead, or not group at all, and the search box narrows the rows. The grouping and
- * which groups are folded are remembered per browser (`penguin.pluginsGroupBy`,
- * `penguin.pluginsGroupsFolded`); the search is not.
+ * which groups are folded are remembered per browser (`wafh.pluginsGroupBy`,
+ * `wafh.pluginsGroupsFolded`); the search is not.
  */
 import type {
   InstalledPluginsResponse,
   PluginGroupItem,
   PluginIndexEntry,
   PluginItem,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { localizedText } from "../chat/skill-use";
 import { PLUGIN_STATUSES, type ModuleState, type PluginStatus } from "./plugin-status";
@@ -308,8 +308,8 @@ export interface PluginsPageStorage {
   setItem(key: string, value: string): void;
 }
 
-export const PLUGINS_GROUP_BY_KEY = "penguin.pluginsGroupBy";
-export const PLUGINS_GROUPS_FOLDED_KEY = "penguin.pluginsGroupsFolded";
+export const PLUGINS_GROUP_BY_KEY = "wafh.pluginsGroupBy";
+export const PLUGINS_GROUPS_FOLDED_KEY = "wafh.pluginsGroupsFolded";
 
 /**
  * The grouping this browser last chose; category when nothing usable is stored, or storage

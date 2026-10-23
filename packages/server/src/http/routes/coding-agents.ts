@@ -30,7 +30,7 @@
  * admin-only, like the rest of the admin settings.
  */
 import { Hono, type Context } from "hono";
-import { AcpAgentError } from "@prismshadow/penguin-coding-agents";
+import { AcpAgentError } from "@waterford/waf-harness-coding-agents";
 import type { AppEnv } from "../../auth/middleware.js";
 import type { BuiltinAgents } from "../../mechanisms/builtin-agents.js";
 import type { CodingAgents } from "../../mechanisms/coding-agents.js";

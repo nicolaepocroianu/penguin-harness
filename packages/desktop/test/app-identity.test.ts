@@ -9,9 +9,10 @@ const builderConfig = fs.readFileSync(
   "utf8",
 );
 
-/** A top-level scalar from electron-builder.yml (line-based; the config keeps them plain). */
+/** A top-level scalar from electron-builder.yml (line-based; the config keeps them plain, and a
+ * value may hold spaces, as productName does). */
 function builderValue(key: string): string {
-  const m = new RegExp(`^${key}:\\s*(\\S+)\\s*$`, "m").exec(builderConfig);
+  const m = new RegExp(`^${key}:[ \\t]*(\\S(?:.*\\S)?)[ \\t]*$`, "m").exec(builderConfig);
   if (!m) throw new Error(`electron-builder.yml has no top-level '${key}'`);
   return m[1]!;
 }
@@ -19,13 +20,13 @@ function builderValue(key: string): string {
 describe("resolveProfile", () => {
   it("an unpackaged run is dev, a packaged one release", () => {
     expect(resolveProfile({ argv: ["electron", "."], isPackaged: false })).toBe("dev");
-    expect(resolveProfile({ argv: ["PenguinHarness.exe"], isPackaged: true })).toBe("release");
+    expect(resolveProfile({ argv: ["WAF Harness.exe"], isPackaged: true })).toBe("release");
   });
 
   it("--dev puts a packaged build on the dev profile", () => {
     // The point of the switch: one installed exe launched twice, once bare and once with
     // --dev, yields two identities and so two instances side by side.
-    expect(resolveProfile({ argv: ["PenguinHarness.exe", "--dev"], isPackaged: true })).toBe("dev");
+    expect(resolveProfile({ argv: ["WAF Harness.exe", "--dev"], isPackaged: true })).toBe("dev");
   });
 
   it("--dev is exact — a prefix or a value-carrying form does not match", () => {
@@ -53,27 +54,27 @@ describe("appIdentity", () => {
     expect(dev.name).not.toBe(appIdentity("release").name);
     expect(dev.appUserModelId).not.toBe(appIdentity("release").appUserModelId);
     expect(dev).toEqual({
-      name: "PenguinHarness-Dev",
-      appUserModelId: "com.prismshadow.penguinharness.dev",
+      name: "WAF Harness Dev",
+      appUserModelId: "com.waterford.wafharness.dev",
     });
   });
 });
 
 describe("devDataRoot", () => {
-  it("is ~/.penguin/dev-data, apart from the release/CLI ~/.penguin/data", () => {
-    expect(devDataRoot("/home/dev")).toBe(path.join("/home/dev", ".penguin", "dev-data"));
-    expect(devDataRoot("/home/dev")).not.toBe(path.join("/home/dev", ".penguin", "data"));
+  it("is ~/.waf-harness/dev-data, apart from the release/CLI ~/.waf-harness/data", () => {
+    expect(devDataRoot("/home/dev")).toBe(path.join("/home/dev", ".waf-harness", "dev-data"));
+    expect(devDataRoot("/home/dev")).not.toBe(path.join("/home/dev", ".waf-harness", "data"));
   });
 });
 
 /**
  * The precedence rule #292 turns on. These pin the RULE, not the constants: flipping the
- * release branch, dropping the PENGUIN_HOME precedence, or letting either profile fall
+ * release branch, dropping the WAFH_HOME precedence, or letting either profile fall
  * into the other's root has to fail here.
  */
 describe("desktopDataRoot", () => {
-  const releaseRoot = path.join("/home/dev", ".penguin", "data");
-  const devRoot = path.join("/home/dev", ".penguin", "dev-data");
+  const releaseRoot = path.join("/home/dev", ".waf-harness", "data");
+  const devRoot = path.join("/home/dev", ".waf-harness", "dev-data");
   /** Stands in for core's resolveRoot, and records whether the rule consulted it. */
   function stubRelease(): (() => string) & { calls: number } {
     const fn = (): string => {
@@ -84,7 +85,7 @@ describe("desktopDataRoot", () => {
     return fn;
   }
 
-  it("an explicit PENGUIN_HOME wins in both profiles", () => {
+  it("an explicit WAFH_HOME wins in both profiles", () => {
     for (const profile of ["release", "dev"] as const) {
       const release = stubRelease();
       expect(
@@ -100,7 +101,7 @@ describe("desktopDataRoot", () => {
     }
   });
 
-  it("the release profile with no PENGUIN_HOME shares the CLI's root via core's resolver", () => {
+  it("the release profile with no WAFH_HOME shares the CLI's root via core's resolver", () => {
     const release = stubRelease();
     expect(
       desktopDataRoot({
@@ -110,11 +111,11 @@ describe("desktopDataRoot", () => {
         releaseRoot: release,
       }),
     ).toBe(releaseRoot);
-    // Delegated rather than re-derived, so ~/.penguin/data keeps one definition point.
+    // Delegated rather than re-derived, so ~/.waf-harness/data keeps one definition point.
     expect(release.calls).toBe(1);
   });
 
-  it("the dev profile with no PENGUIN_HOME takes the dev root, never the release one", () => {
+  it("the dev profile with no WAFH_HOME takes the dev root, never the release one", () => {
     const release = stubRelease();
     const root = desktopDataRoot({
       envHome: undefined,

@@ -2,7 +2,7 @@
  * The agent browser's state in this window, as a pure reducer.
  *
  * Two backends: the desktop's built-in browser, whose pages this window hosts as `<webview>`
- * guests, and the user's own Chrome, driven through the PenguinHarness Browser extension, whose
+ * guests, and the user's own Chrome, driven through the WAF Harness Browser extension, whose
  * pages live in Chrome. `backend` is the one this user's agents drive (the server decides it,
  * from the user's choice); `backends` is every one the server offers them, each with whether it
  * can be driven now and, for Chrome, the paired extension. On the desktop an admin has both, and
@@ -40,7 +40,7 @@ import type {
   BuiltinBrowserSettings,
   BuiltinBrowserStatus,
   BuiltinBrowserTab,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { BLANK_URL, isBlankUrl, tabAddress } from "./address";
 
 /** One webview this window hosts. */
@@ -308,7 +308,7 @@ function applyEvent(state: BrowserState, event: BuiltinBrowserServerEvent): Brow
         return state;
       const guest: BrowserGuest = {
         key: guestKey(event.requestId),
-        partition: event.partition ?? "persist:penguin-browser",
+        partition: event.partition ?? "persist:wafh-browser",
         scope:
           event.sessionId ??
           guestForTab(state, event.openerTabId ?? null)?.scope ??

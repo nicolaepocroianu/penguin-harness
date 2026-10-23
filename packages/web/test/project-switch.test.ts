@@ -39,7 +39,7 @@ import type {
   SessionsBatchRequest,
   UsageBucket,
   UsageResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { AuthProvider } from "../src/state/auth";
 import { LocaleProvider } from "../src/state/locale";
 import { ThemeProvider } from "../src/state/theme";
@@ -263,7 +263,7 @@ interface Seen {
 
 /** Mounts the providers with a page that records what it is handed, under the Project A. */
 async function mountShell() {
-  localStorage.setItem("penguin.lastProjectId", A);
+  localStorage.setItem("wafh.lastProjectId", A);
   const seen: Seen[] = [];
   function Page() {
     const { currentProject, agents, setCurrentProjectId, reloadProjects } = useProject();
@@ -483,7 +483,7 @@ describe("pages over a Project switch", () => {
   it("the cost center drops A's Agent filter and A's late answer after the switch to B", async () => {
     const server = twoProjectServer();
     const releaseA = server.hold((r) => r.path === `/api/projects/${A}/usage`);
-    localStorage.setItem("penguin.lastProjectId", A);
+    localStorage.setItem("wafh.lastProjectId", A);
     await mount(
       h(
         MemoryRouter,
@@ -506,7 +506,7 @@ describe("pages over a Project switch", () => {
 
   it("a Benchmark's page asks the next Project nothing about that Benchmark and leaves for the Benchmarks list", async () => {
     const server = twoProjectServer();
-    localStorage.setItem("penguin.lastProjectId", A);
+    localStorage.setItem("wafh.lastProjectId", A);
     const router = createMemoryRouter(
       [
         {

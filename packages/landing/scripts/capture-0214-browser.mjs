@@ -1,14 +1,14 @@
 /**
  * Capture the 0.2.14 browser screenshots from the real desktop app: the built-in browser's
- * dock panel beside a conversation whose agent drives it with `penguin browser`, the new-tab
- * start page, and the Connect your Chrome pairing flow with the PenguinHarness Browser
+ * dock panel beside a conversation whose agent drives it with `wafh browser`, the new-tab
+ * start page, and the Connect your Chrome pairing flow with the WAF Harness Browser
  * extension loaded into Playwright's Chromium.
  *
  * The desktop shell runs unpackaged (dev profile) on Electron under Xvfb, driven through
- * Playwright's `_electron`; its embedded server runs on a scratch PENGUIN_HOME, and the agent
+ * Playwright's `_electron`; its embedded server runs on a scratch WAFH_HOME, and the agent
  * talks to a scripted mock LLM (OpenAI chat-completions SSE). The agent's commands really run:
- * `penguin browser open` loads a public page in the built-in browser's <webview>, and the final
- * answer is written from what `penguin browser exec` returned, so the reply matches the page.
+ * `wafh browser open` loads a public page in the built-in browser's <webview>, and the final
+ * answer is written from what `wafh browser exec` returned, so the reply matches the page.
  *
  * Env (all required unless noted):
  *   SHOT_ELECTRON  Electron binary matching packages/desktop's electron version
@@ -52,24 +52,24 @@ return JSON.stringify(posts.slice(0, 3));`;
 
 const SCENES = {
   en: {
-    prompt: "Open the PenguinHarness blog and list the three newest posts with their dates.",
-    title: "Newest PenguinHarness posts",
+    prompt: "Open the WAF Harness blog and list the three newest posts with their dates.",
+    title: "Newest WAF Harness posts",
     steps: [
       {
         text: "I'll do this in the built-in browser.",
         description: "Check the browser",
-        exec: "penguin browser status",
+        exec: "wafh browser status",
       },
-      { description: "Open the blog", exec: `penguin browser open ${TARGET}` },
-      { description: "Read the page", exec: "penguin browser scan" },
+      { description: "Open the blog", exec: `wafh browser open ${TARGET}` },
+      { description: "Read the page", exec: "wafh browser scan" },
       {
         description: "Get each post's date and title, newest first",
-        exec: `penguin browser exec <<'EOF'\n${EXTRACT}\nEOF`,
+        exec: `wafh browser exec <<'EOF'\n${EXTRACT}\nEOF`,
       },
     ],
     answer: (posts) =>
       [
-        "The three newest posts on the PenguinHarness blog:",
+        "The three newest posts on the WAF Harness blog:",
         "",
         ...posts.map((p, i) => `${i + 1}. **${p.title}** (${p.date})`),
         "",
@@ -88,20 +88,20 @@ return JSON.stringify([...document.querySelectorAll('h3')].map((h) => h.innerTex
 const CHROME_SCENES = {
   en: {
     prompt:
-      "Open the PenguinHarness docs page about the built-in browser and list what it covers about using my own Chrome.",
+      "Open the WAF Harness docs page about the built-in browser and list what it covers about using my own Chrome.",
     title: "Docs: using your own Chrome",
     again: "The page reloaded under the script; run it again",
     steps: [
       {
         text: "I'll look it up in your Chrome.",
         description: "Check the browser",
-        exec: "penguin browser status",
+        exec: "wafh browser status",
       },
-      { description: "Open the Built-in Browser docs", exec: `penguin browser open ${DOCS}` },
-      { description: "Read the page as text", exec: "penguin browser scan --text" },
+      { description: "Open the Built-in Browser docs", exec: `wafh browser open ${DOCS}` },
+      { description: "Read the page as text", exec: "wafh browser scan --text" },
       {
         description: "List the page's subsections",
-        exec: `penguin browser exec <<'EOF'\n${SECTIONS}\nEOF`,
+        exec: `wafh browser exec <<'EOF'\n${SECTIONS}\nEOF`,
       },
     ],
     answer: (items) =>
@@ -110,7 +110,7 @@ const CHROME_SCENES = {
         "",
         ...items.map((t, i) => `${i + 1}. ${t}`),
         "",
-        "The tab is in your Chrome's Penguin group.",
+        "The tab is in your Chrome's WAF Harness group.",
       ].join("\n"),
   },
 };
@@ -291,9 +291,9 @@ async function launchDesktop(lang) {
     ],
     env: {
       ...process.env,
-      PENGUIN_HOME: path.join(base, "home"),
+      WAFH_HOME: path.join(base, "home"),
       XDG_CONFIG_HOME: path.join(base, "config"),
-      PENGUIN_NO_LOGIN_SHELL_ENV: "1",
+      WAFH_NO_LOGIN_SHELL_ENV: "1",
       FONTCONFIG_FILE: fontsConf(),
       LANG: "en_US.UTF-8",
       // The UI language Chromium reports to pages (navigator.language) follows LANGUAGE.
@@ -345,12 +345,12 @@ async function api(win, method, url, body) {
 async function setPrefs(win, lang, extra = {}) {
   await win.evaluate(
     ([l, more]) => {
-      localStorage.setItem("penguin.lang", l);
-      localStorage.setItem("penguin.themeId", "modern");
-      localStorage.setItem("penguin.theme", "light");
-      localStorage.setItem("penguin.lastProjectId", "default_project");
-      localStorage.setItem("penguin.panelWidth", "720");
-      localStorage.setItem("penguin.sidebarCollapsed", "1");
+      localStorage.setItem("wafh.lang", l);
+      localStorage.setItem("wafh.themeId", "modern");
+      localStorage.setItem("wafh.theme", "light");
+      localStorage.setItem("wafh.lastProjectId", "default_project");
+      localStorage.setItem("wafh.panelWidth", "720");
+      localStorage.setItem("wafh.sidebarCollapsed", "1");
       for (const [k, v] of Object.entries(more)) localStorage.setItem(k, v);
     },
     [lang, extra],
@@ -436,7 +436,7 @@ async function pairChrome(app, win, lang, base) {
   // Inset by 2px: the dialog's rounded corners would otherwise show the page behind.
   await capture(app, win, `browser-connect-chrome-${lang}.png`, await boxOf(pairing, -2));
 
-  // Chromium with the unpacked PenguinHarness Browser extension, headed under the same Xvfb.
+  // Chromium with the unpacked WAF Harness Browser extension, headed under the same Xvfb.
   const profile = path.join(base, "chromium-profile");
   // Chrome offers to translate a page whose markup says another language than its UI; the
   // bubble would cover the debugging bar in the window grab.
@@ -518,7 +518,7 @@ async function pairChrome(app, win, lang, base) {
   }
 }
 
-/** Agents switched to the user's Chrome: the same loop, with the page in Chrome's Penguin group. */
+/** Agents switched to the user's Chrome: the same loop, with the page in Chrome's WAF Harness group. */
 async function driveChrome(app, win, lang, base, pairPage) {
   const scene = CHROME_SCENES[lang];
   await win.keyboard.press("Escape");
@@ -617,7 +617,7 @@ async function runLanguage(lang) {
       await final.first().waitFor({ timeout: 180000 });
       await win.waitForTimeout(2000);
       // The steps fold into one "Done · 4 steps" group; unfold it, then open the card of the
-      // page opening, whose arguments and output show `penguin browser open` at work.
+      // page opening, whose arguments and output show `wafh browser open` at work.
       const groups = win.getByRole("button", { name: /^Done\s*\d+\s*steps?/ });
       const n = await groups.count();
       for (let i = 0; i < n; i++) await groups.nth(i).click();
@@ -634,7 +634,7 @@ async function runLanguage(lang) {
       await win.mouse.move(5, 5);
       await win.waitForTimeout(2500);
       await dump(win, `main-${lang}`);
-      await capture(app, win, `penguinharness-0-2-14-browser-${lang}.png`);
+      await capture(app, win, `waf-harness-0-2-14-browser-${lang}.png`);
 
       // The tutorial's variant: the status card open instead, naming the built-in backend.
       for (const step of [scene.steps[1], scene.steps[0]]) {

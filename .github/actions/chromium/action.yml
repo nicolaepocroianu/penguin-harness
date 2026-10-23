@@ -4,7 +4,7 @@
 # rest of the suite. On a runner nothing installs it by default, and a skip there reads as a
 # pass: the browser proofs of the server's confined checks and the bench's sealing passed
 # green on every platform without running. This action installs the browser and then sets
-# PENGUIN_TEST_REQUIRE_BROWSER=1 for the rest of the job, which turns that skip into a
+# WAFH_TEST_REQUIRE_BROWSER=1 for the rest of the job, which turns that skip into a
 # failure (packages/server/test/installed-chromium.ts).
 #
 # The browser lands in Playwright's default folder for the OS, not PLAYWRIGHT_BROWSERS_PATH:
@@ -64,4 +64,4 @@ runs:
         deps=""
         if [ "$RUNNER_OS" = "Linux" ]; then deps="--with-deps"; fi
         pnpm --filter "$PACKAGE" exec "$CLI" install $deps chromium
-        echo "PENGUIN_TEST_REQUIRE_BROWSER=1" >> "$GITHUB_ENV"
+        echo "WAFH_TEST_REQUIRE_BROWSER=1" >> "$GITHUB_ENV"

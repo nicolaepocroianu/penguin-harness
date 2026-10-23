@@ -7,7 +7,7 @@ export const activityProductLevel: Migration = {
   swapSafe: false,
   up(db) {
     // Loom nests refs under a product that owns the module code, with one ref canonical.
-    // Penguin had (productCode, refNum) flattened into one row and so could not say which
+    // WAF Harness had (productCode, refNum) flattened into one row and so could not say which
     // ref was canonical. This gives the product somewhere to live.
     db.exec(`
       CREATE TABLE IF NOT EXISTS activity_products (

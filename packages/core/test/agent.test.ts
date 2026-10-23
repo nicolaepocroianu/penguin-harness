@@ -97,17 +97,17 @@ let prevHome: string | undefined;
 let restoreKeys: () => void;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-harness-"));
-  process.env.PENGUIN_HOME = tmpRoot;
+  prevHome = process.env.WAFH_HOME;
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "waf-harness-"));
+  process.env.WAFH_HOME = tmpRoot;
   restoreKeys = stubProviderKeys();
   // The Project a host would have seeded: core itself carries no models.
   await seedProject(tmpRoot);
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.PENGUIN_HOME;
-  else process.env.PENGUIN_HOME = prevHome;
+  if (prevHome === undefined) delete process.env.WAFH_HOME;
+  else process.env.WAFH_HOME = prevHome;
   restoreKeys();
   await fs.rm(tmpRoot, { recursive: true, force: true });
 });
@@ -1400,7 +1400,7 @@ describe("Agent model contexts are assembled from the Agent State on disk, at ev
       await patchSystemConfig((cfg) => {
         cfg.tools = {
           ...(cfg.tools ?? {}),
-          mcpServers: [{ name: "ghost", config: { command: "penguin-no-such-mcp-server" } }],
+          mcpServers: [{ name: "ghost", config: { command: "wafh-no-such-mcp-server" } }],
         };
       });
 

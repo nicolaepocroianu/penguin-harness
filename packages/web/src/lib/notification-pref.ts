@@ -3,7 +3,7 @@
  * (state/use-completion-notifications.ts is the only reader of both).
  *
  * Two separate facts decide whether a notification can be shown, and neither implies the
- * other: the user asked for notifications (stored here, `penguin.notifications`, registered
+ * other: the user asked for notifications (stored here, `wafh.notifications`, registered
  * as a browser preference in lib/install-scope.ts), and the platform granted permission to
  * show them. A browser reports the second as `Notification.permission`, and it starts at
  * "default" — no code path grants it, and on macOS a window that never calls
@@ -21,13 +21,13 @@
  * settings row and the app-wide hook stay in step without either owning the state.
  */
 
-import { PENGUIN_LOGO_URL } from "./brand-logo";
+import { WAFH_LOGO_URL } from "./brand-logo";
 import { S } from "./strings";
 
 /** localStorage key of the opt-in; only NOTIFICATIONS_ON counts as on. */
-export const NOTIFICATIONS_KEY = "penguin.notifications";
+export const NOTIFICATIONS_KEY = "wafh.notifications";
 /** Tag of the confirmation notice fired when the user turns the switch on. */
-export const ENABLED_NOTIFICATION_TAG = "penguin-notifications-enabled";
+export const ENABLED_NOTIFICATION_TAG = "wafh-notifications-enabled";
 const NOTIFICATIONS_ON = "1";
 const NOTIFICATIONS_OFF = "0";
 
@@ -151,7 +151,7 @@ export async function enableNotifications(
       const notification = new Notification(S.notify.enabledTitle, {
         body: S.notify.enabledBody,
         tag: ENABLED_NOTIFICATION_TAG,
-        icon: PENGUIN_LOGO_URL,
+        icon: WAFH_LOGO_URL,
       });
       notification.onclick = () => {
         notification.close();

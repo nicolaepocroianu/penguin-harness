@@ -4,7 +4,7 @@
  * non-fatal — the capability a plugin would have provided stays unavailable rather
  * than the boot failing.
  */
-import { HotResources } from "@prismshadow/penguin-hmr";
+import { HotResources } from "@waterford/waf-harness-hmr";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -28,7 +28,7 @@ import { writeClassPackage } from "./plugin-fixtures.js";
 let root: string;
 
 beforeEach(async () => {
-  root = await mkdtemp(path.join(tmpdir(), "penguin-plugins-"));
+  root = await mkdtemp(path.join(tmpdir(), "wafh-plugins-"));
 });
 afterEach(async () => {
   await rm(root, { recursive: true, force: true });
@@ -201,14 +201,14 @@ describe("plugin loading", () => {
   /** The table the plugin's build would generate: one component, contributing one provider. */
   const oneModule = {
     ifaces: {
-      "@acme/penguin-plugin-thing#Thing": { name: "Thing", methods: {}, slots: {} },
+      "@acme/wafh-plugin-thing#Thing": { name: "Thing", methods: {}, slots: {} },
     },
     types: {},
     modules: {
       Thing: {
         name: "Thing",
         requires: {},
-        provides: { Thing: "@acme/penguin-plugin-thing#Thing" },
+        provides: { Thing: "@acme/wafh-plugin-thing#Thing" },
         contributes: {
           "SandboxModule.providers": [
             { id: "thing.provider", name: "thing", dimensions: ["fs-write"] },
@@ -262,7 +262,7 @@ describe("plugin loading", () => {
 
   it("boots the classes the default export names, each against its manifest in the package's table", async () => {
     const file = await writePackage(
-      "@acme/penguin-plugin-thing",
+      "@acme/wafh-plugin-thing",
       oneModule,
       `${thingClass}
        export default { modules: [Thing] };`,
@@ -277,7 +277,7 @@ describe("plugin loading", () => {
     expect(entry.modules[0]!.manifest.contributes["SandboxModule.providers"]?.[0]?.id).toBe(
       "thing.provider",
     );
-    expect(entry.ifaces?.ifaces["@acme/penguin-plugin-thing#Thing"]).toBeDefined();
+    expect(entry.ifaces?.ifaces["@acme/wafh-plugin-thing#Thing"]).toBeDefined();
     // The class is the code half: its @Bind field is the contribution's implementation.
     const instance = await entry.modules[0]!.create(
       { use: {}, contributions: {}, resources: {} as never, effect: () => {} },
@@ -330,7 +330,7 @@ describe("plugin loading", () => {
 
   it("classes under `replaces` are paired the same way, and land in the plugin's replaces", async () => {
     const file = await writePackage(
-      "@acme/penguin-plugin-thing",
+      "@acme/wafh-plugin-thing",
       {
         ...oneModule,
         modules: {
@@ -434,23 +434,20 @@ describe("builtin plugins", () => {
 
   it("lists what the build ships, scoped and unscoped, and not what the root's own prefix holds", async () => {
     const assets = path.join(root, "hmr", "store", "assets", "abc");
-    await writeBuiltin(path.join(assets, "plugins"), "@acme/penguin-plugin-one", "One");
+    await writeBuiltin(path.join(assets, "plugins"), "@acme/wafh-plugin-one", "One");
     await writeBuiltin(path.join(assets, "plugins"), "plain-plugin", "Plain");
     // The operator's own prefix is not builtin: what it holds loads only when listed.
     await writeBuiltin(path.join(root, "plugins"), "@acme/installed", "Installed");
     const bases = pluginBases(root, assets);
     expect(bases[0]).toMatchObject({ builtin: false });
     expect(bases[1]).toMatchObject({ builtin: true });
-    expect(await discoverBuiltinPlugins(bases)).toEqual([
-      "@acme/penguin-plugin-one",
-      "plain-plugin",
-    ]);
+    expect(await discoverBuiltinPlugins(bases)).toEqual(["@acme/wafh-plugin-one", "plain-plugin"]);
   });
 
   it("does not load a shipped plugin until it is listed, and then loads it from the shipped prefix", async () => {
     const assetsRel = path.join("store", "assets", "abc");
     const assets = path.join(root, "hmr", assetsRel);
-    await writeBuiltin(path.join(assets, "plugins"), "@acme/penguin-plugin-one", "One");
+    await writeBuiltin(path.join(assets, "plugins"), "@acme/wafh-plugin-one", "One");
     await mkdir(path.join(root, "hmr"), { recursive: true });
     // harness.json is what names the committed assets; the loader reads it without a host.
     await writeFile(
@@ -464,10 +461,10 @@ describe("builtin plugins", () => {
 
     // Listed: it loads, resolved from the assets the push carried — no npm, nothing under
     // <root>/plugins.
-    await writeConfig({ plugins: ["@acme/penguin-plugin-one"] });
+    await writeConfig({ plugins: ["@acme/wafh-plugin-one"] });
     const result = await loadPlugins(root);
     expect([...result.failed.entries()]).toEqual([]);
-    expect(listed(result.loaded).map((p) => p.specifier)).toEqual(["@acme/penguin-plugin-one"]);
+    expect(listed(result.loaded).map((p) => p.specifier)).toEqual(["@acme/wafh-plugin-one"]);
     expect(listed(result.loaded)[0]!.modules.map((m) => m.manifest.name)).toEqual(["One"]);
   });
 

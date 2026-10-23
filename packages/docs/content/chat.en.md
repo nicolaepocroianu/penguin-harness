@@ -238,7 +238,7 @@ Weather and metrics are snapshots the agent took at the time shown on the block;
 
 Picking sends nothing. The composer gets ordinary text that you can edit, and you still select **Send**. If the composer holds text you typed, you are asked before it is replaced or cleared. A form's answers and a multi-select's picks are kept in this browser, so a reload or a visit to another conversation does not lose them; they expire after 7 days. Only the latest reply takes answers, and only until a message follows it; earlier replies, subagent conversations and the Trace show the same blocks read-only. A block that cannot be drawn shows its source under a one-line reason.
 
-Outside the Web App the blocks arrive as plain text. In `penguin chat`, `penguin run` and [remote control](/remote-control) chats, a choice reads as numbered options that you answer with a number or in your own words.
+Outside the Web App the blocks arrive as plain text. In `wafh chat`, `wafh run` and [remote control](/remote-control) chats, a choice reads as numbered options that you answer with a number or in your own words.
 
 ### Older messages
 
@@ -291,7 +291,7 @@ Good to know:
 
 ### Use a terminal
 
-In the docks, terminals live in one **Command-line terminal** panel per conversation; they also open on the standalone `/terminal` page. The panel's top row holds the conversation's terminals as tabs, each with its number and title: select a tab to switch, **+** to start another terminal, and a tab's × to close that terminal after a confirmation. When the last terminal is closed or exits on its own (after `exit`, say), the panel closes with it. A terminal belongs to the conversation that opened it: it shows up only in that conversation's panel, and no other conversation can see or open it; terminals opened for the conversation on another device or browser are listed there too. A new conversation has no terminal until its first message is sent. Each runs your login shell with your own startup files, then puts this installation's `penguin` first on PATH, the same one agents get (see [PATH launcher](/configuration#path-launcher)).
+In the docks, terminals live in one **Command-line terminal** panel per conversation; they also open on the standalone `/terminal` page. The panel's top row holds the conversation's terminals as tabs, each with its number and title: select a tab to switch, **+** to start another terminal, and a tab's × to close that terminal after a confirmation. When the last terminal is closed or exits on its own (after `exit`, say), the panel closes with it. A terminal belongs to the conversation that opened it: it shows up only in that conversation's panel, and no other conversation can see or open it; terminals opened for the conversation on another device or browser are listed there too. A new conversation has no terminal until its first message is sent. Each runs your login shell with your own startup files, then puts this installation's `wafh` first on PATH, the same one agents get (see [PATH launcher](/configuration#path-launcher)).
 
 - Ctrl+` shows or hides the Command-line terminal panel, opening it if it is not open yet and starting a terminal if the conversation has none.
 - Ctrl+Shift+` starts another terminal in the panel.
@@ -378,7 +378,7 @@ The right-click menu replaces the browser's own menu only on conversation rows a
 | Pin | The conversation is pinned |
 | Remote control icon | A messaging connection is enabled for the conversation |
 | Alarm clock | A scheduled task bound to the conversation will still fire; see [Scheduled tasks](/schedules) |
-| Plug, calendar or `>_` prompt | A conversation a program opened, in the sidebar because you unarchived it: what opened it, the Agent API, a scheduled task's run or `penguin run`. Point at the mark to see which |
+| Plug, calendar or `>_` prompt | A conversation a program opened, in the sidebar because you unarchived it: what opened it, the Agent API, a scheduled task's run or `wafh run`. Point at the mark to see which |
 
 The background-task mark does not depend on the others: an idle conversation whose dev server is still running keeps it, and it disappears as soon as the last task ends, without a refresh.
 
@@ -388,7 +388,7 @@ A conversation is archived when you archive it, or when a program opened it and 
 
 - those an external program opens through the [Agent API](/agent-api);
 - the new Session a scheduled task opens on each run;
-- the Sessions `penguin run` creates, including the Test Sessions an evaluation starts for every case and run.
+- the Sessions `wafh run` creates, including the Test Sessions an evaluation starts for every case and run.
 
 Archived conversations are listed under [Settings › Archived chats](/settings#archived-chats), where you can search and filter them, and unarchive or delete them one at a time or in batches.
 

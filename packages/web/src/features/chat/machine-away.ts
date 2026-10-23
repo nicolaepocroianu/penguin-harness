@@ -4,7 +4,7 @@
  * machines account (state/machines.tsx) through `machineLink`, the same reading the composer and
  * the Agent settings page take, so the chat never disagrees with the Machines page.
  */
-import type { MachineInfo, MachinesResponse } from "@prismshadow/penguin-server/api";
+import type { MachineInfo, MachinesResponse } from "@waterford/waf-harness-server/api";
 import { machineLink } from "../../lib/machine-link";
 import type { MachineLink } from "../../lib/machine-link";
 import { S } from "../../lib/strings";

@@ -183,8 +183,8 @@ export const META: SessionMetaPayload = {
   model_id: "claude-sonnet-4-6",
   model_context_window: 200000,
   system_prompt: SYSTEM_PROMPT,
-  agent_state: "/tmp/penguin-prompt-cache/state",
-  workspace: "/tmp/penguin-prompt-cache/workspace",
+  agent_state: "/tmp/wafh-prompt-cache/state",
+  workspace: "/tmp/wafh-prompt-cache/workspace",
   source: "user",
 };
 

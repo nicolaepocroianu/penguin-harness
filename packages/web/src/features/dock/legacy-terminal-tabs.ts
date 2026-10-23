@@ -7,7 +7,7 @@
  * none at all (`~…`) — has no terminal, and simply loses them.
  *
  * The only reader of the old form, applied to the raw stored scope before dock-state.ts sanitizes
- * it. Remove this file and its one call once `penguin.dock.layout` next changes shape (the
+ * it. Remove this file and its one call once `wafh.dock.layout` next changes shape (the
  * 2026-10-18 terminal-scope changelog entry says so).
  */
 

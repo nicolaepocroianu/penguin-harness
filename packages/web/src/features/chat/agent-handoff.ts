@@ -10,24 +10,24 @@
  *
  * The origin **marker blocks** these flows produce and render — `[handoff_from]`,
  * `[scheduled_task]`, `[model_switch_from]` — are defined in core's marker module
- * (`@prismshadow/penguin-core/markers`) alongside every other message marker, and are
+ * (`@waterford/waf-harness-core/markers`) alongside every other message marker, and are
  * re-exported below under this feature's existing names.
  */
-import { buildHandoffMessage, buildModelSwitchMessage } from "@prismshadow/penguin-core/markers";
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
+import { buildHandoffMessage, buildModelSwitchMessage } from "@waterford/waf-harness-core/markers";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
 
 export {
   parseBackgroundTaskDoneMessage,
   parseHandoffMessage,
   parseModelSwitchMessage,
   parseScheduledMessage,
-} from "@prismshadow/penguin-core/markers";
+} from "@waterford/waf-harness-core/markers";
 export type {
   BackgroundTaskDone,
   HandoffOrigin,
   ModelSwitchOrigin,
   ScheduledOrigin,
-} from "@prismshadow/penguin-core/markers";
+} from "@waterford/waf-harness-core/markers";
 
 /** First message of an `/agent` handoff conversation (core's `[handoff_from]` origin block). */
 export const handoffMessage = buildHandoffMessage;

@@ -16,14 +16,14 @@
  *   dictionary.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { ACCENT_PRESET_IDS, INITIAL_THEME_ID, THEME_IDS } from "@prismshadow/penguin-ui";
+import { ACCENT_PRESET_IDS, INITIAL_THEME_ID, THEME_IDS } from "@waterford/waf-harness-ui";
 import {
   FONT_CJK_OPTIONS,
   FONT_LATIN_OPTIONS,
   TEXT_SIZES,
   THEME_STORAGE_KEYS,
   applyThemeAttributes,
-} from "@prismshadow/penguin-ui/boot";
+} from "@waterford/waf-harness-ui/boot";
 import { effectiveAccent, readThemePrefs } from "../src/state/theme-prefs";
 import { fontChoices } from "../src/features/settings/appearance-section";
 import { setActiveStrings } from "../src/lib/strings";
@@ -33,7 +33,7 @@ import { memoryStorage } from "./helpers/storage";
 afterEach(() => setActiveStrings(en));
 
 /** The three-step size of earlier releases, spelled out: it is on disk whatever the code calls it. */
-const LEGACY_TEXT_SIZE_KEY = "penguin.fontScale";
+const LEGACY_TEXT_SIZE_KEY = "wafh.fontScale";
 
 /** An <html> stand-in: attributes behind both `dataset` and get/set/removeAttribute. */
 function fakeRoot() {

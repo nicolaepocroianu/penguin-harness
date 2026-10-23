@@ -3,18 +3,18 @@ import { isReservedEnvKey, sandboxedAgentEnv, validateAgentEnvEntry } from "../s
 import { parseDefinition } from "../src/types.js";
 
 describe("agent env rules", () => {
-  it("reserves the sandbox pass-through names, NO_BROWSER and PENGUIN_*", () => {
+  it("reserves the sandbox pass-through names, NO_BROWSER and WAFH_*", () => {
     for (const key of [
       "PATH",
       "path",
       "UserProfile",
       "NO_BROWSER",
-      "PENGUIN_CODING_AGENT_HOME",
-      "PENGUIN_X",
+      "WAFH_CODING_AGENT_HOME",
+      "WAFH_X",
     ]) {
       expect(isReservedEnvKey(key)).toBe(true);
     }
-    for (const key of ["GEMINI_API_KEY", "COPILOT_GITHUB_TOKEN", "PATHS", "MY_PENGUIN"]) {
+    for (const key of ["GEMINI_API_KEY", "COPILOT_GITHUB_TOKEN", "PATHS", "MY_WAFH"]) {
       expect(isReservedEnvKey(key)).toBe(false);
     }
   });
@@ -26,9 +26,9 @@ describe("agent env rules", () => {
       { NO_BROWSER: "1" },
       {
         PATH: "/usr/bin",
-        PENGUIN_API_URL: "http://127.0.0.1:7364",
-        PENGUIN_API_TOKEN: "admin-token",
-        PENGUIN_SESSION_ID: "s",
+        WAFH_API_URL: "http://127.0.0.1:7364",
+        WAFH_API_TOKEN: "admin-token",
+        WAFH_SESSION_ID: "s",
       },
     );
     expect(env).toEqual({ PATH: "/usr/bin", NO_BROWSER: "1" });
@@ -39,7 +39,7 @@ describe("agent env rules", () => {
     expect(validateAgentEnvEntry("GEMINI_API_KEY", undefined)).toBeNull();
     expect(validateAgentEnvEntry("1BAD", "x")).toMatch(/letter or underscore/);
     expect(validateAgentEnvEntry("HAS-DASH", "x")).toMatch(/letter or underscore/);
-    expect(validateAgentEnvEntry("PATH", "x")).toMatch(/set by Penguin/);
+    expect(validateAgentEnvEntry("PATH", "x")).toMatch(/set by WAF Harness/);
     expect(validateAgentEnvEntry("K", "")).toMatch(/empty/);
     expect(validateAgentEnvEntry("K", "a\nb")).toMatch(/line break/);
     expect(validateAgentEnvEntry("K", "x".repeat(8193))).toMatch(/8192/);

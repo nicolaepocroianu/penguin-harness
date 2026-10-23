@@ -7,7 +7,7 @@
  *
  * - the recipe, fixed as the run's agent starts working (or as the run opens, when no agent works
  *   it): who answered, the bundled skills and helpers its workspace was given (matched by digest
- *   against the bundled library), the harness of a module or test run, and Penguin's version. The
+ *   against the bundled library), the harness of a module or test run, and WAF Harness's version. The
  *   prompt's digest and the build's commit are kept beside it, not in it: a prompt embeds its
  *   inputs, and every commit would otherwise be a recipe of its own;
  * - what a run's checks found, read from its record and its folder once, as it ends (a later
@@ -29,8 +29,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "node:fs";
 import path from "node:path";
-import { buildInfo } from "@prismshadow/penguin-core";
-import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { buildInfo } from "@waterford/waf-harness-core";
+import { Component, Interface, Use, type ClassCtx } from "@waterford/waf-harness-core/kernel";
 import type { Db, Log } from "../hmr/capabilities.js";
 import { DISCARDED_PROPOSAL_FILE } from "./assist.js";
 import type { ActivityDeployEvents } from "./deploy-events.js";
@@ -70,8 +70,8 @@ export type {
 export abstract class ActivityOutcomePorts extends Interface<{
   /** The bundled files a run may be given; the shipped authoring plugins' by default. */
   library?: () => LibraryFile[];
-  /** Penguin's version, and the commit it was built from when known; this build's by default. */
-  build?: () => { penguin: string; commit: string | null };
+  /** WAF Harness's version, and the commit it was built from when known; this build's by default. */
+  build?: () => { wafh: string; commit: string | null };
 }>() {}
 
 @Component()
@@ -174,11 +174,11 @@ function dimensionKey(
     case "prompt":
       return row.prompt_sha256;
     case "library":
-      return recipeId({ runtime: "", library: recipe.library, penguin: "" });
+      return recipeId({ runtime: "", library: recipe.library, wafh: "" });
     case "harness":
       return recipe.harness === undefined ? null : String(recipe.harness);
-    case "penguin":
-      return recipe.penguin;
+    case "wafh":
+      return recipe.wafh;
   }
 }
 
@@ -302,10 +302,10 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
     return this.ports.library?.() ?? bundledLibrary();
   }
 
-  private build(): { penguin: string; commit: string | null } {
+  private build(): { wafh: string; commit: string | null } {
     if (this.ports.build) return this.ports.build();
     const info = buildInfo();
-    return { penguin: info.version, commit: info.commit };
+    return { wafh: info.version, commit: info.commit };
   }
 
   // ---- runs ----
@@ -397,7 +397,7 @@ export class ActivityOutcomeLedger implements ActivityOutcomes {
       runtime,
       this.runs.workspace(run.runId),
       this.library(),
-      build.penguin,
+      build.wafh,
     );
     const id = recipeId(recipe);
     this.db

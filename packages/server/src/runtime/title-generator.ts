@@ -27,7 +27,7 @@ import {
   stripConversationMarkers,
   tokenUsage,
   truncateTitle,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type { ServerEvent } from "../api/types.js";
 import type { ChannelHub } from "./channel.js";
 import type { ErrorSink } from "./error-recorder.js";

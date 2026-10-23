@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { VersionSummary } from "@prismshadow/penguin-server/api";
+import type { VersionSummary } from "@waterford/waf-harness-server/api";
 import {
   VERSION_NAME_MAX,
   kindText,
@@ -38,7 +38,7 @@ describe("versionRows", () => {
       name: null,
       kind: "Automatic · Before an agent's proposal",
       createdAt: "2026-09-25T00:00:03.000Z",
-      author: "Penguin",
+      author: "WAF Harness",
       size: "None",
       current: true,
       deployed: [],

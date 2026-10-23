@@ -3,27 +3,27 @@
 # job therefore gates the release job on the tag's Release not existing yet — dispatching an
 # already-released tag skips the GitHub build/upload while still retrying the OSS mirror and npm publishing.
 # Release jobs (the release job is gated on the existence check):
-# - release: build the monorepo -> pnpm deploy a production CLI dir -> assemble penguin/ (bin + lib + web)
+# - release: build the monorepo -> pnpm deploy a production CLI dir -> assemble wafh/ (bin + lib + web)
 #   -> one program payload per target (four platform payloads bundling the official Node runtime,
 #   a win-x64 payload with runtime + MinGit, and a runtime-less universal payload) -> wrap each
 #   payload, its checksum and the native installer into the canonical installer bundle -> validate
 #   the real bundles -> collect desktop installers/update metadata -> generate release probes and
 #   the source-neutral download manifest -> upload to the Release.
 #   Artifacts (one shape per target, serving online and offline installs alike):
-#   penguin-{linux,darwin}-{x64,arm64}.tar.gz, penguin-universal.tar.gz, penguin-win32-x64.zip,
+#   wafh-{linux,darwin}-{x64,arm64}.tar.gz, wafh-universal.tar.gz, wafh-win32-x64.zip,
 #   their .sha256 files, SHA256SUMS, install.sh, install.ps1, probe-64k.bin, probe-1m.bin,
 #   release-download-manifest.tsv, the desktop installers plus updater metadata/blockmaps, and the
-#   Chrome extension as penguin-browser-extension-<version>.zip plus a version-less copy (GitHub
+#   Chrome extension as wafh-browser-extension-<version>.zip plus a version-less copy (GitHub
 #   only: neither the download manifest nor the OSS mirror lists it); one version per tag,
 #   multiple versions coexist. Releases up to v0.1.5 shipped raw program
 #   archives under the same names plus *-offline wrappers; the installers keep accepting that
 #   legacy layout for pinned versions.
-# - publish-npm: publish the whole chain (the @penguinharness/* plugin packages -> @prismshadow/amsp
-#   -> @prismshadow/penguin-core -> @prismshadow/penguin-server -> @prismshadow/penguin-cli) to npm at the
+# - publish-npm: publish the whole chain (the @waf-harness/* plugin packages -> @waterford/waf-harness-amsp
+#   -> @waterford/waf-harness-core -> @waterford/waf-harness-server -> @waterford/waf-harness-cli) to npm at the
 #   tag version.
-#   core serves the penguin-sdk Skill's `npm install`; server ships the built web assets inside
+#   core serves the wafh-sdk Skill's `npm install`; server ships the built web assets inside
 #   the package (web-dist/, its default web dir falls back to it), so `npm install -g
-#   @prismshadow/penguin-cli` alone yields a working `penguin` incl. the Web UI (needs Node >= 24).
+#   @waterford/waf-harness-cli` alone yields a working `wafh` incl. the Web UI (needs Node >= 24).
 #   The publish flow mirrors MMSP's publish.yml: OIDC trusted publishing (environment: npm +
 #   id-token: write, no token). A Trusted Publisher can only be configured in the settings page of a
 #   package that ALREADY EXISTS on the registry, so a brand-new package cannot be first-published by
@@ -180,14 +180,14 @@ jobs:
           fi
           grep -q 'export const VERSION = "' packages/core/src/index.ts
           sed -i "s/export const VERSION = \"[^\"]*\"/export const VERSION = \"$V\"/" packages/core/src/index.ts
-          SH_MARKER='EMBEDDED_RELEASE_VERSION="__PENGUIN_RELEASE_VERSION__"'
-          PS_MARKER='$EmbeddedReleaseVersion = "__PENGUIN_RELEASE_VERSION__"'
+          SH_MARKER='EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"'
+          PS_MARKER='$EmbeddedReleaseVersion = "__WAFH_RELEASE_VERSION__"'
           if grep -Fq "$SH_MARKER" install.sh; then SH_HAS_MARKER=1; else SH_HAS_MARKER=0; fi
           if grep -Fq "$PS_MARKER" install.ps1; then PS_HAS_MARKER=1; else PS_HAS_MARKER=0; fi
           case "$SH_HAS_MARKER:$PS_HAS_MARKER" in
             1:1)
-              sed -i "s/__PENGUIN_RELEASE_VERSION__/$TAG/g" install.sh
-              sed -i "s/__PENGUIN_RELEASE_VERSION__/$TAG/g" install.ps1
+              sed -i "s/__WAFH_RELEASE_VERSION__/$TAG/g" install.sh
+              sed -i "s/__WAFH_RELEASE_VERSION__/$TAG/g" install.ps1
               grep -Fq "EMBEDDED_RELEASE_VERSION=\"$TAG\"" install.sh
               grep -Fq "\$EmbeddedReleaseVersion = \"$TAG\"" install.ps1
               ;;
@@ -222,9 +222,9 @@ jobs:
       - name: Build (tsup + vite)
         run: pnpm build
 
-      # The Chrome extension (PenguinHarness Browser), zipped by its own build above. It ships
+      # The Chrome extension (WAF Harness Browser), zipped by its own build above. It ships
       # under its versioned name and a version-less copy, so the docs and the Web App's pairing
-      # dialog can link to releases/latest/download/penguin-browser-extension.zip, for users who
+      # dialog can link to releases/latest/download/wafh-browser-extension.zip, for users who
       # cannot reach the Chrome Web Store listing and load it unpacked; the manifest's pinned key
       # keeps the extension id the same across both. Tags from before the extension have no
       # zip and skip this step, so they stay rebuildable.
@@ -233,34 +233,34 @@ jobs:
           TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
           mkdir -p extension-artifacts
-          set -- packages/browser-extension/dist/penguin-browser-extension-*.zip
+          set -- packages/browser-extension/dist/wafh-browser-extension-*.zip
           if [ ! -f "$1" ]; then
             echo "No Chrome extension in this tag; nothing to collect."
             exit 0
           fi
-          cp "$1" "extension-artifacts/penguin-browser-extension-${TAG#v}.zip"
-          cp "$1" extension-artifacts/penguin-browser-extension.zip
-          unzip -l extension-artifacts/penguin-browser-extension.zip | grep -q ' manifest.json$'
+          cp "$1" "extension-artifacts/wafh-browser-extension-${TAG#v}.zip"
+          cp "$1" extension-artifacts/wafh-browser-extension.zip
+          unzip -l extension-artifacts/wafh-browser-extension.zip | grep -q ' manifest.json$'
 
       # lib/: the CLI and its production deps (including workspace core/server/skills, all build outputs);
       # Use pnpm's current deploy implementation with injected workspace packages; the hoisted target layout
       # avoids deeply nested .pnpm/node_modules paths that exceed Windows PowerShell 5.1's legacy MAX_PATH limit.
-      # bin/penguin is scripts/launchers/penguin, shipped verbatim — it is the one spelling of
-      # the payload layout (lib/dist/penguin.js, web/, an optional node/), and the shape
+      # bin/wafh is scripts/launchers/wafh, shipped verbatim — it is the one spelling of
+      # the payload layout (lib/dist/wafh.js, web/, an optional node/), and the shape
       # scripts/test-installer.sh pins.
       # lib/plugins/: the builtin plugins (the sandbox backends among them) as the npm prefix
       # the desktop app ships too — the server looks one directory above dist/ for it — so an
       # installed CLI enables this platform's sandbox backend from the Plugins page with no
       # registry, the same as the desktop app. Shipped, not installed: nothing loads until the
       # operator adds it. One prefix serves every payload below (native parts per platform).
-      - name: Assemble penguin/ (lib + web + bin + plugins)
+      - name: Assemble wafh/ (lib + web + bin + plugins)
         run: |
-          pnpm --config.node-linker=hoisted --filter @prismshadow/penguin-cli --prod deploy "$PWD/out/penguin/lib"
-          rm -f out/penguin/lib/pnpm-workspace.yaml
-          cp -r packages/web/dist out/penguin/web
-          install -D -m 755 scripts/launchers/penguin out/penguin/bin/penguin
-          node scripts/build-plugins.mjs --out out/penguin/lib/plugins
-          test -f out/penguin/lib/plugins/node_modules/@penguinharness/sandbox-bwrap/package.json
+          pnpm --config.node-linker=hoisted --filter @waterford/waf-harness-cli --prod deploy "$PWD/out/wafh/lib"
+          rm -f out/wafh/lib/pnpm-workspace.yaml
+          cp -r packages/web/dist out/wafh/web
+          install -D -m 755 scripts/launchers/wafh out/wafh/bin/wafh
+          node scripts/build-plugins.mjs --out out/wafh/lib/plugins
+          test -f out/wafh/lib/plugins/node_modules/@waf-harness/sandbox-bwrap/package.json
 
       # lib/dist/install-image.gz: this release's harness in the hot push's format, packed by the
       # push's own packer from the stamped sources. An installed server with nothing pushed to it
@@ -270,8 +270,8 @@ jobs:
       # its native modules first.
       - name: Pack the install image
         run: |
-          node scripts/deploy.mjs --out out/penguin/lib/dist/install-image.gz --skip-web-build
-          test -s out/penguin/lib/dist/install-image.gz
+          node scripts/deploy.mjs --out out/wafh/lib/dist/install-image.gz --skip-web-build
+          test -s out/wafh/lib/dist/install-image.gz
 
       # node-pty compiles its terminal binding when it is installed, for the machine installing
       # it — this runner, linux-x64 — and publishes prebuilds for darwin and win32 only. So the
@@ -286,7 +286,7 @@ jobs:
           platforms: arm64
       - name: Build node-pty for linux-arm64
         run: |
-          pty=out/penguin/lib/node_modules/node-pty
+          pty=out/wafh/lib/node_modules/node-pty
           version="$(node -p "require('./$pty/package.json').version")"
           mkdir -p "$pty/prebuilds/linux-arm64"
           docker run --rm --platform linux/arm64 -v "$PWD/$pty/prebuilds/linux-arm64:/out" \
@@ -312,30 +312,30 @@ jobs:
             name="node-$NODE_RUNTIME_VERSION-$os-$arch"
             if [ "$os" = "linux" ]; then ext="tar.xz"; else ext="tar.gz"; fi
             curl -fsSL "https://nodejs.org/dist/$NODE_RUNTIME_VERSION/$name.$ext" -o "/tmp/$name.$ext"
-            rm -rf /tmp/node-runtime out/penguin/node
+            rm -rf /tmp/node-runtime out/wafh/node
             mkdir -p /tmp/node-runtime
             if [ "$ext" = "tar.xz" ]; then
               tar -xJf "/tmp/$name.$ext" -C /tmp/node-runtime
             else
               tar -xzf "/tmp/$name.$ext" -C /tmp/node-runtime
             fi
-            mv "/tmp/node-runtime/$name" out/penguin/node
-            rm -rf out/penguin/node/share/doc out/penguin/node/share/man
-            printf '{"schemaVersion":1,"target":"%s"}\n' "$os-$arch" > out/penguin/package-manifest.json
-            tar -czf "payloads/$os-$arch.tar.gz" -C out penguin
+            mv "/tmp/node-runtime/$name" out/wafh/node
+            rm -rf out/wafh/node/share/doc out/wafh/node/share/man
+            printf '{"schemaVersion":1,"target":"%s"}\n' "$os-$arch" > out/wafh/package-manifest.json
+            tar -czf "payloads/$os-$arch.tar.gz" -C out wafh
           done
           # Universal payload: no bundled runtime, requires system Node >= 24.
-          rm -rf out/penguin/node
-          printf '{"schemaVersion":1,"target":"universal"}\n' > out/penguin/package-manifest.json
-          tar -czf payloads/universal.tar.gz -C out penguin
+          rm -rf out/wafh/node
+          printf '{"schemaVersion":1,"target":"universal"}\n' > out/wafh/package-manifest.json
+          tar -czf payloads/universal.tar.gz -C out wafh
 
       # Windows payload: same lib/ + web/ layout, but a .zip (the native format), the official
       # win-x64 Node runtime — whose zip has node.exe at the ARCHIVE ROOT, not bin/ — and
-      # penguin.cmd replacing the sh launcher (see scripts/launchers/penguin.cmd, including why
-      # there is deliberately no penguin.ps1).
+      # wafh.cmd replacing the sh launcher (see scripts/launchers/wafh.cmd, including why
+      # there is deliberately no wafh.ps1).
       #
       # It also bundles MinGit under git\, so exec_command has a POSIX shell even on a machine
-      # with no Git for Windows: the shims advertise git\usr\bin\sh.exe as PENGUIN_BUNDLED_SHELL
+      # with no Git for Windows: the shims advertise git\usr\bin\sh.exe as WAFH_BUNDLED_SHELL
       # and the resolver (core's shell.ts) uses it only when the user has no bash of their own.
       # MinGit is unpacked with its tree intact — MSYS binaries locate /etc relative to the
       # directory holding msys-2.0.dll, so `sh -lc` finds git\etc\profile and gets the usual
@@ -344,26 +344,26 @@ jobs:
         run: |
           name="node-$NODE_RUNTIME_VERSION-win-x64"
           curl -fsSL "https://nodejs.org/dist/$NODE_RUNTIME_VERSION/$name.zip" -o "/tmp/$name.zip"
-          rm -rf /tmp/node-runtime out/penguin/node
+          rm -rf /tmp/node-runtime out/wafh/node
           mkdir -p /tmp/node-runtime
           unzip -q "/tmp/$name.zip" -d /tmp/node-runtime
-          mv "/tmp/node-runtime/$name" out/penguin/node
+          mv "/tmp/node-runtime/$name" out/wafh/node
           # MinGit unzips flat (no top-level directory), so give it its own destination.
           mingit="MinGit-$MINGIT_VERSION-64-bit.zip"
           curl -fsSL "https://github.com/git-for-windows/git/releases/download/$MINGIT_TAG/$mingit" -o "/tmp/$mingit"
-          rm -rf out/penguin/git
-          mkdir -p out/penguin/git
-          unzip -q "/tmp/$mingit" -d out/penguin/git
+          rm -rf out/wafh/git
+          mkdir -p out/wafh/git
+          unzip -q "/tmp/$mingit" -d out/wafh/git
           # Fail loudly here rather than shipping a package whose shell silently does not exist.
-          test -f out/penguin/git/usr/bin/sh.exe
-          test -f out/penguin/git/etc/profile
-          printf '{"schemaVersion":1,"target":"win32-x64"}\n' > out/penguin/package-manifest.json
-          # The Windows package ships penguin.cmd INSTEAD of the sh launcher: a bare `penguin`
+          test -f out/wafh/git/usr/bin/sh.exe
+          test -f out/wafh/git/etc/profile
+          printf '{"schemaVersion":1,"target":"win32-x64"}\n' > out/wafh/package-manifest.json
+          # The Windows package ships wafh.cmd INSTEAD of the sh launcher: a bare `wafh`
           # on PATH would be picked up by Git Bash and run the wrong thing. The committed file
           # is CRLF (.gitattributes), the only form cmd.exe is fully reliable with.
-          rm -f out/penguin/bin/penguin
-          install -D -m 644 scripts/launchers/penguin.cmd out/penguin/bin/penguin.cmd
-          (cd out && zip -qr ../payloads/win32-x64.zip penguin)
+          rm -f out/wafh/bin/wafh
+          install -D -m 644 scripts/launchers/wafh.cmd out/wafh/bin/wafh.cmd
+          (cd out && zip -qr ../payloads/win32-x64.zip wafh)
 
       # The canonical artifacts: each payload is sealed with its checksum and the native
       # installer into one flat bundle per target (see scripts/package-release-bundles.sh).
@@ -390,7 +390,7 @@ jobs:
           }
 
           for target in linux-x64 linux-arm64 darwin-x64 darwin-arm64 universal; do
-            bundle="penguin-$target.tar.gz"
+            bundle="wafh-$target.tar.gz"
             (cd "$ARTIFACT_DIR" && sha256sum -c "$bundle.sha256")
             extracted="$WORK_DIR/$target"
             mkdir -p "$extracted"
@@ -403,7 +403,7 @@ jobs:
             cmp "$PAYLOAD_DIR/$target.tar.gz" "$extracted/payload.tar.gz"
           done
 
-          bundle="penguin-win32-x64.zip"
+          bundle="wafh-win32-x64.zip"
           (cd "$ARTIFACT_DIR" && sha256sum -c "$bundle.sha256")
           extracted="$WORK_DIR/win32-x64"
           mkdir -p "$extracted"
@@ -437,11 +437,11 @@ jobs:
         run: |
           cd desktop-artifacts
           sha256sum -- \
-            penguin-desktop-*.AppImage \
-            penguin-desktop-*.deb \
-            penguin-desktop-*.dmg \
-            penguin-desktop-*.zip \
-            penguin-desktop-*.exe \
+            wafh-desktop-*.AppImage \
+            wafh-desktop-*.deb \
+            wafh-desktop-*.dmg \
+            wafh-desktop-*.zip \
+            wafh-desktop-*.exe \
             latest*.yml \
             *.blockmap > SHA256SUMS.desktop
 
@@ -497,11 +497,11 @@ jobs:
             dist-artifacts/SHA256SUMS
             dist-artifacts/probe-*.bin
             dist-artifacts/release-download-manifest.tsv
-            desktop-artifacts/penguin-desktop-*.AppImage
-            desktop-artifacts/penguin-desktop-*.deb
-            desktop-artifacts/penguin-desktop-*.dmg
-            desktop-artifacts/penguin-desktop-*.zip
-            desktop-artifacts/penguin-desktop-*.exe
+            desktop-artifacts/wafh-desktop-*.AppImage
+            desktop-artifacts/wafh-desktop-*.deb
+            desktop-artifacts/wafh-desktop-*.dmg
+            desktop-artifacts/wafh-desktop-*.zip
+            desktop-artifacts/wafh-desktop-*.exe
             desktop-artifacts/latest*.yml
             desktop-artifacts/*.blockmap
             desktop-artifacts/SHA256SUMS.desktop
@@ -519,7 +519,7 @@ jobs:
            (needs.release.result == 'skipped' && needs.check-release.outputs.exists == 'true')) }}
     runs-on: ubuntu-latest
     concurrency:
-      group: penguin-oss-production
+      group: wafh-oss-production
       cancel-in-progress: false
     permissions:
       contents: read
@@ -563,7 +563,7 @@ jobs:
         with:
           oidc-provider-arn: ${{ vars.ALIYUN_OIDC_PROVIDER_ARN }}
           role-to-assume: ${{ vars.ALIYUN_ROLE_ARN }}
-          role-session-name: penguin-oss-${{ github.run_id }}
+          role-session-name: wafh-oss-${{ github.run_id }}
           role-session-expiration: 1800
           audience: github-actions
 
@@ -618,7 +618,7 @@ jobs:
       contents: read
     environment:
       name: npm
-      url: https://www.npmjs.com/package/@prismshadow/penguin-cli
+      url: https://www.npmjs.com/package/@waterford/waf-harness-cli
     steps:
       - uses: actions/checkout@v5
         with:
@@ -661,7 +661,7 @@ jobs:
 
       # `pnpm -r build` rather than a list of the packages that get published: it builds the whole
       # workspace in dependency order, so a package added later cannot fall out of a list nobody
-      # remembers to update. That is what broke 0.2.12 -- `packages/hmr` arrived, `penguin-server`
+      # remembers to update. That is what broke 0.2.12 -- `packages/hmr` arrived, `wafh-server`
       # took a dependency on it, and the list still named four packages, each with a bare
       # `--filter` that builds the package alone and not what it needs. web is built here for the
       # same reason it always was: it is copied into the server package below.
@@ -672,7 +672,7 @@ jobs:
 
       # Copy LICENSE into the package dirs (the files allowlist includes it, so artifacts ship the license)
       # and the built web assets into the server package (web-dist/, in its files allowlist: an npm install
-      # serves the Web UI from there without PENGUIN_WEB_DIST).
+      # serves the Web UI from there without WAFH_WEB_DIST).
       # Idempotent: a version already on the registry is skipped. The check tests `npm view`'s output
       # rather than its exit code -- for a missing version of an existing package, older npm exits 0 and
       # newer npm exits 1, but the output is non-empty only when the version exists. Re-running the tag
@@ -698,11 +698,11 @@ jobs:
           done
           rm -rf packages/server/web-dist
           cp -r packages/web/dist packages/server/web-dist
-          # The @penguinharness/* plugin packages go first: core declares them as workspace:*
+          # The @waf-harness/* plugin packages go first: core declares them as workspace:*
           # deps, rewritten to their versions at publish time, so they must exist first.
           for dir in plugins/*/; do
             # Read the name and the private flag out of the manifest rather than assuming them:
-            # a name is not always @penguinharness/<dir>, and not every plugin is published (the
+            # a name is not always @waf-harness/<dir>, and not every plugin is published (the
             # server plugins that were never first-published are private); a private package
             # queried on npm filters to nothing.
             # Publishing is driven by what each package says it is.
@@ -718,9 +718,9 @@ jobs:
             fi
             pnpm --filter "$name" publish --access public --no-git-checks
           done
-          # Full names, in dependency order: @prismshadow/amsp is not a penguin-* name, and the
+          # Full names, in dependency order: @waterford/waf-harness-amsp is not a wafh-* name, and the
           # server depends on it, so it goes first.
-          for name in @prismshadow/amsp @prismshadow/penguin-core @prismshadow/penguin-server @prismshadow/penguin-cli; do
+          for name in @waterford/waf-harness-amsp @waterford/waf-harness-core @waterford/waf-harness-server @waterford/waf-harness-cli; do
             if [ -n "$(npm view "$name@$V" version 2>/dev/null || true)" ]; then
               echo "$name@$V already on the registry, skipping."
               continue

@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
-import type { ConfinedArgv } from "@prismshadow/penguin-core/plugin";
+import type { ConfinedArgv } from "@waterford/waf-harness-core/plugin";
 import {
   assertAclRunnerCanStart as check,
   assertSessionShellConfinable,
@@ -13,7 +13,7 @@ import {
   loadDshAdaptor,
 } from "../src/index.js";
 
-const REFUSED = /sandbox-dsh cannot confine .* PENGUIN_SHELL=pwsh .* PENGUIN_SHELL=powershell/;
+const REFUSED = /sandbox-dsh cannot confine .* WAFH_SHELL=pwsh .* WAFH_SHELL=powershell/;
 const BASH = "C:\\Program Files\\Git\\usr\\bin\\BASH.EXE";
 
 describe("the Windows session shell check", () => {
@@ -26,11 +26,11 @@ describe("the Windows session shell check", () => {
     expect(() => check([program], "win32")).not.toThrow(),
   );
 
-  it("names PENGUIN_SHELL only when the refused program is the session shell", () => {
-    // An MCP Server's launch command goes through the same confine(); PENGUIN_SHELL does not pick it.
+  it("names WAFH_SHELL only when the refused program is the session shell", () => {
+    // An MCP Server's launch command goes through the same confine(); WAFH_SHELL does not pick it.
     const mcp = () => check(["bash", "-c", "node s.js"], "win32", { command: "pwsh" });
     expect(mcp).toThrow(/does not start bash, sh or any other MSYS-runtime program/);
-    expect(mcp).not.toThrow(/PENGUIN_SHELL/);
+    expect(mcp).not.toThrow(/WAFH_SHELL/);
     expect(() => check([BASH], "win32", { command: BASH })).toThrow(REFUSED);
   });
 
@@ -55,7 +55,7 @@ describe("the Windows session shell check", () => {
   });
 });
 
-const ws = mkdtempSync(path.join(tmpdir(), "penguin-dsh-shells-"));
+const ws = mkdtempSync(path.join(tmpdir(), "wafh-dsh-shells-"));
 afterAll(() => rmSync(ws, { recursive: true, force: true }));
 // Loaded as on a host core without the session shell, so the suite reaches the per-command check.
 const provider =
@@ -84,7 +84,7 @@ describe.skipIf(!usable)("the real ACL runner (Windows, host-gated)", () => {
   it.each(["powershell", ...(pwsh ? ["pwsh"] : [])])(
     "%s runs confined",
     (shell) => {
-      const outside = path.join(homedir(), `penguin-dsh-shells-${shell}-${process.pid}.txt`);
+      const outside = path.join(homedir(), `wafh-dsh-shells-${shell}-${process.pid}.txt`);
       try {
         const body = `Set-Content -LiteralPath in-${shell}.txt -Value ok; try { Set-Content -LiteralPath '${outside}' -Value leak -ErrorAction Stop } catch { $_.Exception.Message }`;
         const r = run(confine([shell, "-NoLogo", "-NoProfile", "-Command", body]));

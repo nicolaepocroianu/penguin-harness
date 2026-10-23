@@ -72,9 +72,9 @@
  * rather than dropped quietly, and none of it is posted into the chat (see
  * messagingFilesNotSentRecords).
  */
-import { imageUrlMessage, scratchpadDir, userText } from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
-import { toFallbackMarkdown } from "@prismshadow/penguin-core/a2ui";
+import { imageUrlMessage, scratchpadDir, userText } from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
+import { toFallbackMarkdown } from "@waterford/waf-harness-core/a2ui";
 import type { MessagingDeliveryError, MessagingRuntimeStatus } from "../../api/types.js";
 import type { MessagingBindingRow } from "../../db/repos/messaging-bindings.js";
 import { INLINE_IMAGE_MAX_BYTES, toAttachmentLimits } from "../../services/attachment-limits.js";
@@ -105,8 +105,15 @@ import {
   isImageFileName,
 } from "./media.js";
 import { replyFileMentions } from "./reply-files.js";
-import { Component, Interface, Bind, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
-import type { Slot, ClassCtx } from "@prismshadow/penguin-core/kernel";
+import {
+  Component,
+  Interface,
+  Bind,
+  Module,
+  Provide,
+  Use,
+} from "@waterford/waf-harness-core/kernel";
+import type { Slot, ClassCtx } from "@waterford/waf-harness-core/kernel";
 import type { QQScanTransportHandle } from "./qq-scan.js";
 import { QQScanService, createQQScanTransport } from "./qq-scan.js";
 import type { AppEnv } from "../../auth/middleware.js";
@@ -290,9 +297,9 @@ export function messagingInboundFileFailedNotice(fileName: string, reason: strin
 }
 
 export const MESSAGING_APPROVAL_NOTICE =
-  "A tool call is waiting for your approval in the PenguinHarness web UI.";
+  "A tool call is waiting for your approval in the WAF Harness web UI.";
 export const MESSAGING_TEST_MESSAGE =
-  "PenguinHarness test message: this Session's messaging binding works.";
+  "WAF Harness test message: this Session's messaging binding works.";
 
 /**
  * Per-file ceilings for a mirrored file, and how many of them one run may send.

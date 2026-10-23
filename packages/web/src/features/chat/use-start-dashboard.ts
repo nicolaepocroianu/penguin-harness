@@ -4,7 +4,7 @@
  * follows a plugin installed or removed, or a Benchmark imported or deleted, as soon as the user
  * comes back to the page — and does not drop back to "—" while the fresh list is on its way.
  */
-import type { BenchmarkSummary } from "@prismshadow/penguin-server/api";
+import type { BenchmarkSummary } from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { useFreshRead } from "../../lib/use-fresh-read";
 

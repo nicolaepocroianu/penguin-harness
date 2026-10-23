@@ -43,7 +43,7 @@ import type { Zippable } from "fflate";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { parse as parseYaml } from "yaml";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { benchmarksDir } from "@prismshadow/penguin-core";
+import { benchmarksDir } from "@waterford/waf-harness-core";
 import type {
   BenchmarkArchiveImportResponse,
   BenchmarksResponse,

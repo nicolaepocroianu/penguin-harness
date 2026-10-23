@@ -10,7 +10,7 @@ import { handoffMessage } from "../src/features/chat/agent-handoff";
 import {
   buildBackgroundTaskDoneMessage,
   buildScheduledMessage,
-} from "@prismshadow/penguin-core/markers";
+} from "@waterford/waf-harness-core/markers";
 import {
   buildInputHistory,
   caretOnFirstLine,

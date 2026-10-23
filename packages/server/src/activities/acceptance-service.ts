@@ -3,7 +3,7 @@
  *
  * This service decides whether a test run can start and prepares it; the run itself is an
  * ordinary run (`ActivityGeneration.start` with `test`): a traced Session with approvals, in
- * which the agent writes `acceptance.test.mjs` against Penguin's harness API and runs it in the
+ * which the agent writes `acceptance.test.mjs` against WAF Harness's harness API and runs it in the
  * test browser, unless there are tests to reuse. The generation service collects `acceptance-results.json` into
  * the run's report, `reports/test.json`; the latest finished test run's report is the
  * activity's.
@@ -18,7 +18,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use, type ClassCtx } from "@waterford/waf-harness-core/kernel";
 import type { Log } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
@@ -223,7 +223,7 @@ export class ActivityAcceptanceService implements ActivityAcceptance {
       throw new HttpError(
         503,
         "test_browser_unavailable",
-        "This copy of Penguin does not include Playwright, so it cannot run the tests.",
+        "This copy of WAF Harness does not include Playwright, so it cannot run the tests.",
       );
     const build = await this.playedBuild(projectId, activity, moduleRunId);
     const playUrl = await this.browser.playUrl(

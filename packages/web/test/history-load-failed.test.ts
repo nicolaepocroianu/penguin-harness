@@ -16,7 +16,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement as h } from "react";
-import type { MachineInfo, MachinesResponse } from "@prismshadow/penguin-server/api";
+import type { MachineInfo, MachinesResponse } from "@waterford/waf-harness-server/api";
 import { ADMIN_ME } from "./helpers/admin-settings";
 import { button, click, mount, settle, unmountAll, waitFor } from "./helpers/dom";
 import { apiError, json, stubFetch } from "./helpers/fetch";
@@ -58,7 +58,7 @@ function machineList(link: Link): MachinesResponse {
         }),
     keepConnected: true,
     api: null,
-    root: "~/.penguin/data",
+    root: "~/.waf-harness/data",
     status: null,
   } as unknown as MachineInfo;
   return { machines: [machine], imageVersion: "0.2.16", job: null } as unknown as MachinesResponse;

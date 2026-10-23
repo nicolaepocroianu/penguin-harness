@@ -52,7 +52,7 @@ function changeText(row: OrgDeskNoticeRow, doc: TicketDoc | null): string {
     }
     case "blocker_closed": {
       const which = blockedBy === null ? "" : ` (${blockedBy})`;
-      return `${label}${which} — verify, then \`penguin org ticket unblock ${row.ticketId}\``;
+      return `${label}${which} — verify, then \`wafh org ticket unblock ${row.ticketId}\``;
     }
     case "rejected": {
       // A rejection's reason is appended to the ticket's `## Result` by the move that made it.
@@ -84,6 +84,6 @@ export function deskDigest(
     "## Since your last sweep",
     ...lines,
     "",
-    'Decide on each: start a ticket session (`penguin org ticket start <id> -m "…"`), verify and unblock, or leave it — do not do the work at your desk.',
+    'Decide on each: start a ticket session (`wafh org ticket start <id> -m "…"`), verify and unblock, or leave it — do not do the work at your desk.',
   ].join("\n");
 }

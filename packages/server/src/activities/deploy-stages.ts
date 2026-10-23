@@ -64,7 +64,7 @@
  * The npm checks and the stylesheet compile run the module's own code (its package.json
  * scripts, its webpack config, what `npm ci` installs), which a run's agent may have written.
  * So they run in the module's check folder (`DeployStageContext.module.checkDir`), never in the
- * clone: a folder of Penguin's own outside every clone, made afresh for each run of them from
+ * clone: a folder of WAF Harness's own outside every clone, made afresh for each run of them from
  * the commit they check (`Clone.exportTo`), holding no `.git`, and removed once they end however
  * they end. There they start as a build of a run's module does (`runBuildSpawn`): with none of
  * this server's environment and, while activity agents are confined, through the session
@@ -79,7 +79,7 @@ import { randomUUID } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { SpawnConfiner } from "@prismshadow/penguin-core";
+import type { SpawnConfiner } from "@waterford/waf-harness-core";
 import { HttpError } from "../http/errors.js";
 import {
   CloneError,
@@ -733,7 +733,7 @@ const verifyModule: DeployStageDefinition = {
       await clone.stage();
       const authored = await clone.commitStaged(
         identityOf(ctx),
-        `Penguin Harness: ${ctx.productCode} as authored`,
+        `WAF Harness: ${ctx.productCode} as authored`,
       );
       ctx.log(
         authored

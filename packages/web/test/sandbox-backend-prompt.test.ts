@@ -18,7 +18,7 @@ function memoryStorage(): PromptStorage & { data: Map<string, string> } {
   return { data, getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v) };
 }
 
-const LINUX = ["@penguinharness/sandbox-bwrap", "@penguinharness/sandbox-dsh"];
+const LINUX = ["@waf-harness/sandbox-bwrap", "@waf-harness/sandbox-dsh"];
 const MISSING = { backend: { installed: false, recommended: LINUX } };
 
 describe("the default-backend prompt", () => {

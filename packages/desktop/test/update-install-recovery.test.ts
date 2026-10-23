@@ -12,7 +12,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ElectronHttpExecutor } from "electron-updater/out/electronHttpExecutor.js";
 import type { WindowsUpdater } from "../src/windows-updater.js";
-import type { DesktopUpdateStatus } from "@prismshadow/penguin-server/api";
+import type { DesktopUpdateStatus } from "@waterford/waf-harness-server/api";
 
 const boundary = vi.hoisted(() => ({
   root: "",
@@ -31,7 +31,7 @@ vi.mock("electron", () => ({
 
 // The fork's own builds publish no releases and stand the updater down (updater.ts); these
 // cases are about a build that does update itself.
-vi.mock("@prismshadow/penguin-core/release-identity", () => ({
+vi.mock("@waterford/waf-harness-core/release-identity", () => ({
   RELEASE_IDENTITY: { repository: "Prism-Shadow/penguin-harness", publishesReleases: true },
 }));
 
@@ -68,7 +68,7 @@ const latest = `version: 99.0.0\nfiles:\n  - url: installer.exe\n    sha512: ${s
 async function fixture() {
   vi.resetModules();
   vi.useFakeTimers();
-  boundary.root = await mkdtemp(path.join(os.tmpdir(), "penguin-install-recovery-"));
+  boundary.root = await mkdtemp(path.join(os.tmpdir(), "wafh-install-recovery-"));
   boundary.valid = true;
   boundary.installations = 0;
   boundary.showMessageBox.mockReset().mockResolvedValue({ response: 1 });
@@ -76,7 +76,7 @@ async function fixture() {
     path.join(boundary.root, "app-update.yml"),
     "provider: generic\nurl: https://updates.example/\nupdaterCacheDirName: cache\npublisherName: Old Publisher\n",
   );
-  vi.stubEnv("PENGUIN_UPDATE_FEED_URL", "https://updates.example/");
+  vi.stubEnv("WAFH_UPDATE_FEED_URL", "https://updates.example/");
   vi.spyOn(childProcess, "execFile").mockImplementation((...args: unknown[]) => {
     const options = args[2] as { env: Record<string, string> };
     const callback = args[3] as (e: Error | null, out: string, err: string) => void;
@@ -85,7 +85,7 @@ async function fixture() {
       JSON.stringify({
         Status: boundary.valid ? 0 : 2,
         HasSigner: boundary.valid,
-        Path: options.env.PENGUIN_UPDATE_VERIFY_PATH,
+        Path: options.env.WAFH_UPDATE_VERIFY_PATH,
       }),
       "",
     );

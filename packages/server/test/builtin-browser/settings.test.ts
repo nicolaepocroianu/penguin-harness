@@ -11,7 +11,7 @@ import { SettingsStore, settingsFile } from "../../src/builtin-browser/settings.
 
 let root: string;
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-bb-settings-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-bb-settings-"));
 });
 afterEach(async () => {
   await fs.rm(root, { recursive: true, force: true });

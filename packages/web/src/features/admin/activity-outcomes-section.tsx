@@ -7,14 +7,14 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import type { OutcomeFact, OutcomeRun, OutcomeTally } from "@prismshadow/penguin-server/api";
+import type { OutcomeFact, OutcomeRun, OutcomeTally } from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";
 import { toneInk } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
-import { Button, InfoPopover, Segmented, Select } from "@prismshadow/penguin-ui";
+import { Button, InfoPopover, Segmented, Select } from "@waterford/waf-harness-ui";
 import {
   TABLE,
   TABLE_HEAD_ROW,
@@ -306,7 +306,7 @@ function TallyTable({
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {shortKey(tally.key ?? "")} ·{" "}
                       {words.recipeDetail(
-                        parts.penguin,
+                        parts.wafh,
                         parts.libraries.join(", ") || words.noSkills,
                         parts.harness,
                       )}

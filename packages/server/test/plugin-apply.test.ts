@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { HotResources } from "@prismshadow/penguin-hmr";
+import { HotResources } from "@waterford/waf-harness-hmr";
 import { PLUGINS_RESOURCE_ID, PluginHost, pluginHostFrom } from "../src/plugin/host.js";
 import { writeClassPackage } from "./plugin-fixtures.js";
 import { DEFAULT_PLUGINS, loadPluginHost } from "../src/plugin/loader.js";
@@ -31,7 +31,7 @@ function listedModules(host: PluginHost): string[] {
 
 /** A data root whose one Project asks for these specifiers. */
 async function rootAsking(specifiers: string[]): Promise<string> {
-  const root = await mkdtemp(path.join(tmpdir(), "penguin-apply-"));
+  const root = await mkdtemp(path.join(tmpdir(), "wafh-apply-"));
   await mkdir(path.join(root, "p1"), { recursive: true });
   await writeFile(
     path.join(root, "p1", ".project_config.toml"),

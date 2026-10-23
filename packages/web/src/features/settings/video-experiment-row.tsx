@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import * as api from "../../api/endpoints";
-import { Badge, Switch, PrefRow } from "@prismshadow/penguin-ui";
+import { Badge, Switch, PrefRow } from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 

@@ -6,7 +6,7 @@
  * folder then falls back to a generic heading rather than hiding the runs.
  */
 import { useEffect, useRef, useState } from "react";
-import type { ActivityRecord } from "@prismshadow/penguin-server/api";
+import type { ActivityRecord } from "@waterford/waf-harness-server/api";
 import { apiFetch } from "../api/client";
 import type { ActivityLabel } from "../lib/activity-sessions";
 

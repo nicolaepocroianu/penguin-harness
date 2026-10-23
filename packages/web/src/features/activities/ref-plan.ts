@@ -6,7 +6,11 @@
  * Pure, so the page and the tests cannot disagree about what a row asks for.
  */
 import { isUploadPath } from "./media-library";
-import type { AssetManifest, MediaAsset, RefAssetDecision } from "@prismshadow/penguin-server/api";
+import type {
+  AssetManifest,
+  MediaAsset,
+  RefAssetDecision,
+} from "@waterford/waf-harness-server/api";
 
 /** What happens to one asset: kept, generated again, replaced by a file, or by an upload. */
 export type RowAction = "keep" | "regenerate" | "upload" | "library";

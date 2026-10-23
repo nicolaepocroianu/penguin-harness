@@ -8,8 +8,8 @@
  *   and no card hands the user a secret-shaped placeholder to fill.
  * - The agent tail runs agent-initialization, and the onboarding card names the agent it seeds.
  * - The models and vault tails name the Project (and the vault tail the target agent), and every
- *   CLI call in them names `--root`: the harness strips `PENGUIN_HOME` from a command's
- *   environment, so a `penguin config` call without it configures another data root.
+ *   CLI call in them names `--root`: the harness strips `WAFH_HOME` from a command's
+ *   environment, so a `wafh config` call without it configures another data root.
  */
 import { describe, expect, it } from "vitest";
 
@@ -48,24 +48,24 @@ describe.each([["en", en]] as const)("%s dictionary", (_locale, dict) => {
 
   it("names the Project and the data root in the models tail, since the CLI would default both", () => {
     const tail = dict.models.aiAddTail("alice-default_project");
-    expect(tail).toContain("penguin-config");
-    expect(tail).toContain("penguin config model add --provider");
+    expect(tail).toContain("wafh-config");
+    expect(tail).toContain("wafh config model add --provider");
     expect(tail).toContain("--project-id alice-default_project");
-    expect(tail).toContain("penguin config model list");
-    // Every penguin invocation in the tail is rooted; the CLI's own default is not the
-    // server's root, because a command's environment carries no PENGUIN_HOME.
-    for (const line of tail.split("\n").filter((l) => l.includes("penguin config"))) {
+    expect(tail).toContain("wafh config model list");
+    // Every wafh invocation in the tail is rooted; the CLI's own default is not the
+    // server's root, because a command's environment carries no WAFH_HOME.
+    for (const line of tail.split("\n").filter((l) => l.includes("wafh config"))) {
       expect(line).toContain("--root");
     }
   });
 
   it("names the target agent, the Project and the data root in the vault tail, and lists the keys at the end", () => {
     const tail = dict.vault.aiAddTail("report-writer", "alice-default_project");
-    expect(tail).toContain("penguin config vault set");
+    expect(tail).toContain("wafh config vault set");
     expect(tail).toContain("--agent-id report-writer --project-id alice-default_project");
-    expect(tail).toContain("penguin config vault list");
+    expect(tail).toContain("wafh config vault list");
     expect(tail).toContain(".vault.toml");
-    for (const line of tail.split("\n").filter((l) => l.includes("penguin config"))) {
+    for (const line of tail.split("\n").filter((l) => l.includes("wafh config"))) {
       expect(line).toContain("--root");
     }
   });

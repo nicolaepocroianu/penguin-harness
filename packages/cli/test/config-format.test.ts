@@ -8,7 +8,7 @@
  * The groups block above the models shows what each `[providers.<id>]` table stores.
  */
 import { describe, expect, it } from "vitest";
-import type { ProjectConfig } from "@prismshadow/penguin-core";
+import type { ProjectConfig } from "@waterford/waf-harness-core";
 import { formatGroupRows, formatModelRows } from "../src/commands/config.js";
 
 describe("formatModelRows", () => {

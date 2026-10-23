@@ -5,7 +5,7 @@
  * (useRouteScroll — e.g. /#quickstart after leaving the blog, or a blog TOC entry).
  */
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router";
-import { useRouteScroll } from "@prismshadow/penguin-ui/site";
+import { useRouteScroll } from "@waterford/waf-harness-ui/site";
 import { DOCS_URL, GALLERY_URL } from "./lib/links";
 import { AnnouncementBar } from "./components/announcement-bar";
 import { Nav } from "./components/nav";

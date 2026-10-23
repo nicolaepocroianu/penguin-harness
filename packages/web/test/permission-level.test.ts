@@ -11,7 +11,7 @@
  *   Session keeps — whatever level the Session is at when the menu opens.
  */
 import { describe, expect, it } from "vitest";
-import type { ApprovalMode, SessionSandbox } from "@prismshadow/penguin-server/api";
+import type { ApprovalMode, SessionSandbox } from "@waterford/waf-harness-server/api";
 import {
   BUILTIN_PRESETS,
   PERMISSION_LEVEL_GLYPH,
@@ -55,8 +55,8 @@ describe("which levels the composer lets a person pick", () => {
     const failed: SessionSandbox = {
       ...NO_BACKEND,
       unavailableBackends: [
-        { name: "penguin-wsl", reason: "the sandbox distro is not set up" },
-        { name: "penguin-dsh", reason: "cannot load" },
+        { name: "wafh-wsl", reason: "the sandbox distro is not set up" },
+        { name: "wafh-dsh", reason: "cannot load" },
       ],
     };
     expect(fsModeBlock(failed, "read-only")).toBe("unavailable");
@@ -66,7 +66,7 @@ describe("which levels the composer lets a person pick", () => {
     expect(networkBlock(failed, "local")).toBe("unavailable");
     expect(networkBlock(failed, "open")).toBeNull();
     expect(firstUnavailableBackend(failed)).toEqual({
-      name: "penguin-wsl",
+      name: "wafh-wsl",
       reason: "the sandbox distro is not set up",
     });
     // An empty list is the not-installed case.

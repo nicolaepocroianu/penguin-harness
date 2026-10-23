@@ -9,7 +9,7 @@ import type {
   CompositionCandidate,
   CompositionFrame,
   CompositionProblemCode,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 
 type Asset = AssetManifest["assets"][string][number];
@@ -139,8 +139,7 @@ export const PREVIEW_GRACE_MS = 4000;
  */
 export function previewState(data: unknown): PreviewState | null {
   const message = data as { source?: unknown; state?: unknown } | null;
-  if (!message || typeof message !== "object" || message.source !== "penguin-composition")
-    return null;
+  if (!message || typeof message !== "object" || message.source !== "wafh-composition") return null;
   return ["ready", "playing", "paused", "ended", "broken"].includes(message.state as string)
     ? (message.state as PreviewState)
     : null;
@@ -148,5 +147,5 @@ export function previewState(data: unknown): PreviewState | null {
 
 /** The message that asks the preview frame to play, pause or restart. */
 export function previewCommand(action: "play" | "pause" | "restart") {
-  return { source: "penguin-studio", action } as const;
+  return { source: "wafh-studio", action } as const;
 }

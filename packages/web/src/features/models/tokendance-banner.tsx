@@ -9,8 +9,8 @@
  * global reduced-motion rule leaves it plain.
  */
 import { useState } from "react";
-import { providerInfo } from "@prismshadow/penguin-server/model-catalog";
-import { Button, CloseButton, ICON_GAP, ProviderLogo } from "@prismshadow/penguin-ui";
+import { providerInfo } from "@waterford/waf-harness-server/model-catalog";
+import { Button, CloseButton, ICON_GAP, ProviderLogo } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 
 /** The group the banner connects: it is TokenDance's by name, so it names the group too. */
@@ -26,7 +26,7 @@ export function splitBrand(text: string, brand: string): [before: string, after:
 }
 
 /** The localStorage key remembering the dismissal: a display preference of this browser. */
-export const TOKENDANCE_BANNER_DISMISSED_KEY = "penguin.tokenDanceBannerDismissed";
+export const TOKENDANCE_BANNER_DISMISSED_KEY = "wafh.tokenDanceBannerDismissed";
 
 /** Minimal storage surface; tests inject an in-memory one. */
 export interface BannerStorage {

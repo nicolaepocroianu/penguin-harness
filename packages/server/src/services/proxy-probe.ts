@@ -32,7 +32,7 @@
  * arrives; probing them together behind a single response would hold every row blank until
  * the slowest one landed, which for a black-holed host is the whole timeout.
  */
-import { userAgent } from "@prismshadow/penguin-core";
+import { userAgent } from "@waterford/waf-harness-core";
 import type { ProxyProbeDto, ProxyProbeOutcome, ProxyProbeTargetDto } from "../api/types.js";
 
 /**

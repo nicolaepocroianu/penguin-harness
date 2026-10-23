@@ -10,7 +10,7 @@
  * list snapshot racing the live SSE flip briefly resurrects "running" and would
  * otherwise double-notify the same finish.
  */
-import type { SessionInfo, SessionStatus } from "@prismshadow/penguin-server/api";
+import type { SessionInfo, SessionStatus } from "@waterford/waf-harness-server/api";
 import { isSidebarRow } from "./session-grouping";
 
 export interface ObservedSession {

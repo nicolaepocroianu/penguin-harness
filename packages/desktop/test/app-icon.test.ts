@@ -27,7 +27,7 @@ describe("windowIconPathFor", () => {
 });
 
 describe("resolveWindowIcon", () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-desktop-icon-"));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-desktop-icon-"));
   afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
   it("returns the path only when the file exists", () => {
@@ -68,7 +68,7 @@ describe("trayIconRelPath", () => {
 });
 
 describe("resolveTrayIcon", () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-desktop-tray-icon-"));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-desktop-tray-icon-"));
   afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
   it("returns the path only when the file exists, on every platform", () => {
@@ -109,17 +109,10 @@ describe("committed tray masters", () => {
   });
 
   it.each(["trayTemplate.png", "trayTemplate@2x.png"])("gives %s enough weight to read", (name) => {
-    // The first menu bar mark here was the whole brand illustration flattened and shrunk. The
-    // backdrop became a filled square, the belly — drawn as a hole letting that backdrop through
-    // — became nothing, and what was left covered 19% of the canvas, nearly all of it
-    // antialiasing: a wisp beside the solid marks around it. Reducing it to the penguin's
-    // outline, belly solid and arcs dropped, roughly doubles that.
-    //
-    // The ceiling is the shape, not the rendering. A 4:3 silhouette in a square canvas leaves a
-    // band above and below, and cropping past its bounding box takes off the beak and the tail,
-    // so a third of the canvas is about all this outline can cover. The floor sits below the
-    // measured 35% by enough not to trip on an antialiasing difference, and far enough above the
-    // old 19% to catch a return to the flattened illustration.
+    // A brand mark flattened and shrunk into a mask reads as a wisp: an earlier one covered 19% of
+    // the canvas, nearly all of it antialiasing, beside the solid marks around it. This one is the
+    // tile solid with the W cut out, about 78% of the canvas; the floor stays low enough not to
+    // trip on an antialiasing difference and well above a return to a thin outline.
     expect(inkCoverage(readPixels(path.join(pkgDir, "build", "tray", name)))).toBeGreaterThan(0.3);
   });
 });

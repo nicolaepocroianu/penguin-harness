@@ -3,9 +3,9 @@
  *
  * Both a build and a run need the same four facts about a checkout, and they have to agree:
  * a bundled artifact reports the stamp a build captured (see build-info.ts's
- * __PENGUIN_BUILD_GIT__, fed by scripts/build-git-stamp.mjs), while an un-bundled run asks
+ * __WAFH_BUILD_GIT__, fed by scripts/build-git-stamp.mjs), while an un-bundled run asks
  * git directly. Two implementations of "what does `-dirty` mean" or "what is a detached
- * HEAD" would make `penguin version` answer differently depending on how it was launched,
+ * HEAD" would make `wafh version` answer differently depending on how it was launched,
  * which is the one thing version reporting must not do.
  *
  * The build script imports this module directly: Node strips the types (>=24, which this
@@ -15,7 +15,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-/** A hung git (a network-backed filesystem, a stale lock) must not hang `penguin -v`. */
+/** A hung git (a network-backed filesystem, a stale lock) must not hang `wafh -v`. */
 const GIT_TIMEOUT_MS = 2000;
 
 /** What a checkout says about itself. Every field independently degrades to null. */
@@ -56,7 +56,7 @@ export function git(root: string, args: string[]): string | null {
  * both `.git` and `pnpm-workspace.yaml`.
  *
  * Both halves of that test are load-bearing. Callers start from a module's or a script's own
- * directory rather than the working directory, which is what makes `penguin version` report
+ * directory rather than the working directory, which is what makes `wafh version` report
  * the harness's revision when run inside somebody else's repository. Requiring the workspace
  * marker beside `.git` is what stops a tree that merely sits under an unrelated repository —
  * a home directory that is itself a dotfiles repo, which is common — from reporting a

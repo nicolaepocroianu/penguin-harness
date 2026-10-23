@@ -1,7 +1,7 @@
 ---
 name: llamafactory
 description: Fine-tune LLMs with LlamaFactory — register datasets, train via YAML configs, merge LoRA adapters and serve the result.
-version: 2026.10.04.1
+version: 2026.10.23.1
 ---
 
 # LlamaFactory Fine-Tuning
@@ -99,4 +99,4 @@ llamafactory-cli api my_infer.yaml    # OpenAI-compatible API server
 
 ## Close the loop
 
-Serve the merged export as a standalone endpoint — vLLM serves the export directory directly, while Ollama needs an import first (a `Modelfile` with `FROM /path/to/export`, then `ollama create`; supported model architectures only) — then register the endpoint with PenguinHarness so agents can build, evaluate and tune AI apps on the fine-tuned model end to end.
+Serve the merged export as a standalone endpoint — vLLM serves the export directory directly, while Ollama needs an import first (a `Modelfile` with `FROM /path/to/export`, then `ollama create`; supported model architectures only) — then register the endpoint with WAF Harness so agents can build, evaluate and tune AI apps on the fine-tuned model end to end.

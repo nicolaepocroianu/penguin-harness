@@ -20,7 +20,7 @@ const open = (options?: ConstructorParameters<typeof HistoryStore>[1]): HistoryS
   return store;
 };
 beforeEach(async () => {
-  dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-bb-history-"));
+  dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-bb-history-"));
   file = path.join(dir, "builtin-browser", "history.json");
 });
 afterEach(async () => {

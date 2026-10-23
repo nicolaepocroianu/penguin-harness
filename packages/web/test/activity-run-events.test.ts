@@ -5,7 +5,7 @@
  * is in flight.
  */
 import { describe, expect, it, vi } from "vitest";
-import type { ServerEvent } from "@prismshadow/penguin-server/api";
+import type { ServerEvent } from "@waterford/waf-harness-server/api";
 
 vi.mock("../src/api/endpoints", () => ({ listSessions: vi.fn() }));
 

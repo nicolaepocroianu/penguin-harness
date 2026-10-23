@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestBegin, requestEnd } from "@prismshadow/penguin-core";
+import { requestBegin, requestEnd } from "@waterford/waf-harness-core";
 import { HARNESS_VERSION } from "../src/activities/acceptance-harness.js";
 import { DISCARDED_PROPOSAL_FILE } from "../src/activities/assist.js";
 import type { ActivityDeployEvents } from "../src/activities/deploy-events.js";
@@ -80,7 +80,7 @@ describe("the outcome ledger", () => {
       log: (line) => lines.push(line),
       activityOutcomePorts: {
         library: () => LIBRARY,
-        build: () => ({ penguin: "9.9.9", commit: "c0ffee" }),
+        build: () => ({ wafh: "9.9.9", commit: "c0ffee" }),
       },
     });
     cleanups.push(t.cleanup);
@@ -202,7 +202,7 @@ describe("the outcome ledger", () => {
         },
       ],
       harness: HARNESS_VERSION,
-      penguin: "9.9.9",
+      wafh: "9.9.9",
     });
     expect(story.facts.map((fact) => [fact.fact, fact.detail])).toEqual([
       ["opened", {}],
@@ -253,7 +253,7 @@ describe("the outcome ledger", () => {
           ],
         },
       ],
-      penguin: "9.9.9",
+      wafh: "9.9.9",
     });
   });
 
@@ -277,7 +277,7 @@ describe("the outcome ledger", () => {
     expect(await f.outcomes.tally({ kind: "quality" })).toEqual([
       {
         key: expect.any(String),
-        recipe: { runtime: "server", library: [], penguin: "9.9.9" },
+        recipe: { runtime: "server", library: [], wafh: "9.9.9" },
         runs: 1,
         metrics: { failed: 1, seconds: 60 },
       },
@@ -844,7 +844,7 @@ describe("the outcome ledger", () => {
     expect(story.recipe).toEqual({
       runtime: "agent:custom/activity-test",
       library: [],
-      penguin: "9.9.9",
+      wafh: "9.9.9",
     });
     // An author started it, and the run applied its own specification.
     expect(story.facts.map((fact) => [fact.fact, fact.detail])).toEqual([

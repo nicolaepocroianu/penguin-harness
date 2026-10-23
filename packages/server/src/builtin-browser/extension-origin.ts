@@ -1,5 +1,5 @@
 /**
- * Which origins speak for the PenguinHarness Browser extension, on its WebSocket and its
+ * Which origins speak for the WAF Harness Browser extension, on its WebSocket and its
  * pairing route: its own, whose id the manifest's pinned key fixes (the same unpacked and from
  * the Chrome Web Store), and — on a dev-profile server only — any extension's, so a build
  * loaded with another id can be tried. A web page's origin never does.
@@ -10,9 +10,9 @@
 import { profileFromEnv } from "../machines/layout.js";
 
 /** The extension's id, as its pinned manifest key fixes it. */
-export const PENGUIN_EXTENSION_ID = "dodgfhpcbmkjfcbgnoidablfgjjhhmgp";
+export const WAFH_EXTENSION_ID = "dodgfhpcbmkjfcbgnoidablfgjjhhmgp";
 
-export function isPenguinExtensionOrigin(
+export function isWafHarnessExtensionOrigin(
   origin: string,
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
@@ -23,5 +23,5 @@ export function isPenguinExtensionOrigin(
     return false;
   }
   if (url.protocol !== "chrome-extension:") return false;
-  return url.host === PENGUIN_EXTENSION_ID || profileFromEnv(env) === "dev";
+  return url.host === WAFH_EXTENSION_ID || profileFromEnv(env) === "dev";
 }

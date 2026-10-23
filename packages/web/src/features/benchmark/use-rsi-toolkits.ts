@@ -3,7 +3,7 @@
  * start page counts them and the Use dialog's Method select offers them. Read on every mount, so a
  * toolkit an admin installs or removes on the Plugins page shows the next time either is opened.
  */
-import type { PluginItem } from "@prismshadow/penguin-server/api";
+import type { PluginItem } from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { useFreshRead, type FreshRead } from "../../lib/use-fresh-read";
 import { rsiToolkits } from "./rsi-methods";

@@ -2,10 +2,10 @@
  * An activity run's own agent works confined to the run's workspace: the WAF checkout is
  * read-only to its commands by enforcement, not by the prompt's word. Where nothing can
  * confine them the run is refused before it starts. A coding agent runs its commands
- * itself, outside Penguin's sandbox, so it is not confined, and refused only for a module run,
+ * itself, outside WAF Harness's sandbox, so it is not confined, and refused only for a module run,
  * whose module the server builds confined. A media run, which no agent works on, is neither
  * confined nor refused. Confined or not, a run's agent is not handed the API token or the
- * `penguin` CLI.
+ * `wafh` CLI.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -139,19 +139,19 @@ describe("activity runs and the sandbox", () => {
     const nested = { ...coordinates, workspaceDir: path.join(runs.workspace("run_1"), "module") };
 
     expect(env.controlEnv(ordinary)).toMatchObject({
-      PENGUIN_API_URL: expect.stringContaining(`:${t.deps.config.port}`),
-      PENGUIN_API_TOKEN: t.deps.authService.localApiToken(),
-      PENGUIN_SESSION_ID: "s",
+      WAFH_API_URL: expect.stringContaining(`:${t.deps.config.port}`),
+      WAFH_API_TOKEN: t.deps.authService.localApiToken(),
+      WAFH_SESSION_ID: "s",
     });
     expect(env.pathPrepend(ordinary)).toEqual([path.join(t.root, "bin")]);
     for (const session of [run, nested]) {
       const confined = { ...session, sandboxMode: "workspace-write" as const };
       for (const ctx of [session, confined]) {
         const vars = env.controlEnv(ctx);
-        expect(vars).not.toHaveProperty("PENGUIN_API_URL");
-        expect(vars).not.toHaveProperty("PENGUIN_API_TOKEN");
+        expect(vars).not.toHaveProperty("WAFH_API_URL");
+        expect(vars).not.toHaveProperty("WAFH_API_TOKEN");
         // Only the means to reach the server are withheld; the Session's coordinates stay.
-        expect(vars).toMatchObject({ PENGUIN_PROJECT_ID: "p", PENGUIN_SESSION_ID: "s" });
+        expect(vars).toMatchObject({ WAFH_PROJECT_ID: "p", WAFH_SESSION_ID: "s" });
         expect(env.pathPrepend(ctx)).toEqual([]);
       }
     }

@@ -8,8 +8,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseManifest } from "@prismshadow/penguin-core/kernel";
-import type { ModuleDef } from "@prismshadow/penguin-core/kernel";
+import { parseManifest } from "@waterford/waf-harness-core/kernel";
+import type { ModuleDef } from "@waterford/waf-harness-core/kernel";
 import type { PluginConfigEntry, PluginConfigResponse, SessionSandbox } from "../src/api/types.js";
 import { PluginHost } from "../src/plugin/host.js";
 import type { SandboxService } from "../src/sandbox/service.js";
@@ -19,9 +19,9 @@ import type { TestApp } from "./helpers.js";
 /** What the server defaults to on this OS; Linux offers sandbox-dsh (Landlock) beside bubblewrap. */
 const recommended = (
   {
-    linux: ["@penguinharness/sandbox-bwrap", "@penguinharness/sandbox-dsh"],
-    darwin: ["@penguinharness/sandbox-seatbelt"],
-    win32: ["@penguinharness/sandbox-wsl"],
+    linux: ["@waf-harness/sandbox-bwrap", "@waf-harness/sandbox-dsh"],
+    darwin: ["@waf-harness/sandbox-seatbelt"],
+    win32: ["@waf-harness/sandbox-wsl"],
   } as Partial<Record<NodeJS.Platform, string[]>>
 )[process.platform];
 
@@ -130,7 +130,7 @@ describe("the sandbox switch", () => {
   ])(
     "reads pre-switch settings %j as on=%s, applies them, and leaves the disk alone",
     async (doc, on, applied) => {
-      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-sandbox-switch-"));
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-sandbox-switch-"));
       try {
         const dbPath = path.join(dir, "web.db");
         const first = await boot({ plugins: fakeBackend(), dbPath });

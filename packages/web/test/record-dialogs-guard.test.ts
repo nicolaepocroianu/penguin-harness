@@ -30,7 +30,7 @@ import type {
   MachineInfo,
   MachinesResponse,
   SshHostResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { AddMachineDialog } from "../src/features/machines/add-machine-dialog";
 import { SshHostDialog } from "../src/features/machines/ssh-host-dialog";
 import { CreateBenchmarkModal } from "../src/features/benchmark/create-benchmark-modal";
@@ -73,7 +73,7 @@ describe("record dialogs", () => {
       socket: null,
       api: null,
       status: null,
-      root: "$HOME/.penguin/data",
+      root: "$HOME/.waf-harness/data",
       ...extra,
     });
     const state: MachinesResponse = {

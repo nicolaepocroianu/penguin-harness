@@ -6,10 +6,10 @@
  * the data root with owner-only permissions, so anything that can read the file can call
  * the API as the admin. That equivalence is the authorization model, not an accident:
  * local filesystem access to the data root already IS admin authority — the same rule
- * `penguin server reset-admin-password` stands on (whoever can run it owns web.db
+ * `wafh server reset-admin-password` stands on (whoever can run it owns web.db
  * anyway) — and agents driving their own harness through the CLI is the product feature
  * this token exists for (server-driven Sessions hand it to tool subprocesses as
- * PENGUIN_API_TOKEN). Rotation per boot bounds the life of any leaked copy to the
+ * WAFH_API_TOKEN). Rotation per boot bounds the life of any leaked copy to the
  * process that minted it.
  */
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
@@ -29,7 +29,7 @@ export function mintApiToken(): string {
  * Persists the boot token (owner-only file, tmp + rename so a concurrent reader never
  * sees a partial write). Best-effort like the initial-password file: an exotic read-only
  * root must not stop the server — local CLI callers then fall back to
- * PENGUIN_API_TOKEN.
+ * WAFH_API_TOKEN.
  */
 export function storeApiToken(root: string, token: string): void {
   try {

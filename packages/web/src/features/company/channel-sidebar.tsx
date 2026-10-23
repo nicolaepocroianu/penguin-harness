@@ -15,7 +15,7 @@
  */
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router";
-import type { OrgChannelItem } from "@prismshadow/penguin-server/api";
+import type { OrgChannelItem } from "@waterford/waf-harness-server/api";
 import {
   Pill,
   Button,
@@ -33,7 +33,7 @@ import {
   railItemClass,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";

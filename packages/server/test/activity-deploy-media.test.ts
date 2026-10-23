@@ -52,7 +52,7 @@ function fakeClone(tracked: string[], dirty: string[] = []) {
 
 describe("deploy media", () => {
   it("publishes what is new or changed in the clone, keeps what the repository has, and names what is nowhere", async () => {
-    const clone = await tempDir("penguin-deploy-media-clone-");
+    const clone = await tempDir("wafh-deploy-media-clone-");
     // Untracked (a new take), modified (a take accepted again), and committed as it is.
     await put(clone, "loom/words/words-1/audios/english/new.mp3", "new sound");
     await put(clone, "loom/words/words-1/images/english/changed.png", "fixed");
@@ -103,7 +103,7 @@ describe("deploy media", () => {
   });
 
   it("publishes an accepted file's sidecar with it, and a sidecar changed on its own", async () => {
-    const clone = await tempDir("penguin-deploy-media-clone-");
+    const clone = await tempDir("wafh-deploy-media-clone-");
     const audio = "loom/words/words-1/audios/english/hello";
     const image = "loom/words/words-1/images/english/cat";
     await put(clone, `${audio}.mp3`, "hello");
@@ -126,7 +126,7 @@ describe("deploy media", () => {
   });
 
   it("counts a folder, not a file, in the working tree as not there", async () => {
-    const clone = await tempDir("penguin-deploy-media-clone-");
+    const clone = await tempDir("wafh-deploy-media-clone-");
     await fs.mkdir(path.join(clone, "loom", "words", "words-1", "images"), { recursive: true });
     const git = fakeClone([]);
     const result = await syncMedia(
@@ -137,7 +137,7 @@ describe("deploy media", () => {
   });
 
   it("names a reference outside the media folder or the clone as missing", async () => {
-    const clone = await tempDir("penguin-deploy-media-clone-");
+    const clone = await tempDir("wafh-deploy-media-clone-");
     await put(path.dirname(clone), "outside.mp3", "outside");
     dirs.push(path.join(path.dirname(clone), "outside.mp3"));
     const git = fakeClone([]);

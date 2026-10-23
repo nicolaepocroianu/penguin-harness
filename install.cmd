@@ -6,9 +6,9 @@ set "INSTALL_EXIT_CODE=%ERRORLEVEL%"
 
 echo.
 if "%INSTALL_EXIT_CODE%"=="0" (
-  echo PenguinHarness offline installation completed.
+  echo WAF Harness offline installation completed.
 ) else (
-  echo PenguinHarness offline installation failed.
+  echo WAF Harness offline installation failed.
 )
 
 echo.

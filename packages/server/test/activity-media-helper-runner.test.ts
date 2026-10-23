@@ -25,7 +25,7 @@ describe("running a media helper without an agent", () => {
   });
 
   async function workspace(helper: string, script = "generate-speech.mjs") {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-media-helper-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-media-helper-"));
     roots.push(root);
     await fs.writeFile(path.join(root, script), helper);
     return root;
@@ -118,7 +118,7 @@ describe("sharing installed helper dependencies across runs", () => {
   });
 
   async function folder() {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-helper-cache-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-helper-cache-"));
     roots.push(root);
     return root;
   }
@@ -281,7 +281,7 @@ describe("sharing a WAF module scaffold's packages across runs", () => {
   });
 
   async function folder() {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-module-cache-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-module-cache-"));
     roots.push(root);
     return root;
   }

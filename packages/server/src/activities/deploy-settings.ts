@@ -1,10 +1,10 @@
 /**
- * The deploy settings: where Penguin deploys activities to (Jenkins for QA and PROD, its job
+ * The deploy settings: where WAF Harness deploys activities to (Jenkins for QA and PROD, its job
  * names, where deployed media is served from, the framework versions, the git identity).
  *
  * Server-wide and admin-only: one Jenkins serves the organisation. Everything but the two
  * Jenkins tokens is stored in `server_settings` under one key; the tokens live in a 0600 file
- * under PENGUIN_HOME (`DEPLOY_SECRETS_FILE`) and never leave the server — the App is told only
+ * under WAFH_HOME (`DEPLOY_SECRETS_FILE`) and never leave the server — the App is told only
  * whether one is set.
  *
  * Pure: parsing, validation, the token merge and the masked view. The service does the I/O.
@@ -15,7 +15,7 @@ import type { DeploySettingReason, DeploySettingsView } from "./deploy-types.js"
 /** The `server_settings` key the non-secret settings are stored under. */
 export const DEPLOY_SETTINGS_KEY = "activityDeploy";
 
-/** Where the tokens are kept, relative to PENGUIN_HOME. */
+/** Where the tokens are kept, relative to WAFH_HOME. */
 export const DEPLOY_SECRETS_FILE = "secrets/activity-deploy.json";
 
 /**

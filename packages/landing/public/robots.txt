@@ -1,4 +1,4 @@
-# PenguinHarness — https://penguin.ooo/ (landing at the root, docs under /docs/, the
+# WAF Harness — https://penguin.ooo/ (landing at the root, docs under /docs/, the
 # component gallery under /gallery/).
 # Everything here is public; nothing needs to be kept out of an index.
 User-agent: *

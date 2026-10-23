@@ -41,9 +41,9 @@ test("real SDK stdio peer streams progress and waits for the human response", as
 });
 test(
   "published Codex adapter initializes with isolated credentials without inference",
-  { skip: process.env.PENGUIN_TEST_CODEX_ACP !== "1" },
+  { skip: process.env.WAFH_TEST_CODEX_ACP !== "1" },
   async () => {
-    const projectDir = await mkdtemp(path.join(tmpdir(), "penguin-acp-test-"));
+    const projectDir = await mkdtemp(path.join(tmpdir(), "wafh-acp-test-"));
     const client = await createCodexClient({ projectDir, cwd: projectDir });
     try {
       const info = await client.start();
@@ -55,7 +55,7 @@ test(
       if (client.proc.exitCode === null)
         await new Promise((resolve) => client.proc.once("exit", resolve));
       assert.equal(path.dirname(projectDir), path.resolve(tmpdir()));
-      assert.ok(path.basename(projectDir).startsWith("penguin-acp-test-"));
+      assert.ok(path.basename(projectDir).startsWith("wafh-acp-test-"));
       await rm(projectDir, { recursive: true, force: true });
     }
   },

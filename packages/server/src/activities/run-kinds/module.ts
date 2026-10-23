@@ -4,7 +4,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { ProtectedRoot } from "@prismshadow/penguin-core";
+import type { ProtectedRoot } from "@waterford/waf-harness-core";
 import { HttpError } from "../../http/errors.js";
 import { readArtifactBytes, readCandidate } from "../artifact.js";
 import { validateBookSpec } from "../book.js";

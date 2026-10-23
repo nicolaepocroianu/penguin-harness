@@ -11,7 +11,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement as h } from "react";
-import type { SessionInfo, SessionSource } from "@prismshadow/penguin-server/api";
+import type { SessionInfo, SessionSource } from "@waterford/waf-harness-server/api";
 import { ArchivedSessionsSection } from "../src/features/settings/archived-sessions-section";
 import { AuthProvider } from "../src/state/auth";
 import { ProjectProvider } from "../src/state/project";

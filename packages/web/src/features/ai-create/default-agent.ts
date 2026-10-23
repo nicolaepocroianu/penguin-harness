@@ -9,7 +9,7 @@
  * Project whose default agent was deleted; an empty list yields null and the caller disables
  * sending.
  */
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
 
 export const DEFAULT_AGENT_ID = "default_agent";
 

@@ -92,7 +92,7 @@ async function fixture(page) {
     errors.push(error.message);
     console.error(error.stack);
   });
-  await page.addInitScript(() => localStorage.setItem("penguin.lang", "en"));
+  await page.addInitScript(() => localStorage.setItem("wafh.lang", "en"));
   await page.route("**/*", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -2165,7 +2165,7 @@ test("dirty drafts block sidebar, Session, browser back, and project switches", 
   await expect(dialog).toBeHidden();
   await expect(page.getByRole("button", { name: "Activities test", exact: true })).toBeVisible();
   await expect(description).toHaveText("Keep this edit");
-  expect(await page.evaluate(() => localStorage.getItem("penguin.lastProjectId"))).not.toBe(
+  expect(await page.evaluate(() => localStorage.getItem("wafh.lastProjectId"))).not.toBe(
     "second-project",
   );
   expect(f.prefsWrites.some((prefs) => prefs.lastProjectId === "second-project")).toBe(false);
@@ -2185,7 +2185,7 @@ test("dirty drafts block sidebar, Session, browser back, and project switches", 
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Discard" }).click();
   await expect(page.getByRole("button", { name: "Second project", exact: true })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem("penguin.lastProjectId"))).toBe(
+  expect(await page.evaluate(() => localStorage.getItem("wafh.lastProjectId"))).toBe(
     "second-project",
   );
   await expect
@@ -2407,7 +2407,7 @@ test("an activity collapses the sidebar without changing the stored choice", asy
   await page.getByRole("link", { name: "Agents", exact: true }).click();
   await expect(page).toHaveURL(/\/agents$/);
   await expect(page.getByRole("button", { name: "Collapse sidebar", exact: true })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem("penguin.sidebarCollapsed"))).not.toBe("1");
+  expect(await page.evaluate(() => localStorage.getItem("wafh.sidebarCollapsed"))).not.toBe("1");
   expect(f.errors).toEqual([]);
 });
 
@@ -3382,7 +3382,7 @@ test("the player draws the module's behavior map and follows the phase it report
   // A stand-in for the played module: it reports its state the way the real bridge does.
   const playerPage = `<!doctype html><body><script>
     setInterval(() => parent.postMessage({
-      type: "penguin-sandbox:activity-state",
+      type: "wafh-sandbox:activity-state",
       detail: { index: 1, phase: "waiting", sceneId: "rocks", state: "rocks.waiting" },
       interactables: [],
     }, "*"), 100);
@@ -3485,11 +3485,11 @@ test("lists the live tap targets on the current state and keeps the map under th
   const playerPage = `<!doctype html><body><script>
     window.seen = [];
     addEventListener("message", (event) => {
-      if (event.data && event.data.type === "penguin-sandbox:highlight-interactable")
+      if (event.data && event.data.type === "wafh-sandbox:highlight-interactable")
         window.seen.push(event.data.id);
     });
     setInterval(() => parent.postMessage({
-      type: "penguin-sandbox:activity-state",
+      type: "wafh-sandbox:activity-state",
       detail: { index: 1, phase: "waiting", sceneId: "rocks", state: "rocks.waiting" },
       interactables: [
         { id: "rock-a", inputType: "CLICK", description: "First rock" },
@@ -3576,19 +3576,19 @@ test("Play mode lights the line the player is saying, and the script follows bot
   const playerPage = `<!doctype html><body><script>
     const say = (message) => parent.postMessage(message, "*");
     const state = (interactables) => say({
-      type: "penguin-sandbox:activity-state",
+      type: "wafh-sandbox:activity-state",
       detail: { index: 1, phase: "presenting", sceneId: "scene-1", state: "scene-1.presenting" },
       interactables,
     });
     state([]);
     setTimeout(() => say({
-      type: "penguin-sandbox:activity-media",
+      type: "wafh-sandbox:activity-media",
       detail: { index: 1, kind: "audio", key: "hello", status: "started" },
     }), 300);
     addEventListener("message", (event) => {
       if (event.data !== "end") return;
       say({
-        type: "penguin-sandbox:activity-media",
+        type: "wafh-sandbox:activity-media",
         detail: { index: 2, kind: "audio", key: "hello", status: "completed" },
       });
       state([{ id: "rock-d", inputType: "CLICK", description: "Rock d" }]);
@@ -6588,7 +6588,7 @@ test("an admin installs the test browser from System settings", async ({ page })
     available: true,
     installed: false,
     version: "149.0.7827.55",
-    path: "/penguin/browsers",
+    path: "/wafh/browsers",
     installing: false,
     error: null,
     log: null,
@@ -6665,7 +6665,7 @@ test("an admin reads what became of activity runs in System settings", async ({ 
     runtime: "agent:custom/activity-test",
     library: [{ plugin: "waf-authoring", version: "2026.10.01.1", skills: [] }],
     harness: 2,
-    penguin: "0.2.13",
+    wafh: "0.2.13",
   };
   const run = {
     runId: "run_outcome",
@@ -9943,11 +9943,11 @@ test("composes a scene from its storyboard when the experiment is on", async ({ 
     }),
   );
   // Stands in for the page the preview origin would serve: it reports its state the way
-  // Penguin's bridge script does and answers the studio's play and pause messages.
+  // WAF Harness's bridge script does and answers the studio's play and pause messages.
   const composition = `<!doctype html><html><body style="margin:0;background:#fff"><div id="stage">Dawn</div><script>
-    const tell = (state) => parent.postMessage({ source: "penguin-composition", state, duration: 6 }, "*");
+    const tell = (state) => parent.postMessage({ source: "wafh-composition", state, duration: 6 }, "*");
     addEventListener("message", (event) => {
-      if (event.data && event.data.source === "penguin-studio")
+      if (event.data && event.data.source === "wafh-studio")
         tell(event.data.action === "pause" ? "paused" : "playing");
     });
     addEventListener("load", () => tell("ready"));

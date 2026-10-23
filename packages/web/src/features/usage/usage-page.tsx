@@ -27,7 +27,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import type { ModelRefDto, UsageBucket, UsageResponse } from "@prismshadow/penguin-server/api";
+import type { ModelRefDto, UsageBucket, UsageResponse } from "@waterford/waf-harness-server/api";
 import {
   Card,
   CardHeader,
@@ -37,7 +37,7 @@ import {
   Select,
   Skeleton,
   TodoNotice,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
@@ -46,7 +46,7 @@ import { useUpdateBadges } from "../../lib/use-update-badges";
 import { dismissTodo } from "../../lib/todo-dismissals";
 import { refreshProjectTodos } from "../../lib/use-project-todos";
 import { formatMoney, humanizeTokens } from "../../lib/format";
-import { catalogEntryFor } from "@prismshadow/penguin-server/model-catalog";
+import { catalogEntryFor } from "@waterford/waf-harness-server/model-catalog";
 import { scoped, scopedValue, type Scoped } from "../../lib/project-scope";
 import { useOpenedInProject } from "../../lib/use-opened-in-project";
 import { useProject } from "../../state/project";

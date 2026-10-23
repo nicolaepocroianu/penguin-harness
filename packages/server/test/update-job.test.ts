@@ -15,7 +15,7 @@
  *   latest version" included — as updated with a restart needed.
  */
 import { describe, expect, it } from "vitest";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import {
   INITIAL_PROGRESS,
   UpdateJobService,
@@ -25,7 +25,7 @@ import {
 import type { UpdateRunExit, UpdateRunner } from "../src/services/update-job.js";
 
 /** A repository that publishes releases: a run needs one to start at all. */
-const PUBLISHING = { repository: "example/penguin-harness", publishesReleases: true };
+const PUBLISHING = { repository: "example/waf-harness", publishesReleases: true };
 
 describe("advanceUpdateProgress", () => {
   it("stays resolving, with no percentage, until the installer announces the download", () => {
@@ -41,7 +41,7 @@ describe("advanceUpdateProgress", () => {
   it("reads curl's progress bar once the download line has passed, keeping the freshest percentage", () => {
     const started = advanceUpdateProgress(
       INITIAL_PROGRESS,
-      "Downloading penguin-harness-0.3.0-linux-x64.tar.gz from GitHub ...\n",
+      "Downloading waf-harness-0.3.0-linux-x64.tar.gz from GitHub ...\n",
     );
     expect(started).toEqual({ phase: "downloading", percent: null });
     const chunk = "\r####                        12.3%\r########                    31.9%";
@@ -116,7 +116,7 @@ describe("UpdateJobService", () => {
     const job = wire(UpdateJobService, { runner: script.runner, identity: PUBLISHING });
     expect(job.status()).toEqual({ state: "idle", targetVersion: null, output: "" });
 
-    const started = job.start("/opt/penguin/cli.js", "0.3.0");
+    const started = job.start("/opt/wafh/cli.js", "0.3.0");
     expect(started).toMatchObject({
       state: "running",
       targetVersion: "0.3.0",
@@ -124,12 +124,12 @@ describe("UpdateJobService", () => {
       percent: null,
       output: "",
     });
-    expect(script.entries).toEqual(["/opt/penguin/cli.js"]);
+    expect(script.entries).toEqual(["/opt/wafh/cli.js"]);
     // A second start joins the run rather than spawning another installer over the same dir.
-    expect(job.start("/opt/penguin/cli.js", "0.3.0")).toBe(job.status());
+    expect(job.start("/opt/wafh/cli.js", "0.3.0")).toBe(job.status());
     expect(script.entries).toHaveLength(1);
 
-    script.emit("Downloading penguin.tar.gz from GitHub ...\n\r#### 40.0%");
+    script.emit("Downloading wafh.tar.gz from GitHub ...\n\r#### 40.0%");
     expect(job.status()).toMatchObject({ phase: "downloading", percent: 40 });
     script.emit("\r######## 100.0%\nBundle checksum OK.\n");
     expect(job.status()).toMatchObject({ phase: "installing", percent: null });
@@ -146,7 +146,7 @@ describe("UpdateJobService", () => {
     const refused = scriptedRunner();
     const a = wire(UpdateJobService, { runner: refused.runner, identity: PUBLISHING });
     a.start("/e", null);
-    refused.emit("This penguin runs from a source checkout, so there is nothing to download.");
+    refused.emit("This wafh runs from a source checkout, so there is nothing to download.");
     await refused.finish({ exitCode: 0, timedOut: false });
     expect(a.status().result).toMatchObject({ status: "unsupported", needsRestart: false });
 
@@ -189,7 +189,7 @@ describe("UpdateJobService", () => {
       runner: script.runner,
       identity: { repository: "example/fork", publishesReleases: false },
     });
-    expect(job.start("/opt/penguin/cli.js", "0.3.0")).toMatchObject({
+    expect(job.start("/opt/wafh/cli.js", "0.3.0")).toMatchObject({
       state: "done",
       targetVersion: "0.3.0",
       result: { status: "unsupported", reason: "fork", needsRestart: false },
@@ -203,11 +203,11 @@ describe("classifyUpdateRun", () => {
     // Literal CLI copy (packages/cli/src/i18n.ts, the update refusals): the classifier matches
     // fragments of these exact strings, so a reworded refusal must fail here.
     for (const refusal of [
-      "This penguin runs from a source checkout, so there is nothing to download — update it with `git pull` and rebuild (`pnpm install && pnpm -r build`).",
-      "Cannot tell how this penguin was installed (running from /opt/penguin/cli.js), so it will not be replaced. Re-install with the official installer, or upgrade with the package manager you used.",
-      "This is a global install under /usr/lib/node_modules, but the package manager that owns it could not be identified. Upgrade it yourself with that manager, e.g. `npm install -g @prismshadow/penguin-cli@0.3.0`.",
+      "This wafh runs from a source checkout, so there is nothing to download — update it with `git pull` and rebuild (`pnpm install && pnpm -r build`).",
+      "Cannot tell how this wafh was installed (running from /opt/wafh/cli.js), so it will not be replaced. Re-install with the official installer, or upgrade with the package manager you used.",
+      "This is a global install under /usr/lib/node_modules, but the package manager that owns it could not be identified. Upgrade it yourself with that manager, e.g. `npm install -g @waterford/waf-harness-cli@0.3.0`.",
       "The official installer is a POSIX shell script and does not run on Windows. Re-install from the GitHub Releases page, or use a global npm install instead.",
-      "On Windows, penguin cannot run your package manager for you: Node will not execute an npm/pnpm/yarn `.cmd` shim without a shell.",
+      "On Windows, wafh cannot run your package manager for you: Node will not execute an npm/pnpm/yarn `.cmd` shim without a shell.",
     ]) {
       expect(classifyUpdateRun(0, refusal), refusal).toMatchObject({
         status: "unsupported",
@@ -217,7 +217,7 @@ describe("classifyUpdateRun", () => {
     // A build from a repository that publishes no releases (packages/cli/src/i18n.ts
     // update.noReleases): a refusal, not an update.
     const noReleases =
-      "This penguin is built from example/fork, which publishes no releases, so there is nothing to update to. Rebuild or redeploy it from that repository instead.";
+      "This wafh is built from example/fork, which publishes no releases, so there is nothing to update to. Rebuild or redeploy it from that repository instead.";
     expect(classifyUpdateRun(0, noReleases)).toMatchObject({
       status: "unsupported",
       needsRestart: false,
@@ -225,7 +225,7 @@ describe("classifyUpdateRun", () => {
     // "Already on the latest version" means the INSTALL is current: only this older, in-memory
     // process is missing a restart.
     for (const output of [
-      "Upgrade 0.1.2 -> 0.1.3\nPenguinHarness 0.1.3 installed. Run `penguin --version` in a new shell to confirm.",
+      "Upgrade 0.1.2 -> 0.1.3\nWAF Harness 0.1.3 installed. Run `wafh --version` in a new shell to confirm.",
       "Already on the latest version (0.1.3); nothing to do.",
     ]) {
       expect(classifyUpdateRun(0, output)).toEqual({

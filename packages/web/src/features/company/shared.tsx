@@ -14,7 +14,7 @@ import type {
   OrgStatus,
   OrgTicketPriority,
   OrgTicketStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Badge,
   FieldError,
@@ -28,8 +28,8 @@ import {
   Pill,
   ProgressBar,
   Ring,
-} from "@prismshadow/penguin-ui";
-import type { BadgeStyle, ToneName } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { BadgeStyle, ToneName } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { formatMoney, formatPercent } from "../../lib/format";
 import { toneDot, toneInk } from "../../lib/tone";

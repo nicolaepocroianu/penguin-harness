@@ -121,10 +121,10 @@ describe("resolveShell — POSIX", () => {
     expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
   });
 
-  it("PENGUIN_SHELL still wins over the whole POSIX chain", () => {
+  it("WAFH_SHELL still wins over the whole POSIX chain", () => {
     const shell = resolveShell({
       platform: "linux",
-      env: { PENGUIN_SHELL: "/usr/bin/fish", PATH: "/bin" },
+      env: { WAFH_SHELL: "/usr/bin/fish", PATH: "/bin" },
       exists: has("/bin/bash"),
     });
     expect(shell).toEqual({ command: "/usr/bin/fish", args: ["-lc"], name: "fish" });
@@ -139,7 +139,7 @@ describe("resolveShell — POSIX, real spawn", () => {
 
   /** A PATH directory carrying a POSIX sh and a few coreutils, but deliberately no bash. */
   function bashlessBin(): string {
-    const root = mkdtempSync(path.join(tmpdir(), "penguin-nobash-"));
+    const root = mkdtempSync(path.join(tmpdir(), "wafh-nobash-"));
     roots.push(root);
     const bin = path.join(root, "bin");
     mkdirSync(bin);
@@ -215,11 +215,11 @@ describe("resolveShell — win32 probing", () => {
   });
 });
 
-describe("resolveShell — PENGUIN_SHELL override", () => {
+describe("resolveShell — WAFH_SHELL override", () => {
   it("wins on every platform and keeps POSIX-style args for a POSIX shell path", () => {
     const shell = resolveShell({
       platform: "linux",
-      env: { PENGUIN_SHELL: "/usr/bin/zsh" },
+      env: { WAFH_SHELL: "/usr/bin/zsh" },
     });
     expect(shell).toEqual({ command: "/usr/bin/zsh", args: ["-lc"], name: "zsh" });
   });
@@ -227,7 +227,7 @@ describe("resolveShell — PENGUIN_SHELL override", () => {
   it("uses PowerShell-style args when the basename is pwsh (case/extension-insensitive)", () => {
     const shell = resolveShell({
       platform: "win32",
-      env: { PENGUIN_SHELL: "C:\\Program Files\\PowerShell\\7\\pwsh.EXE" },
+      env: { WAFH_SHELL: "C:\\Program Files\\PowerShell\\7\\pwsh.EXE" },
       whichAll: which({ bash: ["C:\\Program Files\\Git\\bin\\bash.exe"] }),
     });
     expect(shell).toEqual({
@@ -238,19 +238,19 @@ describe("resolveShell — PENGUIN_SHELL override", () => {
   });
 
   it("uses PowerShell-style args for a bare powershell name", () => {
-    const shell = resolveShell({ platform: "win32", env: { PENGUIN_SHELL: "powershell" } });
+    const shell = resolveShell({ platform: "win32", env: { WAFH_SHELL: "powershell" } });
     expect(shell).toEqual({ command: "powershell", args: POWERSHELL_ARGS, name: "powershell" });
   });
 
   it("uses cmd-style args when the basename is cmd", () => {
-    const shell = resolveShell({ platform: "win32", env: { PENGUIN_SHELL: "cmd" } });
+    const shell = resolveShell({ platform: "win32", env: { WAFH_SHELL: "cmd" } });
     expect(shell).toEqual({ command: "cmd", args: ["/d", "/s", "/c"], name: "cmd" });
   });
 
-  it("ignores a blank PENGUIN_SHELL", () => {
+  it("ignores a blank WAFH_SHELL", () => {
     const shell = resolveShell({
       platform: "linux",
-      env: { PENGUIN_SHELL: "  ", PATH: "/usr/bin:/bin" },
+      env: { WAFH_SHELL: "  ", PATH: "/usr/bin:/bin" },
       exists: has("/bin/bash"),
     });
     expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
@@ -279,7 +279,7 @@ describe("resolveShell — Git for Windows with only its cmd folder on PATH", ()
   it("comes before the bundled MinGit bash, whose userland is the smaller one", () => {
     const shell = resolveShell({
       platform: "win32",
-      env: { PENGUIN_BUNDLED_SHELL: "C:\\bundled\\sh.exe" },
+      env: { WAFH_BUNDLED_SHELL: "C:\\bundled\\sh.exe" },
       whichAll: which({ git: ["C:\\Program Files\\Git\\cmd\\git.exe"] }),
       exists: has(GIT_BASH, "C:\\bundled\\sh.exe"),
     });
@@ -297,8 +297,8 @@ describe("resolveShell — Git for Windows with only its cmd folder on PATH", ()
   });
 });
 
-describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () => {
-  const BUNDLED = "C:\\Users\\u\\.penguin\\git\\usr\\bin\\sh.exe";
+describe("resolveShell — the bundled MinGit bash (WAFH_BUNDLED_SHELL)", () => {
+  const BUNDLED = "C:\\Users\\u\\.waf-harness\\git\\usr\\bin\\sh.exe";
   /** An exists() stub answering true only for the bundled path. */
   const bundledExists = (p: string) => p === BUNDLED;
 
@@ -307,7 +307,7 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
     // what it is and what the Skill ecosystem targets — "sh" would understate it.
     const shell = resolveShell({
       platform: "win32",
-      env: { PENGUIN_BUNDLED_SHELL: BUNDLED },
+      env: { WAFH_BUNDLED_SHELL: BUNDLED },
       whichAll: which({ pwsh: ["C:\\pwsh.exe"] }),
       exists: bundledExists,
     });
@@ -317,7 +317,7 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
   it("yields to a real Git for Windows on PATH (its MSYS userland is the fuller one)", () => {
     const shell = resolveShell({
       platform: "win32",
-      env: { PENGUIN_BUNDLED_SHELL: BUNDLED },
+      env: { WAFH_BUNDLED_SHELL: BUNDLED },
       whichAll: which({ bash: ["C:\\Program Files\\Git\\bin\\bash.exe"] }),
       exists: bundledExists,
     });
@@ -331,17 +331,17 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
   it("beats pwsh and powershell — the point of bundling is that neither is reached", () => {
     const shell = resolveShell({
       platform: "win32",
-      env: { PENGUIN_BUNDLED_SHELL: BUNDLED },
+      env: { WAFH_BUNDLED_SHELL: BUNDLED },
       whichAll: which({ pwsh: ["C:\\pwsh.exe"], powershell: ["C:\\powershell.exe"] }),
       exists: bundledExists,
     });
     expect(shell.command).toBe(BUNDLED);
   });
 
-  it("still loses to an explicit PENGUIN_SHELL", () => {
+  it("still loses to an explicit WAFH_SHELL", () => {
     const shell = resolveShell({
       platform: "win32",
-      env: { PENGUIN_SHELL: "pwsh", PENGUIN_BUNDLED_SHELL: BUNDLED },
+      env: { WAFH_SHELL: "pwsh", WAFH_BUNDLED_SHELL: BUNDLED },
       exists: bundledExists,
     });
     expect(shell).toEqual({ command: "pwsh", args: POWERSHELL_ARGS, name: "pwsh" });
@@ -350,7 +350,7 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
   it("a stale path (dir deleted) falls through to pwsh rather than spawning a missing exe", () => {
     const shell = resolveShell({
       platform: "win32",
-      env: { PENGUIN_BUNDLED_SHELL: BUNDLED },
+      env: { WAFH_BUNDLED_SHELL: BUNDLED },
       whichAll: which({ pwsh: ["C:\\pwsh.exe"] }),
       exists: () => false,
     });
@@ -360,7 +360,7 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
   it("is ignored on POSIX (npm installs and source checkouts never set it anyway)", () => {
     const shell = resolveShell({
       platform: "linux",
-      env: { PENGUIN_BUNDLED_SHELL: BUNDLED },
+      env: { WAFH_BUNDLED_SHELL: BUNDLED },
       exists: bundledExists,
     });
     expect(shell).toEqual({ command: "bash", args: ["-lc"], name: "bash" });
@@ -369,7 +369,7 @@ describe("resolveShell — the bundled MinGit bash (PENGUIN_BUNDLED_SHELL)", () 
   it("a blank value is ignored (unset-but-defined shims must not win)", () => {
     const shell = resolveShell({
       platform: "win32",
-      env: { PENGUIN_BUNDLED_SHELL: "  " },
+      env: { WAFH_BUNDLED_SHELL: "  " },
       whichAll: which({ powershell: ["C:\\powershell.exe"] }),
       exists: () => true,
     });
@@ -406,18 +406,18 @@ describe("resolveConfinedShell — the shell a sandboxed Session runs", () => {
     });
   });
 
-  it("honours a PENGUIN_SHELL that can start in a sandbox, and ignores one that cannot", () => {
+  it("honours a WAFH_SHELL that can start in a sandbox, and ignores one that cannot", () => {
     expect(
       resolveConfinedShell({
         platform: "win32",
-        env: { PENGUIN_SHELL: "cmd" },
+        env: { WAFH_SHELL: "cmd" },
         whichAll: which({}),
       }),
     ).toEqual({ command: "cmd", args: ["/d", "/s", "/c"], name: "cmd" });
     expect(
       resolveConfinedShell({
         platform: "win32",
-        env: { PENGUIN_SHELL: GIT_BASH },
+        env: { WAFH_SHELL: GIT_BASH },
         whichAll: which({ pwsh: [PWSH] }),
       }).name,
     ).toBe("pwsh");

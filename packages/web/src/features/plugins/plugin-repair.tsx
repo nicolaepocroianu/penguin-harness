@@ -7,8 +7,8 @@
  */
 import { useState } from "react";
 import type { ReactNode } from "react";
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
-import { ConfirmModal, ICONS, toastError } from "@prismshadow/penguin-ui";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
+import { ConfirmModal, ICONS, toastError } from "@waterford/waf-harness-ui";
 import { useAiBridge } from "../ai-create/ai-bridge";
 import type { AiChatRequest } from "../ai-create/ai-bridge";
 import { pickDefaultAgent } from "../ai-create/default-agent";

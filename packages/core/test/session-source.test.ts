@@ -29,18 +29,18 @@ let prevHome: string | undefined;
 let restoreKeys: () => void;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-source-"));
-  workspace = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-source-ws-"));
-  process.env.PENGUIN_HOME = tmpRoot;
+  prevHome = process.env.WAFH_HOME;
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-source-"));
+  workspace = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-source-ws-"));
+  process.env.WAFH_HOME = tmpRoot;
   restoreKeys = stubProviderKeys();
   // The Project a host would have seeded: core itself carries no models.
   await seedProject(tmpRoot);
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.PENGUIN_HOME;
-  else process.env.PENGUIN_HOME = prevHome;
+  if (prevHome === undefined) delete process.env.WAFH_HOME;
+  else process.env.WAFH_HOME = prevHome;
   restoreKeys();
   await fs.rm(tmpRoot, { recursive: true, force: true });
   await fs.rm(workspace, { recursive: true, force: true });

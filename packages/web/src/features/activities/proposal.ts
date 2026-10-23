@@ -6,7 +6,7 @@
  * against the saved draft, not against the copy the agent read, so what the author
  * accepts is exactly what will change, even if the draft moved on since the agent looked.
  */
-import type { AssetManifest } from "@prismshadow/penguin-server/api";
+import type { AssetManifest } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { sceneRanges, scenesTouched } from "./script-model";
 import { diffLines } from "./spec-diff";

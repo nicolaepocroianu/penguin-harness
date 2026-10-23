@@ -166,7 +166,7 @@ jobs:
       # Windows carries MinGit under resources/git so the packaged agent shell has the
       # same deterministic POSIX bash as the npm package (release.yml bundles the
       # identical MinGit into the CLI win-x64 zip; the shell advertises it as
-      # PENGUIN_BUNDLED_SHELL).
+      # WAFH_BUNDLED_SHELL).
       - name: Bundle MinGit (Windows)
         if: runner.os == 'Windows'
         shell: bash
@@ -433,8 +433,8 @@ jobs:
           }
 
           apps=(
-            packages/desktop/out/mac-arm64/PenguinHarness.app
-            packages/desktop/out/mac/PenguinHarness.app
+            packages/desktop/out/mac-arm64/WAF Harness.app
+            packages/desktop/out/mac/WAF Harness.app
           )
           for app in "${apps[@]}"; do
             if [[ ! -d "$app" ]]; then
@@ -482,11 +482,11 @@ jobs:
           name: desktop-${{ runner.os }}
           if-no-files-found: error
           path: |
-            packages/desktop/out/penguin-desktop-*.AppImage
-            packages/desktop/out/penguin-desktop-*.deb
-            packages/desktop/out/penguin-desktop-*.dmg
-            packages/desktop/out/penguin-desktop-*.zip
-            packages/desktop/out/penguin-desktop-*.exe
+            packages/desktop/out/wafh-desktop-*.AppImage
+            packages/desktop/out/wafh-desktop-*.deb
+            packages/desktop/out/wafh-desktop-*.dmg
+            packages/desktop/out/wafh-desktop-*.zip
+            packages/desktop/out/wafh-desktop-*.exe
             # Update metadata: electron-updater reads latest*.yml from the Release, and
             # the blockmaps are what make differential downloads possible. Without these
             # the installers ship but nothing can auto-update.

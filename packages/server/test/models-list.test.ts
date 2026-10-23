@@ -16,14 +16,14 @@ import type { EndpointModelListResponse, ProjectCreateResponse } from "../src/ap
 import { ProjectConfigService } from "../src/services/project-config-service.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 
 describe("ProjectConfigService.listEndpointModels", () => {
   let root: string;
   let service: ProjectConfigService;
 
   beforeEach(async () => {
-    root = await mkdtemp(path.join(tmpdir(), "penguin-models-list-"));
+    root = await mkdtemp(path.join(tmpdir(), "wafh-models-list-"));
     service = wire(ProjectConfigService, { paths: { root } });
   });
   afterEach(async () => {

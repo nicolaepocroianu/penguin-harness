@@ -1,6 +1,6 @@
 # Third-party notices
 
-PenguinHarness itself is licensed under Apache-2.0 (see [LICENSE](LICENSE)). Some **distributed
+WAF Harness itself is licensed under Apache-2.0 (see [LICENSE](LICENSE)). Some **distributed
 release artifacts** additionally bundle third-party programs and files, which keep their own
 licenses. This file records those, and how to obtain their source.
 
@@ -10,7 +10,7 @@ programs below are downloaded by the release workflow (`.github/workflows/releas
 alongside the application inside the release archives. The fonts are part of the built web assets:
 the build takes the MiSans files from this repository and copies every other font out of an npm
 dependency. The web assets ship wherever the Web App does, and that includes npm:
-`@prismshadow/penguin-cli` depends on `@prismshadow/penguin-server`, whose package carries them as
+`@waterford/waf-harness-cli` depends on `@waterford/waf-harness-server`, whose package carries them as
 `web-dist/`. Installing from npm therefore bundles the fonts, but none of those programs; the one it fetches,
 FFmpeg, is downloaded on the installing machine by an install script (see below).
 
@@ -23,7 +23,7 @@ would be a second, staler copy of `pnpm-lock.yaml`.
 
 ## Node.js runtime — `node/`
 
-Present in every archive except `penguin-universal.tar.gz`. Downloaded unmodified from the
+Present in every archive except `wafh-universal.tar.gz`. Downloaded unmodified from the
 official distribution at <https://nodejs.org/dist/>. Node.js is MIT-licensed with additional
 notices for its dependencies; the full text ships inside the bundle
 (`node/LICENSE`, and on Windows `node/LICENSE`).
@@ -33,7 +33,7 @@ as `NODE_RUNTIME_VERSION` in the release workflow.
 
 ## MinGit (Git for Windows) — `git/`
 
-Present in `penguin-win32-x64.zip` only.
+Present in `wafh-win32-x64.zip` only.
 
 The Windows package bundles **MinGit**, the minimal redistributable build of Git for Windows,
 unmodified, as published by the Git for Windows project. It supplies the POSIX shell that the
@@ -65,7 +65,7 @@ Present in the desktop application (staged by `packages/desktop/scripts/build-as
 install of the server gets the same binary through its optional `ffmpeg-static` dependency, whose
 install script downloads it on the installing machine. FFmpeg encodes activity scene videos and
 converts generated speech to MP3. It is a separate program the server starts; it is not linked into
-PenguinHarness.
+WAF Harness.
 
 **License: GNU General Public License version 3** (the build enables GPL components such as x264).
 The license text ships beside the binary as `ffmpeg.LICENSE` (`ffmpeg.exe.LICENSE` on Windows), and
@@ -332,12 +332,12 @@ Email: mengfanqi@xiaomi.com
 ## GenericAgent — the built-in browser's page scripts
 
 Adapted into this repository's source, so present wherever the server ships: every release archive,
-the desktop application, and the `@prismshadow/penguin-server` npm package.
+the desktop application, and the `@waterford/waf-harness-server` npm package.
 
 The built-in browser's page scripts under `packages/server/src/builtin-browser/page-scripts/` (the
-DOM simplification that `penguin browser scan` returns, and the change monitor behind
-`penguin browser exec`) are ported from GenericAgent's `simphtml.py`; each ported file says so at
-its top. The `penguin browser` commands and the `browser-automation` skill follow GenericAgent's
+DOM simplification that `wafh browser scan` returns, and the change monitor behind
+`wafh browser exec`) are ported from GenericAgent's `simphtml.py`; each ported file says so at
+its top. The `wafh browser` commands and the `browser-automation` skill follow GenericAgent's
 `web_scan` / `web_execute_js` tools and its browser operating notes.
 
 **License: MIT**, reproduced in full:

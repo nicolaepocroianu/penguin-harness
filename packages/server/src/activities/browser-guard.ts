@@ -1,7 +1,7 @@
 /**
  * The test browser locked down for checks the server runs itself (decision 17). The checks are
  * an earlier run's agent's code, and the browser runs unconfined, as this server's user: left
- * alone, a check could open `file:///…` and read anything that user can (Penguin's own data,
+ * alone, a check could open `file:///…` and read anything that user can (WAF Harness's own data,
  * its Agents' Vaults), or send it to any host. Ported from the activity bench's evaluator
  * (scripts/activity-bench/browser-guard.ts), which locks its browser the same way.
  *

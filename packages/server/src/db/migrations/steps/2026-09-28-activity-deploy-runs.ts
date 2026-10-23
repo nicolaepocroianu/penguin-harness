@@ -7,7 +7,7 @@ export const activityDeployRuns: Migration = {
   swapSafe: true,
   up(db) {
     // An activity's deploy runs and the latest state of each deploy stage. A run's log is a
-    // file under PENGUIN_HOME, not a row.
+    // file under WAFH_HOME, not a row.
     db.exec(`
       CREATE TABLE IF NOT EXISTS activity_deploy_runs (
         run_id TEXT PRIMARY KEY,

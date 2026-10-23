@@ -94,13 +94,13 @@ describe("lockedClosure", () => {
 describe("integrityMismatches", () => {
   const npmLock = (linuxIntegrity: string | undefined) => ({
     packages: {
-      "": { name: "penguin-builtin-plugins" },
-      "node_modules/@penguinharness/sandbox-dsh": { version: "0.2.3" },
+      "": { name: "wafh-builtin-plugins" },
+      "node_modules/@waf-harness/sandbox-dsh": { version: "0.2.3" },
       "node_modules/koffi": { version: "3.1.6", integrity: "sha512-koffi" },
       "node_modules/@koromix/koffi-linux-x64": { version: "3.1.6", integrity: linuxIntegrity },
     },
   });
-  const builtins = new Set(["@penguinharness/sandbox-dsh"]);
+  const builtins = new Set(["@waf-harness/sandbox-dsh"]);
 
   it.each([
     ["sha512-linux", []],

@@ -3,7 +3,7 @@
  * an hmr store under this server's data root.
  *
  * Every command this side runs on a machine goes through the CLI in that machine's hmr store
- * (commands.ts's remotePenguin), so an install has to leave one there. A server that was
+ * (commands.ts's remoteWafHarness), so an install has to leave one there. A server that was
  * hot-pushed replicates its own pushed state; a source checkout builds an image with the hot
  * push's packer (checkout-image.ts). A release nothing was pushed to has no state of its
  * own, so its build ships one: the body that packer writes (`scripts/deploy.mjs --out`),

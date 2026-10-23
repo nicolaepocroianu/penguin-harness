@@ -30,14 +30,14 @@ let tmpRoot: string;
 let prevHome: string | undefined;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-bench-"));
-  process.env.PENGUIN_HOME = tmpRoot;
+  prevHome = process.env.WAFH_HOME;
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-bench-"));
+  process.env.WAFH_HOME = tmpRoot;
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.PENGUIN_HOME;
-  else process.env.PENGUIN_HOME = prevHome;
+  if (prevHome === undefined) delete process.env.WAFH_HOME;
+  else process.env.WAFH_HOME = prevHome;
   await fs.rm(tmpRoot, { recursive: true, force: true });
 });
 

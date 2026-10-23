@@ -20,7 +20,7 @@ export interface Attachment {
 }
 
 interface Registry {
-  prototype: "penguin-media-workspaces-v1";
+  prototype: "wafh-media-workspaces-v1";
   remote: string;
   baseBranch: string;
   attachments: Attachment[];
@@ -145,7 +145,7 @@ export class MediaWorkspacesPrototype {
 
   private async read(): Promise<Registry> {
     const registry = JSON.parse(await fs.readFile(this.registryPath, "utf8")) as Registry;
-    if (registry.prototype !== "penguin-media-workspaces-v1") {
+    if (registry.prototype !== "wafh-media-workspaces-v1") {
       throw new Error("This directory does not contain a supported prototype registry.");
     }
     return registry;
@@ -191,7 +191,7 @@ export class MediaWorkspacesPrototype {
       // developer has configured a different global lfs.storage location.
       await git(this.repository, ["config", "--local", "lfs.storage", "lfs"], this.progress);
       const registry: Registry = {
-        prototype: "penguin-media-workspaces-v1",
+        prototype: "wafh-media-workspaces-v1",
         remote,
         baseBranch,
         attachments: [],

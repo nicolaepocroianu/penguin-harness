@@ -11,11 +11,11 @@ import { describe, expect, it } from "vitest";
 const pluginsRoot = join(__dirname, "..", "..", "..", "plugins");
 const contentDir = join(__dirname, "..", "content");
 
-/** A plugin directory: its package.json carries a `penguin` block, or it ships skills. */
+/** A plugin directory: its package.json carries a `wafh` block, or it ships skills. */
 function isPluginDir(dir: string): boolean {
   if (existsSync(join(dir, "skills"))) return true;
   try {
-    return "penguin" in (JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as object);
+    return "wafh" in (JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as object);
   } catch {
     return false;
   }

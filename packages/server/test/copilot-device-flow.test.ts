@@ -18,7 +18,7 @@ function setup() {
     apply,
     fetcher,
     () => clock,
-    () => "penguin-app",
+    () => "wafh-app",
   );
   return {
     service,
@@ -39,7 +39,7 @@ describe("Copilot device authorization", () => {
       Date.now,
       () => undefined,
     );
-    await expect(flow.start(owner)).rejects.toThrow("PENGUIN_COPILOT_CLIENT_ID");
+    await expect(flow.start(owner)).rejects.toThrow("WAFH_COPILOT_CLIENT_ID");
     expect(fetcher).not.toHaveBeenCalled();
   });
 
@@ -65,7 +65,7 @@ describe("Copilot device authorization", () => {
     );
     const options = fetcher.mock.calls[1]![1]!;
     expect(JSON.parse(String(options.body))).toMatchObject({
-      client_id: "penguin-app",
+      client_id: "wafh-app",
       device_code: "secret-device",
     });
     expect(options.redirect).toBe("error");

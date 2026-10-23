@@ -16,8 +16,8 @@
  *   opens only when the reader was following the newest one.
  */
 import { describe, expect, it } from "vitest";
-import type { OmniMessage } from "@prismshadow/penguin-core/omnimessage";
-import type { TraceEventsResponse } from "@prismshadow/penguin-server/api";
+import type { OmniMessage } from "@waterford/waf-harness-core/omnimessage";
+import type { TraceEventsResponse } from "@waterford/waf-harness-server/api";
 import {
   TRACE_EVENT_PAGE_SIZE,
   TRACE_ROUNDS_PAGE,

@@ -11,7 +11,7 @@
  *   last used (or that it never was).
  * - A created key's secret is on screen in its own panel, whose copy button copies exactly the
  *   secret and whose Done hands back; with no secret pending there is no panel.
- * - The examples call the real Base URL and Agent ID, with the key left as $PENGUIN_AGENT_KEY.
+ * - The examples call the real Base URL and Agent ID, with the key left as $WAFH_AGENT_KEY.
  * - With the admin's server-wide switch off, the tab's switch is disabled and says why, to every
  *   member and not only an admin (the tab's own read carries the switch); a member who is not the
  *   owner finds every control disabled, no key actions, and is told why.
@@ -36,8 +36,8 @@ import type {
   AgentApiKeyInfo,
   AgentApiResponse,
   AgentApiSettings,
-} from "@prismshadow/penguin-server/api";
-import { Button, CopyButton, Select, ToggleRow } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { Button, CopyButton, Select, ToggleRow } from "@waterford/waf-harness-ui";
 import {
   AgentApiOffConfirm,
   KeylessOnConfirm,
@@ -56,8 +56,8 @@ import { escapeMarkup } from "./helpers/markup";
 
 const toasts = vi.hoisted(() => [] as string[]);
 
-vi.mock("@prismshadow/penguin-ui", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@prismshadow/penguin-ui")>();
+vi.mock("@waterford/waf-harness-ui", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@waterford/waf-harness-ui")>();
   return {
     ...actual,
     toastSuccess: (text: string) => toasts.push(`success: ${text}`),
@@ -68,7 +68,7 @@ vi.mock("@prismshadow/penguin-ui", async (importOriginal) => {
 const USED: AgentApiKeyInfo = {
   keyId: "kq3VtX9cRb2LmN0a",
   name: "docs-site search",
-  prefix: "penguin_Zr8kQ2vT",
+  prefix: "wafh_Zr8kQ2vT",
   createdBy: "admin",
   createdAt: "2026-10-01T08:00:00.000Z",
   lastUsedAt: "2026-10-07T09:30:00.000Z",
@@ -77,7 +77,7 @@ const FRESH: AgentApiKeyInfo = {
   ...USED,
   keyId: "Hc7pW2sYd4EfJ6uB",
   name: "weekly report",
-  prefix: "penguin_4mGxL7pA",
+  prefix: "wafh_4mGxL7pA",
   lastUsedAt: null,
 };
 const ON: AgentApiSettings = {
@@ -92,7 +92,7 @@ const ON: AgentApiSettings = {
 };
 const BASE = agentApiBaseUrl("http://127.0.0.1:7369");
 /** Obviously fake and short: no key-shaped literal lives in the tests. */
-const SECRET = "penguin_fake-secret";
+const SECRET = "wafh_fake-secret";
 
 const noop = () => {};
 function props(over: Partial<ApiTabViewProps> = {}): ApiTabViewProps {
@@ -157,7 +157,7 @@ describe("the API tab", () => {
     expect(html).not.toContain(S.agent.apiApprovalMode);
     expect(html).not.toContain(BASE);
     expect(html).not.toContain(USED.prefix);
-    expect(html).not.toContain("PENGUIN_AGENT_KEY");
+    expect(html).not.toContain("WAFH_AGENT_KEY");
   });
 
   it("shows the approval mode, the address with copy buttons and every key by its prefix once on", () => {
@@ -190,10 +190,10 @@ describe("the API tab", () => {
   it("calls the real Base URL and Agent ID in its examples, the key left to the environment", () => {
     const { curl, sdk } = agentApiExamples(BASE, "demo/coder");
     expect(curl).toContain(`curl -N ${BASE}/agents/demo/coder/runs`);
-    expect(curl).toContain("Bearer $PENGUIN_AGENT_KEY");
+    expect(curl).toContain("Bearer $WAFH_AGENT_KEY");
     expect(sdk).toContain(`baseUrl: "${BASE}"`);
     expect(sdk).toContain(`agent: "demo/coder"`);
-    expect(sdk).toContain("process.env.PENGUIN_AGENT_KEY");
+    expect(sdk).toContain("process.env.WAFH_AGENT_KEY");
     expect(render()).toContain(`${BASE}/agents/demo/coder/runs`);
   });
 

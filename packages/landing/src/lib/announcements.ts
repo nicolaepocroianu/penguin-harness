@@ -19,7 +19,7 @@ type AnnouncementTarget =
 export const ANNOUNCEMENTS = [
   { key: "geminiArgon", to: "/blog/penguinharness-0-2-16" },
   { key: "tokenDanceChallenge", to: "/blog/tokendance-agent-challenge" },
-  { key: "penguinGo", href: "https://token.penguin.ooo/" },
+  { key: "wafHarnessGo", href: "https://token.penguin.ooo/" },
 ] as const satisfies ReadonlyArray<{ key: string } & AnnouncementTarget>;
 
 /**

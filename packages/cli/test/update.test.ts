@@ -1,5 +1,5 @@
 /**
- * `penguin update`'s pure pieces: install-kind detection over the three real layouts, package-
+ * `wafh update`'s pure pieces: install-kind detection over the three real layouts, package-
  * manager identification for global installs, version normalisation/comparison, the installer
  * argv/env built for each combination of install dir and bundled runtime, and the decision the
  * command makes before it touches anything (planUpdate) plus its confirmation gate, and the
@@ -10,7 +10,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
-import { RELEASE_IDENTITY } from "@prismshadow/penguin-core";
+import { RELEASE_IDENTITY } from "@waterford/waf-harness-core";
 import {
   buildInstallerInvocation,
   compareVersions,
@@ -37,60 +37,60 @@ import { getMessages } from "../src/i18n.js";
 const GITHUB_REPO = `https://github.com/${RELEASE_IDENTITY.repository}`;
 
 // POSIX-only: the fixtures are POSIX install layouts and detectInstall normalizes through
-// path.* (backslashes on Windows) — where in-place `penguin update` is refused anyway
+// path.* (backslashes on Windows) — where in-place `wafh update` is refused anyway
 // (the documented Windows upgrade path is re-running install.ps1).
 describe.skipIf(process.platform === "win32")(
   "detectInstall (how this CLI was installed, from its own real path)",
   () => {
     it("tarball: <installDir>/lib/dist/index.js, the layout install.sh unpacks", () => {
-      expect(detectInstall("/home/me/.penguin/lib/dist/index.js")).toEqual({
+      expect(detectInstall("/home/me/.waf-harness/lib/dist/index.js")).toEqual({
         kind: "tarball",
-        installDir: "/home/me/.penguin",
+        installDir: "/home/me/.waf-harness",
       });
     });
 
-    it("tarball: a non-default PENGUIN_INSTALL_DIR is read off the path, not the environment", () => {
-      expect(detectInstall("/opt/tools/penguin/lib/dist/index.js")).toEqual({
+    it("tarball: a non-default WAFH_INSTALL_DIR is read off the path, not the environment", () => {
+      expect(detectInstall("/opt/tools/wafh/lib/dist/index.js")).toEqual({
         kind: "tarball",
-        installDir: "/opt/tools/penguin",
+        installDir: "/opt/tools/wafh",
       });
     });
 
     it("npm global: npm's own prefix layout", () => {
       expect(
-        detectInstall("/usr/local/lib/node_modules/@prismshadow/penguin-cli/dist/index.js"),
+        detectInstall("/usr/local/lib/node_modules/@waterford/waf-harness-cli/dist/index.js"),
       ).toEqual({ kind: "npm", globalRoot: "/usr/local/lib/node_modules" });
     });
 
     it("npm global: pnpm's global store, through the .pnpm virtual dir", () => {
       const p =
-        "/home/me/.local/share/pnpm/global/5/node_modules/.pnpm/@prismshadow+penguin-cli@0.1.1/node_modules/@prismshadow/penguin-cli/dist/index.js";
+        "/home/me/.local/share/pnpm/global/5/node_modules/.pnpm/@waterford+waf-harness-cli@0.1.1/node_modules/@waterford/waf-harness-cli/dist/index.js";
       const info = detectInstall(p);
       expect(info.kind).toBe("npm");
       expect(info.globalRoot).toContain(".pnpm");
     });
 
     it("source checkout: the built dist inside the monorepo", () => {
-      expect(detectInstall("/home/me/code/penguin-harness/packages/cli/dist/index.js")).toEqual({
+      expect(detectInstall("/home/me/code/waf-harness/packages/cli/dist/index.js")).toEqual({
         kind: "source",
       });
     });
 
     it("source checkout: tsx running src directly", () => {
-      expect(detectInstall("/home/me/code/penguin-harness/packages/cli/src/index.ts")).toEqual({
+      expect(detectInstall("/home/me/code/waf-harness/packages/cli/src/index.ts")).toEqual({
         kind: "source",
       });
     });
 
     it("a checkout wins over the tarball shape, so a repo under a lib/ dir is never mistaken for an install", () => {
-      expect(detectInstall("/srv/lib/penguin-harness/packages/cli/dist/index.js")).toEqual({
+      expect(detectInstall("/srv/lib/waf-harness/packages/cli/dist/index.js")).toEqual({
         kind: "source",
       });
     });
 
     it("anything else is unknown rather than guessed", () => {
       expect(detectInstall("/random/place/index.js").kind).toBe("unknown");
-      expect(detectInstall("/home/me/.penguin/bin/penguin").kind).toBe("unknown");
+      expect(detectInstall("/home/me/.waf-harness/bin/wafh").kind).toBe("unknown");
     });
   },
 );
@@ -120,19 +120,19 @@ describe("globalInstallCommand", () => {
   it("uses each manager's own global-install spelling", () => {
     expect(globalInstallCommand("pnpm", "0.1.2")).toEqual({
       command: "pnpm",
-      args: ["add", "-g", "@prismshadow/penguin-cli@0.1.2"],
+      args: ["add", "-g", "@waterford/waf-harness-cli@0.1.2"],
     });
     expect(globalInstallCommand("npm", "0.1.2")).toEqual({
       command: "npm",
-      args: ["install", "-g", "@prismshadow/penguin-cli@0.1.2"],
+      args: ["install", "-g", "@waterford/waf-harness-cli@0.1.2"],
     });
     expect(globalInstallCommand("yarn", "0.1.2")).toEqual({
       command: "yarn",
-      args: ["global", "add", "@prismshadow/penguin-cli@0.1.2"],
+      args: ["global", "add", "@waterford/waf-harness-cli@0.1.2"],
     });
     expect(globalInstallCommand("bun", "0.1.2")).toEqual({
       command: "bun",
-      args: ["add", "-g", "@prismshadow/penguin-cli@0.1.2"],
+      args: ["add", "-g", "@waterford/waf-harness-cli@0.1.2"],
     });
   });
 });
@@ -352,73 +352,73 @@ describe("release source selection", () => {
 
 describe("buildInstallerInvocation (preserves the shape of the install being upgraded)", () => {
   const base = {
-    scriptPath: "/tmp/penguin-install-1.sh",
-    defaultInstallDir: "/home/me/.penguin",
+    scriptPath: "/tmp/wafh-install-1.sh",
+    defaultInstallDir: "/home/me/.waf-harness",
   };
 
   it("default dir + bundled runtime: no flags, no env", () => {
     expect(
       buildInstallerInvocation({
         ...base,
-        installDir: "/home/me/.penguin",
+        installDir: "/home/me/.waf-harness",
         hasBundledNode: true,
       }),
-    ).toEqual({ args: ["/tmp/penguin-install-1.sh"], env: {} });
+    ).toEqual({ args: ["/tmp/wafh-install-1.sh"], env: {} });
   });
 
   it("no bundled node/ means the universal package: pass --universal so the runtime is not silently added", () => {
     expect(
       buildInstallerInvocation({
         ...base,
-        installDir: "/home/me/.penguin",
+        installDir: "/home/me/.waf-harness",
         hasBundledNode: false,
       }),
-    ).toEqual({ args: ["/tmp/penguin-install-1.sh", "--universal"], env: {} });
+    ).toEqual({ args: ["/tmp/wafh-install-1.sh", "--universal"], env: {} });
   });
 
   it("a non-default install dir is passed through, or the upgrade would relocate the install", () => {
     expect(
       buildInstallerInvocation({
         ...base,
-        installDir: "/opt/penguin",
+        installDir: "/opt/wafh",
         hasBundledNode: true,
       }),
     ).toEqual({
-      args: ["/tmp/penguin-install-1.sh"],
-      env: { PENGUIN_INSTALL_DIR: "/opt/penguin" },
+      args: ["/tmp/wafh-install-1.sh"],
+      env: { WAFH_INSTALL_DIR: "/opt/wafh" },
     });
   });
 
-  it("a pinned version becomes PENGUIN_VERSION, always v-prefixed for the release tag", () => {
+  it("a pinned version becomes WAFH_VERSION, always v-prefixed for the release tag", () => {
     expect(
       buildInstallerInvocation({
         ...base,
-        installDir: "/home/me/.penguin",
+        installDir: "/home/me/.waf-harness",
         hasBundledNode: true,
         version: "0.1.2",
       }).env,
-    ).toEqual({ PENGUIN_VERSION: "v0.1.2" });
+    ).toEqual({ WAFH_VERSION: "v0.1.2" });
     expect(
       buildInstallerInvocation({
         ...base,
-        installDir: "/home/me/.penguin",
+        installDir: "/home/me/.waf-harness",
         hasBundledNode: true,
         version: "v0.1.2",
       }).env,
-    ).toEqual({ PENGUIN_VERSION: "v0.1.2" });
+    ).toEqual({ WAFH_VERSION: "v0.1.2" });
   });
 
   it("all three at once: custom dir, universal package, pinned version", () => {
     expect(
       buildInstallerInvocation({
         ...base,
-        installDir: "/opt/penguin",
+        installDir: "/opt/wafh",
         hasBundledNode: false,
         version: "v0.2.0",
       }),
     ).toEqual({
-      args: ["/tmp/penguin-install-1.sh", "--universal"],
-      env: { PENGUIN_INSTALL_DIR: "/opt/penguin", PENGUIN_VERSION: "v0.2.0" },
+      args: ["/tmp/wafh-install-1.sh", "--universal"],
+      env: { WAFH_INSTALL_DIR: "/opt/wafh", WAFH_VERSION: "v0.2.0" },
     });
   });
 
@@ -426,7 +426,7 @@ describe("buildInstallerInvocation (preserves the shape of the install being upg
     expect(
       buildInstallerInvocation({
         ...base,
-        installDir: "/home/me/.penguin",
+        installDir: "/home/me/.waf-harness",
         hasBundledNode: true,
         version: "0.2.0",
         downloadBaseUrl:
@@ -435,10 +435,10 @@ describe("buildInstallerInvocation (preserves the shape of the install being upg
           "https://github.com/Prism-Shadow/penguin-harness/releases/download/v0.2.0",
       }).env,
     ).toEqual({
-      PENGUIN_VERSION: "v0.2.0",
-      PENGUIN_DOWNLOAD_BASE_URL:
+      WAFH_VERSION: "v0.2.0",
+      WAFH_DOWNLOAD_BASE_URL:
         "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases/v0.2.0",
-      PENGUIN_DOWNLOAD_FALLBACK_BASE_URL:
+      WAFH_DOWNLOAD_FALLBACK_BASE_URL:
         "https://github.com/Prism-Shadow/penguin-harness/releases/download/v0.2.0",
     });
   });
@@ -447,16 +447,16 @@ describe("buildInstallerInvocation (preserves the shape of the install being upg
     expect(
       buildInstallerInvocation({
         ...base,
-        installDir: "/home/me/.penguin",
+        installDir: "/home/me/.waf-harness",
         hasBundledNode: true,
         version: "0.2.0",
         downloadBaseUrl: "",
         downloadFallbackBaseUrl: "",
       }).env,
     ).toEqual({
-      PENGUIN_VERSION: "v0.2.0",
-      PENGUIN_DOWNLOAD_BASE_URL: "",
-      PENGUIN_DOWNLOAD_FALLBACK_BASE_URL: "",
+      WAFH_VERSION: "v0.2.0",
+      WAFH_DOWNLOAD_BASE_URL: "",
+      WAFH_DOWNLOAD_FALLBACK_BASE_URL: "",
     });
   });
 
@@ -490,11 +490,11 @@ describe("planUpdate (what the command decides before it touches anything)", () 
   const base = {
     current: "0.1.1",
     target: "0.1.2",
-    modulePath: "/home/me/.penguin/lib/dist/index.js",
+    modulePath: "/home/me/.waf-harness/lib/dist/index.js",
     platform: "linux",
-    defaultInstallDir: "/home/me/.penguin",
+    defaultInstallDir: "/home/me/.waf-harness",
   };
-  const tarball = { kind: "tarball", installDir: "/home/me/.penguin" } as const;
+  const tarball = { kind: "tarball", installDir: "/home/me/.waf-harness" } as const;
   const npmGlobal = { kind: "npm", globalRoot: "/usr/local/lib/node_modules" } as const;
 
   it("--check reports the comparison and never upgrades, even when one is available", () => {
@@ -555,7 +555,7 @@ describe("planUpdate (what the command decides before it touches anything)", () 
       action: "npm",
       manager: "npm",
       command: "npm",
-      args: ["install", "-g", "@prismshadow/penguin-cli@0.1.2"],
+      args: ["install", "-g", "@waterford/waf-harness-cli@0.1.2"],
     });
   });
 
@@ -571,15 +571,16 @@ describe("planUpdate (what the command decides before it touches anything)", () 
   it("a tarball install re-runs the installer at the dir it was detected in", () => {
     expect(planUpdate({ ...base, install: tarball })).toEqual({
       action: "tarball",
-      installDir: "/home/me/.penguin",
+      installDir: "/home/me/.waf-harness",
     });
-    expect(
-      planUpdate({ ...base, install: { kind: "tarball", installDir: "/opt/penguin" } }),
-    ).toEqual({ action: "tarball", installDir: "/opt/penguin" });
+    expect(planUpdate({ ...base, install: { kind: "tarball", installDir: "/opt/wafh" } })).toEqual({
+      action: "tarball",
+      installDir: "/opt/wafh",
+    });
     // No installDir on the info (shouldn't happen, but the fallback is the default install dir).
     expect(planUpdate({ ...base, install: { kind: "tarball" } })).toEqual({
       action: "tarball",
-      installDir: "/home/me/.penguin",
+      installDir: "/home/me/.waf-harness",
     });
   });
 
@@ -596,7 +597,7 @@ describe("planUpdate (what the command decides before it touches anything)", () 
     expect(planUpdate({ ...base, platform: "win32", install: npmGlobal })).toEqual({
       action: "refuse",
       reason: "windows-global",
-      command: "npm install -g @prismshadow/penguin-cli@0.1.2",
+      command: "npm install -g @waterford/waf-harness-cli@0.1.2",
     });
   });
 
@@ -642,7 +643,7 @@ describe("a build whose repository publishes no releases", () => {
     vi.unstubAllGlobals();
   });
 
-  it("refuses every form of `penguin update` before any lookup, naming its repository", async () => {
+  it("refuses every form of `wafh update` before any lookup, naming its repository", async () => {
     expect(RELEASE_IDENTITY.publishesReleases).toBe(false);
     const t = getMessages("en");
     const fetchSpy = vi.fn(async () => {

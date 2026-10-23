@@ -8,7 +8,7 @@
  *   still told apart by their first 20 characters, as upstream, but reported with up to 80
  *   (upstream reports the 20, which rarely says which item a toast was about).
  * - The change diff: a baseline of the simplified page is kept in the page itself
- *   (`window.__penguinSnap`) before the action, and compared with the page after it —
+ *   (`window.__wafHarnessSnap`) before the action, and compared with the page after it —
  *   find_changed_elements, on the simplified trees themselves instead of BeautifulSoup's parse
  *   of their HTML (parsing is a Trusted Types sink, see simplify.ts). It reports how many
  *   elements changed and the largest changed subtree (at most 2000 characters).
@@ -20,19 +20,19 @@
 import { SIMPLIFY_LIBRARY } from "./simplify.js";
 
 const STR_MONITOR = String.raw`function startStrMonitor(interval) {
-  if (window.__penguinTm && window.__penguinTm.id) clearInterval(window.__penguinTm.id);
-  window.__penguinTm = {extract: () => {
+  if (window.__wafHarnessTm && window.__wafHarnessTm.id) clearInterval(window.__wafHarnessTm.id);
+  window.__wafHarnessTm = {extract: () => {
     const texts = new Map(), walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
     let node, t, s; while (node = walker.nextNode())
       ((t = node.textContent.trim()) && t.length > 10 && !(s = t.substring(0, 20)).includes('_')) && !texts.has(s) && texts.set(s, t.substring(0, 80));
     return texts;
   }};
-  window.__penguinTm.init = window.__penguinTm.extract();
-  window.__penguinTm.all = new Map();
-  window.__penguinTm.id = setInterval(() => window.__penguinTm.extract().forEach((text, key) => window.__penguinTm.all.has(key) || window.__penguinTm.all.set(key, text)), interval);
+  window.__wafHarnessTm.init = window.__wafHarnessTm.extract();
+  window.__wafHarnessTm.all = new Map();
+  window.__wafHarnessTm.id = setInterval(() => window.__wafHarnessTm.extract().forEach((text, key) => window.__wafHarnessTm.all.has(key) || window.__wafHarnessTm.all.set(key, text)), interval);
 }
 function stopStrMonitor() {
-  const tm = window.__penguinTm;
+  const tm = window.__wafHarnessTm;
   if (!tm) return null;
   clearInterval(tm.id);
   const final = tm.extract();
@@ -43,7 +43,7 @@ function stopStrMonitor() {
   } else {
     result = newlySeen.filter(([key]) => !final.has(key));
   }
-  delete window.__penguinTm;
+  delete window.__wafHarnessTm;
   return result.map(([, text]) => text);
 }`;
 
@@ -59,7 +59,7 @@ const FIND_CHANGED = String.raw`function findChangedElements(before, after) {
     }
     return map;
   };
-  const beforeEls = __penguinTags(before), afterEls = __penguinTags(after);
+  const beforeEls = __wafHarnessTags(before), afterEls = __wafHarnessTags(after);
   const beforeSigs = bySig(beforeEls), afterSigs = bySig(afterEls);
   const changed = [];
   for (const [key, els] of afterSigs) {
@@ -97,7 +97,7 @@ export const MONITOR_BEGIN_SCRIPT = [
   SIMPLIFY_LIBRARY,
   STR_MONITOR,
   "startStrMonitor(450);",
-  "try { window.__penguinSnap = __penguinSimplified(); } catch (e) { window.__penguinSnap = null; }",
+  "try { window.__wafHarnessSnap = __wafHarnessSimplified(); } catch (e) { window.__wafHarnessSnap = null; }",
   "return true;",
 ].join("\n");
 
@@ -109,14 +109,14 @@ export const MONITOR_END_SCRIPT = [
   SIMPLIFY_LIBRARY,
   STR_MONITOR,
   FIND_CHANGED,
-  String.raw`const snap = window.__penguinSnap;
-delete window.__penguinSnap;
+  String.raw`const snap = window.__wafHarnessSnap;
+delete window.__wafHarnessSnap;
 const transients = stopStrMonitor();
 if (transients === null) return { lost: true };
 const out = { transients };
 if (snap) {
   try {
-    const now = __penguinSimplified();
+    const now = __wafHarnessSimplified();
     if (now) {
       const diff = findChangedElements(snap, now);
       out.changed = diff.changed;
@@ -131,6 +131,6 @@ return out;`,
 export const MONITOR_STOP_SCRIPT = [
   STR_MONITOR,
   "stopStrMonitor();",
-  "delete window.__penguinSnap;",
+  "delete window.__wafHarnessSnap;",
   "return true;",
 ].join("\n");

@@ -10,9 +10,9 @@
  */
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
-import { Button, EmptyState, CloseIcon, Textarea, Select } from "@prismshadow/penguin-ui";
+import { Button, EmptyState, CloseIcon, Textarea, Select } from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";

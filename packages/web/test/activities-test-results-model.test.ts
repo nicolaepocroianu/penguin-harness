@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AcceptanceReport } from "@prismshadow/penguin-server/api";
+import type { AcceptanceReport } from "@waterford/waf-harness-server/api";
 import {
   TEST_TONE,
   countText,

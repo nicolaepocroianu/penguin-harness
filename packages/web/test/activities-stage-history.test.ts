@@ -9,7 +9,7 @@ import type {
   PipelineState,
   PipelineStep,
   PipelineStepStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   PipelinePanel,
   continueRequest,
@@ -272,7 +272,7 @@ describe("taking a sequence up where it stopped", () => {
       language: "es-MX",
       assetKey: "cat",
     });
-    // A coding agent's sequence that had no Penguin agent to own it names none.
+    // A coding agent's sequence that had no WAF Harness agent to own it names none.
     expect(
       continueRequest(
         { ...failedAtImages, inputs: { agentId: "", codingAgentId: "codex" } },

@@ -1,5 +1,5 @@
 /**
- * `@prismshadow/penguin-server/model-catalog`: the built-in model catalog, browser-safe, for the
+ * `@waterford/waf-harness-server/model-catalog`: the built-in model catalog, browser-safe, for the
  * Web App, the CLI and the component gallery. One concern per module, imported in one direction
  * (no cycle, so no binding is read before its module has run):
  *

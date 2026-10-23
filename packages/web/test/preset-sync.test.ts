@@ -16,7 +16,7 @@ import { createElement } from "react";
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ModelsResponse, PresetSyncResponse } from "@prismshadow/penguin-server/api";
+import type { ModelsResponse, PresetSyncResponse } from "@waterford/waf-harness-server/api";
 import {
   AddNewModelsButton,
   AddNewModelsConfirm,

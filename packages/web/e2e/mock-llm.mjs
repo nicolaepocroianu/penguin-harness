@@ -579,7 +579,7 @@ const server = http.createServer((req, res) => {
         { type: "text_delta", text: "长链接折行验证：完整报告地址是 " },
         {
           type: "text_delta",
-          text: "https://example.com/penguin-harness/reports/2026-07/agent-session-0123456789abcdef0123456789abcdef/artifacts/deep-verification-run-with-a-very-long-descriptive-file-name-v3.html",
+          text: "https://example.com/waf-harness/reports/2026-07/agent-session-0123456789abcdef0123456789abcdef/artifacts/deep-verification-run-with-a-very-long-descriptive-file-name-v3.html",
         },
         { type: "text_delta", text: " ，请在浏览器中打开查看。\n\n" },
         { type: "text_delta", text: "| 指标 | 标识 | 说明 |\n| --- | --- | --- |\n" },

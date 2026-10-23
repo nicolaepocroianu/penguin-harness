@@ -1,5 +1,5 @@
 /**
- * Minting an API session from the data root (auth-token.ts): what `penguin auth token` and the
+ * Minting an API session from the data root (auth-token.ts): what `wafh auth token` and the
  * desktop shell run to sign in without a password.
  *
  * A session is a row in web.db, so minting opens the database and inserts one — no running
@@ -13,7 +13,7 @@
  * - The session records how it was established: a cli mint reads back as an ordinary password
  *   session, a desktop mint as the shell's own.
  * - An account that does not exist is refused.
- * - A database this OS account cannot open fails cleanly, pointing at `penguin auth login`.
+ * - A database this OS account cannot open fails cleanly, pointing at `wafh auth login`.
  */
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -50,7 +50,7 @@ describe("minting an API session", () => {
         const r = mintApiToken(root, { dbPath });
         expect(r.outcome).toBe("failed");
         if (r.outcome !== "failed") return;
-        expect(r.detail).toContain("penguin auth login");
+        expect(r.detail).toContain("wafh auth login");
       } finally {
         fs.chmodSync(dbPath, 0o600);
       }
@@ -88,7 +88,7 @@ describe("minting against a server's database", () => {
   });
 
   /**
-   * `--ttl-seconds` only rejects values <= 0, so without the clamp `penguin auth token
+   * `--ttl-seconds` only rejects values <= 0, so without the clamp `wafh auth token
    * --ttl-seconds 315360000` writes a ten-year row — and because its span passes the renewal
    * window it would slide forever, turning a leaked cli-session.json into a permanent
    * credential.

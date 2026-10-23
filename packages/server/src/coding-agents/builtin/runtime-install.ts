@@ -1,5 +1,5 @@
 /**
- * Download and install one npm platform package as a runtime Penguin runs itself: metadata from
+ * Download and install one npm platform package as a runtime WAF Harness runs itself: metadata from
  * the registry, the tarball checked against the checksum the registry publishes, unpacked into a
  * temporary folder and renamed into `<runtimesDir>/<version>` in one step, then started once with
  * --version. A failed, cut-off or cancelled download never replaces a working version. Uses the
@@ -13,7 +13,7 @@ import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as WebReadableStream } from "node:stream/web";
-import { sandboxedAgentEnv, spawnTarget } from "@prismshadow/penguin-coding-agents";
+import { sandboxedAgentEnv, spawnTarget } from "@waterford/waf-harness-coding-agents";
 import * as tar from "tar";
 import { binaryFromManifest } from "./copilot-package.js";
 

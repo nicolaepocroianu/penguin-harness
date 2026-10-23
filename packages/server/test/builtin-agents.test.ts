@@ -13,12 +13,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { benchmarksDir, libraryPlugin, loadPreinstalledPlugins } from "@prismshadow/penguin-core";
+import { benchmarksDir, libraryPlugin, loadPreinstalledPlugins } from "@waterford/waf-harness-core";
 import type { BenchmarkCasesResponse, BenchmarksResponse } from "../src/api/types.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser, type TestApp } from "./helpers.js";
 
-/** What every built-in Benchmark's id starts with: `penguinharness-benchmark-<name>`. */
-const BUILTIN_PREFIX = "penguinharness-benchmark-";
+/** What every built-in Benchmark's id starts with: `waf-harness-benchmark-<name>`. */
+const BUILTIN_PREFIX = "waf-harness-benchmark-";
 
 interface AgentsResponse {
   agents: Array<{ agentId: string; name?: string; description?: string }>;

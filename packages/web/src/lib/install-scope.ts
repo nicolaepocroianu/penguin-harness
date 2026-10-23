@@ -4,7 +4,7 @@
  * The report this exists for: a user deleted their data files, restarted, and the app came
  * back with the old Workspace still selected. `localStorage` has no relationship to the
  * data root at all — in the desktop app it lives in Electron's userData directory, so no
- * amount of deleting `PENGUIN_HOME` touches it — and every key that names an entity names
+ * amount of deleting `WAFH_HOME` touches it — and every key that names an entity names
  * it with a compile-time constant (`admin`, `default_project`). A wipe-and-restart
  * re-provisions the same user and the same Project, the keys line up again, and the old
  * draft, Workspace registry, pins and seen markers all come back.
@@ -39,7 +39,7 @@
 import * as api from "../api/endpoints";
 
 /** Where this browser records the data root it last saw. Never swept — it IS the marker. */
-export const INSTALL_ID_KEY = "penguin.installId";
+export const INSTALL_ID_KEY = "wafh.installId";
 
 /**
  * What a stored key is tied to.
@@ -58,9 +58,9 @@ export type KeyScope = "install" | "browser";
  * a key prefix that ends in `.` and covers every id-suffixed key under it.
  *
  * Plain prefix matching would be wrong twice over, which is why the distinction exists:
- * `penguin.sidebarCollapsed` (a preference) is a prefix of
- * `penguin.sidebarCollapsedGroups.<projectId>` (install-scoped), and `penguin.terminal.`
- * covers both `penguin.terminal.theme` (a preference) and `penguin.terminal.page.id`
+ * `wafh.sidebarCollapsed` (a preference) is a prefix of
+ * `wafh.sidebarCollapsedGroups.<projectId>` (install-scoped), and `wafh.terminal.`
+ * covers both `wafh.terminal.theme` (a preference) and `wafh.terminal.page.id`
  * (a terminal id).
  */
 export interface KeyRule {
@@ -72,7 +72,7 @@ export interface KeyRule {
 }
 
 /**
- * Every `penguin.*` key the web app persists in `localStorage`, classified.
+ * Every `wafh.*` key the web app persists in `localStorage`, classified.
  *
  * ADDING A KEY: add it here too. An unclassified key is left alone by the sweep (never
  * deleting something we do not understand is the safe default), so a forgotten
@@ -80,8 +80,8 @@ export interface KeyRule {
  * rather than asked for: install-scope.test.ts scans `packages/web/src` for key literals and
  * fails on any this table does not cover.
  *
- * Two `penguin.*` strings in the source are NOT here on purpose:
- *   - `penguin.chatRouteApplied.<field>` (features/chat/draft-view.tsx) is `sessionStorage`,
+ * Two `wafh.*` strings in the source are NOT here on purpose:
+ *   - `wafh.chatRouteApplied.<field>` (features/chat/draft-view.tsx) is `sessionStorage`,
  *     not `localStorage`: it is scoped to one tab's history and dies with the tab, so it
  *     cannot outlive a data root.
  *   - `penguin.ooo` (the shared UI package's remark-autolink-boundary.ts) is the product's
@@ -91,271 +91,271 @@ export const KEY_RULES: readonly KeyRule[] = [
   // ---------------------------------------------------------------- browser preferences
   {
     kind: "exact",
-    key: "penguin.background.image",
+    key: "wafh.background.image",
     scope: "browser",
     why: "Local wallpaper image; appearance only, with no reference to a server file.",
   },
   {
     kind: "exact",
-    key: "penguin.background.settings",
+    key: "wafh.background.settings",
     scope: "browser",
     why: "Wallpaper transparency, display mode and alignment for this browser.",
   },
   {
     kind: "exact",
-    key: "penguin.theme",
+    key: "wafh.theme",
     scope: "browser",
     why: "Colour-scheme choice for this browser; names nothing on the server.",
   },
   {
     kind: "exact",
-    key: "penguin.themeId",
+    key: "wafh.themeId",
     scope: "browser",
-    why: "Which theme renders the app (the key lives in @prismshadow/penguin-ui/boot); pure appearance.",
+    why: "Which theme renders the app (the key lives in @waterford/waf-harness-ui/boot); pure appearance.",
   },
   {
     kind: "exact",
-    key: "penguin.textSize",
+    key: "wafh.textSize",
     scope: "browser",
     why: "Root text size (five steps) — a readability preference of this display.",
   },
   {
     kind: "exact",
-    key: "penguin.fontScale",
+    key: "wafh.fontScale",
     scope: "browser",
-    why: "The three-step text size of earlier releases; read once, migrated to penguin.textSize and removed.",
+    why: "The three-step text size of earlier releases; read once, migrated to wafh.textSize and removed.",
   },
   {
     kind: "exact",
-    key: "penguin.fontLatin",
+    key: "wafh.fontLatin",
     scope: "browser",
     why: "Latin font face chosen over the theme's own; pure appearance.",
   },
   {
     kind: "exact",
-    key: "penguin.fontCjk",
+    key: "wafh.fontCjk",
     scope: "browser",
     why: "CJK font face chosen over the theme's own; pure appearance.",
   },
   {
     kind: "exact",
-    key: "penguin.accent",
+    key: "wafh.accent",
     scope: "browser",
     why: "Accent colour; pure appearance.",
   },
   {
     kind: "exact",
-    key: "penguin.currency",
+    key: "wafh.currency",
     scope: "browser",
     why: "Display currency for prices; a formatting choice, prices are stored in USD either way.",
   },
   {
     kind: "exact",
-    key: "penguin.toolAliases",
+    key: "wafh.toolAliases",
     scope: "browser",
     why: "Whether tool cards name the built-in tools by their short alias; a display choice of this browser, naming nothing on the server.",
   },
   {
     kind: "exact",
-    key: "penguin.terminal.theme",
+    key: "wafh.terminal.theme",
     scope: "browser",
     why: "Terminal appearance pin (light/dark/follow-app); appearance only.",
   },
   {
     kind: "exact",
-    key: "penguin.lang",
+    key: "wafh.lang",
     scope: "browser",
     why: "UI language — the one preference a user would be most annoyed to lose.",
   },
   {
     kind: "exact",
-    key: "penguin.sidebarCollapsed",
+    key: "wafh.sidebarCollapsed",
     scope: "browser",
     why: "Whether the sidebar is a narrow rail; chrome layout, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.panelWidth",
+    key: "wafh.panelWidth",
     scope: "browser",
     why: "Side-panel width in px; its own module calls it a layout preference, not session data.",
   },
   {
     kind: "exact",
-    key: "penguin.activityRailWidth",
+    key: "wafh.activityRailWidth",
     scope: "browser",
     why: "Activity workspace rail width in px; layout preference of this browser, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activitySidePanel",
+    key: "wafh.activitySidePanel",
     scope: "browser",
     why: "Which activity side panel (player, agent sessions) is open; chrome layout, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activitySidePanelWidth",
+    key: "wafh.activitySidePanelWidth",
     scope: "browser",
     why: "Activity side panel width in px; layout preference of this browser, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activitySidePanelExpanded",
+    key: "wafh.activitySidePanelExpanded",
     scope: "browser",
     why: "Whether the activity side panel fills the workspace; chrome layout, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activityRailCollapsed",
+    key: "wafh.activityRailCollapsed",
     scope: "browser",
     why: "Whether the activity workspace rail is collapsed; chrome layout, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activityRunLog.showReasoning",
+    key: "wafh.activityRunLog.showReasoning",
     scope: "browser",
     why: "Whether an activity's run log shows the agent's reasoning; a view preference, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activityMapWidth",
+    key: "wafh.activityMapWidth",
     scope: "browser",
     why: "Width in px of the behavior map beside the activity player; layout preference of this browser, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activityMapVisible",
+    key: "wafh.activityMapVisible",
     scope: "browser",
     why: "Whether the behavior map shows beside the activity player; chrome layout, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activityLibraryLayout",
+    key: "wafh.activityLibraryLayout",
     scope: "browser",
     why: "Whether an activity's Library shows its assets as a grid or a table; a view preference, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activityLayouts",
+    key: "wafh.activityLayouts",
     scope: "browser",
     why: "An author's named activity workspace layouts and whether their Alt+number shortcuts are on; chrome layout, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activitySpec.diffLayout",
+    key: "wafh.activitySpec.diffLayout",
     scope: "browser",
     why: "Whether the JSON document editors show a diff inline or side by side; a display choice of this browser, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.activitySpec.view",
+    key: "wafh.activitySpec.view",
     scope: "browser",
     why: "Whether the Activity Spec reads as scenes or as JSON; a display choice of this browser, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.dock.launcherY",
+    key: "wafh.dock.launcherY",
     scope: "browser",
     why: "Where the floating dock launcher rests along the chat body's edge; chrome layout, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.dock.launcherHidden",
+    key: "wafh.dock.launcherHidden",
     scope: "browser",
     why: "Whether the floating dock launcher shows at all; an appearance choice of this browser, and losing it would put a dismissed button back.",
   },
   {
     kind: "exact",
-    key: "penguin.files.treeVisible",
+    key: "wafh.files.treeVisible",
     scope: "browser",
     why: "Whether the Files panel shows its directory tree beside the preview; chrome layout, holds no entity.",
   },
   {
     kind: "exact",
-    key: "penguin.files.treeWidth",
+    key: "wafh.files.treeWidth",
     scope: "browser",
     why: "How wide that tree pane was dragged, in px; the same layout preference, one axis over.",
   },
   {
     kind: "exact",
-    key: "penguin.files.editorWrap",
+    key: "wafh.files.editorWrap",
     scope: "browser",
     why: "Whether the Files panel's editor soft-wraps long lines; a reading habit, valid against any root.",
   },
   {
     kind: "exact",
-    key: "penguin.sidebarGroupMode",
+    key: "wafh.sidebarGroupMode",
     scope: "browser",
     why: "Group sessions by Workspace/Agent/time — the MODE, not the groups; valid against any root.",
   },
   {
     kind: "exact",
-    key: "penguin.sidebarSortMode",
+    key: "wafh.sidebarSortMode",
     scope: "browser",
     why: "Recent vs manual ordering — again the mode; the manual order itself is separate and install-scoped.",
   },
   {
     kind: "exact",
-    key: "penguin.sidebarNavGroupCollapsed",
+    key: "wafh.sidebarNavGroupCollapsed",
     scope: "browser",
     why: "Whether the static page-nav group is folded; the nav is built from a compile-time manifest.",
   },
   {
     kind: "exact",
-    key: "penguin.quickSwitcher.recents",
+    key: "wafh.quickSwitcher.recents",
     scope: "browser",
     why: "The Quick Switcher's recently-selected entry ids; a convenience ordering, names nothing the server holds.",
   },
   {
     kind: "exact",
-    key: "penguin.sidebarNavPinned",
+    key: "wafh.sidebarNavPinned",
     scope: "browser",
     why: "Which nav entries stay out of the fold; keyed by the compile-time manifest, names nothing on the server.",
   },
   {
     kind: "exact",
-    key: "penguin.modelsGroupsFolded",
+    key: "wafh.modelsGroupsFolded",
     scope: "browser",
     why: "Whether the models page's collapsible groups are folded; one flag, names nothing on the server.",
   },
   {
     kind: "exact",
-    key: "penguin.modelsPinnedGroups",
+    key: "wafh.modelsPinnedGroups",
     scope: "browser",
     why: "Which model groups stay out of the fold, as differences from the built-in default set; a view preference, and a pinned user-defined group name is inert where no Project has it.",
   },
   {
     kind: "exact",
-    key: "penguin.modelsGroupSort",
+    key: "wafh.modelsGroupSort",
     scope: "browser",
     why: "How each model group orders its models, as differences from price low to high; a view preference, and a user-defined group name is inert where no Project has it.",
   },
   {
     kind: "exact",
-    key: "penguin.pluginsGroupBy",
+    key: "wafh.pluginsGroupBy",
     scope: "browser",
     why: "How the Plugins page groups its cards (category, status, contents or none) — the MODE, valid against any root.",
   },
   {
     kind: "exact",
-    key: "penguin.pluginsGroupsFolded",
+    key: "wafh.pluginsGroupsFolded",
     scope: "browser",
     why: "Which of the Plugins page's sections are folded, keyed by grouping and category, status or contents id; those ids ship with the build and name nothing on the server.",
   },
   {
     kind: "exact",
-    key: "penguin.pluginsIncompatibleOnly",
+    key: "wafh.pluginsIncompatibleOnly",
     scope: "browser",
     why: "Whether the Plugins page lists only the plugins this build cannot fully run; a view preference that names no plugin, valid against any root.",
   },
   {
     kind: "exact",
-    key: "penguin.steerMode",
+    key: "wafh.steerMode",
     scope: "browser",
     why: "Steer vs queue-as-follow-up when sending mid-run; a per-user input habit.",
   },
   {
     kind: "exact",
-    key: "penguin.notifications",
+    key: "wafh.notifications",
     scope: "browser",
     why: "Whether task-completion notifications were asked for; it pairs with an OS permission that belongs to this browser rather than to any data root, and clearing it would silently stop notifications the user opted into.",
   },
@@ -363,199 +363,199 @@ export const KEY_RULES: readonly KeyRule[] = [
   // --------------------------------------------------------------- install-scoped state
   {
     kind: "exact",
-    key: "penguin.activities.collapsedGroups",
+    key: "wafh.activities.collapsedGroups",
     scope: "install",
     why: "Product groups each Project folded on the Activities home, keyed by Project id; a new root has none.",
   },
   {
     kind: "family",
-    key: "penguin.chatDraft.",
+    key: "wafh.chatDraft.",
     scope: "install",
     why: "The new-chat and per-Session drafts: Workspace path, Agent id, model ref, Session id in the key. The reported bug.",
   },
   {
     kind: "family",
-    key: "penguin.chatDrafts.",
+    key: "wafh.chatDrafts.",
     scope: "install",
     why: "Parked draft conversations — the same contents as an active draft, kept as a list.",
   },
   {
     kind: "family",
-    key: "penguin.channelDraft.",
+    key: "wafh.channelDraft.",
     scope: "install",
     why: "A channel composer's unsent text, keyed by user, Project, organization and channel — all four name things that live in one data root.",
   },
   {
     kind: "family",
-    key: "penguin.sidebarWorkspaces.",
+    key: "wafh.sidebarWorkspaces.",
     scope: "install",
     why: "Manually registered Workspace paths per Project; a new root has no such Project.",
   },
   {
     kind: "family",
-    key: "penguin.finderQuickAccess.",
+    key: "wafh.finderQuickAccess.",
     scope: "install",
     why: "Folders added to and removed from the Workspace finder's Quick access, keyed by machine id and holding paths on the machines of this root — the same kind of state as the registered Workspace paths.",
   },
   {
     kind: "family",
-    key: "penguin.pinnedSessions.",
+    key: "wafh.pinnedSessions.",
     scope: "install",
     why: "Pinned Session ids.",
   },
   {
     kind: "family",
-    key: "penguin.machineSessions.",
+    key: "wafh.machineSessions.",
     scope: "install",
     why: "The Sessions each machine was last seen holding, shown until its connection is held again. Project id and machine id in the key, Session ids in the value — a new root knows none of them.",
   },
   {
     kind: "exact",
-    key: "penguin.sandboxBackendPromptDismissed",
+    key: "wafh.sandboxBackendPromptDismissed",
     scope: "install",
     why: "The machines whose Sandbox card no longer offers to install a backend — machine ids of this root.",
   },
   {
     kind: "family",
-    key: "penguin.machineAgents.",
+    key: "wafh.machineAgents.",
     scope: "install",
     why: "The Agents each machine was last seen running, offered by the composer until its connection is held again. Keyed by the same Project and machine a new root would not have.",
   },
   {
     kind: "family",
-    key: "penguin.machineMessaging.",
+    key: "wafh.machineMessaging.",
     scope: "install",
     why: "The messaging binding each machine conversation last answered, shown read-only while that machine is out of reach. Project, machine and Session ids in the key — a new root knows none of them.",
   },
   {
     kind: "family",
-    key: "penguin.sessionOrder.",
+    key: "wafh.sessionOrder.",
     scope: "install",
     why: "Manual Session order — an array of Session ids.",
   },
   {
     kind: "family",
-    key: "penguin.sessionSeen.",
+    key: "wafh.sessionSeen.",
     scope: "install",
     why: "Read markers keyed by Session id; against a new root every Session is new by definition.",
   },
   {
     kind: "family",
-    key: "penguin.groupOrder.",
+    key: "wafh.groupOrder.",
     scope: "install",
     why: "Manual group order — group keys are Agent ids and Workspace paths.",
   },
   {
     kind: "family",
-    key: "penguin.sidebarCollapsedGroups.",
+    key: "wafh.sidebarCollapsedGroups.",
     scope: "install",
     why: "Collapsed sidebar groups, keyed by those same Agent ids and Workspace paths.",
   },
   {
     kind: "family",
-    key: "penguin.sidebarExpandedFolderGroups.",
+    key: "wafh.sidebarExpandedFolderGroups.",
     scope: "install",
     why: "Folder-only sidebar groups the user opened, keyed by those same Agent ids and Workspace paths.",
   },
   {
     kind: "family",
-    key: "penguin.sidebarPinnedGroups.",
+    key: "wafh.sidebarPinnedGroups.",
     scope: "install",
     why: "Pinned sidebar groups, same key space.",
   },
   {
     kind: "family",
-    key: "penguin.a2uiDraft.",
+    key: "wafh.a2uiDraft.",
     scope: "install",
     why: "A reply's A2UI form or multi-select answers in progress, keyed by Session id: a new root has no such Session.",
   },
   {
     kind: "exact",
-    key: "penguin.lastProjectId",
+    key: "wafh.lastProjectId",
     scope: "install",
     why: "The Project id last selected.",
   },
   {
     kind: "exact",
-    key: "penguin.workMode",
+    key: "wafh.workMode",
     scope: "browser",
     why: "Development vs company mode — the MODE, mirrored from ui_prefs; valid against any root.",
   },
   {
     kind: "exact",
-    key: "penguin.keybindings",
+    key: "wafh.keybindings",
     scope: "browser",
     why: "The account's shortcut overrides, mirrored from ui_prefs for the first keystroke and for cross-tab sync; names nothing on the server, and the server copy is the truth.",
   },
   {
     kind: "exact",
-    key: "penguin.companyBetaNoticeShown",
+    key: "wafh.companyBetaNoticeShown",
     scope: "browser",
     why: "That company mode's beta notice has been shown in this browser; it names nothing on the server, and a wipe is not a request to show it again.",
   },
   {
     kind: "exact",
-    key: "penguin.tokenDanceBannerDismissed",
+    key: "wafh.tokenDanceBannerDismissed",
     scope: "browser",
     why: "That the models page's TokenDance banner was dismissed in this browser; it names nothing on the server, and a wipe is not a request to show it again.",
   },
   {
     kind: "exact",
-    key: "penguin.lastOrgKey",
+    key: "wafh.lastOrgKey",
     scope: "install",
     why: "The organization last opened in company mode, as <projectId>/<orgId> of this root.",
   },
   {
     kind: "family",
-    key: "penguin.orgCreateDraft.",
+    key: "wafh.orgCreateDraft.",
     scope: "install",
     why: "An unsubmitted create-organization form, keyed by user and Project id and holding a Workspace path and model ref of this root.",
   },
   {
     kind: "family",
-    key: "penguin.orgPageHint.",
+    key: "wafh.orgPageHint.",
     scope: "install",
     why: "A dismissed empty-page note, keyed by user, Project and organization id of this root.",
   },
   {
     kind: "family",
-    key: "penguin.orgTempSessions.",
+    key: "wafh.orgTempSessions.",
     scope: "install",
     why: "The company sidebar's Temporary group of ticket sessions, keyed by user, Project and organization id and naming Sessions and Agents of this root.",
   },
   {
     kind: "family",
-    key: "penguin.lastAgentId.",
+    key: "wafh.lastAgentId.",
     scope: "install",
     why: "The Agent id last selected, per Project.",
   },
   {
     kind: "family",
-    key: "penguin.memoryCollapsed.",
+    key: "wafh.memoryCollapsed.",
     scope: "install",
     why: "Collapsed Memory scopes, keyed by user x Project x Agent and holding scope keys.",
   },
   {
     kind: "family",
-    key: "penguin.modelsExpandedGroups.",
+    key: "wafh.modelsExpandedGroups.",
     scope: "install",
     why: "Expanded provider groups of a Project's model table; includes user-defined group names that live in that Project's config.",
   },
   {
     kind: "family",
-    key: "penguin.modelsGroupOrder.",
+    key: "wafh.modelsGroupOrder.",
     scope: "install",
     why: "Manual order of those same per-Project provider groups.",
   },
   {
     kind: "exact",
-    key: "penguin.dock.layout",
+    key: "wafh.dock.layout",
     scope: "install",
     why: "Dock tab arrangements keyed by conversation, holding Session ids and terminal ids.",
   },
   {
     kind: "exact",
-    key: "penguin.terminal.page.id",
+    key: "wafh.terminal.page.id",
     scope: "install",
     why: "The terminal (shell) id the standalone terminal page reattaches to.",
   },
@@ -719,7 +719,7 @@ export type BootAction = "mount" | "reload";
  *
  * A RECORDED SWEEP RELOADS. ES module evaluation of the entire static import graph finishes
  * before main.tsx's first statement runs, so a module that reads `localStorage` at module
- * scope — features/dock/dock-state.ts parses `penguin.dock.layout` into module state there —
+ * scope — features/dock/dock-state.ts parses `wafh.dock.layout` into module state there —
  * is already holding a copy of keys the sweep then deletes, and its first write puts the
  * whole map back. The id matches by then, so nothing ever sweeps it again and the
  * resurrection is permanent. A reload re-evaluates every module against the cleaned store

@@ -49,9 +49,9 @@ const at = (base: string, version: string, file: string) => `${base}/v${version}
 describe("release packages fetched for a machine", () => {
   it("fetches from the mirror once, checks the checksum, and serves later asks from the cache", async () => {
     const net = network({
-      [at(RELEASE_SOURCES.oss, "0.2.13", "penguin-linux-x64.tar.gz.sha256")]:
-        `${SUM}  penguin-linux-x64.tar.gz\n`,
-      [at(RELEASE_SOURCES.oss, "0.2.13", "penguin-linux-x64.tar.gz")]: PACKAGE,
+      [at(RELEASE_SOURCES.oss, "0.2.13", "wafh-linux-x64.tar.gz.sha256")]:
+        `${SUM}  wafh-linux-x64.tar.gz\n`,
+      [at(RELEASE_SOURCES.oss, "0.2.13", "wafh-linux-x64.tar.gz")]: PACKAGE,
     });
     const carry = releaseCache(dir, net.fetchImpl);
     const first = await carry("0.2.13", "linux-x64");
@@ -64,8 +64,8 @@ describe("release packages fetched for a machine", () => {
 
   it("shares one fetch between two jobs asking at once", async () => {
     const net = network({
-      [at(RELEASE_SOURCES.oss, "0.2.13", "penguin-linux-arm64.tar.gz.sha256")]: SUM,
-      [at(RELEASE_SOURCES.oss, "0.2.13", "penguin-linux-arm64.tar.gz")]: PACKAGE,
+      [at(RELEASE_SOURCES.oss, "0.2.13", "wafh-linux-arm64.tar.gz.sha256")]: SUM,
+      [at(RELEASE_SOURCES.oss, "0.2.13", "wafh-linux-arm64.tar.gz")]: PACKAGE,
     });
     const carry = releaseCache(dir, net.fetchImpl);
     const [a, b] = await Promise.all([
@@ -78,24 +78,24 @@ describe("release packages fetched for a machine", () => {
 
   it("refuses a package that does not match its published checksum, keeping nothing", async () => {
     const net = network({
-      [at(RELEASE_SOURCES.oss, "0.2.13", "penguin-linux-x64.tar.gz.sha256")]: SUM,
-      [at(RELEASE_SOURCES.oss, "0.2.13", "penguin-linux-x64.tar.gz")]: Buffer.from("tampered"),
-      [at(RELEASE_SOURCES.github, "0.2.13", "penguin-linux-x64.tar.gz.sha256")]: SUM,
-      [at(RELEASE_SOURCES.github, "0.2.13", "penguin-linux-x64.tar.gz")]: Buffer.from("tampered"),
+      [at(RELEASE_SOURCES.oss, "0.2.13", "wafh-linux-x64.tar.gz.sha256")]: SUM,
+      [at(RELEASE_SOURCES.oss, "0.2.13", "wafh-linux-x64.tar.gz")]: Buffer.from("tampered"),
+      [at(RELEASE_SOURCES.github, "0.2.13", "wafh-linux-x64.tar.gz.sha256")]: SUM,
+      [at(RELEASE_SOURCES.github, "0.2.13", "wafh-linux-x64.tar.gz")]: Buffer.from("tampered"),
     });
     const result = await releaseCache(dir, net.fetchImpl)("0.2.13", "linux-x64");
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.detail).toContain("does not match its published checksum");
-    expect(fs.existsSync(path.join(dir, "v0.2.13", "penguin-linux-x64.tar.gz"))).toBe(false);
+    expect(fs.existsSync(path.join(dir, "v0.2.13", "wafh-linux-x64.tar.gz"))).toBe(false);
   });
 
   it("gets the package from GitHub when the mirror is out of reach", async () => {
     const net = network({
-      [at(RELEASE_SOURCES.oss, "0.2.13", "penguin-darwin-arm64.tar.gz.sha256")]: new TypeError(
+      [at(RELEASE_SOURCES.oss, "0.2.13", "wafh-darwin-arm64.tar.gz.sha256")]: new TypeError(
         "fetch failed",
       ),
-      [at(RELEASE_SOURCES.github, "0.2.13", "penguin-darwin-arm64.tar.gz.sha256")]: SUM,
-      [at(RELEASE_SOURCES.github, "0.2.13", "penguin-darwin-arm64.tar.gz")]: PACKAGE,
+      [at(RELEASE_SOURCES.github, "0.2.13", "wafh-darwin-arm64.tar.gz.sha256")]: SUM,
+      [at(RELEASE_SOURCES.github, "0.2.13", "wafh-darwin-arm64.tar.gz")]: PACKAGE,
     });
     expect((await releaseCache(dir, net.fetchImpl)("0.2.13", "darwin-arm64")).ok).toBe(true);
   });
@@ -103,8 +103,8 @@ describe("release packages fetched for a machine", () => {
   it("lets the older version go once another is fetched", async () => {
     const routes: Record<string, Buffer | string> = {};
     for (const version of ["0.2.13", "0.2.14"]) {
-      routes[at(RELEASE_SOURCES.oss, version, "penguin-linux-x64.tar.gz.sha256")] = SUM;
-      routes[at(RELEASE_SOURCES.oss, version, "penguin-linux-x64.tar.gz")] = PACKAGE;
+      routes[at(RELEASE_SOURCES.oss, version, "wafh-linux-x64.tar.gz.sha256")] = SUM;
+      routes[at(RELEASE_SOURCES.oss, version, "wafh-linux-x64.tar.gz")] = PACKAGE;
     }
     const carry = releaseCache(dir, network(routes).fetchImpl);
     await carry("0.2.13", "linux-x64");

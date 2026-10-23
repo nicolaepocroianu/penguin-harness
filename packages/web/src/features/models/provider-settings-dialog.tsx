@@ -35,7 +35,7 @@ import type {
   ModelsResponse,
   ProviderConnectionDto,
   ProviderConnectionUpdate,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   Checkbox,
@@ -51,9 +51,12 @@ import {
   toastSuccess,
   useFormDraft,
   useGuardedClose,
-} from "@prismshadow/penguin-ui";
-import { fixedClientType, providerEnvFallbackKey } from "@prismshadow/penguin-server/model-catalog";
-import type { ModelProviderInfo } from "@prismshadow/penguin-server/model-catalog";
+} from "@waterford/waf-harness-ui";
+import {
+  fixedClientType,
+  providerEnvFallbackKey,
+} from "@waterford/waf-harness-server/model-catalog";
+import type { ModelProviderInfo } from "@waterford/waf-harness-server/model-catalog";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";

@@ -24,7 +24,7 @@ import {
   ATTACHED_IMAGE_PREFIX,
   matchAttachedFileLine,
   matchAttachedImageLine,
-} from "@prismshadow/penguin-core/markers";
+} from "@waterford/waf-harness-core/markers";
 
 export interface ParsedAttachments {
   /** Body text with restored attachment lines removed (unrecognized lines are kept). */

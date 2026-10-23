@@ -1,7 +1,7 @@
 /** The composer and settings share the same thinking-level menu and localized tier names. */
 import { useState } from "react";
-import { FormPicker, ICONS, MenuSelect, MenuSelectBody } from "@prismshadow/penguin-ui";
-import type { MenuSelectOption } from "@prismshadow/penguin-ui";
+import { FormPicker, ICONS, MenuSelect, MenuSelectBody } from "@waterford/waf-harness-ui";
+import type { MenuSelectOption } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { SELECTABLE_THINKING_LEVELS, thinkingLevelLabel } from "./thinking-level";
 

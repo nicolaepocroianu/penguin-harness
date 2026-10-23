@@ -199,7 +199,7 @@ async function waitFor(pred: () => boolean, timeoutMs = 4000): Promise<void> {
 
 describe("session service-url wiring", () => {
   it("scans the output stream (foreground and background alike) and surfaces serviceUrl on the list", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "penguin-url-"));
+    const dir = await mkdtemp(path.join(tmpdir(), "wafh-url-"));
     const env = new Environment({ workspaceDir: dir, toolConfig: toolConfig() });
     cleanups.push(async () => {
       env.dispose();

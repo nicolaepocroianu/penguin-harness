@@ -3,7 +3,7 @@
  * tone, the failure of the last install and its output, and whether the Install button may
  * be pressed. Pure, so web vitest can pin it without a DOM.
  */
-import type { TestBrowserStatus } from "@prismshadow/penguin-server/api";
+import type { TestBrowserStatus } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
 
@@ -24,7 +24,7 @@ export interface TestBrowserView {
 
 export function testBrowserView(status: TestBrowserStatus): TestBrowserView {
   const strings = S.settings.testBrowser;
-  // This copy of Penguin cannot install or run it (the desktop app): say so, offer nothing.
+  // This copy of WAF Harness cannot install or run it (the desktop app): say so, offer nothing.
   if (!status.available) {
     return {
       tone: "muted",

@@ -10,7 +10,7 @@ import {
 let tmp: string;
 
 beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), "penguin-truncated-tool-output-"));
+  tmp = await mkdtemp(path.join(tmpdir(), "wafh-truncated-tool-output-"));
 });
 
 afterEach(async () => {
@@ -186,7 +186,7 @@ describe("TruncatedToolOutputArchive", () => {
       if (result.status !== "failed") throw new Error("expected failed output");
       expect(typeof result.code).toBe("string");
       expect(stderr.join("")).toContain(
-        `[penguin] tool "tool" truncated output archive write failed (${result.code}).`,
+        `[wafh] tool "tool" truncated output archive write failed (${result.code}).`,
       );
     } finally {
       stderrSpy.mockRestore();

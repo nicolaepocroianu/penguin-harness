@@ -362,7 +362,7 @@ export class TruncatedToolOutputArchive {
       const rawCode = (err as { code?: unknown }).code;
       const code = typeof rawCode === "string" ? rawCode : "UNKNOWN";
       process.stderr.write(
-        `[penguin] tool "${toolName}" truncated output archive write failed (${code}).\n`,
+        `[wafh] tool "${toolName}" truncated output archive write failed (${code}).\n`,
       );
       return { status: "failed", code };
     }

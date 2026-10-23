@@ -43,7 +43,7 @@ class TestUpdater extends WindowsUpdater {
 }
 
 async function fixture(dir?: string, publisher = true) {
-  const root = dir ?? (await mkdtemp(path.join(os.tmpdir(), "penguin-windows-update-")));
+  const root = dir ?? (await mkdtemp(path.join(os.tmpdir(), "wafh-windows-update-")));
   if (!dir) dirs.push(root);
   const config = path.join(root, "app-update.yml");
   await writeFile(
@@ -91,7 +91,7 @@ function trust(valid: boolean) {
       null,
       JSON.stringify({
         Status: valid ? 0 : 2,
-        Path: options.env.PENGUIN_UPDATE_VERIFY_PATH,
+        Path: options.env.WAFH_UPDATE_VERIFY_PATH,
         HasSigner: valid,
       }),
       "",

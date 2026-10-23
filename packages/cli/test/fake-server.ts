@@ -1,16 +1,16 @@
 /**
- * In-process fake PenguinHarness server for CLI tests: stubs `globalThis.fetch` with a
+ * In-process fake WAF Harness server for CLI tests: stubs `globalThis.fetch` with a
  * handler covering exactly the endpoints the server-backed commands touch (the current
  * user, session create/get/patch/delete, tasks/steer/compact/switch-model/abort, SSE stream,
  * messages, agents and their public API settings, projects, usage, schedules, the admin settings,
  * organizations and their channels, the plugins installed on the server, and — through
- * the `builtinBrowser` handler a test sets — the built-in browser). Connection resolution is pinned via PENGUIN_API_URL
- * (a loopback URL, so no token gate) and PENGUIN_HOME points at a scratch directory so
+ * the `builtinBrowser` handler a test sets — the built-in browser). Connection resolution is pinned via WAFH_API_URL
+ * (a loopback URL, so no token gate) and WAFH_HOME points at a scratch directory so
  * nothing of the developer's real data root is read.
  *
  * Credentials, as the server reads them: a request without one is let through (the token gate
  * above); a Bearer header is the local API token, which the agent API writes and the admin's
- * `agentApiEnabled` refuse with 403 `human_required`; a `penguin_session` cookie is a sign-in,
+ * `agentApiEnabled` refuse with 403 `human_required`; a `wafh_session` cookie is a sign-in,
  * accepted only when it is one of `logins` (401 otherwise). Each request records what it sent.
  *
  * The SSE stream is real: a ReadableStream whose frames follow the server's wire shape
@@ -195,7 +195,7 @@ export class FakeServer {
     body?: Json;
     credential?: { authorization?: string; cookie?: string };
   }> = [];
-  /** Sign-in tokens a `penguin_session` cookie is accepted with; any other cookie is a 401. */
+  /** Sign-in tokens a `wafh_session` cookie is accepted with; any other cookie is a 401. */
   readonly logins = new Set<string>();
   readonly sessions = new Map<string, FakeSessionState>();
   agents: Array<Json> = [
@@ -382,24 +382,24 @@ export class FakeServer {
   install(): () => void {
     this.savedFetch = globalThis.fetch;
     for (const key of [
-      "PENGUIN_API_URL",
-      "PENGUIN_API_TOKEN",
-      "PENGUIN_HOME",
-      "PENGUIN_SESSION_ID",
-      "PENGUIN_PROJECT_ID",
-      "PENGUIN_AGENT_ID",
-      "PENGUIN_ORG_ID",
+      "WAFH_API_URL",
+      "WAFH_API_TOKEN",
+      "WAFH_HOME",
+      "WAFH_SESSION_ID",
+      "WAFH_PROJECT_ID",
+      "WAFH_AGENT_ID",
+      "WAFH_ORG_ID",
     ]) {
       this.savedEnv.set(key, process.env[key]);
     }
-    this.scratch = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-cli-test-"));
-    process.env.PENGUIN_HOME = this.scratch;
-    process.env.PENGUIN_API_URL = "http://127.0.0.1:7399";
-    delete process.env.PENGUIN_API_TOKEN;
-    delete process.env.PENGUIN_SESSION_ID;
-    delete process.env.PENGUIN_PROJECT_ID;
-    delete process.env.PENGUIN_AGENT_ID;
-    delete process.env.PENGUIN_ORG_ID;
+    this.scratch = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-cli-test-"));
+    process.env.WAFH_HOME = this.scratch;
+    process.env.WAFH_API_URL = "http://127.0.0.1:7399";
+    delete process.env.WAFH_API_TOKEN;
+    delete process.env.WAFH_SESSION_ID;
+    delete process.env.WAFH_PROJECT_ID;
+    delete process.env.WAFH_AGENT_ID;
+    delete process.env.WAFH_ORG_ID;
     globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) =>
       this.handle(input, init)) as typeof globalThis.fetch;
     return () => this.uninstall();
@@ -522,7 +522,7 @@ export class FakeServer {
       const name = typeof body?.name === "string" ? body.name.trim() : "";
       if (name.length < 1 || name.length > 64) return this.badRequest("name is 1-64 characters.");
       const n = this.nextKeyOrdinal++;
-      const secret = `penguin_fake-${n}`;
+      const secret = `wafh_fake-secret-${n}`;
       this.mintedSecrets.push(secret);
       const key = {
         keyId: `key${n}`,
@@ -1788,7 +1788,7 @@ export class FakeServer {
     });
     // The server reads a Bearer first; a cookie alone must be a sign-in it knows.
     if (authorization === undefined && cookie !== undefined) {
-      const login = /(?:^|;\s*)penguin_session=([^;]+)/.exec(cookie)?.[1];
+      const login = /(?:^|;\s*)wafh_session=([^;]+)/.exec(cookie)?.[1];
       if (login === undefined || !this.logins.has(login)) {
         return this.error(401, "unauthorized", "Not signed in or the sign-in has expired.");
       }
@@ -1868,7 +1868,7 @@ export class FakeServer {
           ...(typeof body?.modelId === "string" ? { modelId: body.modelId } : {}),
           ...(typeof body?.provider === "string" ? { provider: body.provider } : {}),
           ...(typeof body?.approvalMode === "string" ? { approvalMode: body.approvalMode } : {}),
-          // The server's listing rule: a Session `penguin run` opens is archived until someone
+          // The server's listing rule: a Session `wafh run` opens is archived until someone
           // keeps it, so `session ls` shows it only with -a.
           ...(body?.source === "cli" ? { archived: true } : {}),
         });

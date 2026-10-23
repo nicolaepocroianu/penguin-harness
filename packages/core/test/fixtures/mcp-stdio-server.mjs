@@ -8,7 +8,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 
-const server = new McpServer({ name: "penguin-test-fixture", version: "1.0.0" });
+const server = new McpServer({ name: "wafh-test-fixture", version: "1.0.0" });
 
 server.registerTool(
   "echo",
@@ -54,7 +54,7 @@ server.registerTool(
   "probe",
   {
     description:
-      "Reports FIXTURE_SECRET, the process cwd, and the host's PENGUIN_HOME/PORT (which must not arrive).",
+      "Reports FIXTURE_SECRET, the process cwd, and the host's WAFH_HOME/PORT (which must not arrive).",
     inputSchema: z.object({}),
   },
   async () => ({
@@ -63,7 +63,7 @@ server.registerTool(
         type: "text",
         text:
           `${process.env.FIXTURE_SECRET ?? ""}|${process.cwd()}` +
-          `|${process.env.PENGUIN_HOME ?? ""}|${process.env.PORT ?? ""}`,
+          `|${process.env.WAFH_HOME ?? ""}|${process.env.PORT ?? ""}`,
       },
     ],
   }),

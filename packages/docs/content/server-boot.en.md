@@ -5,7 +5,7 @@ description: The assembly order from process entry to a serving App, each subsys
 
 `server/src/index.ts` is a side-effecting module: importing it starts the server. That is the contract the CLI relies on to run a server inside a Node process of its own choosing.
 
-The startup order is written out in `main()`: one `PenguinServer` method per step, and the method name is the step name. Assembly itself is split in two:
+The startup order is written out in `main()`: one `WafHarnessServer` method per step, and the method name is the step name. Assembly itself is split in two:
 
 - `bootAppDeps(config)` builds the process core: the database, the channel hub and the HMR host. It publishes them into the resource registry and boots the platform. The business surface is assembled inside the platform.
 - `createApp(boot)` assembles the layer's own Hono app: network guards, the platform seam and static hosting. It does not listen. Tests can take the full app and drive it via `app.request(...)`, with no port involved and without going through `index.ts` at all.
@@ -22,28 +22,28 @@ Four mechanisms start the server. All of them converge: the same env vars drive 
 | Entry | Mechanism |
 | --- | --- |
 | Direct | `node dist/index.js` (`start` in `server/package.json`) |
-| CLI (`penguin server` / `penguin web`) | Sets `PORT`/`HOST` and exports `PENGUIN_CLI_ENTRY`, then runs the server as a **supervised child process** that imports `@prismshadow/penguin-server` |
+| CLI (`wafh server` / `wafh web`) | Sets `PORT`/`HOST` and exports `WAFH_CLI_ENTRY`, then runs the server as a **supervised child process** that imports `@waterford/waf-harness-server` |
 | CLI auto-start | A CLI command that finds no running server spawns a detached `server` subcommand with `PORT=0` and attaches once the root's lock is live |
 | Desktop | `utilityProcess.fork` launches a separate server process with the server's env injected |
 
-The supervised child runs as `node <entry> server …`, marked `PENGUIN_SERVE_CHILD=1` and told `PENGUIN_SUPERVISED=1`. The parent forwards the terminal's signals, exits with the child's code, and relaunches the child when it exits with the restart code that **Restart to update** asks for. A dev run through tsx cannot be re-spawned by node, so the CLI imports the server in-process instead. `penguin web` additionally polls for readiness and opens the browser.
+The supervised child runs as `node <entry> server …`, marked `WAFH_SERVE_CHILD=1` and told `WAFH_SUPERVISED=1`. The parent forwards the terminal's signals, exits with the child's code, and relaunches the child when it exits with the restart code that **Restart to update** asks for. A dev run through tsx cannot be re-spawned by node, so the CLI imports the server in-process instead. `wafh web` additionally polls for readiness and opens the browser.
 
 Auto-start output goes to `<root>/logs/server-auto-<date>.log`.
 
-The desktop process injects `PENGUIN_HOME`, `HOST`, `PORT`, `PENGUIN_DESKTOP_TOKEN` and `PENGUIN_PORT_FILE` via env, plus `PENGUIN_WEB_DIST` and `PENGUIN_CLI_ENTRY` when the app pins them.
+The desktop process injects `WAFH_HOME`, `HOST`, `PORT`, `WAFH_DESKTOP_TOKEN` and `WAFH_PORT_FILE` via env, plus `WAFH_WEB_DIST` and `WAFH_CLI_ENTRY` when the app pins them.
 
 > [!NOTE]
 > The server's own configuration comes from environment variables only (`server/src/config.ts`). `system_config.yaml` is agent-level state, read when a Session runs; it plays no part in server boot.
 
 ## Boot sequence
 
-`main()` writes the order out, one `PenguinServer` method per line:
+`main()` writes the order out, one `WafHarnessServer` method per line:
 
 ```text
-main()  —— one PenguinServer method per line
+main()  —— one WafHarnessServer method per line
 │
 ├─ ① loadEnv · installProxy        dotenv first (.env may define HTTP_PROXY itself), then the proxy takes over fetch
-├─ ② readConfig                    env only: PENGUIN_HOME, PORT, HOST, PENGUIN_WEB_DB …
+├─ ② readConfig                    env only: WAFH_HOME, PORT, HOST, WAFH_WEB_DB …
 ├─ ③ ensureSoleInstance            data root held by another live instance → exit code 3 (before the DB opens)
 ├─ ④ listen                        bind the port now; answer 503 "starting" until ⑧. The callback writes back
 │                                  the real port, takes the lock, and opens the ::1 companion on a loopback bind
@@ -59,7 +59,7 @@ main()  —— one PenguinServer method per line
 │  ├─ ⑨ seedAdmin                  built-in admin seed; decides whether a first-login link is due
 │  ├─ ⑩ installProcessHandlers     signals, the desktop quit path, restart-to-update, the process-level error fallback
 │  └─ ⑪ printFirstLoginNotice      the one-time sign-in link, when one is due
-└─ ⑫ announce                      write the port to PENGUIN_PORT_FILE: the App is up
+└─ ⑫ announce                      write the port to WAFH_PORT_FILE: the App is up
 ```
 
 The order is not arbitrary, and its constraints are hard:
@@ -68,7 +68,7 @@ The order is not arbitrary, and its constraints are hard:
 - The instance lock is checked **before** the database opens, because `web.db` is single-writer.
 - The plugin host enters the registry with the other capabilities before the platform boots, so the plugin objects ⑤ imported are there for the first App to reuse, as each App's are for the next.
 - The platform, with the whole business surface in it, finishes booting before ⑧ hands the listener its app.
-- The port is bound early on purpose. Until ⑧, every request gets `503 penguin-server is starting` with `retry-after: 1`, so a client that arrives early sees "starting" rather than a refused connection. **No business request is ever served before the platform and plugins are in place.**
+- The port is bound early on purpose. Until ⑧, every request gets `503 wafh-server is starting` with `retry-after: 1`, so a client that arrives early sees "starting" rather than a refused connection. **No business request is ever served before the platform and plugins are in place.**
 - The port announcement comes last, because the desktop shell opens its window on it.
 - `installProcessHandlers` comes after `listen`, so shutdown can never fire before there is a listener for it to close.
 
@@ -105,7 +105,7 @@ What rides across:
 
 ### Resource interface contracts
 
-Resources carry an interface contract of their own, but the contract does not live on the kernel iface. The declaration is itself a registry entry, `platform.resourceInterfaces`. It is a descriptor that names a family, `penguin`, and, per ID-prefix group, the members its adopters use. The `terminal` group lists every member a parked pty is reached through. Each App's `create()` writes the declaration and leaves it for its successor.
+Resources carry an interface contract of their own, but the contract does not live on the kernel iface. The declaration is itself a registry entry, `platform.resourceInterfaces`. It is a descriptor that names a family, `wafh`, and, per ID-prefix group, the members its adopters use. The `terminal` group lists every member a parked pty is reached through. Each App's `create()` writes the declaration and leaves it for its successor.
 
 Before adopting anything, the new App reads its predecessor's declaration and compares it with its own compiled-in one:
 
@@ -181,7 +181,7 @@ The plugin routes hand their edit to the re-assembly, which writes it in its own
 
 ### The plugin contract
 
-The plugin contract — `Plugin`, the decorators, and the sandbox vocabulary — is declared in the SDK at `@prismshadow/penguin-core/plugin`. `@prismshadow/penguin-server/plugin` exports the interfaces a plugin module may require (`Sandbox`, `Terminals`, `Sessions`, `AgentService`, `Messaging`, `Http`, …), types only.
+The plugin contract — `Plugin`, the decorators, and the sandbox vocabulary — is declared in the SDK at `@waterford/waf-harness-core/plugin`. `@waterford/waf-harness-server/plugin` exports the interfaces a plugin module may require (`Sandbox`, `Terminals`, `Sessions`, `AgentService`, `Messaging`, `Http`, …), types only.
 
 The decorators are the SDK's only runtime a plugin carries. They record on the class itself, so the copy in a plugin's bundle and the host's read the same thing.
 
@@ -196,19 +196,19 @@ Each subsystem's construction site and external surface. Step numbers ① to ⑫
 | Subsystem | Constructed | External surface |
 | --- | --- | --- |
 | Config | `config.ts` `resolveServerConfig` (②) | `ServerConfig`; its only post-listen mutation writes back the real port |
-| Single-instance lock | `lock.ts` (③ pre-check, ④ acquire in the listen callback) | Package subpath `@prismshadow/penguin-server/lock`; the CLI and Desktop use it for pre-launch probing |
+| Single-instance lock | `lock.ts` (③ pre-check, ④ acquire in the listen callback) | Package subpath `@waterford/waf-harness-server/lock`; the CLI and Desktop use it for pre-launch probing |
 | Database | `db/database.ts` `openDatabase` (first step of ⑥) | Repo classes under `db/repos/*`; WAL, foreign keys, ordered versioned migrations (`db/migrations.ts`, stamped in `PRAGMA user_version`) |
 | Auth | `auth/service.ts` — **App-level** (built per App); the process-scoped values (`auth/runtime-state.ts`, the local API token among them) are published in ⑥ | `/api/auth/*`, the cookie and Bearer-token `authMiddleware`, and authentication of terminal WS upgrades |
 | Project / Session | `services/*` — **App-level** (assembled in create) | `/api/projects/**`, `/api/sessions/**` (route details in [Server API](/server-api)) |
 | Agent runtime | `runtime/session-manager.ts` — **App-level** | Task / approval / abort / compact routes and SSE `GET /api/sessions/:sessionId/stream`; delegates to core via `createAgent` |
 | Events | `runtime/channel.ts` `ChannelHub` (⑥, process-level; SSE streams survive swaps) | User-level SSE `GET /api/events`; the `ServerEvent` type family |
 | Scheduler | `runtime/scheduler.ts` — **App-level** (started/stopped by create) | The schedules routes; publishes results into the ChannelHub |
-| HMR host / platform | `@prismshadow/penguin-hmr` (`HmrHost`, `hmrMain`) and `hmr/platform.ts` (the platform) | `PlatformApi` (`info` / `log` / `http` / `terminals` / `attachStream` / `business` / `shutdown` / `drained`, plus the kernel's `park`); `/api/hmr/*`, including `POST /api/hmr/upgrade`, is a route group the platform contributes — a pushed generation that does not serve it is refused before commit |
+| HMR host / platform | `@waterford/waf-harness-hmr` (`HmrHost`, `hmrMain`) and `hmr/platform.ts` (the platform) | `PlatformApi` (`info` / `log` / `http` / `terminals` / `attachStream` / `business` / `shutdown` / `drained`, plus the kernel's `park`); `/api/hmr/*`, including `POST /api/hmr/upgrade`, is a route group the platform contributes — a pushed generation that does not serve it is refused before commit |
 | Terminals | `terminal/` — **App-level** | `/api/terminals*` route group, WS `GET /api/terminals/:id/stream`; ptys are parked and survive swaps |
 | Plugin host | built by each App's `create()` and registered at its commit for the next App to reuse; ⑤ `loadPlugins` publishes one in ⑥ for platforms that predate this | an npm package: its generated `ifaces.json` (the module payload), a default export `{ modules?: [<class>, …], replaces?: [<class>, …] }`; the configuration surface is the `[plugins]` table of each Project's `.project_config.toml`, written through `/api/projects/:projectId/plugins/installed` |
 | Sandbox | `sandbox/service.ts` — **App-level** (a module; backends contribute to its `providers` slot) | a `SandboxModule.providers` contribution from a plugin module; enforcement reaches commands and hook scripts through core's spawn seam, and the Session's policy reaches the file tools through core's `sandboxPolicy` seam |
 | Module tree | `src/platform.ts` — **App-level** (booted by create over the claimed capabilities) | `@Component()` on each service / repo class (a node is named by its class) with `@Use()` fields for its dependencies; `@Module({ children, exports })` groups (`IdentityModule`, `ProjectsModule`, …) whose exports are what their children offer the rest of the tree; `@Module({ … })` classes with `@Provide()` fields where one class builds several things; narrow consumer interfaces as abstract classes beside their consumer (`extends Interface<…>()`); no `modules/` directory — each node lives in the file of the thing it is; `src/ifaces.json` generated; `GET /api/contributions` lists what reached the web slots |
-| Model catalog | No boot-time construction — static data; at start the server reads every Project's config once so the one-time migrations land first | `/api/projects/:projectId/models`; the catalog itself lives in `server/src/model-catalog/`, published as `@prismshadow/penguin-server/model-catalog` |
+| Model catalog | No boot-time construction — static data; at start the server reads every Project's config once so the one-time migrations land first | `/api/projects/:projectId/models`; the catalog itself lives in `server/src/model-catalog/`, published as `@waterford/waf-harness-server/model-catalog` |
 
 ### The HTTP seam at request time
 

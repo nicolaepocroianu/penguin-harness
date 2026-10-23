@@ -1,8 +1,8 @@
 /**
- * The built-in agents mechanism: agents Penguin downloads, runs and updates itself (Models →
+ * The built-in agents mechanism: agents WAF Harness downloads, runs and updates itself (Models →
  * Built-in), declared apart from the service that implements it.
  */
-import { Interface } from "@prismshadow/penguin-core/kernel";
+import { Interface } from "@waterford/waf-harness-core/kernel";
 import type { BuiltinAgentInfo } from "../api/types.js";
 
 export abstract class BuiltinAgents extends Interface<{

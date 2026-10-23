@@ -3,7 +3,7 @@
  * recording it kept. Type-only, so the web type graph never pulls in the server module.
  */
 
-/** Why a recording did not come out, for the causes Penguin knows; the App words each one. */
+/** Why a recording did not come out, for the causes WAF Harness knows; the App words each one. */
 export type VideoProblemCode =
   /** The composition did not say it was ready within the page timeout. */
   | "video_not_ready"
@@ -38,7 +38,7 @@ export interface VideoTarget {
   check?: VideoCheck;
   /** Set when captions were kept beside the video the run made, as WebVTT. */
   captions?: true;
-  /** Set when the run failed for a cause Penguin knows. */
+  /** Set when the run failed for a cause WAF Harness knows. */
   problem?: VideoProblemCode;
 }
 

@@ -255,10 +255,10 @@ describe("process-gone log lines", () => {
         type: "Utility",
         reason: "oom",
         exitCode: 9,
-        serviceName: "penguin-server",
-        name: "penguin-server",
+        serviceName: "wafh-server",
+        name: "wafh-server",
       }),
-    ).toBe("a child process is gone: Utility penguin-server (oom, exit code 9)");
+    ).toBe("a child process is gone: Utility wafh-server (oom, exit code 9)");
   });
 });
 

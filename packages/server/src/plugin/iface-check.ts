@@ -26,7 +26,7 @@ import type {
   Manifest,
   Sig,
   TypeExpr,
-} from "@prismshadow/penguin-core/kernel";
+} from "@waterford/waf-harness-core/kernel";
 import type { TypeScript } from "./typescript.js";
 
 export class IfaceRenderError extends Error {}
@@ -293,7 +293,7 @@ export function checkIfaces(
   const problems: string[] = [];
   const uncompared: string[] = [];
   const label = (q: IfaceQuestion) => `${q.module}: ${q.direction}.${q.alias} '${q.key}'`;
-  const base = path.join(os.tmpdir(), "penguin-iface-check");
+  const base = path.join(os.tmpdir(), "wafh-iface-check");
   const files = new Map<string, string>();
   const asked = questions.filter((q) => {
     // Either side missing its copy means there is nothing to compare — and it is recorded,

@@ -778,7 +778,7 @@ export class ContextEngine {
         expanded = await opts.userPrompt(newMessages, signal);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        process.stderr.write(`[penguin] userPrompt consult threw: ${message}; ignoring.\n`);
+        process.stderr.write(`[wafh] userPrompt consult threw: ${message}; ignoring.\n`);
       }
       const contexts: OmniMessage[] = [];
       for (const record of expanded?.records ?? []) {
@@ -1454,7 +1454,7 @@ export class ContextEngine {
                 hooked = await preToolUse(tc);
               } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
-                process.stderr.write(`[penguin] preToolUse consult threw: ${message}; ignoring.\n`);
+                process.stderr.write(`[wafh] preToolUse consult threw: ${message}; ignoring.\n`);
               }
               if (hooked) {
                 for (const ev of hooked.events) {
@@ -1478,7 +1478,7 @@ export class ContextEngine {
                 decision = await approve(tc);
               } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
-                process.stderr.write(`[penguin] approve callback threw: ${message}; denying.\n`);
+                process.stderr.write(`[wafh] approve callback threw: ${message}; denying.\n`);
                 decision = "deny";
               }
             }
@@ -1605,7 +1605,7 @@ export class ContextEngine {
       const message = err instanceof Error ? err.message : String(err);
       if (completed) {
         // Thrown only after the complete output was ready: pairing is intact, so just warn.
-        process.stderr.write(`[penguin] environment threw after tool output: ${message}\n`);
+        process.stderr.write(`[wafh] environment threw after tool output: ${message}\n`);
         return;
       }
       const failed = toolCallOutput({
@@ -1662,7 +1662,7 @@ export class ContextEngine {
       this.compactionReadWarned = true;
       const message = e instanceof Error ? e.message : String(e);
       process.stderr.write(
-        `[penguin] compaction settings could not be re-read: ${message}; keeping the settings in force.\n`,
+        `[wafh] compaction settings could not be re-read: ${message}; keeping the settings in force.\n`,
       );
     }
   }

@@ -74,10 +74,10 @@ import {
   modelVisiblePath,
   scratchpadDir,
   toolCall,
-} from "@prismshadow/penguin-core";
-import type { ApproveFn, OmniMessage } from "@prismshadow/penguin-core";
-import { toFallbackMarkdown } from "@prismshadow/penguin-core/a2ui";
-import { wire } from "@prismshadow/penguin-core/kernel";
+} from "@waterford/waf-harness-core";
+import type { ApproveFn, OmniMessage } from "@waterford/waf-harness-core";
+import { toFallbackMarkdown } from "@waterford/waf-harness-core/a2ui";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import type { FeishuBindingResponse, FeishuTestResponse } from "../src/api/types.js";
 import { ProjectsRepo } from "../src/db/repos/projects.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
@@ -578,7 +578,7 @@ describe("replyFileMentions", () => {
       // Escapes are refused here as well as by the file service behind it.
       "Read ../../etc/passwd earlier.",
       "Compared against /etc/hostname just now.",
-      "Config lives at ~/.penguinrc.toml.",
+      "Config lives at ~/.wafhrc.toml.",
     ]) {
       expect(paths(text), text).toEqual([]);
     }
@@ -2271,7 +2271,7 @@ describe("messaging binding routes and bridge", () => {
     await bindWithIdentity(SID);
     await fake.lastConnection().fire(
       groupMention("@_user_1 @_user_2 check the build", [
-        { key: "@_user_1", name: "PenguinHarness", id: { open_id: "ou_this_bot" } },
+        { key: "@_user_1", name: "WAF Harness", id: { open_id: "ou_this_bot" } },
         { key: "@_user_2", name: "Alice", id: { open_id: "ou_alice" } },
       ]),
     );
@@ -2289,11 +2289,11 @@ describe("messaging binding routes and bridge", () => {
       .lastConnection()
       .fire(
         groupMention("@_user_1 status?", [
-          { key: "@_user_1", name: "PenguinHarness", id: { open_id: "ou_this_bot" } },
+          { key: "@_user_1", name: "WAF Harness", id: { open_id: "ou_this_bot" } },
         ]),
       );
     await waitFor(() => runs.length === 1);
-    expect(runs[0]![0]!.text).toBe("@PenguinHarness status?");
+    expect(runs[0]![0]!.text).toBe("@WAF Harness status?");
   });
 
   it("replaces the longest placeholder first, so a tenth mention is not corrupted by the first", async () => {
@@ -2318,7 +2318,7 @@ describe("messaging binding routes and bridge", () => {
       .lastConnection()
       .fire(
         groupMention("@_user_1 帮我看看 build 好了没 🚀", [
-          { key: "@_user_1", name: "PenguinHarness", id: { open_id: "ou_this_bot" } },
+          { key: "@_user_1", name: "WAF Harness", id: { open_id: "ou_this_bot" } },
         ]),
       );
     await waitFor(() => runs.length === 1);
@@ -2333,7 +2333,7 @@ describe("messaging binding routes and bridge", () => {
       .lastConnection()
       .fire(
         groupMention("@_user_1 ", [
-          { key: "@_user_1", name: "PenguinHarness", id: { open_id: "ou_this_bot" } },
+          { key: "@_user_1", name: "WAF Harness", id: { open_id: "ou_this_bot" } },
         ]),
       );
     // Nothing but the mention: no words to run a Task on, so it takes the same branch a
@@ -2364,13 +2364,13 @@ describe("messaging binding routes and bridge", () => {
       .lastConnection()
       .fire(
         groupMention("why did @_user_1 stop replying?", [
-          { key: "@_user_1", name: "PenguinHarness", id: { open_id: "ou_this_bot" } },
+          { key: "@_user_1", name: "WAF Harness", id: { open_id: "ou_this_bot" } },
         ]),
       );
     await waitFor(() => runs.length === 1);
     // Only the addressing prefix is dropped. Named mid-sentence, this bot is a word the user
     // chose — cutting it would hand the model a sentence with a hole (and a double space) in it.
-    expect(runs[0]![0]!.text).toBe("why did @PenguinHarness stop replying?");
+    expect(runs[0]![0]!.text).toBe("why did @WAF Harness stop replying?");
   });
 
   it("substitutes over the original text, never over its own output", async () => {
@@ -2393,7 +2393,7 @@ describe("messaging binding routes and bridge", () => {
       .lastConnection()
       .fire(
         groupMention("@_user_1 why did you say @_user_1 to me?", [
-          { key: "@_user_1", name: "PenguinHarness", id: { open_id: "ou_this_bot" } },
+          { key: "@_user_1", name: "WAF Harness", id: { open_id: "ou_this_bot" } },
         ]),
       );
     await waitFor(() => runs.length === 1);
@@ -2414,13 +2414,13 @@ describe("messaging binding routes and bridge", () => {
       .lastConnection()
       .fire(
         groupMention("@_user_1 status?", [
-          { key: "@_user_1", name: "PenguinHarness", id: { open_id: "ou_this_bot" } },
+          { key: "@_user_1", name: "WAF Harness", id: { open_id: "ou_this_bot" } },
         ]),
       );
     await waitFor(() => runs.length === 1);
     // The connection is live with the identity still outstanding, so this bot's mention is
     // named like anyone else's — the degraded mode an app that cannot report one already has.
-    expect(runs[0]![0]!.text).toBe("@PenguinHarness status?");
+    expect(runs[0]![0]!.text).toBe("@WAF Harness status?");
   });
 
   // —— Outbound files ————————————————————————————————————————————————————————

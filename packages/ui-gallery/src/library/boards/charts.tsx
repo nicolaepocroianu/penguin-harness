@@ -17,9 +17,9 @@ import type {
   TraceOtherSpan,
   TraceToolSpan,
   UsageSeriesPoint,
-} from "@prismshadow/penguin-server/api";
-import { ContextRing, Legend, Ring, Sparkline, TokenDonut } from "@prismshadow/penguin-ui";
-import type { LegendItem, RingSegment, ToneName } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { ContextRing, Legend, Ring, Sparkline, TokenDonut } from "@waterford/waf-harness-ui";
+import type { LegendItem, RingSegment, ToneName } from "@waterford/waf-harness-ui";
 import { humanizeTokens } from "../../../../web/src/lib/format";
 import { TimelineChart } from "../../../../web/src/features/traces/timeline-chart";
 import type { TraceHighlight } from "../../../../web/src/features/traces/timeline-chart";

@@ -53,12 +53,12 @@ async function createSession(req, projectId) {
 }
 
 /**
- * The PenguinHarness Browser extension, as far as the server can tell: it holds the socket,
+ * The WAF Harness Browser extension, as far as the server can tell: it holds the socket,
  * answers hello, tabs, ping, open-tab, close-tab and activate-tab, and pushes tab events.
  */
 function fakeExtension(token) {
   const url = `${BASE.replace(/^http/, "ws")}/api/builtin-browser/extension/ws`;
-  const ws = new WebSocket(url, ["penguin-browser.1", `token.${token}`]);
+  const ws = new WebSocket(url, ["wafh-browser.1", `token.${token}`]);
   const ops = [];
   const tabs = new Map();
   let nextTabId = 1501;

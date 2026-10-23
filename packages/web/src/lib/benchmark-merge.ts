@@ -28,7 +28,7 @@ import type {
   BenchmarkCaseSummary,
   BenchmarkEvaluation,
   BenchmarkSummary,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 /** One server's answer about a Project's Benchmarks, with the machine that gave it. */
 export interface BenchmarkSource {

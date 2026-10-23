@@ -17,7 +17,7 @@ describe("request log", () => {
 
   beforeEach(async () => {
     lines = [];
-    webDist = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-request-log-web-"));
+    webDist = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-request-log-web-"));
     await fs.writeFile(path.join(webDist, "index.html"), "<html></html>");
     t = await createTestApp({ log: (line) => lines.push(line), config: { webDist } });
   });

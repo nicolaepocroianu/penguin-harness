@@ -20,9 +20,9 @@
  * config and so never travels; `envSourced` names each one, for the sync to say so.
  */
 import type { MachineApi } from "./machine-api.js";
-import { effectiveConnection, providerConnectionShape } from "@prismshadow/penguin-core";
+import { effectiveConnection, providerConnectionShape } from "@waterford/waf-harness-core";
 import { modelEnvironment } from "../model-catalog/env-keys.js";
-import type { ModelEntry, ModelRef, ProviderTable } from "@prismshadow/penguin-core";
+import type { ModelEntry, ModelRef, ProviderTable } from "@waterford/waf-harness-core";
 import type {
   ModelInfo,
   ModelRefDto,
@@ -72,7 +72,7 @@ export interface SkippedModel {
 
 /**
  * The entry a refused PUT names, from the error's `details` (`model_not_addable`,
- * `model_not_routable`, a Penguin Go row's `penguin_go_protocol_fixed`): structured, never read
+ * `model_not_routable`, a Penguin Go row's `wafh_go_protocol_fixed`): structured, never read
  * off the message, which is prose. Null for a refusal that names no entry.
  */
 function refusedEntry(

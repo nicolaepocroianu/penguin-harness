@@ -1,7 +1,7 @@
 ---
 name: ape-rsi-toolkit
 description: Reproduce APE (Large Language Models are Human-Level Prompt Engineers, Zhou et al. 2022) on an agent and a frozen Benchmark, or on the house-style brief demo task shipped with this Skill: induce instructions from input/output examples, measure each one, keep the best.
-version: 2026.10.12.1
+version: 2026.10.23.1
 ---
 
 # APE
@@ -29,7 +29,7 @@ This Skill is the experiment's controller and needs `run_subagent`; if that tool
 | `num_demos` | 5 | 5, at most the number of demonstrations |
 | `num_prompts_per_subsample` | 30 | 4 |
 | Selection examples per candidate | `num_samples` = min(20, the eval set), sampled per prompt | every selection case × `runs` |
-| Proposer sampling | `text-davinci-002`, temperature 0.9, top_p 0.9, at most 50 tokens | the provider's defaults (Penguin sets none); record it |
+| Proposer sampling | `text-davinci-002`, temperature 0.9, top_p 0.9, at most 50 tokens | the provider's defaults (WAF Harness sets none); record it |
 
 The smoke profile applies unless the user sets parameters. The source's 90 candidates (3 × 30) are never a default: run them only when the user asks, after you state the arithmetic (see "Budget") and they confirm. Rounds, a target score or a round limit are not parameters of non-iterative APE: report against a target if given, but never stop or skip on it.
 
@@ -40,7 +40,7 @@ The paths of `references/evaluation.md`, from the Environment's `App Data Dir`, 
 ```text
 PROJECT_DIR  = <app_data_dir>
 PROJECT_ID   = basename of PROJECT_DIR
-PENGUIN_HOME = dirname of PROJECT_DIR
+WAFH_HOME = dirname of PROJECT_DIR
 TARGET       = PROJECT_DIR/agents/<test_agent_id>
 STATE        = TARGET/agent_state
 BENCHMARK    = PROJECT_DIR/benchmarks/<benchmark_id>

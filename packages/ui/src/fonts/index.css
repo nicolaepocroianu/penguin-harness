@@ -28,7 +28,7 @@
  * whose licence text `scripts/sync-font-licenses.mjs` mirrors into `LICENSES/`. MiSans has no
  * official package: `scripts/build-misans.py` cuts its slices from Xiaomi's download into
  * `misans/`, and its licence is transcribed into `LICENSES/misans.txt` (`vendored-fonts.json`
- * lists it). The `penguinUi()` Vite plugin emits every text in `LICENSES/` beside the build as
+ * lists it). The `wafHarnessUi()` Vite plugin emits every text in `LICENSES/` beside the build as
  * `fonts-licenses/<name>.txt`. `README.md` has the families, licences, sources and bytes.
  *
  * The Latin faces are hand-declared (latin + latin-ext only, normal style, woff2) instead of

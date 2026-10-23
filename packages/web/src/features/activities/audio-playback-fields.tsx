@@ -4,8 +4,8 @@
  * reads from the asset manifest (server `activities/playback.ts`); narration carries none.
  */
 import { useId } from "react";
-import type { MediaAsset } from "@prismshadow/penguin-server/api";
-import { FieldLabel, Select, Switch } from "@prismshadow/penguin-ui";
+import type { MediaAsset } from "@waterford/waf-harness-server/api";
+import { FieldLabel, Select, Switch } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 
 type Kind = NonNullable<MediaAsset["kind"]>;

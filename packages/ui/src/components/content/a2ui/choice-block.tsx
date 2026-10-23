@@ -24,8 +24,8 @@
  */
 import { useId, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { choiceFillText } from "@prismshadow/penguin-core/a2ui";
-import type { A2uiChoice, A2uiOption } from "@prismshadow/penguin-core/a2ui";
+import { choiceFillText } from "@waterford/waf-harness-core/a2ui";
+import type { A2uiChoice, A2uiOption } from "@waterford/waf-harness-core/a2ui";
 import { ICON_SIZE } from "../../../icon-scale";
 import { useUiStrings } from "../../../strings";
 import type { A2uiStrings } from "../../../strings";

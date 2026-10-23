@@ -26,7 +26,7 @@
  */
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
-import type { SemanticIdKind } from "@prismshadow/penguin-server/api";
+import type { SemanticIdKind } from "@waterford/waf-harness-server/api";
 import {
   Button,
   FieldError,
@@ -38,7 +38,7 @@ import {
   InfoPopover,
   Input,
   toastError,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";

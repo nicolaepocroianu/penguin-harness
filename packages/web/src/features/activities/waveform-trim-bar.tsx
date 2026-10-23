@@ -4,7 +4,7 @@
  * remain, and the ways to hear it or cut it out. The cut happens on the server (FFmpeg, MP3,
  * as Loom trims), so the bar only reports what it is asked to show.
  */
-import { Button } from "@prismshadow/penguin-ui";
+import { Button } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { clipTime, remainingLength } from "./waveform";

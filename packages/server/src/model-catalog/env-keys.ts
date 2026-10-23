@@ -7,11 +7,11 @@
  * Session's client does.
  */
 import { environmentCredential, routedClientType } from "@prismshadow/mmsp/credentials";
-import { effectiveConnection } from "@prismshadow/penguin-core/model-connection";
+import { effectiveConnection } from "@waterford/waf-harness-core/model-connection";
 import type {
   ModelCredentialShape,
   ProviderConnectionShape,
-} from "@prismshadow/penguin-core/model-connection";
+} from "@waterford/waf-harness-core/model-connection";
 import { vendorClientType } from "./catalog.js";
 
 /**

@@ -8,7 +8,7 @@ import type {
   OrgTicketDetail,
   OrgTicketHistoryAction,
   OrgTicketHistoryEntry,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 export interface TicketHistoryRow {
   /** Stable across refetches: the entries themselves carry no id. */

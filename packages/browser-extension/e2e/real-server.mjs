@@ -1,4 +1,4 @@
-// The PenguinHarness server the real e2e runs against: this checkout's own build
+// The WAF Harness server the real e2e runs against: this checkout's own build
 // (packages/server/dist, serving packages/web/dist), on a free loopback port and a throwaway data
 // root, with the seeded admin's password pinned so the run can sign in. The agent's CLI is the
 // checkout's packages/cli/dist, pointed at the same data root, so it finds this server through
@@ -10,17 +10,17 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 export const ADMIN_ID = "admin";
-export const ADMIN_PASSWORD = "penguin-2026";
+export const ADMIN_PASSWORD = "wafh-2026";
 
 /** The environment a child starts from: nothing that would point it at another server or root. */
 function cleanEnv() {
   const env = { ...process.env };
   for (const name of [
-    "PENGUIN_HOME",
-    "PENGUIN_API_URL",
-    "PENGUIN_API_TOKEN",
-    "PENGUIN_SESSION_ID",
-    "PENGUIN_PROFILE",
+    "WAFH_HOME",
+    "WAFH_API_URL",
+    "WAFH_API_TOKEN",
+    "WAFH_SESSION_ID",
+    "WAFH_PROFILE",
     "http_proxy",
     "https_proxy",
     "HTTP_PROXY",
@@ -49,18 +49,18 @@ function freePort() {
  * server serves the App on localhost and keeps 127.0.0.1 for Workspace previews.
  */
 export async function startRealServer({ repoRoot }) {
-  const data = mkdtempSync(path.join(tmpdir(), "penguin-ext-e2e-root-"));
+  const data = mkdtempSync(path.join(tmpdir(), "wafh-ext-e2e-root-"));
   const port = await freePort();
   const output = [];
   const child = spawn(process.execPath, [path.join(repoRoot, "packages/server/dist/index.js")], {
     env: {
       ...cleanEnv(),
-      PENGUIN_HOME: data,
+      WAFH_HOME: data,
       PORT: String(port),
       HOST: "127.0.0.1",
-      PENGUIN_WEB_DB: path.join(data, "web.db"),
-      PENGUIN_WEB_DIST: path.join(repoRoot, "packages/web/dist"),
-      PENGUIN_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
+      WAFH_WEB_DB: path.join(data, "web.db"),
+      WAFH_WEB_DIST: path.join(repoRoot, "packages/web/dist"),
+      WAFH_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -96,13 +96,13 @@ export async function startRealServer({ repoRoot }) {
     data,
     /** The server's last lines of output, for a failure report. */
     tail: (n = 40) => output.slice(-n).join("\n"),
-    /** Runs `penguin <args>` from this checkout as an agent would: same data root, `env` added. */
+    /** Runs `wafh <args>` from this checkout as an agent would: same data root, `env` added. */
     cli(args, env = {}) {
       return new Promise((resolve) => {
         execFile(
           process.execPath,
-          [path.join(repoRoot, "packages/cli/dist/penguin.js"), ...args],
-          { env: { ...cleanEnv(), PENGUIN_HOME: data, ...env }, timeout: 90_000 },
+          [path.join(repoRoot, "packages/cli/dist/wafh.js"), ...args],
+          { env: { ...cleanEnv(), WAFH_HOME: data, ...env }, timeout: 90_000 },
           (err, stdout, stderr) =>
             resolve({ code: err === null ? 0 : (err.code ?? 1), stdout, stderr }),
         ).stdin?.end();

@@ -8,7 +8,7 @@
  * Each value is read from the dictionary itself rather than from the live `S`, so the object is
  * built once and keeps its identity across renders.
  */
-import type { UiStrings } from "@prismshadow/penguin-ui";
+import type { UiStrings } from "@waterford/waf-harness-ui";
 import type { Strings } from "./strings";
 import { en } from "./strings-en";
 

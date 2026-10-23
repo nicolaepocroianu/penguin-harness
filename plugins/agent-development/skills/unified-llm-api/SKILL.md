@@ -1,7 +1,7 @@
 ---
 name: unified-llm-api
 description: Call model APIs through @prismshadow/mmsp (MMSP) — streaming text generation, image generation, speech synthesis, embeddings and the supported-model registry with one client.
-version: 2026.10.10.1
+version: 2026.10.23.1
 ---
 
 # Unified LLM API (MMSP)
@@ -26,7 +26,7 @@ const client = new AutoLLMClient({ model: "<model_id>", apiKey: "<key>", baseUrl
 
 If the user's message only invokes this skill (e.g. "use unified-llm-api skill") without a concrete task, ask the user what they want to build. Do not write code until the requirement is clear.
 
-**Important prerequisite — set the key up first, then develop.** When the script is an AI app you are building for the user, have them add the model API key in **this agent's key vault** (gear icon on its card, Agents page → settings → key vault tab) *before* you start, so the credential is in your shell environment. If the app stores its own model config, keep its Penguin data root **inside the CWD workspace** (`--root ./penguin_data`), never `~/.penguin`. Model ids can come from the penguin CLI catalog and the id table below.
+**Important prerequisite — set the key up first, then develop.** When the script is an AI app you are building for the user, have them add the model API key in **this agent's key vault** (gear icon on its card, Agents page → settings → key vault tab) *before* you start, so the credential is in your shell environment. If the app stores its own model config, keep its WAF Harness data root **inside the CWD workspace** (`--root ./wafh_data`), never `~/.waf-harness`. Model ids can come from the wafh CLI catalog and the id table below.
 
 Check for a usable API key before writing code — the client needs one for whichever provider you target:
 
@@ -34,11 +34,11 @@ Check for a usable API key before writing code — the client needs one for whic
 env | grep -oE "(DEEPSEEK|OPENAI|ANTHROPIC|GEMINI|ZAI|MOONSHOT|MINIMAX)_API_KEY" || echo none
 ```
 
-Vault keys also appear in your Vault Keys section. **Only two sources count as a usable key**: a vault-injected environment variable (the check above), or — when the app stores its own model config — a key already configured in the app's own data root (`penguin config model list --root <data_dir>`). Keys living in the global `~/.penguin` or any other `.penguin` directory do **not** count — a bare `penguin config model list` (no `--root`) reads the global store, because the CLI defaults to the global root unless `--root` is given, so a key showing up there proves nothing for your script and must never be used or copied.
+Vault keys also appear in your Vault Keys section. **Only two sources count as a usable key**: a vault-injected environment variable (the check above), or — when the app stores its own model config — a key already configured in the app's own data root (`wafh config model list --root <data_dir>`). Keys living in the global `~/.waf-harness` or any other `.waf-harness` directory do **not** count — a bare `wafh config model list` (no `--root`) reads the global store, because the CLI defaults to the global root unless `--root` is given, so a key showing up there proves nothing for your script and must never be used or copied.
 
 If neither counted source yields a usable key, **stop immediately and ask the user to configure one — do not write code, and do not keep calling tools to retry**: ask them to add one in the agent's **key vault** (gear icon on the agent's card, Agents page → settings → key vault tab); vault values reach your shell environment on the next task. Re-checking the environment or the vault in a loop just wastes turns — one clear check, then hand back to the user.
 
-Keep model API keys **project-local**: for an app that stores its own model config, write the key into the project under the working directory with the penguin CLI, **always passing `--root <data_dir>` for a directory inside the current working directory** (`penguin config model add --root ./penguin_data --provider <group> --model-id <id> --api-key <key>`) — without `--root` it writes to the global `~/.penguin/data` instead. `--provider` is required alongside `--model-id`: a model entry is the `(provider, model_id)` pair and the group is never inferred (use `custom` for an endpoint outside the built-in groups). Otherwise rely on vault-injected environment variables. Never read, copy or fall back to model keys stored in the user's global `~/.penguin` directory — that config belongs to the person running Penguin, not to your script.
+Keep model API keys **project-local**: for an app that stores its own model config, write the key into the project under the working directory with the wafh CLI, **always passing `--root <data_dir>` for a directory inside the current working directory** (`wafh config model add --root ./wafh_data --provider <group> --model-id <id> --api-key <key>`) — without `--root` it writes to the global `~/.waf-harness/data` instead. `--provider` is required alongside `--model-id`: a model entry is the `(provider, model_id)` pair and the group is never inferred (use `custom` for an endpoint outside the built-in groups). Otherwise rely on vault-injected environment variables. Never read, copy or fall back to model keys stored in the user's global `~/.waf-harness` directory — that config belongs to the person running WAF Harness, not to your script.
 
 ## Model IDs
 
@@ -237,7 +237,7 @@ The same helper speaks with ElevenLabs when `speech-input.json` has `provider` `
 
 For an activity music or sound-effect candidate, run `scripts/generate-sound.mjs` in the Session workspace with `sound-input.json` containing `provider` (`elevenlabs`), `model` (`music_v1` or `sound-generation`), `kind` (`music` or `sfx`), `prompt`, and optionally `targetDurationMs` (1000 to 60000). The helper makes one ElevenLabs request with Node's built-in `fetch`, requires `ELEVENLABS_API_KEY` in the Agent Vault environment, and writes a new `sound.mp3` without replacing an existing file. A refused key or plan is reported as "provider refused: plan or key". Run through normal tool approval; do not print credentials or retry a billable request automatically. Listen and explicitly accept through the Activities view.
 
-The same helper can use a music or sound model reached through AgentHub: `sound-input.json` then has `provider` `agenthub`, the model id, `credential` (the Vault key the model's provider reads, e.g. `GEMINI_API_KEY`) and `format` (`mp3` or `wav`), and the workspace `package.json` pins `@prismshadow/agenthub` (run `npm install --ignore-scripts` first). The helper streams one request, joins the inline audio, and writes `sound.mp3` for MPEG audio or `sound.wav` for WAV or raw 24 kHz mono PCM; any other audio type, or audio in another format than `format`, is refused. AgentHub 0.4.15 has no such model yet, so Penguin reports this provider as unavailable.
+The same helper can use a music or sound model reached through AgentHub: `sound-input.json` then has `provider` `agenthub`, the model id, `credential` (the Vault key the model's provider reads, e.g. `GEMINI_API_KEY`) and `format` (`mp3` or `wav`), and the workspace `package.json` pins `@prismshadow/agenthub` (run `npm install --ignore-scripts` first). The helper streams one request, joins the inline audio, and writes `sound.mp3` for MPEG audio or `sound.wav` for WAV or raw 24 kHz mono PCM; any other audio type, or audio in another format than `format`, is refused. AgentHub 0.4.15 has no such model yet, so WAF Harness reports this provider as unavailable.
 
 Use a Gemini TTS model (`gemini-3.8-flash-tts`, `gemini-3.1-flash-tts-preview`, …) and set `config.tts_config`:
 

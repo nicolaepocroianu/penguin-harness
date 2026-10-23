@@ -14,7 +14,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement as h } from "react";
-import type { PluginItem } from "@prismshadow/penguin-server/api";
+import type { PluginItem } from "@waterford/waf-harness-server/api";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { PluginsPage } from "../src/features/plugins/plugins-page";

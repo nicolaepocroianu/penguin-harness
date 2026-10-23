@@ -1,6 +1,6 @@
 /**
  * A machine's card on the Machines page: the data wiring around the shared package's
- * `MachineCard` (`@prismshadow/penguin-ui`), which owns the band of "info | middle | quick
+ * `MachineCard` (`@waterford/waf-harness-ui`), which owns the band of "info | middle | quick
  * buttons" and how each part looks. This module decides what each part says from the server's
  * record and the machine's job:
  *
@@ -18,13 +18,13 @@
  *   Sync config hands a connected machine on this server's build this Project's config now. A
  *   click anywhere else on the body opens the dialog too (lib/card-open.ts).
  */
-import type { MachineInfo, MachineJob } from "@prismshadow/penguin-server/api";
+import type { MachineInfo, MachineJob } from "@waterford/waf-harness-server/api";
 import {
   ICONS,
   MachineCard as MachineCardView,
   MachineStatusPill,
   MachineStepper,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import type {
   MachineCardFact,
   MachineState,
@@ -33,7 +33,7 @@ import type {
   MachineStepperProps,
   RetryStatusProps,
   ToneName,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { cardBodyClick } from "../../lib/card-open";
 import { formatRelativeShort } from "../../lib/format";

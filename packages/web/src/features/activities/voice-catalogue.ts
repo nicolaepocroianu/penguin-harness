@@ -3,7 +3,7 @@
  * filters worth offering, and the voice a set of narrations shares. Pure, so it is tested
  * without a DOM.
  */
-import type { MediaAsset, VoiceOption } from "@prismshadow/penguin-server/api";
+import type { MediaAsset, VoiceOption } from "@waterford/waf-harness-server/api";
 
 export interface VoiceFilters {
   query: string;
@@ -92,7 +92,7 @@ export function isNarration(asset: MediaAsset): boolean {
 /**
  * The voice the narrations share: that voice when every one names it, "mixed" when they
  * differ (a narration naming none counts as different from one naming a voice), and null
- * when none names a voice or there is no narration. Given the voices Penguin can speak, a
+ * when none names a voice or there is no narration. Given the voices WAF Harness can speak, a
  * saved voice outside them counts as naming none, since generation falls back to the
  * default for it (see voiceFor).
  */

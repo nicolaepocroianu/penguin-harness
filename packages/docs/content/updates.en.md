@@ -1,9 +1,9 @@
 ---
-title: Update PenguinHarness
+title: Update WAF Harness
 description: Check which version you are running, and update the desktop app, a CLI install, or a Docker deployment.
 ---
 
-Check which version of PenguinHarness you are running, and update it in the way that matches your install.
+Check which version of WAF Harness you are running, and update it in the way that matches your install.
 
 - **Which version is running?** See [Check the running version](#check-the-running-version).
 - **Updating from the browser?** See [Update from the Web App](#update-from-the-web-app).
@@ -21,8 +21,8 @@ In the Web App:
 
 In a terminal:
 
-- `penguin -v`, the same as `penguin version`, prints the running build's one-line identity, and `penguin version --json` prints the full build info. See [penguin version](/cli#penguin-version).
-- `penguin update --check` reports the installed and the latest versions and changes nothing.
+- `wafh -v`, the same as `wafh version`, prints the running build's one-line identity, and `wafh version --json` prints the full build info. See [wafh version](/cli#wafh-version).
+- `wafh update --check` reports the installed and the latest versions and changes nothing.
 
 ## Update from the Web App
 
@@ -50,8 +50,8 @@ If the download fails, the dialog shows the update command's own output and offe
 
 ### What happens on a server
 
-- The download is `penguin update` running in the background, and the progress bar reads the installer's own progress. The data directory is not touched.
-- The restart is real when the service runs under `penguin web` or `penguin server`, which supervise it: the service comes back on the new release, and the page reloads by itself.
+- The download is `wafh update` running in the background, and the progress bar reads the installer's own progress. The data directory is not touched.
+- The restart is real when the service runs under `wafh web` or `wafh server`, which supervise it: the service comes back on the new release, and the page reloads by itself.
 - When the service was started some other way, the dialog tells you to restart it by hand instead.
 
 ## Update the desktop app
@@ -71,20 +71,20 @@ The app's native **Check for Updates…** menu item offers the same download-the
 
 Two forms of the app cannot replace themselves, and the dialog says so: a Linux install owned by the system package manager (`.deb`), which you update through the package manager, and a development run. The [Desktop app](/quickstart-desktop) page covers the installers.
 
-### The bundled `penguin` command
+### The bundled `wafh` command
 
-The `penguin` command that the desktop app installs comes from the same build as the app, so updating the app updates the command. Running `penguin update` with that command changes nothing: it explains that the command is replaced when the app updates, and points you to the application menu.
+The `wafh` command that the desktop app installs comes from the same build as the app, so updating the app updates the command. Running `wafh update` with that command changes nothing: it explains that the command is replaced when the app updates, and points you to the application menu.
 
 ## Update a CLI install
 
-`penguin update` upgrades an install in place, with the mechanism it was installed with:
+`wafh update` upgrades an install in place, with the mechanism it was installed with:
 
 ```bash
-penguin update --check     # report versions only
-penguin update             # upgrade to the latest release, after confirming
+wafh update --check     # report versions only
+wafh update             # upgrade to the latest release, after confirming
 ```
 
-| Install type | What `penguin update` does |
+| Install type | What `wafh update` does |
 | --- | --- |
 | Tarball install (`install.sh`) | Re-runs the official installer |
 | Global npm/pnpm/yarn/bun install | Runs that package manager's global install |
@@ -93,9 +93,9 @@ penguin update             # upgrade to the latest release, after confirming
 `--release <tag>` targets a specific release, and `-y` skips the confirmation. The data root is never touched.
 
 > [!NOTE]
-> On Windows, `penguin update` does not upgrade in place and tells you what to run instead. To upgrade an install made with the Windows installer, run the installer again.
+> On Windows, `wafh update` does not upgrade in place and tells you what to run instead. To upgrade an install made with the Windows installer, run the installer again.
 
-Running the install script again also upgrades an install; its files are swapped atomically. See [penguin update](/cli#penguin-update) for every option and the download source rules, and the [Installation reference](/quickstart-cli#installation-reference) for the installers.
+Running the install script again also upgrades an install; its files are swapped atomically. See [wafh update](/cli#wafh-update) for every option and the download source rules, and the [Installation reference](/quickstart-cli#installation-reference) for the installers.
 
 ## Update a Docker deployment
 
@@ -109,4 +109,4 @@ Updating from inside the container is not supported. See [Upgrade the container]
 
 ## Turn off the update check
 
-Set `PENGUIN_UPDATE_CHECK=off` to turn off the automatic release check. That is all it turns off: model requests, an enabled remote-control connection, provider key authorization and the proxy test still reach the network. With the check off, the update dialog says **Update checks are disabled (PENGUIN_UPDATE_CHECK=off)**. See the [Configuration Reference](/configuration#environment-variables).
+Set `WAFH_UPDATE_CHECK=off` to turn off the automatic release check. That is all it turns off: model requests, an enabled remote-control connection, provider key authorization and the proxy test still reach the network. With the check off, the update dialog says **Update checks are disabled (WAFH_UPDATE_CHECK=off)**. See the [Configuration Reference](/configuration#environment-variables).

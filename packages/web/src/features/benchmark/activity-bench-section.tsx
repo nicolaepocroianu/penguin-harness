@@ -6,7 +6,7 @@
  * on: it is a record of what the bench found.
  */
 import { useEffect, useState } from "react";
-import type { ActivityBenchBoard, ActivityBenchResponse } from "@prismshadow/penguin-server/api";
+import type { ActivityBenchBoard, ActivityBenchResponse } from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
@@ -14,7 +14,13 @@ import { formatDateTime, formatMoney, formatScore, humanizeDuration } from "../.
 import { toneInk } from "../../lib/tone";
 import { useAuth } from "../../state/auth";
 import { useTheme } from "../../state/theme";
-import { FieldHint, FieldLabel, InfoPopover, toastError, Sparkline } from "@prismshadow/penguin-ui";
+import {
+  FieldHint,
+  FieldLabel,
+  InfoPopover,
+  toastError,
+  Sparkline,
+} from "@waterford/waf-harness-ui";
 import {
   TABLE,
   TABLE_HEAD_ROW,

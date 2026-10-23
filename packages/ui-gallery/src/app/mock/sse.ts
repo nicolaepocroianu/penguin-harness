@@ -5,7 +5,7 @@
  * does on connect, and a running Session's script then streams on it.
  */
 import type { StreamHandlers as AppStreamHandlers } from "./types";
-import type { ServerEvent } from "@prismshadow/penguin-server/api";
+import type { ServerEvent } from "@waterford/waf-harness-server/api";
 import { getStore } from "./store";
 
 export type StreamHandlers = AppStreamHandlers;

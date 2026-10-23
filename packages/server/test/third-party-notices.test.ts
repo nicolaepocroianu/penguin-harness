@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { thirdPartyNotices } from "../../../scripts/lib/third-party-notices.mjs";
 
-const where = { carrier: "penguin-builtin-plugins", location: "node_modules/" };
+const where = { carrier: "wafh-builtin-plugins", location: "node_modules/" };
 const koffi = {
   name: "koffi",
   version: "3.1.6",
@@ -45,7 +45,7 @@ describe("thirdPartyNotices", () => {
       "## koffi@3.1.6",
     ]);
     expect(notices).toContain(
-      "`penguin-builtin-plugins` carries these 3 third-party packages in `node_modules/`",
+      "`wafh-builtin-plugins` carries these 3 third-party packages in `node_modules/`",
     );
     expect(notices).toContain("- @deepseek-ai/node-addon-landlock-run@0.1.1 (BSD-3-Clause)");
     expect(thirdPartyNotices([koffiLinux, landlock, koffi], where)).toBe(notices);

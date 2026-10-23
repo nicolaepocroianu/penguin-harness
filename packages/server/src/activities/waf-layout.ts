@@ -248,7 +248,7 @@ export class WafLayout {
 
   /**
    * Whether a module folder is in a monorepo modules root: it shares that monorepo's
-   * repository, so Penguin neither clones it nor runs git in it.
+   * repository, so WAF Harness neither clones it nor runs git in it.
    */
   inMonorepo(folder: string): boolean {
     const dir = this.moduleDir(folder);

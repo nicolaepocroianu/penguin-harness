@@ -19,7 +19,7 @@
  * - The in-session picker follows the Agent config until a level is pinned on the Session.
  */
 import { describe, expect, it } from "vitest";
-import { DEFAULT_CHAT_THINKING_LEVELS } from "@prismshadow/penguin-core";
+import { DEFAULT_CHAT_THINKING_LEVELS } from "@waterford/waf-harness-core";
 import { en } from "../src/lib/strings-en";
 
 import {

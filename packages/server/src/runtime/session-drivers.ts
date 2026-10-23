@@ -4,7 +4,7 @@
  * purpose — it is a fact about the runs of this server's life: after a restart or a hot swap a
  * Session acts for its Project's owner until someone starts a run in it again.
  */
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Projects } from "../mechanisms/projects.js";
 import type { SessionDrivers, SessionIndex } from "../mechanisms/sessions.js";
 

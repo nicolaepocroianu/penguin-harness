@@ -6,16 +6,16 @@
  * two disjoint sources, picked by whether the release workflow stamped this build.
  *
  * A stamped release carries everything it needs in constants (see the barrel's VERSION /
- * BUILD_DATE / BUILD_COMMIT) and asks git nothing — an installed penguin never shells out
+ * BUILD_DATE / BUILD_COMMIT) and asks git nothing — an installed wafh never shells out
  * for its own version.
  *
  * An unstamped build reads its git position from the stamp a bundler inlined at build time
- * (see __PENGUIN_BUILD_GIT__), which is what lets an artifact identify itself after it has
+ * (see __WAFH_BUILD_GIT__), which is what lets an artifact identify itself after it has
  * left the checkout that produced it. Asking git at run time is only the fallback, for a run
  * that never went through a bundler at all.
  *
- * The single consumer-visible product is {@link BuildInfo}, which `penguin version`,
- * `penguin version --json` and GET /api/version all render without adding facts of their
+ * The single consumer-visible product is {@link BuildInfo}, which `wafh version`,
+ * `wafh version --json` and GET /api/version all render without adding facts of their
  * own, so those three can never disagree about what is running.
  */
 import path from "node:path";
@@ -53,7 +53,7 @@ const moduleDir = path.dirname(fileURLToPath(import.meta.url));
  * When a bundler does substitute it, that same `typeof` folds to a constant and the fallback
  * is eliminated with it.
  */
-declare const __PENGUIN_BUILD_GIT__: string | undefined;
+declare const __WAFH_BUILD_GIT__: string | undefined;
 
 /**
  * A tag description this build can present as its own identity: `v` followed by a digit,
@@ -69,10 +69,10 @@ const TAG_DESCRIPTION = /^v\d/;
  * hand-edited or half-substituted bundle must degrade to fewer facts, not throw on startup.
  */
 function stampedCheckout(): CheckoutFacts | null {
-  if (typeof __PENGUIN_BUILD_GIT__ !== "string") return null;
+  if (typeof __WAFH_BUILD_GIT__ !== "string") return null;
   let parsed: unknown;
   try {
-    parsed = JSON.parse(__PENGUIN_BUILD_GIT__);
+    parsed = JSON.parse(__WAFH_BUILD_GIT__);
   } catch {
     return null;
   }
@@ -155,7 +155,7 @@ export function resolveBuildInfo(stamp: BuildStamp): BuildInfo {
 /**
  * The one-line identity: git's description when it already names a version, the version
  * number carrying git's commit when it does not, and the bare version number when there is
- * no git answer at all. Every form starts with `v` and a digit, so `penguin version` always
+ * no git answer at all. Every form starts with `v` and a digit, so `wafh version` always
  * reads as a version — but only the two composed forms start with `v{version}`: a tag
  * description is git's own answer, passed through, and it names the nearest reachable tag
  * rather than the version constant. The two disagree throughout release preparation, when

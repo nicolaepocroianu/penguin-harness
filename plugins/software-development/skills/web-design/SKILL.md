@@ -1,12 +1,12 @@
 ---
 name: web-design
-description: Penguin visual language for generated web pages and app UIs — GitHub-style simplicity with a single blue accent, light and pure-black dark themes, design tokens, component and chat-interface recipes, plus an opt-in warm paper editorial theme.
-version: 2026.10.04.1
+description: WAF Harness visual language for generated web pages and app UIs — GitHub-style simplicity with a single blue accent, light and pure-black dark themes, design tokens, component and chat-interface recipes, plus an opt-in warm paper editorial theme.
+version: 2026.10.23.1
 ---
 
 # Web Design
 
-Default visual language for every web page or frontend you generate, distilled from the Penguin Harness landing page and web app. The idea is **GitHub-style simplicity**: solid backgrounds, 1px borders instead of shadows, system fonts, one blue accent used sparingly. Depth comes from hairline borders, not shadows or gradients; dark mode is pure black, not navy. Apply these defaults unless the user explicitly asks for another style. One packaged alternative exists — the **paper editorial** theme below, for requests that call for a warm, print-like feel; pick one language per product and never mix them. The typography discipline, language, motion, IME, citation and responsiveness rules apply under both. Treat the user's one-line request as the whole spec: this skill fills every unstated gap, so the result is a finished page — never a wireframe that waits for styling feedback.
+Default visual language for every web page or frontend you generate, distilled from the WAF Harness landing page and web app. The idea is **GitHub-style simplicity**: solid backgrounds, 1px borders instead of shadows, system fonts, one blue accent used sparingly. Depth comes from hairline borders, not shadows or gradients; dark mode is pure black, not navy. Apply these defaults unless the user explicitly asks for another style. One packaged alternative exists — the **paper editorial** theme below, for requests that call for a warm, print-like feel; pick one language per product and never mix them. The typography discipline, language, motion, IME, citation and responsiveness rules apply under both. Treat the user's one-line request as the whole spec: this skill fills every unstated gap, so the result is a finished page — never a wireframe that waits for styling feedback.
 
 ## Before you start
 

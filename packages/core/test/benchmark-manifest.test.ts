@@ -41,7 +41,7 @@ import {
 let tmp: string;
 
 beforeEach(async () => {
-  tmp = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-bench-manifest-"));
+  tmp = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-bench-manifest-"));
 });
 
 afterEach(async () => {

@@ -57,7 +57,7 @@ const FAST = {
 let root: string;
 const browsers: BuiltinBrowser[] = [];
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-bb-routes-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-bb-routes-"));
 });
 afterEach(async () => {
   for (const b of browsers.splice(0)) {
@@ -491,7 +491,7 @@ describe("agent actions", () => {
       truncated: true,
     });
     expect(expression).toContain(
-      '__penguinScan({"textOnly":false,"maxChars":1000,"instruction":"Order"})',
+      '__wafHarnessScan({"textOnly":false,"maxChars":1000,"instruction":"Order"})',
     );
   });
 
@@ -1091,7 +1091,7 @@ describe("import, history and data", () => {
     expect(h.shell.commands.at(-1)).toEqual({
       op: "clear-data",
       storages: ["cookies", "cache"],
-      partition: "persist:penguin-browser",
+      partition: "persist:wafh-browser",
     });
     expect((await h.call("POST", "/clear-data", { storages: ["everything"] })).status).toBe(400);
   });

@@ -7,8 +7,8 @@
  * (projectId, agentId, sessionId), with access controlled via requireProjectAccess.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { requestBegin, requestEnd, sessionMeta, userText } from "@prismshadow/penguin-core";
-import type { SessionMetaPayload } from "@prismshadow/penguin-core";
+import { requestBegin, requestEnd, sessionMeta, userText } from "@waterford/waf-harness-core";
+import type { SessionMetaPayload } from "@waterford/waf-harness-core";
 import type {
   AgentTracesResponse,
   ProjectCreateResponse,

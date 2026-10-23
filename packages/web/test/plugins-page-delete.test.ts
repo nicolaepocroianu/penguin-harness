@@ -8,7 +8,7 @@ import { en } from "../src/lib/strings-en";
 import { mount, click, unmountAll } from "./helpers/dom";
 
 beforeEach(() => {
-  localStorage.setItem("penguin.lang", "en");
+  localStorage.setItem("wafh.lang", "en");
   setActiveStrings(en);
 });
 afterEach(unmountAll);
@@ -21,7 +21,7 @@ for (const shared of [true, false]) {
         category: "other",
         library: {
           name: "mixed",
-          package: "@penguinharness/mixed",
+          package: "@waf-harness/mixed",
           source: "installed",
           version: "1",
           description: "Mixed",
@@ -30,7 +30,7 @@ for (const shared of [true, false]) {
           mcpServers: [],
         },
         module: {
-          specifier: "@penguinharness/mixed",
+          specifier: "@waf-harness/mixed",
           entry: undefined,
           state: "active",
           shipped: true,

@@ -157,10 +157,10 @@ jobs:
           ref: ${{ inputs.ref || '' }}
       - uses: ./.github/actions/setup
       - name: README plugin tables match the shipped library
-        run: pnpm --filter @prismshadow/penguin-core exec vitest run test/readme-catalog.test.ts
+        run: pnpm --filter @waterford/waf-harness-core exec vitest run test/readme-catalog.test.ts
 
   # A plugin's installable part changed without its dated version moving — a skill's SKILL.md
-  # `version`, or the hook package's `penguin.hooks.version` in package.json: installed copies
+  # `version`, or the hook package's `wafh.hooks.version` in package.json: installed copies
   # would never learn about the change (the update flag reads the version). Compared against the
   # pull request's base; a push has no base and the script passes on an empty one.
   plugin-versions:
@@ -202,7 +202,7 @@ jobs:
       - name: Stamp the versions as the release's npm job does
         run: EVENT_NAME=ci GITHUB_SHA="$(git rev-parse HEAD)" bash scripts/release-npm.sh stamp "v$(node -p 'require("./package.json").version')"
       - name: Build the publishable dependency chain and Web UI
-        run: pnpm --filter '@prismshadow/penguin-cli...' --filter '@prismshadow/penguin-web...' build
+        run: pnpm --filter '@waterford/waf-harness-cli...' --filter '@waterford/waf-harness-web...' build
       - name: Stamped version and plugin-registry regressions
         run: bash scripts/release-npm.sh test-smoke
       # The release stages two things into the package directories before it publishes: the root
@@ -249,7 +249,7 @@ jobs:
 
   # Linux runs every affected package. New packages enter the rest shard automatically. The web
   # suite runs in two jobs (web-1, web-2), each half of the web's, ui's and cli's files, and each
-  # uploads the coverage of its half. PENGUIN_MUST_RUN keeps host-dependent sandbox suites from
+  # uploads the coverage of its half. WAFH_MUST_RUN keeps host-dependent sandbox suites from
   # silently skipping.
   test:
     needs: plan
@@ -261,7 +261,7 @@ jobs:
     # The server's declarations are most of its build (~25 s of ~26 s) and no test reads a
     # .d.ts; typecheck and npm packaging still build them (see packages/server/tsup.config.ts).
     env:
-      PENGUIN_BUILD_JS_ONLY: "1"
+      WAFH_BUILD_JS_ONLY: "1"
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.linux) }}
@@ -277,7 +277,7 @@ jobs:
       - uses: ./.github/actions/chromium
         if: matrix.browser
         with:
-          package: "@prismshadow/penguin-server"
+          package: "@waterford/waf-harness-server"
           cli: playwright-core
       # Ubuntu 23.10 and later let only AppArmor-profiled programs create an unprivileged
       # user namespace, and some tests here need one. Changing it takes root and changes the
@@ -288,7 +288,7 @@ jobs:
       - name: Unit tests (vitest)
         run: ${{ matrix.tests }}
         env:
-          PENGUIN_MUST_RUN: ${{ matrix.must_run }}
+          WAFH_MUST_RUN: ${{ matrix.must_run }}
       - name: Save branch and line coverage
         if: always() && matrix.coverage
         uses: actions/upload-artifact@v4
@@ -308,10 +308,10 @@ jobs:
       # the job that tests the gallery (the plan's `gallery`), against its own dev server.
       - name: Install Chromium (gallery layout checks)
         if: matrix.gallery
-        run: pnpm --filter @prismshadow/penguin-ui-gallery exec playwright install --with-deps chromium
+        run: pnpm --filter @waterford/waf-harness-ui-gallery exec playwright install --with-deps chromium
       - name: Component layout checks (ui-gallery)
         if: matrix.gallery
-        run: pnpm --filter @prismshadow/penguin-ui-gallery test:e2e
+        run: pnpm --filter @waterford/waf-harness-ui-gallery test:e2e
       - name: Gallery layout failure diagnostics
         if: failure() && matrix.gallery
         uses: actions/upload-artifact@v4
@@ -335,7 +335,7 @@ jobs:
           ref: ${{ inputs.ref || '' }}
       - uses: ./.github/actions/setup
         with:
-          build: "@prismshadow/penguin-cli...,@prismshadow/penguin-server..."
+          build: "@waterford/waf-harness-cli...,@waterford/waf-harness-server..."
       - name: Installer bundle and POSIX installer tests
         run: sh scripts/test-installer.sh
       - name: E2E (live LLM via DeepSeek)
@@ -365,10 +365,10 @@ jobs:
         with:
           # The web bundles the server's `./model-catalog` subpath from its dist, so the server
           # is built too, and so is the AMSP client, which the web bundles from its dist as well.
-          build: "@prismshadow/penguin-server...,@prismshadow/amsp,@prismshadow/penguin-web"
+          build: "@waterford/waf-harness-server...,@waterford/waf-harness-amsp,@waterford/waf-harness-web"
       - uses: ./.github/actions/chromium
         with:
-          package: "@prismshadow/penguin-web"
+          package: "@waterford/waf-harness-web"
           cli: playwright
       - name: Web e2e (Playwright, activities)
         working-directory: packages/web
@@ -397,7 +397,7 @@ jobs:
     # A suite that stops making progress fails here instead of at GitHub's six-hour default.
     timeout-minutes: 45
     env:
-      PENGUIN_BUILD_JS_ONLY: "1"
+      WAFH_BUILD_JS_ONLY: "1"
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.macos) }}
@@ -412,12 +412,12 @@ jobs:
       - uses: ./.github/actions/chromium
         if: matrix.browser
         with:
-          package: "@prismshadow/penguin-server"
+          package: "@waterford/waf-harness-server"
           cli: playwright-core
       - name: Unit tests (vitest)
         run: ${{ matrix.tests }}
         env:
-          PENGUIN_MUST_RUN: ${{ matrix.must_run }}
+          WAFH_MUST_RUN: ${{ matrix.must_run }}
       - name: Terminal smoke (node-pty under Electron's Node)
         if: matrix.smoke
         run: node packages/desktop/scripts/terminal-smoke.mjs
@@ -454,7 +454,7 @@ jobs:
     # A suite that stops making progress fails here instead of at GitHub's six-hour default.
     timeout-minutes: 45
     env:
-      PENGUIN_BUILD_JS_ONLY: "1"
+      WAFH_BUILD_JS_ONLY: "1"
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.windows) }}
@@ -475,7 +475,7 @@ jobs:
       - uses: ./.github/actions/chromium
         if: matrix.browser
         with:
-          package: "@prismshadow/penguin-server"
+          package: "@waterford/waf-harness-server"
           cli: playwright-core
 
       # One retry, and only here. Per-test flakes are already absorbed inside vitest
@@ -486,7 +486,7 @@ jobs:
       - name: Unit tests (vitest)
         shell: bash
         env:
-          PENGUIN_MUST_RUN: ${{ matrix.must_run }}
+          WAFH_MUST_RUN: ${{ matrix.must_run }}
         run: |
           ${{ matrix.tests }} && exit 0
           echo "::warning::vitest failed on Windows; retrying once (see the pool-teardown note in ci.yml)"
@@ -505,7 +505,7 @@ jobs:
           ref: ${{ inputs.ref || '' }}
       - uses: ./.github/actions/setup
         with:
-          build: "@prismshadow/penguin-cli..."
+          build: "@waterford/waf-harness-cli..."
 
       # The Linux job cannot validate PowerShell syntax; parse (never execute) the installer
       # scripts with the real PowerShell parser so a broken install.ps1 cannot ship.
@@ -559,7 +559,7 @@ jobs:
           # The web package is not a dependency of the desktop package (the app carries its
           # build by an electron-builder file mapping, not an import), so `desktop...` alone
           # leaves it unbuilt — and the mapping then silently packs nothing.
-          build: "@prismshadow/penguin-desktop...,@prismshadow/penguin-web"
+          build: "@waterford/waf-harness-desktop...,@waterford/waf-harness-web"
 
       - name: Preflight the packed tree's inputs
         run: node packages/desktop/scripts/preflight.mjs
@@ -590,9 +590,9 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: pnpm --dir packages/desktop exec electron-builder ${{ matrix.platform }} --dir --publish never
 
-      # An installed desktop app installs the `penguin` command on the user's PATH — the deb
-      # postinst links /usr/bin/penguin, the other forms do it from the shell at launch — and
-      # every route runs <app>/bin/penguin against <app>/dist/penguin.js
+      # An installed desktop app installs the `wafh` command on the user's PATH — the deb
+      # postinst links /usr/bin/wafh, the other forms do it from the shell at launch — and
+      # every route runs <app>/bin/wafh against <app>/dist/wafh.js
       # inside this tree. Nothing else in the build fails if those stop being packed, so the
       # tree gets checked here, on all three platforms, where it already exists.
       - name: Bundled CLI runs from the packed app
@@ -602,7 +602,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: penguin-runtime-${{ runner.os }}
+          name: wafh-runtime-${{ runner.os }}
           if-no-files-found: error
           # Each OS produces exactly one of these unpacked trees.
           path: |
@@ -619,7 +619,7 @@ jobs:
     timeout-minutes: 15
     # The e2e server runs from its built JavaScript; its declarations are typecheck's to build.
     env:
-      PENGUIN_BUILD_JS_ONLY: "1"
+      WAFH_BUILD_JS_ONLY: "1"
     steps:
       - uses: actions/checkout@v5
         with:
@@ -629,9 +629,9 @@ jobs:
       # other on the CPU, so neither has to wait for the other.
       - name: Build, with Chromium installing alongside
         run: |
-          pnpm --filter @prismshadow/penguin-web exec playwright install --with-deps chromium >"$RUNNER_TEMP/chromium.log" 2>&1 &
+          pnpm --filter @waterford/waf-harness-web exec playwright install --with-deps chromium >"$RUNNER_TEMP/chromium.log" 2>&1 &
           chromium=$!
-          pnpm --config.verify-deps-before-run=false --filter '@prismshadow/penguin-server...' --filter '@prismshadow/penguin-web...' --if-present build
+          pnpm --config.verify-deps-before-run=false --filter '@waterford/waf-harness-server...' --filter '@waterford/waf-harness-web...' --if-present build
           wait "$chromium" || { cat "$RUNNER_TEMP/chromium.log"; exit 1; }
       # project-switch.spec.mjs holds the Project-isolation line: two Projects with distinct
       # Agents, switched quickly under a throttled CPU and seeded API latency, must never pair
@@ -644,7 +644,7 @@ jobs:
       - name: Browser integration smoke (mock LLM)
         env:
           SKIP_BUILD: "1"
-        run: pnpm --filter @prismshadow/penguin-web test:e2e smoke.spec.mjs project-switch.spec.mjs sticky-rows.spec.mjs dock.spec.mjs terminal.spec.mjs
+        run: pnpm --filter @waterford/waf-harness-web test:e2e smoke.spec.mjs project-switch.spec.mjs sticky-rows.spec.mjs dock.spec.mjs terminal.spec.mjs
       - name: Browser failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

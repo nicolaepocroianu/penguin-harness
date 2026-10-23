@@ -6,7 +6,7 @@
  * it stays the top-level `default_model` maintained via the models routes.
  */
 import { Hono } from "hono";
-import { DEFAULT_CHAT_THINKING_LEVELS, isValidId } from "@prismshadow/penguin-core";
+import { DEFAULT_CHAT_THINKING_LEVELS, isValidId } from "@waterford/waf-harness-core";
 import type { ChatDefaultsDto, SessionSandbox } from "../../api/types.js";
 import type { AppEnv } from "../../auth/middleware.js";
 import { HttpError } from "../errors.js";

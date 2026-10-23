@@ -4,8 +4,8 @@
  * missing the active language falls back to English, so navigation is always
  * complete for every locale. Same architecture as the landing page blog.
  */
-import { parseFrontmatter } from "@prismshadow/penguin-ui/site";
-import type { SiteLocale as Locale } from "@prismshadow/penguin-ui/site";
+import { parseFrontmatter } from "@waterford/waf-harness-ui/site";
+import type { SiteLocale as Locale } from "@waterford/waf-harness-ui/site";
 
 export interface DocPage {
   slug: string;

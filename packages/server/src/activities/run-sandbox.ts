@@ -5,7 +5,7 @@
  * nothing here can confine is refused before it starts rather than left to fail at its first
  * command.
  */
-import type { SessionSandboxMode, SpawnConfiner } from "@prismshadow/penguin-core";
+import type { SessionSandboxMode, SpawnConfiner } from "@waterford/waf-harness-core";
 import { HttpError } from "../http/errors.js";
 import type { Settings } from "../mechanisms/settings.js";
 import type { Sandbox } from "../sandbox/service.js";

@@ -4,8 +4,8 @@
  * scene again hands the fixes to the composing agent.
  */
 import { useEffect, useState } from "react";
-import type { ActivityRunSummary, SceneCritique } from "@prismshadow/penguin-server/api";
-import { Badge, Button, HelpFold, InfoPopover } from "@prismshadow/penguin-ui";
+import type { ActivityRunSummary, SceneCritique } from "@waterford/waf-harness-server/api";
+import { Badge, Button, HelpFold, InfoPopover } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { useActivityClient } from "./activity-client";

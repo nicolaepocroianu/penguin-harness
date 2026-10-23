@@ -64,23 +64,23 @@ command -v jq >/dev/null 2>&1 || {
 }
 
 BUNDLES="
-penguin-linux-x64.tar.gz
-penguin-linux-arm64.tar.gz
-penguin-darwin-x64.tar.gz
-penguin-darwin-arm64.tar.gz
-penguin-universal.tar.gz
-penguin-win32-x64.zip
+wafh-linux-x64.tar.gz
+wafh-linux-arm64.tar.gz
+wafh-darwin-x64.tar.gz
+wafh-darwin-arm64.tar.gz
+wafh-universal.tar.gz
+wafh-win32-x64.zip
 "
 # Desktop installers carry version-less names (see packages/desktop/electron-builder.yml)
 # and are verified as a set through SHA256SUMS.desktop instead of per-file .sha256 twins.
 DESKTOP_INSTALLERS="
-penguin-desktop-darwin-arm64.dmg
-penguin-desktop-darwin-arm64.zip
-penguin-desktop-darwin-x64.dmg
-penguin-desktop-darwin-x64.zip
-penguin-desktop-linux-x86_64.AppImage
-penguin-desktop-linux-amd64.deb
-penguin-desktop-win32-x64.exe
+wafh-desktop-darwin-arm64.dmg
+wafh-desktop-darwin-arm64.zip
+wafh-desktop-darwin-x64.dmg
+wafh-desktop-darwin-x64.zip
+wafh-desktop-linux-x86_64.AppImage
+wafh-desktop-linux-amd64.deb
+wafh-desktop-win32-x64.exe
 "
 DESKTOP_UPDATE_METADATA="
 latest.yml
@@ -88,9 +88,9 @@ latest-mac.yml
 latest-linux.yml
 "
 EXPECTED_DESKTOP_UPDATE_BLOCKMAPS="
-penguin-desktop-darwin-arm64.zip.blockmap
-penguin-desktop-darwin-x64.zip.blockmap
-penguin-desktop-win32-x64.exe.blockmap
+wafh-desktop-darwin-arm64.zip.blockmap
+wafh-desktop-darwin-x64.zip.blockmap
+wafh-desktop-win32-x64.exe.blockmap
 "
 
 if [ -f "$RELEASE_DIR/release-download-manifest.tsv" ]; then
@@ -133,12 +133,12 @@ PRESENT_DESKTOP_UPDATE_BLOCKMAPS="$(
 )"
 
 FILES="$BUNDLES
-penguin-linux-x64.tar.gz.sha256
-penguin-linux-arm64.tar.gz.sha256
-penguin-darwin-x64.tar.gz.sha256
-penguin-darwin-arm64.tar.gz.sha256
-penguin-universal.tar.gz.sha256
-penguin-win32-x64.zip.sha256
+wafh-linux-x64.tar.gz.sha256
+wafh-linux-arm64.tar.gz.sha256
+wafh-darwin-x64.tar.gz.sha256
+wafh-darwin-arm64.tar.gz.sha256
+wafh-universal.tar.gz.sha256
+wafh-win32-x64.zip.sha256
 SHA256SUMS
 $DESKTOP_INSTALLERS
 $PRESENT_DESKTOP_UPDATE_METADATA
@@ -205,7 +205,7 @@ validate_release_download_manifest() {
   manifest="$RELEASE_DIR/release-download-manifest.tsv"
   [ -f "$manifest" ] || return 0
 
-  expected_header="$(printf 'penguin-release-download-manifest\t1\t%s' "$TAG")"
+  expected_header="$(printf 'wafh-release-download-manifest\t1\t%s' "$TAG")"
   tab="$(printf '\t')"
   line_no=0
   while IFS= read -r line || [ -n "$line" ]; do

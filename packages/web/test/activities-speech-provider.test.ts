@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MediaAsset, VoiceOption } from "@prismshadow/penguin-server/api";
+import type { MediaAsset, VoiceOption } from "@waterford/waf-harness-server/api";
 import {
   activeWord,
   applyProvider,

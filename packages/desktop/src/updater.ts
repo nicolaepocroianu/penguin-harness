@@ -29,11 +29,11 @@
 import { app, dialog, net, shell } from "electron";
 import type { BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
-import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
+import { RELEASE_IDENTITY } from "@waterford/waf-harness-core/release-identity";
 import type {
   DesktopUpdateStatus,
   DesktopUpdaterCommandMessage,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { resolveProfile } from "./app-identity.js";
 import { logLine } from "./desktop-log.js";
 import { feedUrlOverride, updateSourceConfig, updateSupport } from "./update-support.js";
@@ -61,7 +61,7 @@ const RELEASES_URL = "https://github.com/Prism-Shadow/penguin-harness/releases";
 const GITHUB_FEED = {
   provider: "github" as const,
   owner: "Prism-Shadow",
-  repo: "penguin-harness",
+  repo: "waf-harness",
 };
 
 function log(line: string): void {
@@ -155,7 +155,7 @@ async function refreshUpdateFeedOnce(): Promise<void> {
       if (tag === null) {
         feedState = { phase: "unavailable" };
         log(
-          "PENGUIN_UPDATE_SOURCE=oss but the OSS mirror latest.json is unavailable or invalid; updates are disabled for this check.",
+          "WAFH_UPDATE_SOURCE=oss but the OSS mirror latest.json is unavailable or invalid; updates are disabled for this check.",
         );
         return;
       }
@@ -340,7 +340,7 @@ export function initUpdater(getWindow: () => BrowserWindow | null): void {
       manualCheckInFlight = false;
       void dialog.showMessageBox({
         type: "info",
-        message: "PenguinHarness is up to date.",
+        message: "WAF Harness is up to date.",
         detail: `Version ${app.getVersion()} is the latest release.`,
         buttons: ["OK"],
       });
@@ -398,10 +398,10 @@ export function initUpdater(getWindow: () => BrowserWindow | null): void {
 
   const config = updateSourceConfig(process.env);
   if (config.invalidSource) {
-    log("PENGUIN_UPDATE_SOURCE has an unsupported value; treated as auto.");
+    log("WAFH_UPDATE_SOURCE has an unsupported value; treated as auto.");
   }
   if (config.invalidProbe) {
-    log("PENGUIN_UPDATE_SPEED_PROBE has an unsupported value; treated as 1.");
+    log("WAFH_UPDATE_SPEED_PROBE has an unsupported value; treated as 1.");
   }
 
   if (config.source === "github") {
@@ -597,7 +597,7 @@ async function promptDownload(version: string, parent: BrowserWindow | null): Pr
     type: "info" as const,
     message: `Version ${version} is available.`,
     detail:
-      "Download it now? PenguinHarness keeps running while it downloads, and you will be asked to restart when it is ready.",
+      "Download it now? WAF Harness keeps running while it downloads, and you will be asked to restart when it is ready.",
     buttons: ["Download", "Later"],
     defaultId: 0,
     cancelId: 1,
@@ -614,7 +614,7 @@ async function promptRestart(version: string, parent: BrowserWindow | null): Pro
   const options = {
     type: "info" as const,
     message: `Version ${version} is ready to install.`,
-    detail: "PenguinHarness will restart to finish updating. Running tasks will be interrupted.",
+    detail: "WAF Harness will restart to finish updating. Running tasks will be interrupted.",
     buttons: ["Restart now", "Later"],
     defaultId: 0,
     cancelId: 1,

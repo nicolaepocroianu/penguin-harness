@@ -5,7 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import type { OutcomeTally, RunRecipe } from "@prismshadow/penguin-server/api";
+import type { OutcomeTally, RunRecipe } from "@waterford/waf-harness-server/api";
 import {
   OUTCOME_KINDS,
   factDetail,
@@ -25,7 +25,7 @@ const recipe: RunRecipe = {
     },
   ],
   harness: 2,
-  penguin: "0.2.13",
+  wafh: "0.2.13",
 };
 
 describe("the run kinds offered", () => {
@@ -105,14 +105,14 @@ describe("a tally as a row", () => {
 });
 
 describe("naming a recipe and its facts", () => {
-  it("names a recipe by who answered, its Penguin, its skills and its harness", () => {
+  it("names a recipe by who answered, its WAF Harness, its skills and its harness", () => {
     expect(recipeParts(recipe)).toEqual({
       runtime: "agent:custom/m",
-      penguin: "0.2.13",
+      wafh: "0.2.13",
       libraries: ["waf-authoring 2026.10.01.1"],
       harness: 2,
     });
-    expect(recipeParts({ runtime: "server", library: [], penguin: "1" }).harness).toBeNull();
+    expect(recipeParts({ runtime: "server", library: [], wafh: "1" }).harness).toBeNull();
   });
 
   it("shortens a digest and leaves any other key as it is", () => {

@@ -13,7 +13,7 @@
  * Agents lost rather than as a machine out of reach.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AgentSummary, MachinesResponse } from "@prismshadow/penguin-server/api";
+import type { AgentSummary, MachinesResponse } from "@waterford/waf-harness-server/api";
 import * as api from "../api/endpoints";
 import { apiErrorText } from "./api-error";
 import { cachedMachineAgents, rememberMachineAgents } from "./machine-cache";

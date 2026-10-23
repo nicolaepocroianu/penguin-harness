@@ -140,7 +140,7 @@ describe("MessageStream prompts with attachments", () => {
   };
   // A message the person sent carries its time in the reader's locale.
   beforeEach(() => {
-    stubLocalStorage().setItem("penguin.lang", "en");
+    stubLocalStorage().setItem("wafh.lang", "en");
   });
   afterEach(() => {
     setActiveStrings(en);
@@ -157,7 +157,7 @@ describe("MessageStream prompts with attachments", () => {
   const anchorCount = (html: string) => html.match(/data-outline-anchor=/g)?.length ?? 0;
   const imageCount = (html: string) => html.match(/<img\b/g)?.length ?? 0;
   const image = (id: number, imageUrl: string): ChatItem => ({ kind: "user_image", id, imageUrl });
-  const DIR = "/home/u/.penguin/data/p1/agents/a1/scratchpad/s1";
+  const DIR = "/home/u/.waf-harness/data/p1/agents/a1/scratchpad/s1";
 
   it("a prompt's text and the images behind it are one message, images above the text", () => {
     const html = stream([

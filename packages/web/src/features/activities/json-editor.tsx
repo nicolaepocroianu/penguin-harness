@@ -25,7 +25,7 @@ import { json } from "@codemirror/lang-json";
 import { MergeView, goToNextChunk, goToPreviousChunk } from "@codemirror/merge";
 import { search, searchKeymap } from "@codemirror/search";
 import { tags } from "@lezer/highlight";
-import { Button, InfoPopover } from "@prismshadow/penguin-ui";
+import { Button, InfoPopover } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";
 import { diffMarkers } from "./script-model";
@@ -55,7 +55,7 @@ const STALE = "\u0000stale";
 type Access = "edit" | "read" | "disabled";
 type Layout = "inline" | "side-by-side";
 
-const LAYOUT_KEY = "penguin.activitySpec.diffLayout";
+const LAYOUT_KEY = "wafh.activitySpec.diffLayout";
 
 function readLayout(): Layout {
   try {

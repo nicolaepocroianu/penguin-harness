@@ -5,8 +5,8 @@
  * whole goal loop server-side). (Round inputs themselves render as regular user messages with a
  * harness-origin caption — see message-item.tsx; no goal-specific message rendering remains.)
  */
-import { Pill, TranscriptNote } from "@prismshadow/penguin-ui";
-import type { ToneName } from "@prismshadow/penguin-ui";
+import { Pill, TranscriptNote } from "@waterford/waf-harness-ui";
+import type { ToneName } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { humanizeTokens } from "../../lib/format";
 import { GOAL_ICON, UNLIMITED_BUDGET } from "./goal-use";

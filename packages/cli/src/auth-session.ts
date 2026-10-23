@@ -1,5 +1,5 @@
 /**
- * Signing in to a PenguinHarness server from a terminal, and remembering it.
+ * Signing in to a WAF Harness server from a terminal, and remembering it.
  *
  * Everything else this CLI does works on the data root directly — `config`, `run`, `chat` all
  * open files, never a socket. This is the one place that talks to a running server as a
@@ -18,7 +18,7 @@ import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
-import { writeSecretFile } from "@prismshadow/penguin-server/secret-file";
+import { writeSecretFile } from "@waterford/waf-harness-server/secret-file";
 
 /** Where a login is remembered, beside the data root it belongs to. */
 export function sessionFile(root: string): string {

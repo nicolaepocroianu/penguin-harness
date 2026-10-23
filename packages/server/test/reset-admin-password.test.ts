@@ -17,7 +17,7 @@ import { initialAdminPasswordPath } from "../src/initial-password.js";
 import { acquireServerLock } from "../src/lock.js";
 import { resetAdminPassword } from "../src/reset-admin-password.js";
 import { makeTempRoot } from "./helpers.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 
 describe("resetAdminPassword", () => {
   const roots: string[] = [];
@@ -81,7 +81,7 @@ describe("resetAdminPassword", () => {
     const root = await tempRoot();
     const dbPath = await seedDatabase(root);
     // A plaintext an older build left behind must not survive the rescue.
-    fs.writeFileSync(initialAdminPasswordPath(root), "penguin-0000\n");
+    fs.writeFileSync(initialAdminPasswordPath(root), "wafh-0000\n");
 
     const result = await resetAdminPassword(root);
     expect(result).toEqual({ outcome: "reset" });

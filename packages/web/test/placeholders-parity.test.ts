@@ -6,7 +6,7 @@
  * and compare to the English dictionary.
  */
 import { describe, expect, it } from "vitest";
-import { defaultSystemConfig } from "@prismshadow/penguin-core";
+import { defaultSystemConfig } from "@waterford/waf-harness-core";
 
 import { en } from "../src/lib/strings-en";
 

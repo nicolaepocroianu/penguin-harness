@@ -11,7 +11,7 @@ import type {
   DeployStage,
   DeployStageError,
   DeployStageState,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   PROD_STAGES,
   blockerText,

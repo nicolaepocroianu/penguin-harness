@@ -32,7 +32,7 @@ describe("a pushed bundle", () => {
 
   it("carries the gateway library inside it, and runs with no node_modules anywhere", async () => {
     // Outside the checkout, as a data root's store is: nothing up the tree can lend a package.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-push-bundle-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-push-bundle-"));
     dirs.push(dir);
     const outfile = path.join(dir, "bundle.mjs");
     const options = pushBundleOptions("entry.mjs", outfile);
@@ -61,7 +61,7 @@ describe("a pushed bundle", () => {
   }, 120_000);
 
   it("leaves playwright-core to run time instead of inlining it", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-push-bundle-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-push-bundle-"));
     dirs.push(dir);
     const outfile = path.join(dir, "bundle.mjs");
     const options = pushBundleOptions("entry.mjs", outfile);

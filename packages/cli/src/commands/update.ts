@@ -1,24 +1,24 @@
 /**
- * `penguin update` — upgrades an existing install in place.
+ * `wafh update` — upgrades an existing install in place.
  *
- *   penguin update [--check] [--release <tag>] [-y|--yes]
+ *   wafh update [--check] [--release <tag>] [-y|--yes]
  *
  * There is no single upgrade mechanism, because there is no single install mechanism: the
  * documented path is the tarball installer (install.sh unpacks bin/lib/web/node into
- * PENGUIN_INSTALL_DIR, default ~/.penguin), some users have a global npm install of
- * @prismshadow/penguin-cli, and developers run out of a source checkout. This command works out
+ * WAFH_INSTALL_DIR, default ~/.waf-harness), some users have a global npm install of
+ * @waterford/waf-harness-cli, and developers run out of a source checkout. This command works out
  * which one it is from the real path of the running CLI and upgrades the way that install was
  * made — never by guessing. A source checkout is refused outright: overwriting a working tree
  * would destroy uncommitted work.
  *
  * Release discovery and installer download use the same environment contract as the public
- * installer entry point: an explicit PENGUIN_DOWNLOAD_BASE_URL has highest download priority;
+ * installer entry point: an explicit WAFH_DOWNLOAD_BASE_URL has highest download priority;
  * otherwise auto prefers the OSS latest pointer and immutable release when fetching the versioned
  * installer, then lets that installer choose the large payload source for the same tag. The
  * target-a-specific-release flag is spelled
  * `--release <tag>` rather than `--version <tag>`: commander's program-level
  * `-v, --version` intercepts a subcommand's own `--version` when it is written with a space, so
- * `penguin update --version 0.1.2` would silently print the CLI version and do nothing. A flag that
+ * `wafh update --version 0.1.2` would silently print the CLI version and do nothing. A flag that
  * works only in its `--version=0.1.2` form is a trap, so it got an unambiguous name.
  *
  * Self-replacement hazard, and how it is handled: for a tarball install the installer deletes and
@@ -30,7 +30,7 @@
  * therefore fully loaded before any action runs, every message it will print is resolved up front,
  * and after the child exits it only removes its own temp directory, writes already-computed
  * strings and sets an exit code. It never `import()`s anything (the CLI's only dynamic import is
- * `@prismshadow/penguin-server`, reachable solely from the serve commands), and never re-reads a
+ * `@waterford/waf-harness-server`, reachable solely from the serve commands), and never re-reads a
  * file. On POSIX an unlinked file stays valid for whoever has it open, so the running process is
  * unaffected.
  *
@@ -50,13 +50,13 @@
  * which would interpolate a user-supplied release tag into a command line — both cases are refused
  * up front with the command the user should run themselves.
  *
- * The data root (~/.penguin/data) is never touched — the installer only replaces bin/lib/web/node
+ * The data root (~/.waf-harness/data) is never touched — the installer only replaces bin/lib/web/node
  * — and the confirmation prompt says so, because that is the thing users worry about.
  *
  * A build whose repository publishes no releases (core's RELEASE_IDENTITY) refuses before any
  * lookup, `--check` included: the OSS mirror below is another repository's release channel, and
  * an install must never be moved onto a build from somewhere else.
- * Docs: /docs/cli § "penguin update".
+ * Docs: /docs/cli § "wafh update".
  */
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
@@ -70,7 +70,7 @@ import {
   compareVersions,
   normalizeVersion,
   userAgent,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type { Command } from "commander";
 import type { InstallerSource, Messages } from "../i18n.js";
 
@@ -112,7 +112,7 @@ export type InstallKind = "tarball" | "npm" | "source" | "desktop" | "unknown";
 
 export interface InstallInfo {
   kind: InstallKind;
-  /** Tarball only: the install dir that holds bin/lib/web/node (i.e. PENGUIN_INSTALL_DIR). */
+  /** Tarball only: the install dir that holds bin/lib/web/node (i.e. WAFH_INSTALL_DIR). */
   installDir?: string;
   /** npm only: the global `node_modules` root that owns the package, used to identify the manager. */
   globalRoot?: string;
@@ -132,11 +132,11 @@ function segments(p: string): string[] {
  * Pure and shape-based on purpose: it touches neither the filesystem nor the environment beyond
  * what is passed in, so every branch is unit-testable. The three layouts are unambiguous:
  *
- * - desktop app — the CLI bundled into the PenguinHarness desktop app, which runs it on the
+ * - desktop app — the CLI bundled into the WAF Harness desktop app, which runs it on the
  *   app's own Electron runtime as Node and updates it with the app;
  * - source checkout — `…/packages/cli/{src,dist}/index.{ts,js}` (also how a `pnpm link`-ed dev
  *   build looks once the bin symlink is resolved);
- * - npm global — the path runs through `node_modules/@prismshadow/penguin-cli/`;
+ * - npm global — the path runs through `node_modules/@waterford/waf-harness-cli/`;
  * - tarball — `<installDir>/lib/dist/index.js`, the layout install.sh unpacks.
  *
  * Order matters: a checkout is checked first so a repo that happens to live under a directory
@@ -162,10 +162,10 @@ export function detectInstall(modulePath: string, runtime?: { electron: boolean 
     return { kind: "source" };
   }
 
-  // …/node_modules/@prismshadow/penguin-cli/…
+  // …/node_modules/@waterford/waf-harness-cli/…
   const nmIdx = parts.findIndex(
     (seg, i) =>
-      seg === "node_modules" && parts[i + 1] === "@prismshadow" && parts[i + 2] === "penguin-cli",
+      seg === "node_modules" && parts[i + 1] === "@waterford" && parts[i + 2] === "waf-harness-cli",
   );
   if (nmIdx >= 0) {
     return { kind: "npm", globalRoot: join(nmIdx + 1) };
@@ -204,7 +204,7 @@ export function globalInstallCommand(
   manager: PackageManager,
   version: string,
 ): { command: string; args: string[] } {
-  const spec = `@prismshadow/penguin-cli@${version}`;
+  const spec = `@waterford/waf-harness-cli@${version}`;
   if (manager === "pnpm") return { command: "pnpm", args: ["add", "-g", spec] };
   if (manager === "yarn") return { command: "yarn", args: ["global", "add", spec] };
   if (manager === "bun") return { command: "bun", args: ["add", "-g", spec] };
@@ -215,11 +215,11 @@ export function globalInstallCommand(
  * Builds the argv and environment for re-running install.sh, preserving the shape of the install
  * being upgraded rather than the defaults:
  *
- * - `PENGUIN_INSTALL_DIR` is passed whenever the install is not at the default `~/.penguin`, or
+ * - `WAFH_INSTALL_DIR` is passed whenever the install is not at the default `~/.waf-harness`, or
  *   the upgrade would silently relocate it;
  * - `--universal` is passed when the current install has no bundled `node/` directory, or the user
  *   would silently gain a runtime they deliberately did not install (and lose it in reverse);
- * - `PENGUIN_VERSION` pins the target when `--release` was given;
+ * - `WAFH_VERSION` pins the target when `--release` was given;
  * - download base values are passed only when the caller deliberately sets them; empty strings
  *   explicitly clear inherited values so install.sh can choose the large payload source itself.
  *
@@ -239,12 +239,12 @@ export function buildInstallerInvocation(opts: {
   if (!opts.hasBundledNode) args.push("--universal");
   const env: Record<string, string> = {};
   if (path.resolve(opts.installDir) !== path.resolve(opts.defaultInstallDir)) {
-    env.PENGUIN_INSTALL_DIR = opts.installDir;
+    env.WAFH_INSTALL_DIR = opts.installDir;
   }
-  if (opts.version) env.PENGUIN_VERSION = `v${normalizeVersion(opts.version)}`;
-  if (opts.downloadBaseUrl !== undefined) env.PENGUIN_DOWNLOAD_BASE_URL = opts.downloadBaseUrl;
+  if (opts.version) env.WAFH_VERSION = `v${normalizeVersion(opts.version)}`;
+  if (opts.downloadBaseUrl !== undefined) env.WAFH_DOWNLOAD_BASE_URL = opts.downloadBaseUrl;
   if (opts.downloadFallbackBaseUrl !== undefined)
-    env.PENGUIN_DOWNLOAD_FALLBACK_BASE_URL = opts.downloadFallbackBaseUrl;
+    env.WAFH_DOWNLOAD_FALLBACK_BASE_URL = opts.downloadFallbackBaseUrl;
   return { args, env };
 }
 
@@ -473,7 +473,7 @@ function run(command: string, args: string[], env: Record<string, string>): Prom
   });
 }
 
-/** The real path of this module, with the ~/.local/bin/penguin symlink resolved. */
+/** The real path of this module, with the ~/.local/bin/wafh symlink resolved. */
 function selfPath(): string {
   const p = fileURLToPath(import.meta.url);
   try {
@@ -520,7 +520,7 @@ export function planUpdate(input: {
   install: InstallInfo;
   modulePath: string;
   platform: string;
-  /** `~/.penguin`, passed in rather than read, so the tarball branch stays pure. */
+  /** `~/.waf-harness`, passed in rather than read, so the tarball branch stays pure. */
   defaultInstallDir: string;
 }): UpdatePlan {
   const { current, target, install } = input;
@@ -583,12 +583,12 @@ export function registerUpdateCommand(program: Command, t: Messages): void {
         return;
       }
       const current = VERSION;
-      const source = parseDownloadSource(process.env.PENGUIN_DOWNLOAD_SOURCE);
+      const source = parseDownloadSource(process.env.WAFH_DOWNLOAD_SOURCE);
       if (!source) throw new Error(t.update.invalidDownloadSource());
       const release = await resolveRelease(source, opts.release, t);
       const target = release.version;
       const modulePath = selfPath();
-      const defaultInstallDir = path.join(homedir(), ".penguin");
+      const defaultInstallDir = path.join(homedir(), ".waf-harness");
       const plan = planUpdate({
         current,
         target,
@@ -635,18 +635,18 @@ export function registerUpdateCommand(program: Command, t: Messages): void {
       );
       if (!(await confirmUpgrade(opts.yes, t))) return;
 
-      const explicitBaseValue = process.env.PENGUIN_DOWNLOAD_BASE_URL;
-      const explicitFallbackValue = process.env.PENGUIN_DOWNLOAD_FALLBACK_BASE_URL;
+      const explicitBaseValue = process.env.WAFH_DOWNLOAD_BASE_URL;
+      const explicitFallbackValue = process.env.WAFH_DOWNLOAD_FALLBACK_BASE_URL;
       let candidates: InstallerCandidate[];
       if (explicitBaseValue) {
         const explicitBase = normalizeHttpsBaseUrl(explicitBaseValue);
         if (!explicitBase)
-          throw new Error(t.update.downloadBaseMustBeHttps("PENGUIN_DOWNLOAD_BASE_URL"));
+          throw new Error(t.update.downloadBaseMustBeHttps("WAFH_DOWNLOAD_BASE_URL"));
         let explicitFallback: string | undefined;
         if (explicitFallbackValue) {
           const normalizedFallback = normalizeHttpsBaseUrl(explicitFallbackValue);
           if (!normalizedFallback)
-            throw new Error(t.update.downloadBaseMustBeHttps("PENGUIN_DOWNLOAD_FALLBACK_BASE_URL"));
+            throw new Error(t.update.downloadBaseMustBeHttps("WAFH_DOWNLOAD_FALLBACK_BASE_URL"));
           explicitFallback = normalizedFallback;
         }
         candidates = [configuredInstallerCandidate(explicitBase, explicitFallback)];
@@ -667,7 +667,7 @@ export function registerUpdateCommand(program: Command, t: Messages): void {
       // existing entry rather than inheriting its mode and owner. It is outside installDir on
       // purpose — the installer replaces that tree, and a shell script deleted mid-execution is
       // not something to rely on.
-      const scriptDir = mkdtempSync(path.join(tmpdir(), "penguin-update-"));
+      const scriptDir = mkdtempSync(path.join(tmpdir(), "wafh-update-"));
       const scriptPath = path.join(scriptDir, "install.sh");
       writeFileSync(scriptPath, downloaded.script, { mode: 0o700, flag: "wx" });
 

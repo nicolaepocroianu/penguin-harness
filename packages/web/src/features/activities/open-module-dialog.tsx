@@ -7,11 +7,11 @@
  * bare success.
  */
 import { useEffect, useMemo, useState } from "react";
-import type { ClaimModuleProductResponse, ModuleProduct } from "@prismshadow/penguin-server/api";
+import type { ClaimModuleProductResponse, ModuleProduct } from "@waterford/waf-harness-server/api";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
-import { Button, Input, Modal } from "@prismshadow/penguin-ui";
+import { Button, Input, Modal } from "@waterford/waf-harness-ui";
 import { filterModuleProducts, moduleProductKey } from "./module-products";
 import { projectActivitiesApi } from "./activity-api";
 

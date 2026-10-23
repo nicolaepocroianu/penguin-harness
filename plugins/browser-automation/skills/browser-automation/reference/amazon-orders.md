@@ -5,13 +5,13 @@ Find orders, list them, or read one order's details on amazon.com. Every Amazon 
 ## 1. Open the orders page and check the sign-in
 
 ```bash
-penguin browser open https://www.amazon.com/your-orders/orders
+wafh browser open https://www.amazon.com/your-orders/orders
 ```
 
 The header line shows where the tab ended up. A URL containing `/ap/signin` (or a page titled "Amazon Sign-In") means the browser is signed out of Amazon: follow the skill's sign-in rules. Ask the user to sign in in the Browser panel, or offer
 
 ```bash
-penguin browser import --from chrome --cookies --domain amazon.com
+wafh browser import --from chrome --cookies --domain amazon.com
 ```
 
 then open the orders page again. Amazon may still ask for the password again ("re-authentication") on the orders page even with valid cookies; that is also for the user to do in the panel.
@@ -22,17 +22,17 @@ then open the orders page again. Amazon may still ask for the password again ("r
 - A search over the whole order history (item titles, order numbers, recipients):
 
   ```bash
-  penguin browser open 'https://www.amazon.com/your-orders/search?search=usb%20c%20hub'
+  wafh browser open 'https://www.amazon.com/your-orders/search?search=usb%20c%20hub'
   ```
 
   URL-encode the query. The search box on the orders page does the same.
 
 ## 3. Read the rows in one exec
 
-Scan once (`penguin browser scan`) to confirm the current structure, then extract every order on the page in one call. The page shows one card per order, with a header holding the order date, the total and the order number, and a link per item. Amazon changes its class names over time, so the script below reads the header by its labels rather than by class, and finds items by their product links; adjust it to what the scan shows.
+Scan once (`wafh browser scan`) to confirm the current structure, then extract every order on the page in one call. The page shows one card per order, with a header holding the order date, the total and the order number, and a link per item. Amazon changes its class names over time, so the script below reads the header by its labels rather than by class, and finds items by their product links; adjust it to what the scan shows.
 
 ```bash
-penguin browser exec --no-monitor <<'EOF'
+wafh browser exec --no-monitor <<'EOF'
 const cards = [...document.querySelectorAll('.order-card, .js-order-card')];
 const after = (text, label) => {
   const m = text.match(new RegExp(label + '\\s*\\n\\s*([^\\n]+)', 'i'));
@@ -60,7 +60,7 @@ EOF
 Ten orders show per page. The *Next* link is the last item of the pagination bar:
 
 ```bash
-penguin browser exec --no-monitor <<'EOF'
+wafh browser exec --no-monitor <<'EOF'
 return document.querySelector('.a-pagination .a-last a')?.href ?? null;
 EOF
 ```
@@ -72,8 +72,8 @@ EOF
 For the exact items, prices, payment and delivery of one order, open its detail page and read it there rather than trusting the list:
 
 ```bash
-penguin browser open 'https://www.amazon.com/gp/your-account/order-details?orderID=112-1234567-1234567'
-penguin browser scan --text
+wafh browser open 'https://www.amazon.com/gp/your-account/order-details?orderID=112-1234567-1234567'
+wafh browser scan --text
 ```
 
 ## Other Amazon sites

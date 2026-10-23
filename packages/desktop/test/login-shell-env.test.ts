@@ -17,7 +17,7 @@ import {
   shouldImportLoginShellEnv,
 } from "../src/login-shell-env.js";
 
-const SENTINEL = "__PENGUIN_LOGIN_SHELL_ENV__";
+const SENTINEL = "__WAFH_LOGIN_SHELL_ENV__";
 
 describe("shouldImportLoginShellEnv", () => {
   it("imports only on a GUI launch of a POSIX platform", () => {
@@ -32,9 +32,9 @@ describe("shouldImportLoginShellEnv", () => {
     );
   });
 
-  it("honors the PENGUIN_NO_LOGIN_SHELL_ENV escape hatch", () => {
+  it("honors the WAFH_NO_LOGIN_SHELL_ENV escape hatch", () => {
     expect(
-      shouldImportLoginShellEnv({ platform: "linux", env: { PENGUIN_NO_LOGIN_SHELL_ENV: "1" } }),
+      shouldImportLoginShellEnv({ platform: "linux", env: { WAFH_NO_LOGIN_SHELL_ENV: "1" } }),
     ).toBe(false);
   });
 });
@@ -111,13 +111,13 @@ describe("mergeLoginShellEnv", () => {
     const patch = mergeLoginShellEnv(
       {},
       {
-        PENGUIN_WEB_DIST: "/home/user/src/penguin-harness/packages/web/dist",
-        PENGUIN_CLI_ENTRY: "/home/user/src/penguin-harness/packages/cli/dist/penguin.js",
+        WAFH_WEB_DIST: "/home/user/src/waf-harness/packages/web/dist",
+        WAFH_CLI_ENTRY: "/home/user/src/waf-harness/packages/cli/dist/wafh.js",
         // Data root, by contrast, is a configuration choice and does travel.
-        PENGUIN_HOME: "/home/user/.penguin",
+        WAFH_HOME: "/home/user/.waf-harness",
       },
     );
-    expect(patch).toEqual({ PENGUIN_HOME: "/home/user/.penguin" });
+    expect(patch).toEqual({ WAFH_HOME: "/home/user/.waf-harness" });
   });
 
   it("merges PATH with the login shell's ordering first and current-only entries appended", () => {
@@ -135,7 +135,7 @@ describe("mergeLoginShellEnv", () => {
 });
 
 describe.skipIf(process.platform === "win32")("resolveLoginShellEnv (fake shells)", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "penguin-login-shell-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "wafh-login-shell-"));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
   function fakeShell(name: string, script: string): string {

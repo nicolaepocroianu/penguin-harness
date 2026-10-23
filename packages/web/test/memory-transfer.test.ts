@@ -6,7 +6,7 @@
  * default mode destroys nothing, and every mode that does report exactly which memories.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import type { MemoryScopeExport } from "@prismshadow/penguin-server/api";
+import type { MemoryScopeExport } from "@waterford/waf-harness-server/api";
 import { S, setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import {
@@ -19,7 +19,7 @@ import {
 afterEach(() => setActiveStrings(en));
 
 const doc = (names: string[], index: string | null = "# Memories\n"): MemoryScopeExport => ({
-  format: "penguin-memory-scope",
+  format: "wafh-memory-scope",
   version: 1,
   scopeKey: "my-app-a81f32c4",
   kind: "workspace",

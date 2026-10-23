@@ -55,9 +55,9 @@ describe("book activity authoring contract", () => {
     const base = `/api/projects/${projectId}/activities`;
     const created = (await (
       await client.post(base, {
-        productCode: "penguin-book",
+        productCode: "wafh-book",
         refNum: 1,
-        title: "Penguin book",
+        title: "WAF Harness book",
         activityType,
       })
     ).json()) as ActivityDetail;

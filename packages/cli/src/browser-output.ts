@@ -1,5 +1,5 @@
 /**
- * What `penguin browser` prints. The reader is usually a model, so the output is built to be
+ * What `wafh browser` prints. The reader is usually a model, so the output is built to be
  * read at a glance and cheap in tokens, after GenericAgent's web_scan / web_execute_js:
  *
  *   scan         a one-line header naming the tab, the tab list, a `---` rule, then the page
@@ -11,7 +11,7 @@
  *
  * A return value longer than {@link RETURN_LIMIT} is cut with a pointer at `--save`. Pure
  * functions over the API's DTOs; commands/browser.ts does the I/O. Docs: /docs/cli §
- * "penguin browser".
+ * "wafh browser".
  */
 import type {
   BrowserBackend,
@@ -24,7 +24,7 @@ import type {
   BuiltinBrowserStatus,
   BuiltinBrowserTab,
   BuiltinBrowserTabsResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import type { Messages } from "./i18n.js";
 import { renderTable } from "./table.js";
 

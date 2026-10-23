@@ -23,7 +23,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../state/auth";
 import { useProject } from "../../state/project";
-import type { ActivityRecord, CodingAgentServerInfo } from "@prismshadow/penguin-server/api";
+import type { ActivityRecord, CodingAgentServerInfo } from "@waterford/waf-harness-server/api";
 import { apiFetch } from "../../api/client";
 import { listCodingAgents } from "../../api/endpoints";
 import { navKeysFor } from "../../lib/nav-group-collapse";
@@ -46,7 +46,7 @@ import {
   GlyphIcon,
   noAutofill,
   usePortalPanel,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { toneDot } from "../../lib/tone";
 import { NAV_ICONS } from "../../lib/nav-icons";
 

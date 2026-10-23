@@ -10,10 +10,10 @@
  * ever rendered as markup or used as a selector on the App's side.
  */
 
-export const STATE_MESSAGE = "penguin-sandbox:activity-state";
-export const HIGHLIGHT_MESSAGE = "penguin-sandbox:highlight-interactable";
-export const PICK_MODE_MESSAGE = "penguin-sandbox:pick-mode";
-export const PICKED_MESSAGE = "penguin-sandbox:picked";
+export const STATE_MESSAGE = "wafh-sandbox:activity-state";
+export const HIGHLIGHT_MESSAGE = "wafh-sandbox:highlight-interactable";
+export const PICK_MODE_MESSAGE = "wafh-sandbox:pick-mode";
+export const PICKED_MESSAGE = "wafh-sandbox:picked";
 
 /** The framework's report of where the activity is. */
 export interface PlayerState {
@@ -90,7 +90,7 @@ export function readPlayerReport(
   return { state: { index: detail.index as number, phase, sceneId, state }, interactables };
 }
 
-export const MEDIA_MESSAGE = "penguin-sandbox:activity-media";
+export const MEDIA_MESSAGE = "wafh-sandbox:activity-media";
 
 /**
  * A clip the activity started or ended, as the framework records it: what kind of media

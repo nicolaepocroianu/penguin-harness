@@ -24,14 +24,14 @@
  * minutes anyway, and no key exists until the exchange runs).
  */
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { APP_URL, userAgent } from "@prismshadow/penguin-core";
+import { APP_URL, userAgent } from "@waterford/waf-harness-core";
 import { providerInfo } from "../model-catalog/catalog.js";
 import type { ModelProviderOAuth } from "../model-catalog/catalog.js";
 import { HttpError } from "../http/errors.js";
 import { badRequest } from "../http/validate.js";
 import { CopilotDeviceFlow } from "./copilot-device-flow.js";
 import { ChatGPTDeviceFlow } from "./chatgpt-device-flow.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { ModelOAuth, ProjectConfigStore } from "../mechanisms/projects.js";
 
 /** How the user gets the authorization code back to the harness. */
@@ -313,7 +313,7 @@ export class ModelOAuthService implements ModelOAuth {
       throw new HttpError(
         409,
         "model_oauth_flow_used",
-        "This authorization has already been used. Start a new one in PenguinHarness.",
+        "This authorization has already been used. Start a new one in WAF Harness.",
       );
     }
     flow.code = input.code;

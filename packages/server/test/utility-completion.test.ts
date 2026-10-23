@@ -6,7 +6,7 @@
  * dead end is checked for carrying its reason rather than a bare "no answer".
  */
 import fs from "node:fs/promises";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import { describe, expect, it, vi } from "vitest";
 import {
   GenerativeModel,
@@ -18,8 +18,8 @@ import {
   thinkingMessage,
   tokenUsage,
   emptyTokenCounts,
-} from "@prismshadow/penguin-core";
-import type { LLMOutcome, OmniMessage } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { LLMOutcome, OmniMessage } from "@waterford/waf-harness-core";
 import {
   ProjectConfigService,
   collectUtilityCompletion,

@@ -166,7 +166,7 @@ describe("calls", () => {
     expect((await s.next()).status).toBe(421);
     send(s.ws, { id: 3, call: { method: "GET", path: apiSocketPath("admin") } });
     expect((await s.next()).status).toBe(404);
-    send(s.ws, { id: 4, call: { method: "GET", path: "/penguin-logo.svg" } });
+    send(s.ws, { id: 4, call: { method: "GET", path: "/wafh-logo.svg" } });
     expect((await s.next()).status).toBe(404);
     s.ws.close();
   });

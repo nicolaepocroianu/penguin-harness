@@ -6,7 +6,7 @@
  * Docs: /docs/cli § "Approval modes (--approve)"; /docs/tools § "Approval".
  */
 import { createInterface } from "node:readline";
-import type { ApprovalDecision, ApproveFn } from "@prismshadow/penguin-core";
+import type { ApprovalDecision, ApproveFn } from "@waterford/waf-harness-core";
 import { defaultMessages } from "./i18n.js";
 import type { Messages } from "./i18n.js";
 
@@ -78,7 +78,7 @@ export interface PromptApprovalOptions {
 
 /**
  * Callback that rejects the pending approval while `promptApproval` is waiting; `null`
- * otherwise. `penguin run` calls `denyActivePrompt()` from a single global SIGINT handler:
+ * otherwise. `wafh run` calls `denyActivePrompt()` from a single global SIGINT handler:
  * Ctrl-C during approval collapses to "deny" (consistent with chat), and only interrupts the
  * whole turn at other times. SIGINT is registered in exactly one place (run); promptApproval no
  * longer attaches its own listener.

@@ -12,8 +12,8 @@
  */
 import { act, createElement as h } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RetryStatus } from "@prismshadow/penguin-ui";
-import type { RetryStatusProps } from "@prismshadow/penguin-ui";
+import { RetryStatus } from "@waterford/waf-harness-ui";
+import type { RetryStatusProps } from "@waterford/waf-harness-ui";
 import { mount, unmountAll } from "./helpers/dom";
 
 const NOW = Date.parse("2026-10-18T09:00:00.000Z");

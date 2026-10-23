@@ -19,8 +19,8 @@ import {
   sessionScratchpadDir,
   stripLeadingMarkerBlocks,
   userText,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import type {
   ApprovalMode,
   FilesStatResponse,
@@ -76,7 +76,7 @@ import {
   requireValidId,
 } from "../validate.js";
 import type { ServerConfig } from "../../config.js";
-import { normalizePenguinGoOrigin } from "../../config.js";
+import { normalizeWafHarnessGoOrigin } from "../../config.js";
 import type { ChannelHub } from "../../runtime/channel.js";
 import type { MessagingBridge } from "../../runtime/messaging/bridge.js";
 import type { SessionManager, RecallStore } from "../../runtime/session-manager.js";
@@ -131,8 +131,8 @@ import {
   toAttachmentLimits,
 } from "../../services/attachment-limits.js";
 import type { AttachmentLimits } from "../../services/attachment-limits.js";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
-import type { ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
+import type { ClassCtx } from "@waterford/waf-harness-core/kernel";
 import { Channels, Config, Desktop } from "../../hmr/capabilities.js";
 import { Sessions as ManagerIface, SessionServiceIface } from "../../runtime/session-manager.js";
 import { Messaging } from "../../runtime/messaging/bridge.js";
@@ -181,7 +181,7 @@ const SESSION_TITLE_MAX = 120;
 
 /**
  * What a manual title may not contain once its whitespace is collapsed: C0/C1 controls (an
- * ESC sequence would drive the terminal that `penguin session ls` prints it to) and the bidi
+ * ESC sequence would drive the terminal that `wafh session ls` prints it to) and the bidi
  * embeddings, overrides and isolates (U+202A–U+202E, U+2066–U+2069) that make a row read as
  * something else. Not all of `\p{Cf}`: U+200D (zero-width joiner) holds emoji sequences
  * together.
@@ -814,7 +814,7 @@ export function agentSessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
     // Creating-client hint stored on the row ("cli" from the CLI; default "web"). Provenance:
     // only "org", which no request may send, is ever read back as a filter.
     const client = optionalEnum(body, "client", ["web", "cli"] as const);
-    // The one source a client may name is `cli` (`penguin run`): every other one is the
+    // The one source a client may name is `cli` (`wafh run`): every other one is the
     // server's own to write, and absent means `user`, so anything else is a 400 rather than a
     // silently ignored field. compat(0.3.0): the retired `benchmark` is accepted as `cli`, for
     // an older CLI or Web App that still sends it.
@@ -1762,7 +1762,7 @@ export function sessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
   // what it would grant is a preview of the victim's own file.
   //
   // With no usable preview origin (the App is reached on something other than a loopback
-  // name and PENGUIN_PREVIEW_ORIGIN is unset), this falls back to the sandboxed
+  // name and WAFH_PREVIEW_ORIGIN is unset), this falls back to the sandboxed
   // same-origin preview: the page still renders, but storage and third-party embeds do
   // not. The UI flags that ahead of time via `previewIsolated` on /api/me.
   app.get("/:sessionId/files/preview-redirect", async (c) => {
@@ -2099,7 +2099,7 @@ export class SessionApiRoutes {
     this.modelOauthCallbackRoutes = modelOAuthCallbackRoutes(modelOAuthDeps);
     this.modelsRoutes = modelsRoutes({
       ...modelDeps,
-      penguinGoOrigin: this.config.penguinGoOrigin ?? normalizePenguinGoOrigin(undefined),
+      wafHarnessGoOrigin: this.config.wafHarnessGoOrigin ?? normalizeWafHarnessGoOrigin(undefined),
     });
     this.modelOauthRoutes = modelOAuthRoutes(modelOAuthDeps);
     this.platformAuthRoutes = platformAuthRoutes({ ...modelDeps, platformAuth: this.platformAuth });

@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 function tempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-bench-home-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-bench-home-"));
   temps.push(dir);
   return dir;
 }
@@ -208,23 +208,23 @@ describe("the bench home's admin route", () => {
     }
   });
 
-  it("refuses the home folder, ~/.penguin, and anything inside ~/.penguin", async () => {
+  it("refuses the home folder, ~/.waf-harness, and anything inside ~/.waf-harness", async () => {
     const { admin } = await fixture();
     // A home folder of the test's own, so the user's is never looked at.
     const userHome = tempDir();
-    fs.mkdirSync(path.join(userHome, ".penguin", "dev-data"), { recursive: true });
+    fs.mkdirSync(path.join(userHome, ".waf-harness", "dev-data"), { recursive: true });
     fs.mkdirSync(path.join(userHome, "bench"), { recursive: true });
     vi.spyOn(os, "homedir").mockReturnValue(userHome);
     try {
       for (const home of [
         userHome,
-        path.join(userHome, ".penguin"),
-        path.join(userHome, ".penguin", "dev-data"),
+        path.join(userHome, ".waf-harness"),
+        path.join(userHome, ".waf-harness", "dev-data"),
       ]) {
         const response = await admin.put(ROUTE, { home });
         expect(response.status, home).toBe(400);
         expect(await response.json()).toMatchObject({
-          error: { code: "bench_home_invalid", message: expect.stringContaining("~/.penguin") },
+          error: { code: "bench_home_invalid", message: expect.stringContaining("~/.waf-harness") },
         });
       }
       // A folder of its own beside them is a bench home.

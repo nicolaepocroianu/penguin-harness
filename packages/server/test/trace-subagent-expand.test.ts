@@ -20,8 +20,8 @@ import {
   toolCall,
   toolCallOutput,
   userText,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage, SessionMetaPayload } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage, SessionMetaPayload } from "@waterford/waf-harness-core";
 import type { TraceService } from "../src/services/trace-service.js";
 import { makeTraceHarness } from "./helpers.js";
 
@@ -67,7 +67,7 @@ describe("TraceService.readMessages — sub-session expansion", () => {
   let harness: ReturnType<typeof makeTraceHarness>;
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-trace-expand-"));
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-trace-expand-"));
     harness = makeTraceHarness(root);
     svc = harness.service;
   });

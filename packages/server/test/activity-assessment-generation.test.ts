@@ -7,7 +7,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestBegin, requestEnd } from "@prismshadow/penguin-core";
+import { requestBegin, requestEnd } from "@waterford/waf-harness-core";
 import type { ActivityDetail, ActivityDraft, ActivityRun } from "../src/activities/domain.js";
 import type { ModuleDocuments } from "../src/activities/module-documents.js";
 import type { ActivityGenerationService } from "../src/activities/generation.js";
@@ -19,7 +19,7 @@ import { apiClient, createTestApp, provisionUser, waitFor } from "./helpers.js";
 import { activitySpec } from "./activity-fixtures.js";
 import type { ActivityRuns } from "../src/activities/run-store.js";
 
-// A product code no WAF checkout on the machine has, so the module source is Penguin's own.
+// A product code no WAF checkout on the machine has, so the module source is WAF Harness's own.
 const PRODUCT = "zz-assess-gen";
 const assessedSpec = {
   ...activitySpec,

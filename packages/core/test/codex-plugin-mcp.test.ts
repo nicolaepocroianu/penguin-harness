@@ -8,7 +8,7 @@ it("ships the Codex bridge with the opt-in skill and discovers tools through the
   const plugin = libraryPlugin("use-codex")!;
   expect(plugin.preinstall).toBe(false);
   expect(plugin.skills[0]!.files?.["scripts/server.mjs"]).toBeUndefined();
-  const client = new Client({ name: "penguin-test", version: "1.0" });
+  const client = new Client({ name: "wafh-test", version: "1.0" });
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [

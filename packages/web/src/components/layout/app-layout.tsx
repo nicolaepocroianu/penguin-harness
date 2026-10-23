@@ -22,7 +22,7 @@ import {
   Tooltip,
   UpdateDot,
   UserAvatar,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { nagsAboutInitialPassword } from "../../lib/account-menu";
 import { S } from "../../lib/strings";
@@ -399,7 +399,7 @@ export function AppLayout() {
   };
   // Desktop sidebar collapse (persisted): collapsed state leaves a narrow rail to expand from.
   const [storedCollapsed, setStoredCollapsed] = useState(
-    () => localStorage.getItem("penguin.sidebarCollapsed") === "1",
+    () => localStorage.getItem("wafh.sidebarCollapsed") === "1",
   );
   const { pathname } = useLocation();
   const focus = wantsFocus(pathname);
@@ -413,7 +413,7 @@ export function AppLayout() {
     if (focus) return setOverride(!collapsed);
     setStoredCollapsed((v) => {
       const next = !v;
-      localStorage.setItem("penguin.sidebarCollapsed", next ? "1" : "0");
+      localStorage.setItem("wafh.sidebarCollapsed", next ? "1" : "0");
       return next;
     });
   };

@@ -3,7 +3,7 @@
  * `src/api/endpoints.ts` does for the rest of the App. Routes that change the draft take the
  * draft's revision, which the server checks; the studio draft (studio-draft.ts) supplies it.
  *
- * DTO types come from @prismshadow/penguin-server/api (type imports only).
+ * DTO types come from @waterford/waf-harness-server/api (type imports only).
  */
 import type {
   ActivityDetail,
@@ -49,7 +49,7 @@ import type {
   VideoSetup,
   VideoTimeline,
   VideoTimelineView,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { apiFetch, type ApiFetchOptions } from "../../api/client";
 import type { ModuleDocumentKind } from "./module-document";
 import type { AssistProposal } from "./proposal";

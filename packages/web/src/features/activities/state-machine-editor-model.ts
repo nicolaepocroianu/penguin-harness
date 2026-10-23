@@ -3,7 +3,7 @@
  * DOM: where the machine came from, what stops it being edited, and which problems to list —
  * the saved machine's, or, once the author has changed the text, the server's check of it.
  */
-import type { StateMachineCheck, StateMachineDocument } from "@prismshadow/penguin-server/api";
+import type { StateMachineCheck, StateMachineDocument } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { documentChanged, documentText } from "./module-document";
 

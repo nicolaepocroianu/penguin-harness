@@ -1,10 +1,10 @@
 {
-  "name": "@penguinharness/agent-evaluation",
+  "name": "@waf-harness/agent-evaluation",
   "version": "0.2.16",
   "description": "Agent Evaluation: design and calibrate a capability Benchmark for an agent (or import a published Benchmark package), and run and privately score its cases one isolated execution at a time — the measurements the Default RSI Toolkit's optimization loop runs on.",
   "keywords": [
-    "penguin-plugin",
-    "penguinharness",
+    "wafh-plugin",
+    "waf-harness",
     "skills"
   ],
   "license": "Apache-2.0",
@@ -22,7 +22,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "penguin": {
+  "wafh": {
     "short_description": "Design Benchmarks, run and score agent evaluations.",
     "category": "ai-app-development",
     "icon": "icon.svg",

@@ -22,7 +22,7 @@
  * to grow a new hue without it reading as a new severity. Secondary body text
  * (`text-gray-500 dark:text-gray-400`) is typography, not a status tone, and stays inline too.
  */
-import type { ToneName } from "@prismshadow/penguin-ui";
+import type { ToneName } from "@waterford/waf-harness-ui";
 
 /**
  * The ink pairs, written once each. `busy` and `success` deliberately resolve to the same
@@ -42,7 +42,7 @@ export type Tone = "busy" | "attention" | "success" | "link" | "danger" | "muted
 /**
  * Ink for a glyph or a line of status text. Measured as WCAG 2.x contrast ratios against the
  * four surfaces these marks actually sit on — white and gray-50 in light (chat surfaces and the
- * sidebar), and the neutral scale the default theme overrides for dark (`@prismshadow/penguin-ui`
+ * sidebar), and the neutral scale the default theme overrides for dark (`@waterford/waf-harness-ui`
  * `themes/github.css`): gray-950 `#000000` and gray-900 `#0d0d0d`. The lower number of each pair
  * is the sidebar, which is the worse case in both themes:
  *

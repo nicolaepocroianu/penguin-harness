@@ -46,10 +46,10 @@ describe("selectDownloadSource", () => {
 
 const TAG = "v1.2.3";
 const MANIFEST = [
-  `penguin-release-download-manifest\t1\t${TAG}`,
+  `wafh-release-download-manifest\t1\t${TAG}`,
   "probe\tsmall\tprobe-64k.bin\t65536\t" + "a".repeat(64),
   "probe\tlarge\tprobe-1m.bin\t1048576\t" + "b".repeat(64),
-  "asset\tpenguin-desktop-win32-x64.exe\t104857600\t" + "c".repeat(64),
+  "asset\twafh-desktop-win32-x64.exe\t104857600\t" + "c".repeat(64),
   "",
 ].join("\n");
 

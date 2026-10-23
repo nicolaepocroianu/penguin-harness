@@ -5,7 +5,7 @@
  * view holds no derivation of its own.
  */
 
-import type { AssetManifest } from "@prismshadow/penguin-server/api";
+import type { AssetManifest } from "@waterford/waf-harness-server/api";
 import { NO_PLACEHOLDERS, bindingOf, type PlaceholderPaths } from "./placeholder-media";
 
 type MediaAsset = AssetManifest["assets"][string][number];

@@ -65,7 +65,7 @@ describe.each([
       throw new Error("boot must not query an account");
     });
     t = await createTestApp({
-      config: { penguinGoOrigin: origin, modelscopeBridgeUrl: undefined },
+      config: { wafHarnessGoOrigin: origin, modelscopeBridgeUrl: undefined },
     });
     expect(fake.calls).toEqual([]);
     const { cookie } = await provisionUser(t.app, "go_owner");
@@ -198,12 +198,12 @@ describe("Penguin Go ledger readings", () => {
     const balances = new ModelBalances(deps);
     const first = await balances.read("go-cache", "penguin-go");
     expect(first).toMatchObject({ ok: true, amount: "7.00" });
-    deps.penguinGoOrigin = "https://token.penguin.ooo";
+    deps.wafHarnessGoOrigin = "https://token.penguin.ooo";
     expect(await balances.read("go-cache", "penguin-go")).toMatchObject({
       ok: true,
       amount: "14.00",
     });
-    deps.penguinGoOrigin = undefined;
+    deps.wafHarnessGoOrigin = undefined;
     expect(await balances.read("go-cache", "penguin-go")).toEqual(first);
     expect(fake.calls.map((call) => call.url)).toEqual([
       "https://go.penguin.ooo/api/me/by-key",

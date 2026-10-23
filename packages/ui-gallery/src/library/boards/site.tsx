@@ -1,5 +1,5 @@
 /**
- * Public site: what the landing page and the docs share from `@prismshadow/penguin-ui/site` — the
+ * Public site: what the landing page and the docs share from `@waterford/waf-harness-ui/site` — the
  * footer in both shapes, the code card and the copy button's looks, the category pills, an
  * article in the shared prose with its contents beside it, the docs sidebar, the search dialog
  * and the external-link confirmation. The site's own palette (site.css), not the theme under
@@ -23,13 +23,13 @@ import {
   SiteToc,
   currentSearchShortcutLabel,
   useActiveTocEntry,
-} from "@prismshadow/penguin-ui/site";
+} from "@waterford/waf-harness-ui/site";
 import type {
   SiteLinkProps,
   SitePillTone,
   SiteSearchRange,
   SiteSearchResult,
-} from "@prismshadow/penguin-ui/site";
+} from "@waterford/waf-harness-ui/site";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 
@@ -87,8 +87,8 @@ export function SiteBoard() {
         <div className="lib-stack lib-stack-wide">
           <SiteFooter
             brand={{
-              name: "PenguinHarness",
-              logo: `${import.meta.env.BASE_URL}penguin-logo.svg`,
+              name: "WAF Harness",
+              logo: `${import.meta.env.BASE_URL}wafh-logo.svg`,
               tagline: t.tagline,
             }}
             columns={t.columns.map((column) => ({
@@ -117,9 +117,9 @@ export function SiteBoard() {
             copy={{ label: t.copy, announcement: t.copiedAnnouncement }}
           />
           <div className="lib-row text-sm">
-            <SiteCopyButton text="penguin web" label={t.copy} announcement={t.copiedAnnouncement} />
+            <SiteCopyButton text="wafh web" label={t.copy} announcement={t.copiedAnnouncement} />
             <SiteCopyButton
-              text="# PenguinHarness"
+              text="# WAF Harness"
               label={t.copyMarkdown}
               announcement={t.copiedAnnouncement}
               look="pill-md"

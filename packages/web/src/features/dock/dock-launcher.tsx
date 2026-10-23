@@ -51,8 +51,8 @@ import {
   toastInfo,
   usePointerDrag,
   usePrefersReducedMotion,
-} from "@prismshadow/penguin-ui";
-import type { SpringDriver } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { SpringDriver } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { useDockPanels } from "./panel-registry";

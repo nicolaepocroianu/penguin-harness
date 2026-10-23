@@ -3,7 +3,7 @@
  * reports, the failure and its output, when Install is enabled, and when the page polls.
  */
 import { describe, expect, it } from "vitest";
-import type { TestBrowserStatus } from "@prismshadow/penguin-server/api";
+import type { TestBrowserStatus } from "@waterford/waf-harness-server/api";
 import { S } from "../src/lib/strings";
 import { shouldPollTestBrowser, testBrowserView } from "../src/features/settings/test-browser";
 
@@ -11,7 +11,7 @@ const base: TestBrowserStatus = {
   available: true,
   installed: false,
   version: "149.0.7827.55",
-  path: "/home/penguin/browsers",
+  path: "/home/wafh/browsers",
   installing: false,
   error: null,
   log: null,

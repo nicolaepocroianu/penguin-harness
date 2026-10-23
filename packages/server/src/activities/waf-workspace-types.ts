@@ -12,10 +12,10 @@ export interface WafRepoSetting {
 }
 
 export interface WafWorkspaceSettings {
-  /** An existing checkout Penguin reads instead of managing its own; empty when managed. */
+  /** An existing checkout WAF Harness reads instead of managing its own; empty when managed. */
   externalRoot: string;
   /**
-   * A monorepo's modules folder (such as waf-modules/modules) Penguin also finds product modules
+   * A monorepo's modules folder (such as waf-modules/modules) WAF Harness also finds product modules
    * in, beside the checkout's own `modules/`; empty for none. Only read: its modules are built
    * and played, never cloned or deployed.
    */

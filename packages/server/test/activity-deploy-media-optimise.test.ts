@@ -52,8 +52,8 @@ const read = (root: string, relative: string) =>
 
 async function setup() {
   return {
-    dir: await tempDir("penguin-optimise-clone-"),
-    workDir: await tempDir("penguin-optimise-work-"),
+    dir: await tempDir("wafh-optimise-clone-"),
+    workDir: await tempDir("wafh-optimise-work-"),
   };
 }
 
@@ -253,7 +253,7 @@ describe("deploy media optimisation", () => {
 
   it("never re-encodes through a link", async () => {
     const { dir, workDir } = await setup();
-    const outside = await tempDir("penguin-optimise-outside-");
+    const outside = await tempDir("wafh-optimise-outside-");
     await put(outside, "real.mp3", "outside");
     await fs.mkdir(path.join(dir, "loom"), { recursive: true });
     try {

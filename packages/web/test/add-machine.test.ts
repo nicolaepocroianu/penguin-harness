@@ -25,7 +25,7 @@ import type {
   MachineInfo,
   MachinesResponse,
   SshHostSummary,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { AddMachineBody, AddMachineFooter } from "../src/features/machines/add-machine-dialog";
 import type {
   AddMachineBodyProps,
@@ -50,7 +50,7 @@ const machine = (alias: string, extra: Partial<MachineInfo> = {}): MachineInfo =
   socket: null,
   api: null,
   status: null,
-  root: "$HOME/.penguin/data",
+  root: "$HOME/.waf-harness/data",
   ...extra,
 });
 const here = machine("workstation", { id: "local", local: true });

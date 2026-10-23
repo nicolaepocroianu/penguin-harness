@@ -96,7 +96,7 @@ describe("mentionCandidates with titles", () => {
 describe("rankMentionCandidates", () => {
   const list = mentionCandidates(
     [
-      { agentId: "studio_ceo", name: "Penguin CEO" },
+      { agentId: "studio_ceo", name: "WAF Harness CEO" },
       { agentId: "studio_cto", name: "Tech Lead" },
       { agentId: "ops", name: "Studio Ops" },
     ],

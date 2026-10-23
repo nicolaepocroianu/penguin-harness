@@ -7,7 +7,7 @@
  * quoted by commands.ts for exactly that reason.
  *
  * Every spawn is `windowsHide`: on Windows a server with no console of its own (the desktop
- * app's, or one `penguin` started in the background) would otherwise open a console window
+ * app's, or one `wafh` started in the background) would otherwise open a console window
  * for each ssh, scp or tar it runs.
  *
  * Failures are returned, never thrown, and carry ssh's own stderr verbatim — a wrong key, a

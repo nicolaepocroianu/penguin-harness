@@ -8,9 +8,9 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseManifest } from "@prismshadow/penguin-core/kernel";
-import type { ModuleDef } from "@prismshadow/penguin-core/kernel";
-import type { SandboxPolicy } from "@prismshadow/penguin-core/plugin";
+import { parseManifest } from "@waterford/waf-harness-core/kernel";
+import type { ModuleDef } from "@waterford/waf-harness-core/kernel";
+import type { SandboxPolicy } from "@waterford/waf-harness-core/plugin";
 import type { PluginConfigResponse } from "../src/api/types.js";
 import type { PluginConfig } from "../src/plugin/config.js";
 import { PluginHost } from "../src/plugin/host.js";
@@ -30,7 +30,7 @@ function backend(seen: Seen[]): ModuleDef {
     manifest: parseManifest({
       name: "TestBackend",
       requires: {
-        config: { iface: "@prismshadow/penguin-server#PluginConfig", from: "PluginConfigModule" },
+        config: { iface: "@waterford/waf-harness-server#PluginConfig", from: "PluginConfigModule" },
       },
       provides: {},
       contributes: {
@@ -300,7 +300,7 @@ describe("sandbox settings group", () => {
             name: "ProbedBackend",
             requires: {
               config: {
-                iface: "@prismshadow/penguin-server#PluginConfig",
+                iface: "@waterford/waf-harness-server#PluginConfig",
                 from: "PluginConfigModule",
               },
             },
@@ -377,7 +377,7 @@ describe("sandbox settings group", () => {
   });
 
   it("keeps what was saved across a restart", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-sandbox-settings-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-sandbox-settings-"));
     const dbPath = path.join(dir, "web.db");
     let second: Awaited<ReturnType<typeof appWith>> | undefined;
     try {

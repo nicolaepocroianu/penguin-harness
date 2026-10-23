@@ -18,7 +18,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import type { SpawnConfiner } from "@prismshadow/penguin-core";
+import type { SpawnConfiner } from "@waterford/waf-harness-core";
 import type { StyleCompiler } from "./module-builder.js";
 import { RUN_SANDBOX_MODE } from "./run-sandbox.js";
 import {
@@ -50,7 +50,7 @@ export interface RunBuildSpawn {
 /**
  * What a run build's programs keep of this process's environment: what Windows, Node and npm
  * need to start (the PATH, the temporary folder, the system folder and shell, the user folders
- * npm finds its settings in). Never a key, a token or a `PENGUIN_*` setting, and not
+ * npm finds its settings in). Never a key, a token or a `WAFH_*` setting, and not
  * `NODE_OPTIONS`: this server's own Node flags (a script it preloads, its heap size) are not
  * the build's, which sets any it needs in its own script.
  */

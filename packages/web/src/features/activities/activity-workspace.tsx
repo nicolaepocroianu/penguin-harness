@@ -22,7 +22,7 @@
  * same setters the rail and the panels use.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Chevron, Dot, GlyphIcon, CloseIcon, ICON_SIZE, ICONS } from "@prismshadow/penguin-ui";
+import { Chevron, Dot, GlyphIcon, CloseIcon, ICON_SIZE, ICONS } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import {
   SIDE_PANEL_MAX_WIDTH,

@@ -8,8 +8,8 @@
  * The trigger names the field (`aria-label`); the selected option's text says which machine is
  * in view.
  */
-import { Select } from "@prismshadow/penguin-ui";
-import type { ControlSize } from "@prismshadow/penguin-ui";
+import { Select } from "@waterford/waf-harness-ui";
+import type { ControlSize } from "@waterford/waf-harness-ui";
 
 export interface MachineChoice {
   value: string;

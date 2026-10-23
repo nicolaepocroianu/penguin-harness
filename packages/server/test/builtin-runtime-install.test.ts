@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { sandboxedAgentEnv, spawnTarget } from "@prismshadow/penguin-coding-agents";
+import { sandboxedAgentEnv, spawnTarget } from "@waterford/waf-harness-coding-agents";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   RuntimeInstallError,
@@ -158,13 +158,13 @@ describe("runtime install", () => {
 
   it("runs --version without the server's own environment, only the one it is given", async () => {
     const secret = "server-only-secret-42";
-    const previous = process.env.PENGUIN_TEST_SECRET;
-    process.env.PENGUIN_TEST_SECRET = secret;
+    const previous = process.env.WAFH_TEST_SECRET;
+    process.env.WAFH_TEST_SECRET = secret;
     try {
       registry = await fakeRegistry({
         packageName: NAME,
         version: "1.0.0",
-        echoEnv: "PENGUIN_TEST_SECRET",
+        echoEnv: "WAFH_TEST_SECRET",
       });
       const sandboxed = await installRuntime({
         registry: registry.url,
@@ -179,19 +179,19 @@ describe("runtime install", () => {
       registry = await fakeRegistry({
         packageName: NAME,
         version: "2.0.0",
-        echoEnv: "PENGUIN_TEST_SECRET",
+        echoEnv: "WAFH_TEST_SECRET",
       });
       const given = await installRuntime({
         registry: registry.url,
         packageName: NAME,
         version: "2.0.0",
         runtimesDir: dir,
-        env: sandboxedAgentEnv({ PENGUIN_TEST_SECRET: "passed-in" }),
+        env: sandboxedAgentEnv({ WAFH_TEST_SECRET: "passed-in" }),
       });
       expect(given.reportedVersion).toContain("passed-in");
     } finally {
-      if (previous === undefined) delete process.env.PENGUIN_TEST_SECRET;
-      else process.env.PENGUIN_TEST_SECRET = previous;
+      if (previous === undefined) delete process.env.WAFH_TEST_SECRET;
+      else process.env.WAFH_TEST_SECRET = previous;
     }
   });
 });

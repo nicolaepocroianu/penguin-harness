@@ -11,7 +11,7 @@
  * says so.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ActivityDraft, StateMachineDocument } from "@prismshadow/penguin-server/api";
+import type { ActivityDraft, StateMachineDocument } from "@waterford/waf-harness-server/api";
 import {
   ConfirmModal,
   Button,
@@ -19,7 +19,7 @@ import {
   InfoPopover,
   Segmented,
   SkeletonList,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";

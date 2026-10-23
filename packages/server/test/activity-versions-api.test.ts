@@ -6,7 +6,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { projectDir } from "@prismshadow/penguin-core";
+import { projectDir } from "@waterford/waf-harness-core";
 import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js";
 import type { VersionManifest } from "../src/activities/version-manifest.js";
 import { readBlob, sha256 } from "../src/activities/version-store.js";

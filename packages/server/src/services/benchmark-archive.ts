@@ -30,7 +30,7 @@ import {
   isValidId,
   parseBenchmarkManifest,
   type BenchmarkManifest,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { HttpError } from "../http/errors.js";
 import {
   MAX_ARCHIVE_BYTES,

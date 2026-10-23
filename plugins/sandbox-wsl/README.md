@@ -1,6 +1,6 @@
-# @penguinharness/sandbox-wsl
+# @waf-harness/sandbox-wsl
 
-A Windows sandbox backend for PenguinHarness. Each agent command runs in a dedicated WSL2 distro (Ubuntu by default), as an unprivileged account, under [bubblewrap](https://github.com/containers/bubblewrap).
+A Windows sandbox backend for WAF Harness. Each agent command runs in a dedicated WSL2 distro (Ubuntu by default), as an unprivileged account, under [bubblewrap](https://github.com/containers/bubblewrap).
 
 | Dimension  | How                                                                                        |
 | ---------- | ------------------------------------------------------------------------------------------ |
@@ -18,10 +18,10 @@ WSL keeps the generated `resolv.conf` outside the distro's root, at `/mnt/wsl/re
 Everything happens on the WSL card under **Settings → Plugins → Agent Sandbox**, with its progress shown there:
 
 1. **Install WSL**: raises the Windows consent prompt for `setup/install-wsl.ps1`, which runs `wsl --install --no-distribution`. Some machines need a restart afterwards. This is the only step that needs an administrator.
-2. **Initialize sandbox distro**: downloads the base rootfs (checked against its published sha256), imports it as its own distro, installs bubblewrap and the **Packages** list, creates the `penguin` account, and switches Windows interop off.
+2. **Initialize sandbox distro**: downloads the base rootfs (checked against its published sha256), imports it as its own distro, installs bubblewrap and the **Packages** list, creates the `wafh` account, and switches Windows interop off.
 3. **Check confinement**: runs real commands through the sandbox and lists what passed.
 
-State lives in `%LOCALAPPDATA%\penguin\sandbox-wsl` (`state.json`, the downloaded rootfs, the distro's disk).
+State lives in `%LOCALAPPDATA%\wafh\sandbox-wsl` (`state.json`, the downloaded rootfs, the distro's disk).
 
 ## Why interop is switched off
 

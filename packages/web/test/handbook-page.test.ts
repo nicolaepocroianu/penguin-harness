@@ -107,7 +107,7 @@ describe("the handbook", () => {
   beforeAll(() => setActiveStrings(en));
   afterAll(() => setActiveStrings(en));
   beforeEach(() => {
-    localStorage.setItem("penguin.lang", "en");
+    localStorage.setItem("wafh.lang", "en");
   });
   afterEach(async () => {
     await unmountAll();

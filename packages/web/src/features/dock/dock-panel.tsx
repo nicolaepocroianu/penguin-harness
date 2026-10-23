@@ -67,8 +67,8 @@ import {
   MenuItem,
   ResizeHandle,
   usePointerDrag,
-} from "@prismshadow/penguin-ui";
-import type { DockPickerChoice, DockTabItem } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { DockPickerChoice, DockTabItem } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { chordKeys } from "../../components/ui/chord-kbd";
 import { displayedBinding, useKeymap } from "../../lib/shortcuts/use-keymap";

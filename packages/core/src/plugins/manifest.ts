@@ -1,7 +1,7 @@
 /**
  * A plugin's manifest is its own npm `package.json`: the standard fields every package carries
  * (`name`, `version`, `description`, `keywords`, `author`, `homepage`, `repository`, `license`)
- * and one namespaced block, `penguin`, holding every field that is this product's — the display
+ * and one namespaced block, `wafh`, holding every field that is this product's — the display
  * name, the Chinese and the card's descriptions, the category, the icon, whether default_agent
  * preinstalls it, the quick start, the hook package and the MCP servers it contributes. A namespaced block tells a reader (and
  * this reader) exactly which keys are ours, the way `prettier` or `eslintConfig` sit in a
@@ -10,7 +10,7 @@
  *
  * Content is found by convention and never declared: `skills/<name>/SKILL.md`, `hooks/*.mjs`,
  * `ifaces.json` (with `dist/`) for server modules, and `README.md` for the detail dialog. An MCP
- * server is a declaration with no file behind it, so it sits in the block: `penguin.mcp_servers`,
+ * server is a declaration with no file behind it, so it sits in the block: `wafh.mcp_servers`,
  * entries in the shape of system_config.yaml's `tools.mcpServers`, whose `${KEY}` references
  * name the vault values the user supplies (`setup`) and which installing on an Agent merges into
  * that Agent's list.
@@ -59,7 +59,7 @@ export interface HookCommand {
 }
 
 /**
- * A plugin's quick start (package.json `penguin.quick_start`): the demo a person runs to see
+ * A plugin's quick start (package.json `wafh.quick_start`): the demo a person runs to see
  * what the plugin does — a prompt the Plugins page pre-fills into a new-chat draft, never sends.
  */
 export interface QuickStart {
@@ -80,7 +80,7 @@ export interface PluginHooksDeclaration {
   user_prompt: HookCommand[];
 }
 
-/** One vault key a plugin's MCP server needs before it can connect (`penguin.mcp_servers[].setup[]`). */
+/** One vault key a plugin's MCP server needs before it can connect (`wafh.mcp_servers[].setup[]`). */
 export interface PluginSetupKey {
   /** The vault key, referenced as `${KEY}` in the server's config. */
   key: string;
@@ -91,7 +91,7 @@ export interface PluginSetupKey {
 }
 
 /**
- * One MCP server a plugin contributes (`penguin.mcp_servers[]`): the `tools.mcpServers` entry an
+ * One MCP server a plugin contributes (`wafh.mcp_servers[]`): the `tools.mcpServers` entry an
  * install writes, its `${KEY}` references and `${PLUGIN_ROOT}` as written.
  */
 export interface PluginMcpServer {
@@ -104,7 +104,7 @@ export interface PluginMcpServer {
   oauth: boolean;
 }
 
-/** The `penguin` block of a plugin's package.json, as read: every field optional, unknown keys ignored. */
+/** The `wafh` block of a plugin's package.json, as read: every field optional, unknown keys ignored. */
 export interface PluginPackageFields {
   /** Display name (`title`); absent → the plugin name. */
   title?: string;
@@ -145,7 +145,7 @@ export interface PluginPackageManifest {
   /** `repository.directory`, kept apart from the URL: where in the repository the package sits. */
   repositoryDirectory?: string;
   license?: string;
-  penguin: PluginPackageFields;
+  wafh: PluginPackageFields;
 }
 
 /** A package.json that makes the package unusable as a plugin, naming the file. */
@@ -303,11 +303,11 @@ export function parsePluginPackage(
   const license = text(raw.license, "license");
 
   let block: Record<string, unknown> = {};
-  if (raw.penguin !== undefined) {
-    if (isRecord(raw.penguin)) block = raw.penguin;
-    else warnings.push("penguin must be an object; ignored");
+  if (raw.wafh !== undefined) {
+    if (isRecord(raw.wafh)) block = raw.wafh;
+    else warnings.push("wafh must be an object; ignored");
   }
-  const penguin: PluginPackageFields = {};
+  const wafh: PluginPackageFields = {};
   for (const [from, to] of [
     ["title", "title"],
     ["title_zh", "titleZh"],
@@ -316,24 +316,24 @@ export function parsePluginPackage(
     ["short_description_zh", "shortDescriptionZh"],
     ["category", "category"],
   ] as const) {
-    const value = text(block[from], `penguin.${from}`);
-    if (value !== undefined) penguin[to] = value;
+    const value = text(block[from], `wafh.${from}`);
+    if (value !== undefined) wafh[to] = value;
   }
-  const icon = text(block.icon, "penguin.icon");
+  const icon = text(block.icon, "wafh.icon");
   if (icon !== undefined) {
-    if (/\.svg$/i.test(icon)) penguin.icon = icon;
-    else warnings.push("penguin.icon must be the path of an .svg file in the package; ignored");
+    if (/\.svg$/i.test(icon)) wafh.icon = icon;
+    else warnings.push("wafh.icon must be the path of an .svg file in the package; ignored");
   }
   if (block.preinstall !== undefined) {
-    if (typeof block.preinstall === "boolean") penguin.preinstall = block.preinstall;
-    else warnings.push("penguin.preinstall must be true or false; ignored");
+    if (typeof block.preinstall === "boolean") wafh.preinstall = block.preinstall;
+    else warnings.push("wafh.preinstall must be true or false; ignored");
   }
   const quickStart = readQuickStart(block.quick_start, warnings);
-  if (quickStart !== undefined) penguin.quickStart = quickStart;
+  if (quickStart !== undefined) wafh.quickStart = quickStart;
   const hooks = readHooks(block.hooks, warnings);
-  if (hooks !== undefined) penguin.hooks = hooks;
+  if (hooks !== undefined) wafh.hooks = hooks;
   const mcpServers = readMcpServers(block.mcp_servers, warnings);
-  if (mcpServers.length > 0) penguin.mcpServers = mcpServers;
+  if (mcpServers.length > 0) wafh.mcpServers = mcpServers;
 
   return {
     manifest: {
@@ -347,32 +347,32 @@ export function parsePluginPackage(
       ...(repository !== undefined ? { repository } : {}),
       ...(repositoryDirectory !== undefined ? { repositoryDirectory } : {}),
       ...(license !== undefined ? { license } : {}),
-      penguin,
+      wafh,
     },
     warnings,
   };
 }
 
-/** `penguin.quick_start`: a prompt is required; a part of the wrong type is dropped on its own. */
+/** `wafh.quick_start`: a prompt is required; a part of the wrong type is dropped on its own. */
 function readQuickStart(value: unknown, warnings: string[]): QuickStart | undefined {
   if (value === undefined) return undefined;
   if (!isRecord(value) || typeof value.prompt !== "string" || value.prompt.trim() === "") {
-    warnings.push("penguin.quick_start needs a prompt; ignored");
+    warnings.push("wafh.quick_start needs a prompt; ignored");
     return undefined;
   }
   const { prompt, prompt_zh: promptZh, skills, goal } = value;
   if (promptZh !== undefined && typeof promptZh !== "string") {
-    warnings.push("penguin.quick_start.prompt_zh must be a string; ignored");
+    warnings.push("wafh.quick_start.prompt_zh must be a string; ignored");
   }
   const skillList =
     Array.isArray(skills) && skills.every((s) => typeof s === "string")
       ? (skills as string[])
       : undefined;
   if (skills !== undefined && skillList === undefined) {
-    warnings.push("penguin.quick_start.skills must be a list of skill names; ignored");
+    warnings.push("wafh.quick_start.skills must be a list of skill names; ignored");
   }
   if (goal !== undefined && typeof goal !== "boolean") {
-    warnings.push("penguin.quick_start.goal must be true or false; ignored");
+    warnings.push("wafh.quick_start.goal must be true or false; ignored");
   }
   return {
     prompt,
@@ -382,24 +382,24 @@ function readQuickStart(value: unknown, warnings: string[]): QuickStart | undefi
   };
 }
 
-/** `penguin.hooks`: its dated version is what makes it a hook package; the command lists are read entry by entry. */
+/** `wafh.hooks`: its dated version is what makes it a hook package; the command lists are read entry by entry. */
 function readHooks(value: unknown, warnings: string[]): PluginHooksDeclaration | undefined {
   if (value === undefined) return undefined;
   if (!isRecord(value)) {
-    warnings.push("penguin.hooks must be an object; ignored");
+    warnings.push("wafh.hooks must be an object; ignored");
     return undefined;
   }
   if (typeof value.version !== "string" || !PLUGIN_VERSION_PATTERN.test(value.version)) {
     warnings.push(
-      `penguin.hooks.version must be YYYY.MM.DD.N, got ${JSON.stringify(value.version)}; the hook package is ignored`,
+      `wafh.hooks.version must be YYYY.MM.DD.N, got ${JSON.stringify(value.version)}; the hook package is ignored`,
     );
     return undefined;
   }
   return {
     version: value.version,
-    stop: hookCommands(value.stop, "penguin.hooks.stop", warnings),
-    pre_tool_use: hookCommands(value.pre_tool_use, "penguin.hooks.pre_tool_use", warnings),
-    user_prompt: hookCommands(value.user_prompt, "penguin.hooks.user_prompt", warnings),
+    stop: hookCommands(value.stop, "wafh.hooks.stop", warnings),
+    pre_tool_use: hookCommands(value.pre_tool_use, "wafh.hooks.pre_tool_use", warnings),
+    user_prompt: hookCommands(value.user_prompt, "wafh.hooks.user_prompt", warnings),
   };
 }
 
@@ -407,7 +407,7 @@ function readHooks(value: unknown, warnings: string[]): PluginHooksDeclaration |
 const VAULT_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
- * `penguin.mcp_servers`: each entry needs a server name (unique in the package) and a `config`
+ * `wafh.mcp_servers`: each entry needs a server name (unique in the package) and a `config`
  * object; an `oauth` in it must be an object whose `scopes` is a list of strings and whose
  * `client_id` / `client_secret` are strings. An entry that fails is dropped with a warning, and
  * so is a `setup` item that is not a vault key with optional text fields. Whether the config
@@ -416,12 +416,12 @@ const VAULT_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 function readMcpServers(value: unknown, warnings: string[]): PluginMcpServer[] {
   if (value === undefined) return [];
   if (!Array.isArray(value)) {
-    warnings.push("penguin.mcp_servers must be a list of servers; ignored");
+    warnings.push("wafh.mcp_servers must be a list of servers; ignored");
     return [];
   }
   const servers: PluginMcpServer[] = [];
   for (const [index, entry] of (value as unknown[]).entries()) {
-    const at = `penguin.mcp_servers[${index}]`;
+    const at = `wafh.mcp_servers[${index}]`;
     if (!isRecord(entry)) {
       warnings.push(`${at} must be an object with a name and a config; ignored`);
       continue;
@@ -568,7 +568,7 @@ export function isSafeIconSvg(text: string): boolean {
 }
 
 /**
- * A package's icon: the SVG `penguin.icon` names, else `icon.svg` at the package root when there
+ * A package's icon: the SVG `wafh.icon` names, else `icon.svg` at the package root when there
  * is one. Read only when the file stays inside the package (a symlink is not followed), weighs at
  * most MAX_PLUGIN_ICON_BYTES and passes isSafeIconSvg; otherwise no icon (the UI's puzzle glyph),
  * with a warning saying why. A package with no icon at all has none, silently. The icon is the
@@ -580,7 +580,7 @@ export function readPluginIcon(
   declared: string | undefined,
 ): { icon?: string; warnings: string[] } {
   const rel = declared ?? "icon.svg";
-  const key = declared !== undefined ? `penguin.icon (${declared})` : "icon.svg";
+  const key = declared !== undefined ? `wafh.icon (${declared})` : "icon.svg";
   const abs = path.resolve(dir, rel);
   const inside = path.relative(dir, abs);
   if (inside === "" || inside.startsWith("..") || path.isAbsolute(inside)) {

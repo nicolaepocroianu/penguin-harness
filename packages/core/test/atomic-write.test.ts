@@ -24,7 +24,7 @@ import { atomicWriteFile } from "../src/internal/atomic-write.js";
 let dir: string;
 
 beforeEach(async () => {
-  dir = await mkdtemp(path.join(tmpdir(), "penguin-atomic-"));
+  dir = await mkdtemp(path.join(tmpdir(), "wafh-atomic-"));
 });
 
 afterEach(async () => {

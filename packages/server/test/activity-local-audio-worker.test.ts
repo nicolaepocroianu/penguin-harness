@@ -12,7 +12,7 @@ describe("native audio worker", () => {
     for (const root of roots.splice(0)) await fs.rm(root, { recursive: true, force: true });
   });
   async function fixture(code: string) {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-local-audio-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-local-audio-"));
     roots.push(root);
     const entry = path.join(root, "runtime.mjs");
     await fs.writeFile(entry, code);

@@ -1,8 +1,8 @@
 /** Landing routes and preferences rendered through the shared public-site header. */
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
-import { Fold, SiteGitHubLink, SiteHeader, SiteNavLinks } from "@prismshadow/penguin-ui/site";
-import type { SiteLink, SiteLinkProps } from "@prismshadow/penguin-ui/site";
+import { Fold, SiteGitHubLink, SiteHeader, SiteNavLinks } from "@waterford/waf-harness-ui/site";
+import type { SiteLink, SiteLinkProps } from "@waterford/waf-harness-ui/site";
 import { S } from "../lib/strings";
 import { DOCS_URL, galleryUrl, REPO_API_URL, REPO_URL } from "../lib/links";
 import { ThemeToggle } from "./theme-toggle";
@@ -36,7 +36,7 @@ export function Nav() {
   return (
     <SiteHeader
       name={S.siteName}
-      logo={`${import.meta.env.BASE_URL}penguin-logo.svg`}
+      logo={`${import.meta.env.BASE_URL}wafh-logo.svg`}
       home={{
         ...links[0]!,
         render: (props) => routeLink({ ...props, onClick: () => setOpen(false) }),

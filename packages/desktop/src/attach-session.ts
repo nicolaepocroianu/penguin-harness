@@ -1,7 +1,7 @@
 /**
  * Signing the shell's own window in, for a server the shell did not spawn.
  *
- * The one-shot PENGUIN_DESKTOP_TOKEN means something only to the server this shell started,
+ * The one-shot WAFH_DESKTOP_TOKEN means something only to the server this shell started,
  * so a window pointed at any other instance — attach mode, where another server already
  * holds the data root's lock — landed on the App's sign-in page. That page is a dead end
  * here: the desktop seeds its admin with a random password that is hashed and discarded
@@ -10,14 +10,14 @@
  * The way out is the authorization the shell already holds. Being able to read and write a
  * data root is this product's authorization boundary — that directory holds every credential
  * a session could reach — so the shell mints a session row in the root's own web.db and hands
- * the window the cookie for it, the same move `penguin auth token` makes for a script. A root
+ * the window the cookie for it, the same move `wafh auth token` makes for a script. A root
  * it cannot mint in says so in one of a few recognizable ways, and each of them is something
  * the person at the keyboard can act on, so the failures come back as text for a dialog
  * rather than as an exception.
  *
  * Pure, and free of Electron: the minter is a parameter, so the tests drive every outcome.
  */
-import type { MintedVia, MintTokenResult } from "@prismshadow/penguin-server/auth-token";
+import type { MintedVia, MintTokenResult } from "@waterford/waf-harness-server/auth-token";
 import { isAppUrl } from "./util.js";
 
 /**
@@ -26,7 +26,7 @@ import { isAppUrl } from "./util.js";
  * server, and re-exporting the name from it would drag the HTTP layer the name belongs to
  * into this bundle and the CLI's. A test pins the two values together instead.
  */
-export const SESSION_COOKIE = "penguin_session";
+export const SESSION_COOKIE = "wafh_session";
 
 /**
  * How long a minted session lives: thirty days, which is both what the server gives an
@@ -96,8 +96,8 @@ export function planSignIn(opts: {
         reason: "no_server",
         detail:
           `There is no web.db in ${opts.root}, so that data root holds no account to sign in ` +
-          `as. The server this window is talking to keeps its data elsewhere — PENGUIN_HOME ` +
-          `or PENGUIN_WEB_DB points it somewhere this app is not looking.`,
+          `as. The server this window is talking to keeps its data elsewhere — WAFH_HOME ` +
+          `or WAFH_WEB_DB points it somewhere this app is not looking.`,
       },
     };
   }
@@ -162,7 +162,7 @@ export function signInFailureDialog(opts: {
     "",
     "To get a password you can use, stop the server above and run:",
     "",
-    "    penguin server reset-admin-password",
+    "    wafh server reset-admin-password",
   ];
   return {
     message:

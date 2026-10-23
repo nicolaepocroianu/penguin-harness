@@ -16,8 +16,8 @@ import {
   loadAgentState,
   Environment,
   toolCall,
-} from "@prismshadow/penguin-core";
-import type { ToolDefinitionConfig } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { ToolDefinitionConfig } from "@waterford/waf-harness-core";
 import type { AgentConfigResponse, ProjectCreateResponse } from "../src/api/types.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
 import type { TestApp } from "./helpers.js";

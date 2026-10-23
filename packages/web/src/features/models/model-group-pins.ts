@@ -110,7 +110,7 @@ export interface ModelGroupPinStorage {
 }
 
 /** The pin choices' single global key; holds ModelGroupPins as a JSON object. */
-export const MODEL_GROUP_PINS_KEY = "penguin.modelsPinnedGroups";
+export const MODEL_GROUP_PINS_KEY = "wafh.modelsPinnedGroups";
 
 /**
  * Reads the stored choices. Only a boolean under a non-empty key is kept; anything else — absent,
@@ -143,7 +143,7 @@ export function storeModelGroupPins(pins: ModelGroupPins, storage?: ModelGroupPi
 }
 
 /** The collapse area's single global key; holds "expanded" / "collapsed". */
-export const MODEL_GROUPS_FOLD_KEY = "penguin.modelsGroupsFolded";
+export const MODEL_GROUPS_FOLD_KEY = "wafh.modelsGroupsFolded";
 
 /**
  * Whether the collapse area is folded. Folded is the default — only an explicit "expanded"

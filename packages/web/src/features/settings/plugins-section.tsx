@@ -29,7 +29,7 @@
  * its watch, so nothing here says "restart".
  */
 import { useEffect, useRef, useState } from "react";
-import type { PluginConfigEntry } from "@prismshadow/penguin-server/api";
+import type { PluginConfigEntry } from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { useLocale } from "../../state/locale";
@@ -61,7 +61,7 @@ import {
   guardLeave,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 
 /**
  * Brings one card into view once the list has loaded — an opening that names a card (the

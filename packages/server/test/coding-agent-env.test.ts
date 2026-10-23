@@ -66,7 +66,7 @@ describe("coding agent env", () => {
     const put = (entries: unknown) => admin.put("/api/coding-agents/agents/fake/env", { entries });
     for (const entries of [
       [{ key: "PATH", value: "x" }],
-      [{ key: "PENGUIN_X", value: "x" }],
+      [{ key: "WAFH_X", value: "x" }],
       [{ key: "1BAD", value: "x" }],
       [{ key: "A", value: "a\nb" }],
       [

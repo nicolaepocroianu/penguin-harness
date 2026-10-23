@@ -38,13 +38,13 @@ import {
   RuledSection,
   Skeleton,
   useMarkdownReader,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import type {
   FileBrowserPreview,
   FileTreeRow,
   MarkdownReaderState,
   TreeToggle,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { linkSegments } from "../../lib/link-segments";
 import { apiErrorText } from "../../lib/api-error";
@@ -54,7 +54,7 @@ import { useLocale } from "../../state/locale";
 import { getLibraryPluginReadme, getPluginFiles, getPluginReadme } from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { SkillTile } from "../skills/skill-icon-view";
-import type { PluginItem } from "@prismshadow/penguin-server/api";
+import type { PluginItem } from "@waterford/waf-harness-server/api";
 import { PluginMcpSection } from "./plugin-mcp";
 import type { ModulePart, PluginRow } from "./plugin-groups";
 import type { PluginStatus } from "./plugin-status";

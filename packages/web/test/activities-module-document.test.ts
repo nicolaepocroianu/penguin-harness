@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ModuleDocument } from "@prismshadow/penguin-server/api";
+import type { ModuleDocument } from "@waterford/waf-harness-server/api";
 import {
   assessmentItemCount,
   documentChanged,

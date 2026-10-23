@@ -1,5 +1,5 @@
 /**
- * Connecting the user's own Chrome: three steps — install the PenguinHarness Browser extension
+ * Connecting the user's own Chrome: three steps — install the WAF Harness Browser extension
  * (from the Chrome Web Store, or from the release zip where the store is out of reach), open its
  * pairing page, paste the server's address and a one-time code —
  * as a dialog ("Connect your Chrome…" in the Browser panel's menu, Settings › Browser) and inline
@@ -25,7 +25,7 @@ import {
   Link,
   Modal,
   Spinner,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { browserState, subscribeBrowser } from "./browser-store";
@@ -40,7 +40,7 @@ import {
 
 /** The extension's Chrome Web Store listing: the recommended install, which Chrome keeps updated. */
 export const EXTENSION_STORE_URL =
-  "https://chromewebstore.google.com/detail/penguinharness-browser/dodgfhpcbmkjfcbgnoidablfgjjhhmgp";
+  "https://chromewebstore.google.com/detail/waf-harness-browser/dodgfhpcbmkjfcbgnoidablfgjjhhmgp";
 
 /**
  * The extension's release zip, loaded unpacked where the store is out of reach. The manifest's

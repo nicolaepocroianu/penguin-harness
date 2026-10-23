@@ -1,10 +1,10 @@
 {
-  "name": "@penguinharness/skill-porting",
+  "name": "@waf-harness/skill-porting",
   "version": "0.2.16",
-  "description": "Port from external ecosystems after reviewing every file: skills into this agent's agent_state/skills/ (Claude Code plugin marketplaces, the Codex plugin repo, skills.sh registry names, GitHub repos, local folders), or a whole plugin (a Codex or Claude Code plugin, a skills repository, a folder in a GitHub repository) into a PenguinHarness plugin package installed on the server with penguin plugin install.",
+  "description": "Port from external ecosystems after reviewing every file: skills into this agent's agent_state/skills/ (Claude Code plugin marketplaces, the Codex plugin repo, skills.sh registry names, GitHub repos, local folders), or a whole plugin (a Codex or Claude Code plugin, a skills repository, a folder in a GitHub repository) into a WAF Harness plugin package installed on the server with wafh plugin install.",
   "keywords": [
-    "penguin-plugin",
-    "penguinharness",
+    "wafh-plugin",
+    "waf-harness",
     "skills"
   ],
   "license": "Apache-2.0",
@@ -22,7 +22,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "penguin": {
+  "wafh": {
     "short_description": "Port external skills into this agent, or plugins onto the server.",
     "category": "ai-app-development",
     "icon": "icon.svg",

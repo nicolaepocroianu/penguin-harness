@@ -22,11 +22,11 @@ import {
 let root: string;
 const project = "default_project",
   agent = "custom_support";
-const plugin = () => structuredClone(libraryPlugin("penguin-support")!);
+const plugin = () => structuredClone(libraryPlugin("wafh-support")!);
 const base = () => path.join(root, project, "agents", agent);
 const dir = () => path.join(base(), "workbenches/support");
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-plugin-wb-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-plugin-wb-"));
 });
 afterEach(async () => {
   await fs.rm(root, { recursive: true, force: true });
@@ -35,10 +35,10 @@ it("installs a plugin's runnable workbench and Skill on an ordinary Agent", asyn
   await installPlugin(root, project, agent, plugin());
   expect(
     (await listInstalledWorkbenches(root, project, agent)).map((w) => [w.name, w.plugin]),
-  ).toEqual([["support", "penguin-support"]]);
+  ).toEqual([["support", "wafh-support"]]);
   expect(await fs.readFile(path.join(dir(), "ui/index.html"), "utf8")).toContain("./app.js");
   expect(
-    await fs.readFile(path.join(base(), "agent_state/skills/penguin-support/SKILL.md"), "utf8"),
+    await fs.readFile(path.join(base(), "agent_state/skills/wafh-support/SKILL.md"), "utf8"),
   ).toContain("https://penguin.ooo/docs/");
 });
 it("updates source and removes retired files while keeping state, history and local additions", async () => {
@@ -53,7 +53,7 @@ it("updates source and removes retired files while keeping state, history and lo
   const update = plugin();
   update.workbenches![0]!.version = "2026.10.14.2";
   const pkg = JSON.parse(update.workbenches![0]!.files["package.json"]!);
-  pkg.penguin.version = "2026.10.14.2";
+  pkg.wafh.version = "2026.10.14.2";
   update.workbenches![0]!.files["package.json"] = JSON.stringify(pkg);
   update.workbenches![0]!.files["ui/app.js"] = "updated";
   await installPlugin(root, project, agent, update);
@@ -97,7 +97,7 @@ it("retries an interrupted install owned by the same plugin", async () => {
     path.join(dir(), ".plugin.json"),
     JSON.stringify({
       name: "support",
-      plugin: "penguin-support",
+      plugin: "wafh-support",
       version: "",
       files: ["ui/app.js"],
     }),
@@ -129,7 +129,7 @@ it("reports a restored source version for plugin update checks", async () => {
   await installPlugin(root, project, agent, plugin());
   const file = path.join(dir(), "package.json");
   const pkg = JSON.parse(await fs.readFile(file, "utf8"));
-  pkg.penguin.version = "2026.10.01.1";
+  pkg.wafh.version = "2026.10.01.1";
   await fs.writeFile(file, JSON.stringify(pkg));
   expect((await listInstalledWorkbenches(root, project, agent))[0]?.version).toBe("2026.10.01.1");
 });

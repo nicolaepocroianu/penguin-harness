@@ -1,5 +1,5 @@
 /**
- * Starting a Penguin server for the bench: from a checkout's own tsx, on a home of the bench's,
+ * Starting a WAF Harness server for the bench: from a checkout's own tsx, on a home of the bench's,
  * with the system plumbing of this process's environment only, a random loopback port, and a
  * desktop token that is its only credential. The bench signs in with that token and talks to the
  * server over the routes an author's App uses; stopping it stops every process it started.
@@ -25,7 +25,7 @@ export interface Server {
 export interface BootOptions {
   /** The checkout the server runs from: its tsx and its packages/server. */
   worktree: string;
-  /** The server's PENGUIN_HOME. */
+  /** The server's WAFH_HOME. */
   home: string;
   /** Where the server's port file and log go. */
   dir: string;
@@ -41,7 +41,7 @@ export interface BootOptions {
 /**
  * The environment a bench server starts with: the system plumbing of this process's, what the
  * caller adds, and what every bench server has — its home, loopback, a port of its own, the
- * token, and the bench's Claude folder. Nothing of the person's Claude or Penguin settings.
+ * token, and the bench's Claude folder. Nothing of the person's Claude or WAF Harness settings.
  */
 export function bootEnv(
   options: Pick<BootOptions, "home" | "claudeConfig" | "env">,
@@ -50,11 +50,11 @@ export function bootEnv(
 ): Record<string, string> {
   return plainEnv({
     ...options.env,
-    PENGUIN_HOME: options.home,
+    WAFH_HOME: options.home,
     HOST: "127.0.0.1",
     PORT: "0",
-    PENGUIN_PORT_FILE: portFile,
-    PENGUIN_DESKTOP_TOKEN: token,
+    WAFH_PORT_FILE: portFile,
+    WAFH_DESKTOP_TOKEN: token,
     CLAUDE_CONFIG_DIR: options.claudeConfig,
   });
 }
@@ -99,7 +99,7 @@ export async function bootServer(options: BootOptions): Promise<Server> {
     const claimed = await fetch(`${origin}/api/auth/claim?token=${token}`, {
       redirect: "manual",
     });
-    const cookie = /penguin_session=[^;]+/.exec(claimed.headers.get("set-cookie") ?? "")?.[0];
+    const cookie = /wafh_session=[^;]+/.exec(claimed.headers.get("set-cookie") ?? "")?.[0];
     if (!cookie) throw new InfrastructureError("The bench server did not sign the bench in.");
     return {
       origin,

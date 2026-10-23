@@ -66,7 +66,7 @@ export interface RecipeLibrary {
 /** What decided how a run's agent worked. */
 export interface RunRecipe {
   /**
-   * Who answered: `agent:<provider>/<model>` for a Penguin agent's Session, `coding:<id>` for a
+   * Who answered: `agent:<provider>/<model>` for a WAF Harness agent's Session, `coding:<id>` for a
    * coding agent's, `helper:<script>` or `local:<provider>/<model>` for work the server runs
    * itself for an agent, and `server` for work no agent has any part in.
    */
@@ -75,12 +75,12 @@ export interface RunRecipe {
   library: RecipeLibrary[];
   /** The acceptance harness API a module or test run was given; absent for other kinds. */
   harness?: number;
-  /** Penguin's version. */
-  penguin: string;
+  /** WAF Harness's version. */
+  wafh: string;
 }
 
 /** What a tally groups runs by: the whole recipe, or one part of it. */
-export type OutcomeDimension = "recipe" | "runtime" | "prompt" | "library" | "harness" | "penguin";
+export type OutcomeDimension = "recipe" | "runtime" | "prompt" | "library" | "harness" | "wafh";
 
 /** Which runs a tally counts. Outcomes compare within one run kind. */
 export interface OutcomeQuery {

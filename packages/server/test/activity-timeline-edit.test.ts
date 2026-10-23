@@ -88,7 +88,7 @@ describe("refining a timeline", () => {
   });
 
   async function written(value: unknown): Promise<string> {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-timeline-edit-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-timeline-edit-"));
     dirs.push(dir);
     if (value !== undefined)
       await fs.writeFile(path.join(dir, TIMELINE_OUTPUT_FILE), JSON.stringify(value));

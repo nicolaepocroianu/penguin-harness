@@ -9,7 +9,7 @@
  *   node scripts/capture-0214-agent-api.mjs shots   # drives the running server
  *
  * `serve` writes the key it minted to $SHOT_SCRATCH/agent-key (mode 0600) and stays up, so
- * curl and the @prismshadow/amsp client can be run against the same server before `shots`
+ * curl and the @waterford/waf-harness-amsp client can be run against the same server before `shots`
  * (whose key list then shows when the key was last used).
  *
  * Env: SHOT_SCRATCH (data/, out/, debug/), SRV_PORT (7364), MOCK_PORT (19133),
@@ -33,8 +33,8 @@ const SRV_PORT = Number(process.env.SRV_PORT ?? 7364);
 const MOCK_PORT = Number(process.env.MOCK_PORT ?? 19133);
 const BASE = `http://localhost:${SRV_PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
-const SEED_PASSWORD = "penguin-2026";
-const ADMIN_PASSWORD = "penguin-agent-api-2026";
+const SEED_PASSWORD = "wafh-2026";
+const ADMIN_PASSWORD = "wafh-agent-api-2026";
 const AGENT = "default_agent";
 const KEY_NAME = "nightly-report";
 const ONLY = new Set((process.env.SHOT_ONLY ?? "").split(",").filter(Boolean));
@@ -210,12 +210,12 @@ async function serve() {
       // `date` prints in the C locale, which the mock reads back.
       LANG: "C.UTF-8",
       LC_ALL: "C.UTF-8",
-      PENGUIN_HOME: dataRoot,
-      PENGUIN_WEB_DB: path.join(dataRoot, "web.db"),
-      PENGUIN_WEB_DIST: path.join(ROOT, "packages/web/dist"),
+      WAFH_HOME: dataRoot,
+      WAFH_WEB_DB: path.join(dataRoot, "web.db"),
+      WAFH_WEB_DIST: path.join(ROOT, "packages/web/dist"),
       PORT: String(SRV_PORT),
       HOST: "127.0.0.1",
-      PENGUIN_SEED_ADMIN_PASSWORD: SEED_PASSWORD,
+      WAFH_SEED_ADMIN_PASSWORD: SEED_PASSWORD,
     },
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -307,11 +307,11 @@ async function shots() {
     });
     await context.addInitScript(
       ([l, p]) => {
-        localStorage.setItem("penguin.lang", l);
-        localStorage.setItem("penguin.themeId", "modern");
-        localStorage.setItem("penguin.theme", "light");
-        localStorage.setItem("penguin.lastProjectId", p);
-        localStorage.setItem("penguin.dock.launcherHidden", "1");
+        localStorage.setItem("wafh.lang", l);
+        localStorage.setItem("wafh.themeId", "modern");
+        localStorage.setItem("wafh.theme", "light");
+        localStorage.setItem("wafh.lastProjectId", p);
+        localStorage.setItem("wafh.dock.launcherHidden", "1");
       },
       [lang, projectId],
     );
@@ -398,7 +398,7 @@ async function shots() {
         await panel.scrollIntoViewIfNeeded();
         const clip = await clipAround(page, [panel], 16);
         await save(page, `agent-api-try-${lang}.png`, clip);
-        await save(page, `penguinharness-0-2-14-agent-api-${lang}.png`, clip);
+        await save(page, `waf-harness-0-2-14-agent-api-${lang}.png`, clip);
       }
       await debug(page, `tab-${lang}`);
     }

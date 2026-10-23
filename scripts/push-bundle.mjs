@@ -50,10 +50,10 @@ export function pushBundleOptions(entry, outfile) {
     // (test-browser.ts).
     external: ["playwright-core"],
     alias: {
-      "@prismshadow/penguin-core/kernel": require.resolve("@prismshadow/penguin-core/kernel"),
+      "@waterford/waf-harness-core/kernel": require.resolve("@waterford/waf-harness-core/kernel"),
     },
     // The pushed bundle lands under `<root>/hmr/store/`, outside any checkout, so its own
-    // revision has to be inlined here or it can never be recovered: `penguin version` from
+    // revision has to be inlined here or it can never be recovered: `wafh version` from
     // a hot-loaded CLI would otherwise report the bare version it was compiled from. This is
     // the same value the push records as `source`, reaching the target by a second route —
     // in the artifact itself rather than in harness.json.

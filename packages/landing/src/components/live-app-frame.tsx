@@ -20,7 +20,7 @@ import type { SyntheticEvent } from "react";
 import { S } from "../lib/strings";
 import { frameSize, gallerySurfaceUrl, liveFrameSrc } from "../lib/live-frame";
 import type { SurfaceId } from "../lib/live-frame";
-import { useSiteTheme } from "@prismshadow/penguin-ui/site";
+import { useSiteTheme } from "@waterford/waf-harness-ui/site";
 import { LOCALE } from "../lib/locale";
 import { BrowserFrame } from "./browser-frame";
 import { ArrowUpRightIcon } from "./icons";

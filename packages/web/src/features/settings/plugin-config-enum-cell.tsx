@@ -7,7 +7,7 @@
  * picks, Esc closes this menu only, not an enclosing dialog.
  */
 import { useState } from "react";
-import { Dropdown, Menu, MenuRadioItem } from "@prismshadow/penguin-ui";
+import { Dropdown, Menu, MenuRadioItem } from "@waterford/waf-harness-ui";
 
 export interface EnumCellOption {
   value: string;

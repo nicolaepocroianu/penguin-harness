@@ -29,7 +29,7 @@
  *   layout.
  */
 import { describe, expect, it } from "vitest";
-import type { DirEntryInfo, DirListResponse, DirLocation } from "@prismshadow/penguin-server/api";
+import type { DirEntryInfo, DirListResponse, DirLocation } from "@waterford/waf-harness-server/api";
 import {
   EMPTY_HISTORY,
   NO_EDITS,
@@ -508,7 +508,7 @@ describe("a folder the server may not read", () => {
 });
 
 describe("the footer's no-folder button", () => {
-  const stateDir = "/home/me/.penguin/data/default_project/agents/writer/agent_state";
+  const stateDir = "/home/me/.waf-harness/data/default_project/agents/writer/agent_state";
   const base = { offered: true, stateDir: null, machine: null };
 
   it("is there whenever the host offers no folder", () => {
@@ -518,7 +518,7 @@ describe("the footer's no-folder button", () => {
 
   it("names the folder a temporary Workspace would get, in its tooltip", () => {
     expect(clearButton({ ...base, stateDir })).toEqual({
-      fullPath: "/home/me/.penguin/data/default_project/agents/writer/workspaces/tmp-…",
+      fullPath: "/home/me/.waf-harness/data/default_project/agents/writer/workspaces/tmp-…",
     });
   });
 
@@ -528,8 +528,8 @@ describe("the footer's no-folder button", () => {
   });
 
   it("keeps a Windows path's separator, and names nothing for an unknown layout", () => {
-    expect(tempWorkspacePath("C:\\Users\\me\\.penguin\\data\\p\\agents\\a\\agent_state")).toBe(
-      "C:\\Users\\me\\.penguin\\data\\p\\agents\\a\\workspaces\\tmp-…",
+    expect(tempWorkspacePath("C:\\Users\\me\\.waf-harness\\data\\p\\agents\\a\\agent_state")).toBe(
+      "C:\\Users\\me\\.waf-harness\\data\\p\\agents\\a\\workspaces\\tmp-…",
     );
     expect(tempWorkspacePath("/srv/agents/a/state")).toBeNull();
     expect(tempWorkspacePath("/")).toBeNull();

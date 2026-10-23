@@ -93,19 +93,19 @@ describe("the report", () => {
     const proxy = machinesProxy(async () => ({
       agent: new http.Agent(),
       port,
-      cookie: "penguin_session=minted",
+      cookie: "wafh_session=minted",
       adoptedAt: null,
       session: 1,
     }));
     await proxy(
       new Request(`http://app.local${SERVER_PROXY_PREFIX}${A}/api/me`, {
-        headers: { authorization: "Bearer this-server's-token", cookie: "penguin_session=local" },
+        headers: { authorization: "Bearer this-server's-token", cookie: "wafh_session=local" },
       }),
     );
 
     expect(got).not.toBeNull();
     expect(got!.authorization).toBeUndefined();
-    expect(got!.cookie).toBe("penguin_session=minted");
+    expect(got!.cookie).toBe("wafh_session=minted");
   });
 
   it("tells the machine when this server adopted it, and never passes on a caller's own word for it", async () => {
@@ -113,18 +113,18 @@ describe("the report", () => {
     // admins: it is this server's record, set from that record or not at all.
     const heard: (string | string[] | undefined)[] = [];
     upstream = http.createServer((req, res) => {
-      heard.push(req.headers["x-penguin-adopted-at"]);
+      heard.push(req.headers["x-wafh-adopted-at"]);
       res.statusCode = 200;
       res.end("{}");
     });
     const port = await new Promise<number>((resolve) =>
       upstream!.listen(0, "127.0.0.1", () => resolve((upstream!.address() as AddressInfo).port)),
     );
-    const forged = { headers: { "x-penguin-adopted-at": "2099-01-01T00:00:00.000Z" } };
+    const forged = { headers: { "x-wafh-adopted-at": "2099-01-01T00:00:00.000Z" } };
     const adopted = machinesProxy(async () => ({
       agent: new http.Agent(),
       port,
-      cookie: "penguin_session=x",
+      cookie: "wafh_session=x",
       adoptedAt: "2026-10-15T08:00:00.000Z",
       session: 1,
     }));
@@ -132,7 +132,7 @@ describe("the report", () => {
     const unrecorded = machinesProxy(async () => ({
       agent: new http.Agent(),
       port,
-      cookie: "penguin_session=x",
+      cookie: "wafh_session=x",
       adoptedAt: null,
       session: 1,
     }));
@@ -148,7 +148,7 @@ describe("the report", () => {
       async () => ({
         agent: new http.Agent(),
         port,
-        cookie: "penguin_session=x",
+        cookie: "wafh_session=x",
         adoptedAt: null,
         session: 1,
       }),
@@ -168,7 +168,7 @@ describe("the report", () => {
       async () => ({
         agent: new http.Agent(),
         port,
-        cookie: "penguin_session=x",
+        cookie: "wafh_session=x",
         adoptedAt: null,
         session: 1,
       }),
@@ -224,7 +224,7 @@ describe("a caller that gives up", () => {
       async () => ({
         agent: new http.Agent(),
         port,
-        cookie: "penguin_session=x",
+        cookie: "wafh_session=x",
         adoptedAt: null,
         session: 1,
       }),
@@ -254,7 +254,7 @@ describe("a caller that gives up", () => {
     const proxy = machinesProxy(async () => ({
       agent: new http.Agent(),
       port,
-      cookie: "penguin_session=x",
+      cookie: "wafh_session=x",
       adoptedAt: null,
       session: 1,
     }));

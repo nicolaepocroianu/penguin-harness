@@ -50,16 +50,16 @@ describe("loadAgentState id validation", () => {
   let prevHome: string | undefined;
 
   beforeEach(async () => {
-    prevHome = process.env.PENGUIN_HOME;
-    tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-validate-id-"));
-    process.env.PENGUIN_HOME = tmpRoot;
+    prevHome = process.env.WAFH_HOME;
+    tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-validate-id-"));
+    process.env.WAFH_HOME = tmpRoot;
   });
 
   afterEach(async () => {
     if (prevHome === undefined) {
-      delete process.env.PENGUIN_HOME;
+      delete process.env.WAFH_HOME;
     } else {
-      process.env.PENGUIN_HOME = prevHome;
+      process.env.WAFH_HOME = prevHome;
     }
     await fs.rm(tmpRoot, { recursive: true, force: true });
   });

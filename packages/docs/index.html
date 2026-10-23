@@ -7,26 +7,26 @@
     <meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)" />
     <meta
       name="description"
-      content="PenguinHarness documentation — architecture, the OmniMessage protocol, SDK interfaces, CLI and Server API reference."
+      content="WAF Harness documentation — architecture, the OmniMessage protocol, SDK interfaces, CLI and Server API reference."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="PenguinHarness Docs" />
+    <meta property="og:title" content="WAF Harness Docs" />
     <meta
       property="og:description"
-      content="Documentation for PenguinHarness — architecture, the OmniMessage protocol, SDK interfaces, CLI and Server API reference."
+      content="Documentation for WAF Harness — architecture, the OmniMessage protocol, SDK interfaces, CLI and Server API reference."
     />
     <meta name="twitter:card" content="summary" />
-    <link rel="icon" type="image/svg+xml" href="/penguin-logo.svg" />
-    <title>PenguinHarness Docs</title>
+    <link rel="icon" type="image/svg+xml" href="/wafh-logo.svg" />
+    <title>WAF Harness Docs</title>
     <!-- Apply the stored/system theme before first paint so the page doesn't flash the
          wrong background while React boots. Reads the key shared with the sibling site
-         (see site-prefs.ts in @prismshadow/penguin-ui/site), falling back to the retired per-site keys. -->
+         (see site-prefs.ts in @waterford/waf-harness-ui/site), falling back to the retired per-site keys. -->
     <script>
       try {
         var m =
-          localStorage.getItem("penguin-site.theme") ||
-          localStorage.getItem("penguin-landing.theme") ||
-          localStorage.getItem("penguin-docs.theme");
+          localStorage.getItem("wafh-site.theme") ||
+          localStorage.getItem("wafh-landing.theme") ||
+          localStorage.getItem("wafh-docs.theme");
         if (m === "dark" || (m !== "light" && matchMedia("(prefers-color-scheme: dark)").matches))
           document.documentElement.classList.add("dark");
       } catch {}

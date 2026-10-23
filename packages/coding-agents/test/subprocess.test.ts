@@ -10,7 +10,7 @@ import { AcpConnection, type SpawnProcess } from "../src/connection.js";
 import { CodingAgentManager } from "../src/manager.js";
 import { AcpAgentError } from "../src/types.js";
 
-const CLIENT_INFO = { name: "penguin-test", version: "0.0.0" };
+const CLIENT_INFO = { name: "wafh-test", version: "0.0.0" };
 const HANDLERS = {
   onEvent: () => undefined,
   onPermissionRequest: async () => ({ outcome: { outcome: "cancelled" } as const }),

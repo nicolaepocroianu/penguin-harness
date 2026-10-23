@@ -1,9 +1,9 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { SandboxBuildReport, SandboxStatus } from "@prismshadow/penguin-server/api";
+import type { SandboxBuildReport, SandboxStatus } from "@waterford/waf-harness-server/api";
 import { StateMapView } from "./state-map-view";
 import { S } from "../../lib/strings";
 import { toneStrip } from "../../lib/tone";
-import { Button, GlyphIcon, ICON_SIZE, ICONS, Select } from "@prismshadow/penguin-ui";
+import { Button, GlyphIcon, ICON_SIZE, ICONS, Select } from "@waterford/waf-harness-ui";
 import { PREVIEW_RESOLUTIONS, fitScale, parseResolution, sceneIds } from "./preview";
 import { useActivityClient } from "./activity-client";
 import { playUrl } from "./sandbox";

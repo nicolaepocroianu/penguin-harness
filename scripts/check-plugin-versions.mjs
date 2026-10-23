@@ -4,15 +4,15 @@
  * dated version. A plugin's own version is its npm version (package.json, bumped by the release);
  * the dated versions — `YYYY.MM.DD.N` — sit on the parts an install writes into an Agent and the
  * Agent may then edit: each Skill's `SKILL.md` frontmatter `version`, the hook package's
- * `penguin.hooks.version`, and each workbench's `penguin.version` in its `package.json`.
+ * `wafh.hooks.version`, and each workbench's `wafh.version` in its `package.json`.
  * That version is what tells an installed copy it is
  * behind the library (the Agents page's update flag and the Plugins page read it), so a content
  * change shipped under the old version is invisible to every user until the next unrelated bump.
  *
  *   - a change under `plugins/<p>/skills/<s>/` needs that skill's `version` changed;
- *   - a change under `plugins/<p>/workbenches/<w>/` needs its `penguin.version` changed;
+ *   - a change under `plugins/<p>/workbenches/<w>/` needs its `wafh.version` changed;
  *   - a change under `plugins/<p>/hooks/`, or to the commands of package.json's
- *     `penguin.hooks`, needs `penguin.hooks.version` changed;
+ *     `wafh.hooks`, needs `wafh.hooks.version` changed;
  *   - the rest of `package.json`, `README.md` and `icon.svg` reach no installed copy and need
  *     nothing; neither does a change to a SKILL.md's `version` line alone.
  *
@@ -167,11 +167,11 @@ for (const name of plugins) {
   const baseManifest = json(atBase(manifestFile));
   /** The hook declaration at the base. */
   const before =
-    baseManifest?.penguin !== undefined
-      ? (baseManifest.penguin.hooks ?? null)
+    baseManifest?.wafh !== undefined
+      ? (baseManifest.wafh.hooks ?? null)
       : // The base may predate the move to package.json; drop once main carries no plugin.json.
         (json(atBase(`${dir}/plugin.json`))?.hooks ?? null);
-  const after = head?.penguin?.hooks ?? null;
+  const after = head?.wafh?.hooks ?? null;
 
   for (const workbench of new Set(
     changed
@@ -181,10 +181,10 @@ for (const name of plugins) {
     const file = `${dir}/workbenches/${workbench}/package.json`;
     const now = json(atHead(file));
     if (now === null) continue;
-    const version = now.penguin?.version;
-    const previous = json(atBase(file))?.penguin?.version;
+    const version = now.wafh?.version;
+    const previous = json(atBase(file))?.wafh?.version;
     if (typeof version !== "string" || !DATED.test(version))
-      problems.push(`${file}: penguin.version must be YYYY.MM.DD.N`);
+      problems.push(`${file}: wafh.version must be YYYY.MM.DD.N`);
     else if (version === previous)
       problems.push(`${dir}/workbenches/${workbench} changed but its version is still ${version}`);
     else bumped.push(`${name}/${workbench}`);
@@ -232,9 +232,9 @@ for (const name of plugins) {
   if (hooksChanged && head !== null && existsSync(`${dir}/hooks`)) {
     const version = after?.version;
     if (typeof version !== "string" || !DATED.test(version)) {
-      problems.push(`${manifestFile}: penguin.hooks.version must be YYYY.MM.DD.N, got ${version}`);
+      problems.push(`${manifestFile}: wafh.hooks.version must be YYYY.MM.DD.N, got ${version}`);
     } else if (typeof before?.version === "string" && before.version === version) {
-      problems.push(`${dir}/hooks changed but penguin.hooks.version is still ${version}`);
+      problems.push(`${dir}/hooks changed but wafh.hooks.version is still ${version}`);
     } else {
       bumped.push(`${name} hooks`);
     }

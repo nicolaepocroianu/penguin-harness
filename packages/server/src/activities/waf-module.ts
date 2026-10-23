@@ -24,7 +24,7 @@ import {
   ACCEPTANCE_TEST_FILE,
   HARNESS_API,
 } from "./acceptance-harness.js";
-import { libraryPlugin, type LibrarySkill } from "@prismshadow/penguin-core";
+import { libraryPlugin, type LibrarySkill } from "@waterford/waf-harness-core";
 import {
   behaviorPath,
   implementationSkills,
@@ -377,7 +377,7 @@ const BOOK_SKILL = "waf-book-generation";
  * `skills/README.md` listing them in the order the run reads them — Loom's `.skills/` vendoring.
  *
  * Staged as files rather than installed on an agent because a coding agent runs the stage as a
- * Session of its own and never sees a Penguin agent's installed skills. A missing skill fails
+ * Session of its own and never sees a WAF Harness agent's installed skills. A missing skill fails
  * the run before a paid Session starts: without the contract the agent would guess at the API.
  */
 export async function stageSkills(

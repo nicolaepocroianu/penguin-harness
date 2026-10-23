@@ -47,32 +47,32 @@ import {
 import { BUILTIN_BENCHMARKS } from "../src/state/builtin-benchmarks-data.js";
 
 const BUILTIN_IDS = [
-  "penguinharness-benchmark-sec-a",
-  "penguinharness-benchmark-sec-b",
-  "penguinharness-benchmark-sec-c",
-  "penguinharness-benchmark-sec-d",
-  "penguinharness-benchmark-sec-e",
-  "penguinharness-benchmark-gdpevo-train",
-  "penguinharness-benchmark-gdpevo-test",
+  "waf-harness-benchmark-sec-a",
+  "waf-harness-benchmark-sec-b",
+  "waf-harness-benchmark-sec-c",
+  "waf-harness-benchmark-sec-d",
+  "waf-harness-benchmark-sec-e",
+  "waf-harness-benchmark-gdpevo-train",
+  "waf-harness-benchmark-gdpevo-test",
 ];
 
 let tmpRoot: string;
 let prevHome: string | undefined;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-builtin-bench-"));
-  process.env.PENGUIN_HOME = tmpRoot;
+  prevHome = process.env.WAFH_HOME;
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-builtin-bench-"));
+  process.env.WAFH_HOME = tmpRoot;
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.PENGUIN_HOME;
-  else process.env.PENGUIN_HOME = prevHome;
+  if (prevHome === undefined) delete process.env.WAFH_HOME;
+  else process.env.WAFH_HOME = prevHome;
   await fs.rm(tmpRoot, { recursive: true, force: true });
 });
 
-const GDPEVO_TRAIN = "penguinharness-benchmark-gdpevo-train";
-const GDPEVO_TEST = "penguinharness-benchmark-gdpevo-test";
+const GDPEVO_TRAIN = "waf-harness-benchmark-gdpevo-train";
+const GDPEVO_TEST = "waf-harness-benchmark-gdpevo-test";
 
 const dir = () => benchmarksDir(tmpRoot, DEFAULT_PROJECT_ID);
 const provision = (builtins?: readonly BuiltinBenchmark[]) =>

@@ -52,7 +52,7 @@
 import type { PanelId } from "./panel-registry";
 import { foldLegacyTerminalTabs } from "./legacy-terminal-tabs";
 
-const LAYOUT_KEY = "penguin.dock.layout";
+const LAYOUT_KEY = "wafh.dock.layout";
 /** Scopes kept in storage; past that, the least recently touched conversations age out. */
 const MAX_SCOPES = 40;
 

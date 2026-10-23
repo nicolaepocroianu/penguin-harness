@@ -5,7 +5,7 @@
  * the dock's menus ask whether to offer the browser at all, and the conversation's link menu
  * where a link would open.
  */
-import type { BrowserBackend } from "@prismshadow/penguin-server/api";
+import type { BrowserBackend } from "@waterford/waf-harness-server/api";
 import {
   INITIAL_BROWSER_STATE,
   browserOffered,

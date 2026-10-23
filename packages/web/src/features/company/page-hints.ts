@@ -32,7 +32,7 @@ export function hintKey(
   orgId: string,
   page: HintPage,
 ): string {
-  return `penguin.orgPageHint.${userId ?? ""}.${projectId}.${orgId}.${page}`;
+  return `wafh.orgPageHint.${userId ?? ""}.${projectId}.${orgId}.${page}`;
 }
 
 /** Whether this hint has been dismissed. Anything unreadable (private browsing, a cleared bucket) reads as "no". */

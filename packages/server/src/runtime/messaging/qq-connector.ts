@@ -92,8 +92,15 @@ import type {
 } from "./qq-api.js";
 import { QQ_BODY_INDEPENDENT_SEND_CODES, QQApiError, createQQTransport } from "./qq-api.js";
 import { qqMarkdownOf } from "./qq-markdown.js";
-import { Bind, Component, Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
-import type { ClassCtx, Opaque } from "@prismshadow/penguin-core/kernel";
+import {
+  Bind,
+  Component,
+  Interface,
+  Module,
+  Provide,
+  Use,
+} from "@waterford/waf-harness-core/kernel";
+import type { ClassCtx, Opaque } from "@waterford/waf-harness-core/kernel";
 import type { Clock } from "../../hmr/capabilities.js";
 
 /** The QQ binding's stored config document (`messaging_bindings.config_json`). */

@@ -1,6 +1,6 @@
-# Contributing to PenguinHarness
+# Contributing to WAF Harness
 
-Thanks for helping build PenguinHarness! This guide covers the workspace setup, daily
+Thanks for helping build WAF Harness! This guide covers the workspace setup, daily
 commands, quality gates, and the repo's working rules.
 
 Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md). A security
@@ -23,7 +23,7 @@ pnpm dev:server  # backend at 127.0.0.1:7368 (not the installed server's 7364)
 pnpm dev:web     # web app (Vite) at 127.0.0.1:7365, /api proxied to 7368
 pnpm dev:docs    # docs site (Vite) at 127.0.0.1:7367
 pnpm dev:landing # landing page (Vite) at 127.0.0.1:7366
-pnpm penguin ... # CLI from source; `penguin web` serves at 127.0.0.1:7369
+pnpm wafh ... # CLI from source; `wafh web` serves at 127.0.0.1:7369
 pnpm desktop     # desktop app from source (builds everything first, then Electron)
 
 BASE_PATH=/ pnpm build:site   # assemble landing + docs + gallery exactly like the Pages deploy
@@ -41,11 +41,11 @@ otherwise keep serving the browser the previous core. `dev:docs` / `dev:landing`
 run the install check only (`--install-only`).
 
 The prestep also builds `packages/cli`, because a dev server hands the Agents it runs the
-CLI of the checkout it was started from: it writes a launcher at `<root>/bin/penguin`
-pointing at `packages/cli/dist/penguin.js` and puts that directory at the front of every
+CLI of the checkout it was started from: it writes a launcher at `<root>/bin/wafh`
+pointing at `packages/cli/dist/wafh.js` and puts that directory at the front of every
 command's PATH. Nothing rebuilds that file while a dev server runs — `tsx watch` covers the
 server's own sources only — so after editing the CLI, run
-`pnpm --filter @prismshadow/penguin-cli build` (or restart `pnpm dev`) before asking an
+`pnpm --filter @waterford/waf-harness-cli build` (or restart `pnpm dev`) before asking an
 Agent to use it.
 
 One rule when bypassing the dev commands: **rebuild skills/core through pnpm, in that
@@ -64,58 +64,58 @@ skill, a changed SKILL.md, a changed `package.json` — is live in `pnpm dev` an
 suites at once. A plugin's own version is its npm version (`package.json`, bumped by the
 release); the date versions (`YYYY.MM.DD.N`) sit on the parts an install writes into an Agent.
 Any change under `skills/<name>/` must raise that skill's `version` in its SKILL.md
-frontmatter, and any change to the hook scripts or the `penguin.hooks` commands must raise
-`penguin.hooks.version` in `package.json`: those versions are how installed copies learn they are
+frontmatter, and any change to the hook scripts or the `wafh.hooks` commands must raise
+`wafh.hooks.version` in `package.json`: those versions are how installed copies learn they are
 behind, and CI fails a pull request that changed a part without raising it
 (`scripts/check-plugin-versions.mjs`).
 
 Dev entry points that touch data default to separate data roots, kept apart from the
-installed CLI/server's `~/.penguin/data` — hacking on the repo never mixes state with
+installed CLI/server's `~/.waf-harness/data` — hacking on the repo never mixes state with
 your real agents. `pnpm dev`, `pnpm dev:server` and `pnpm desktop` share
-`~/.penguin/dev-data`; `pnpm penguin` takes its own `~/.penguin/dev-data-cli`, because a
+`~/.waf-harness/dev-data`; `pnpm wafh` takes its own `~/.waf-harness/dev-data-cli`, because a
 data root admits one server at a time (`<root>/server.lock`) and the dev CLI's
-`penguin web` is exactly the harness that then asks an Agent to run `pnpm dev` — on a
+`wafh web` is exactly the harness that then asks an Agent to run `pnpm dev` — on a
 shared root that Agent's `dev:server` would refuse to start, blocked by the harness's
 own lock (the same coexistence that already gives it port 7369, see
 `packages/core/src/internal/ports.ts`). To aim a dev CLI command at the `pnpm dev`
-dataset anyway, say so per command — `PENGUIN_HOME=~/.penguin/dev-data pnpm penguin ...`,
+dataset anyway, say so per command — `WAFH_HOME=~/.waf-harness/dev-data pnpm wafh ...`,
 or `--root` where the subcommand takes it. Need a different root?
-Pass `PENGUIN_HOME` inline, for the single
-command that needs it (`PENGUIN_HOME=~/.penguin/dev-data-<topic> pnpm dev`) — never export
+Pass `WAFH_HOME` inline, for the single
+command that needs it (`WAFH_HOME=~/.waf-harness/dev-data-<topic> pnpm dev`) — never export
 it into your shell: those defaults apply only when the variable is unset or empty
 (`scripts/run-with-env.mjs`), so an exported value silently wins over all of them, and an
-exported `PENGUIN_HOME=~/.penguin/data` puts `pnpm dev:server` on the release/CLI root
+exported `WAFH_HOME=~/.waf-harness/data` puts `pnpm dev:server` on the release/CLI root
 where a running desktop app already holds the lock. The desktop dev shell isolates one
-step further: an unpackaged run takes a dev-suffixed app identity (`PenguinHarness-Dev`)
+step further: an unpackaged run takes a dev-suffixed app identity (`WAF Harness Dev`)
 with its own userData directory, single-instance lock, and sticky port, and defaults to
-`~/.penguin/dev-data` even when launched without the env var
+`~/.waf-harness/dev-data` even when launched without the env var
 (`pnpm --dir packages/desktop start`) — so it runs side by side with an installed release
 build, with neither instance seeing the other. Every dev-profile launch prints which pair
 it picked: `[shell] dev instance '<name>' on data root <root>`.
 
 That dev profile is a switch, not a property of being unpackaged: an installed release
 build launched with `--dev` (a second shortcut whose target ends in `--dev`, or
-`PenguinHarness.exe --dev`) takes the same dev identity and `~/.penguin/dev-data`, so one
+`WAF Harness.exe --dev`) takes the same dev identity and `~/.waf-harness/dev-data`, so one
 installation runs twice side by side — the release instance on your real data and a
 second one on a scratch root — without a checkout. It runs the release's own code, so it
 is a way to try the app against separate data, not a way to see uncommitted changes. A
-`--dev` instance does not update itself and does not repair the `penguin` command link;
+`--dev` instance does not update itself and does not repair the `wafh` command link;
 both belong to the one installation the two instances share, and the release instance
 does them. The profile also reaches other machines: the shell passes it to its server as
-`PENGUIN_PROFILE`, and the Machines page then works with the machine's installation for
-that profile — `~/.penguin-dev` on port 7371 for dev, beside the release one — so a dev
+`WAFH_PROFILE`, and the Machines page then works with the machine's installation for
+that profile — `~/.waf-harness-dev` on port 7371 for dev, beside the release one — so a dev
 instance never touches the release server someone is using there
 (`packages/server/src/machines/layout.ts`).
 
 Two one-time moves came with that split. A bare `pnpm --dir packages/desktop start` used
-to run on `~/.penguin/data` (the release/CLI root) and now runs on `~/.penguin/dev-data`,
+to run on `~/.waf-harness/data` (the release/CLI root) and now runs on `~/.waf-harness/dev-data`,
 so sessions made that way are no longer in the window — run it with
-`PENGUIN_HOME=~/.penguin/data` to work against the release root on purpose. And the dev
+`WAFH_HOME=~/.waf-harness/data` to work against the release root on purpose. And the dev
 shell's userData directory moved with its name, taking the Chromium profile along, so the
 window's origin-scoped preferences (theme, language, layout) and its remembered port
 start fresh once. Note the identity is one fixed name, not one per checkout: two working
 copies both running the desktop shell still share it, and the second launch focuses the
-first one's window instead of opening its own — a distinct `PENGUIN_HOME` does not change
+first one's window instead of opening its own — a distinct `WAFH_HOME` does not change
 that, because it moves the data root, not the identity.
 
 Copy `.env.example` to `.env` for model credentials in development.
@@ -123,23 +123,23 @@ Copy `.env.example` to `.env` for model credentials in development.
 ## Repo layout
 
 A pnpm monorepo (TypeScript, Node >= 24). One install ships four layers that share a
-single data directory (`~/.penguin/data`) and a single message protocol (OmniMessage):
+single data directory (`~/.waf-harness/data`) and a single message protocol (OmniMessage):
 
 | Package                                   | Name                          | Role                                                                                                    |
 | ----------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [`packages/core`](../packages/core)       | `@prismshadow/penguin-core`   | SDK & engine: ReAct loop, OmniMessage protocol, LLM/Environment interface contracts, Agent State, Trace |
-| [`packages/cli`](../packages/cli)         | `@prismshadow/penguin-cli`    | The `penguin` command: REPL, one-shot runs, model & vault config, service launcher                      |
-| [`packages/server`](../packages/server)   | `@prismshadow/penguin-server` | Web backend: HTTP API + SSE streaming, multi-user auth, Project authorization, usage stats              |
-| [`packages/amsp`](../packages/amsp) | `@prismshadow/amsp` | AMSP, the Agent API's event stream: its wire types, which the server imports, and a zero-dependency client for Node and browsers |
-| [`packages/web`](../packages/web)         | `@prismshadow/penguin-web`    | Web App: multi-session chat, Agent/skill/model management, Trace observability, evaluation center       |
-| [`plugins/*`](../plugins) | `@penguinharness/<name>` | The built-in plugins, one npm package each (`plugins/<name>` is `@penguinharness/<name>`): Agent plugins — skills (software development, model development, agent development/tuning, …) and session hooks (goal mode, skill summaries) — which `packages/core` depends on and loads; and server plugins a Project asks for on the Plugins page (its `[plugins]` table), such as the sandbox backends |
+| [`packages/core`](../packages/core)       | `@waterford/waf-harness-core`   | SDK & engine: ReAct loop, OmniMessage protocol, LLM/Environment interface contracts, Agent State, Trace |
+| [`packages/cli`](../packages/cli)         | `@waterford/waf-harness-cli`    | The `wafh` command: REPL, one-shot runs, model & vault config, service launcher                      |
+| [`packages/server`](../packages/server)   | `@waterford/waf-harness-server` | Web backend: HTTP API + SSE streaming, multi-user auth, Project authorization, usage stats              |
+| [`packages/amsp`](../packages/amsp) | `@waterford/waf-harness-amsp` | AMSP, the Agent API's event stream: its wire types, which the server imports, and a zero-dependency client for Node and browsers |
+| [`packages/web`](../packages/web)         | `@waterford/waf-harness-web`    | Web App: multi-session chat, Agent/skill/model management, Trace observability, evaluation center       |
+| [`plugins/*`](../plugins) | `@waf-harness/<name>` | The built-in plugins, one npm package each (`plugins/<name>` is `@waf-harness/<name>`): Agent plugins — skills (software development, model development, agent development/tuning, …) and session hooks (goal mode, skill summaries) — which `packages/core` depends on and loads; and server plugins a Project asks for on the Plugins page (its `[plugins]` table), such as the sandbox backends |
 | [`packages/landing`](../packages/landing) | —                             | Product landing page (this repo's website)                                                              |
 | [`packages/docs`](../packages/docs)       | —                             | Documentation site (deployed under `/docs/`)                                                 |
-| [`packages/browser-extension`](../packages/browser-extension) | — | PenguinHarness Browser: the Chrome extension through which the server drives the tabs a user hands it (released as a zip) |
+| [`packages/browser-extension`](../packages/browser-extension) | — | WAF Harness Browser: the Chrome extension through which the server drives the tabs a user hands it (released as a zip) |
 
 Responsibilities split by source of truth: the **SDK** owns protocol and execution
 (message parsing, the agent loop, tools), the **Server** owns the multi-user runtime
-(auth, SSE streaming, scheduled tasks), and the **file layer** under `~/.penguin/data`
+(auth, SSE streaming, scheduled tasks), and the **file layer** under `~/.waf-harness/data`
 owns everything editable and recorded (prompts, Skills, secrets, Traces). The full map
 is in [Architecture → Division of responsibilities](https://penguin.ooo/docs/architecture).
 
@@ -176,7 +176,7 @@ pnpm typecheck
 pnpm test           # unit suites for every package
 ```
 
-Working on this repo with a coding agent: [`.agents/skills/penguin-harness-dev/`](../.agents/skills/penguin-harness-dev/SKILL.md)
+Working on this repo with a coding agent: [`.agents/skills/waf-harness-dev/`](../.agents/skills/waf-harness-dev/SKILL.md)
 collects the conventions that are easy to get wrong from the outside — the two-repo symlink
 layout, the CI-parity chain, the record-and-ship contract, the model catalog's pricing rules,
 and the seams that are intentional. `.claude` is a symlink to `.agents`, so a Claude Code
@@ -186,8 +186,8 @@ End-to-end suites (optional locally, slower):
 
 ```bash
 npx playwright install chromium                      # once
-pnpm --filter @prismshadow/penguin-web test:e2e      # browser e2e against a mock LLM
-pnpm --filter @prismshadow/penguin-web test:e2e smoke.spec.mjs project-switch.spec.mjs sticky-rows.spec.mjs  # what CI runs
+pnpm --filter @waterford/waf-harness-web test:e2e      # browser e2e against a mock LLM
+pnpm --filter @waterford/waf-harness-web test:e2e smoke.spec.mjs project-switch.spec.mjs sticky-rows.spec.mjs  # what CI runs
 pnpm test:e2e                                        # core live-model e2e, needs DEEPSEEK_API_KEY
 ```
 
@@ -240,9 +240,9 @@ pnpm test:e2e                                        # core live-model e2e, need
 ## Reporting a bug or proposing a feature
 
 Open an issue from the [issue forms](https://github.com/Prism-Shadow/penguin-harness/issues/new/choose).
-A bug report is worth far more with the version (`penguin version`), how PenguinHarness
+A bug report is worth far more with the version (`wafh version`), how WAF Harness
 was installed, the OS, and whether the problem survives a fresh data root
-(`PENGUIN_HOME=/tmp/penguin-check penguin ...`) — that last one separates a code defect
+(`WAFH_HOME=/tmp/wafh-check wafh ...`) — that last one separates a code defect
 from a state left behind by an earlier version. Never paste an API key, a bot token,
 `system_config.yaml`, or a `.env` into an issue: the data root holds provider credentials
 in plain text, and an issue is public and permanent.

@@ -29,7 +29,7 @@ export type InvalidReason =
 /** What decided how a side's agent worked: the commit, the agent, and who answered. */
 export interface RecipeId {
   sha: string;
-  /** The Penguin agent the Stages ran as. */
+  /** The WAF Harness agent the Stages ran as. */
   testAgent: string;
   runtime: Runtime;
   /** What answered, as the ledger names it (`agent:<provider>/<model>`); null until known. */

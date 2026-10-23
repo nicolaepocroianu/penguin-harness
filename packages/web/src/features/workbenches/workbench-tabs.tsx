@@ -10,8 +10,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import type { WorkbenchInfo, WorkbenchVersion } from "@prismshadow/penguin-server/api";
-import { Button, ConfirmModal, NoticeStrip } from "@prismshadow/penguin-ui";
+import type { WorkbenchInfo, WorkbenchVersion } from "@waterford/waf-harness-server/api";
+import { Button, ConfirmModal, NoticeStrip } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { formatDateTime } from "../../lib/format";
 import { useShortcutLabel } from "../../lib/shortcuts/use-keymap";
@@ -314,7 +314,7 @@ export function WorkbenchFrame({
   };
 
   // Filling the app: the bar's button, or the page asking for it itself
-  // (`parent.postMessage({ type: "penguin:fill-app" }, "*")`) — only from our own frame.
+  // (`parent.postMessage({ type: "wafh:fill-app" }, "*")`) — only from our own frame.
   const navigate = useNavigate();
   const location = useLocation();
   const paletteShortcut = useShortcutLabel("palette.toggle");

@@ -23,7 +23,7 @@
  * decoded in Chromium and compared exactly (threshold 0) — any differing pixel fails, and a diff
  * image with the differing pixels in red is written for inspection. Exit code 1 on any difference.
  *
- * Prereqs: `pnpm --filter "@prismshadow/penguin-server..." build`, each variant's web dist, and
+ * Prereqs: `pnpm --filter "@waterford/waf-harness-server..." build`, each variant's web dist, and
  * Playwright's Chromium. Local only; never committed output.
  */
 import http from "node:http";
@@ -50,7 +50,7 @@ const MOCK_PORT = SRV_PORT + 1;
 // answers 401 on it.
 const BASE = `http://localhost:${SRV_PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
-const ADMIN_PASSWORD = "penguin-0000";
+const ADMIN_PASSWORD = "wafh-0000";
 // THEME_SHOTS_LANGS / THEME_SHOTS_MODES / THEME_SHOTS_PAGES (comma lists) narrow a run while
 // investigating one difference; a verdict is only ever the full matrix.
 const LANGS = process.env.THEME_SHOTS_LANGS?.split(",") ?? ["en", "zh"];
@@ -233,7 +233,7 @@ const USERS = {
 async function provisionUser(adminCookie, lang, wsRoot) {
   const { userId, agents } = USERS[lang];
   const initial = `${userId}12345`;
-  const password = `penguin-${userId}-2026`;
+  const password = `wafh-${userId}-2026`;
   await api(adminCookie, "POST", "/api/admin/users", { userId, password: initial });
   let session = await login(userId, initial);
   // Rotate once so the initial-password banner stays out of the shots.
@@ -286,9 +286,9 @@ async function newContext(browser, { dist, lang, mode, user, fixedNow, reducedMo
   });
   await context.addInitScript(
     ([m, l]) => {
-      localStorage.setItem("penguin.theme", m);
-      localStorage.setItem("penguin.lang", l);
-      localStorage.setItem("penguin.dock.layout", JSON.stringify({ scopes: {}, bottomRatio: 0.6 }));
+      localStorage.setItem("wafh.theme", m);
+      localStorage.setItem("wafh.lang", l);
+      localStorage.setItem("wafh.dock.layout", JSON.stringify({ scopes: {}, bottomRatio: 0.6 }));
     },
     [mode, lang],
   );
@@ -472,17 +472,17 @@ async function capture(args) {
   const only = process.env.THEME_SHOTS_PAGES?.split(",");
   const pages = only ? PAGES.filter((p) => only.includes(p.id)) : PAGES;
 
-  const dataRoot = mkdtempSync(path.join(os.tmpdir(), "penguin-theme-shots-"));
+  const dataRoot = mkdtempSync(path.join(os.tmpdir(), "wafh-theme-shots-"));
   const mock = await startMock();
   const srv = spawn("node", [path.join(ROOT, "packages/server/dist/index.js")], {
     env: {
       ...process.env,
-      PENGUIN_HOME: path.join(dataRoot, "home"),
-      PENGUIN_WEB_DB: path.join(dataRoot, "web.db"),
-      PENGUIN_WEB_DIST: variants[0].dist,
+      WAFH_HOME: path.join(dataRoot, "home"),
+      WAFH_WEB_DB: path.join(dataRoot, "web.db"),
+      WAFH_WEB_DIST: variants[0].dist,
       PORT: String(SRV_PORT),
       HOST: "127.0.0.1",
-      PENGUIN_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
+      WAFH_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

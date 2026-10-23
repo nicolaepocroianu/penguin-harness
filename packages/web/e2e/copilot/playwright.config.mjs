@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 import { fileURLToPath } from "node:url";
-process.env.PENGUIN_COMPONENT_TEST = "1";
+process.env.WAFH_COMPONENT_TEST = "1";
 export default defineConfig({
   testDir: ".",
   testMatch: "copilot.spec.mjs",

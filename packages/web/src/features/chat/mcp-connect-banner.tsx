@@ -15,7 +15,7 @@
  * stays settled rather than failed — an Agent with such a server shows the row at the start of
  * every conversation, and a red mark there would be an alarm about nothing that went wrong.
  */
-import { ActivityGroup, DisclosureRow, StatusIcon } from "@prismshadow/penguin-ui";
+import { ActivityGroup, DisclosureRow, StatusIcon } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { humanizeDuration } from "../../lib/format";
 import type { McpConnectItem, McpServerOutcome, McpToolSummary } from "../../lib/omni/stream-model";

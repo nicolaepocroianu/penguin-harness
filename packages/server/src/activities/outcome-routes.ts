@@ -12,8 +12,8 @@
  *   GET /api/admin/activity-outcomes/projects
  *     → { projects }: the ids of the projects the ledger holds runs of.
  */
-import { isValidId } from "@prismshadow/penguin-core";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { isValidId } from "@waterford/waf-harness-core";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono, type Context } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import { HttpError } from "../http/errors.js";
@@ -36,7 +36,7 @@ const DIMENSIONS: readonly OutcomeDimension[] = [
   "prompt",
   "library",
   "harness",
-  "penguin",
+  "wafh",
 ];
 
 /** An optional query id; 400 when it is given and is not an id. */

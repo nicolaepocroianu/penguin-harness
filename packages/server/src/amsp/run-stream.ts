@@ -19,9 +19,9 @@
  * and an approval asked of a caller that went away would never be answered. A server failure
  * that ends the stream aborts it for the same reason.
  */
-import { imageUrlMessage, isValidId, userText } from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
-import type { AmspEvent, RunStarted } from "@prismshadow/amsp";
+import { imageUrlMessage, isValidId, userText } from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
+import type { AmspEvent, RunStarted } from "@waterford/waf-harness-amsp";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { Channels, Log } from "../hmr/capabilities.js";

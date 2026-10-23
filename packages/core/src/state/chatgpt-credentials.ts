@@ -33,7 +33,7 @@ function parseCredentials(value: unknown): ChatGPTCredentials {
 }
 
 /** Reloads on every request so disconnects and refresh rotations reach existing sessions.
- * Refreshes are serialized within this Penguin process. Separate processes must not share
+ * Refreshes are serialized within this WAF Harness process. Separate processes must not share
  * a subscription credential while refreshing it (the same single-server project convention).
  */
 export function projectChatGPTCredentials(

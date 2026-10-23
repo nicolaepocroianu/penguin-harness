@@ -16,7 +16,7 @@ import {
   nextFocusIndex,
   popEscLayer,
   pushEscLayer,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 
 describe("nextFocusIndex", () => {
   it("steps forward and wraps past the last element", () => {

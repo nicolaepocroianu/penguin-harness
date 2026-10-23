@@ -47,7 +47,7 @@ const RELEASE_RUNNING = {
   harness: HARNESS,
 };
 /** The plan that installs HARNESS, made as a server whose store holds it makes one. */
-const store = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-running-build-"));
+const store = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-running-build-"));
 fs.writeFileSync(
   path.join(store, "harness.json"),
   JSON.stringify({
@@ -75,7 +75,7 @@ describe("runningBuild", () => {
     // A source push recorded at a revision past the release is still another build.
     const pushed = {
       ...HARNESS,
-      source: { repo: "penguin-harness", revision: "v0.2.13-4-g9e8f7d6" },
+      source: { repo: "waf-harness", revision: "v0.2.13-4-g9e8f7d6" },
     };
     expect(runningBuild({ ...RELEASE_RUNNING, harness: pushed })).toMatchObject({ foreign: true });
   });
@@ -83,14 +83,14 @@ describe("runningBuild", () => {
   it("reads a release answering beside its own release's image as running it", () => {
     // The image a release ships is compiled from that release, and records it as its revision:
     // whichever of the two copies the runtime loaded, the code is that release's.
-    const own = { ...HARNESS, source: { repo: "penguin-harness", revision: "v0.2.13" } };
+    const own = { ...HARNESS, source: { repo: "waf-harness", revision: "v0.2.13" } };
     expect(runningBuild({ ...RELEASE_RUNNING, harness: own })).toMatchObject({
       release: "0.2.13",
       version: IMAGE.version,
       foreign: false,
     });
     // Another release's image is not.
-    const older = { ...HARNESS, source: { repo: "penguin-harness", revision: "v0.2.12" } };
+    const older = { ...HARNESS, source: { repo: "waf-harness", revision: "v0.2.12" } };
     expect(runningBuild({ ...RELEASE_RUNNING, harness: older })).toMatchObject({ foreign: true });
   });
 

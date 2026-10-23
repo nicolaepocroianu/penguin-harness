@@ -5,8 +5,8 @@
 import { useCallback, useMemo } from "react";
 import type { RefObject } from "react";
 import { useNavigate } from "react-router";
-import { SiteSearchDialog, useSiteLocale } from "@prismshadow/penguin-ui/site";
-import type { SiteSearchResult } from "@prismshadow/penguin-ui/site";
+import { SiteSearchDialog, useSiteLocale } from "@waterford/waf-harness-ui/site";
+import type { SiteSearchResult } from "@waterford/waf-harness-ui/site";
 import { S } from "../lib/strings";
 import { getDoc } from "../lib/docs";
 import { DOC_SLUGS, HOME_SLUG } from "../lib/nav";

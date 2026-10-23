@@ -13,7 +13,7 @@ import type {
   PipelineState,
   PipelineStepState,
   PipelineStepStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   Chevron,
@@ -22,8 +22,8 @@ import {
   StatusIcon,
   ICON_SIZE,
   LiveDuration,
-} from "@prismshadow/penguin-ui";
-import type { RunState } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { RunState } from "@waterford/waf-harness-ui";
 import { formatDateTime, humanizeDuration } from "../../lib/format";
 import { ShowReasoningSwitch } from "./show-reasoning-switch";
 import { useShowReasoning } from "./run-log-prefs";
@@ -102,7 +102,7 @@ export function continueRequest(
 ): Record<string, unknown> {
   let inputs: Record<string, string> = current;
   if (pipeline.inputs) {
-    // A coding agent's sequence may have had no Penguin agent to own its Session.
+    // A coding agent's sequence may have had no WAF Harness agent to own its Session.
     const { agentId, ...rest } = pipeline.inputs;
     inputs = { ...(agentId ? { agentId } : {}), ...rest };
   }

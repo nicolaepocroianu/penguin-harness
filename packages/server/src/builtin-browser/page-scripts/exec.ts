@@ -44,7 +44,7 @@ const EXEC_HEAD = String.raw`(async () => {
     try { return JSON.parse(JSON.stringify(result, function(key, value) { if (typeof value === 'object' && value !== null) { if (value.nodeType === 1) return value.outerHTML; if (value === window || value === document) return '[Object]'; try { if (value.window === value && value.document) return '[Window]'; } catch(_){} } return value; })); } catch (e) { return '[unserializable: ' + e.message + ']'; }
   }
   // Added: the outcome leaves the page as JSON text (see the module doc).
-  function __penguinOut(outcome) {
+  function __wafHarnessOut(outcome) {
     try { return JSON.stringify(outcome); } catch (e) { return JSON.stringify({ ok: true, data: '[unserializable: ' + e.message + ']' }); }
   }
   try {
@@ -64,9 +64,9 @@ const EXEC_TAIL = String.raw`.trim();
         if (e instanceof SyntaxError && (/return/i.test(e.message) || /await/i.test(e.message))) { r = await (new AsyncFunction(_air(jsCode)))(); } else throw e;
       }
     }
-    return __penguinOut({ ok: true, data: smartProcessResult(r) });
+    return __wafHarnessOut({ ok: true, data: smartProcessResult(r) });
   } catch (e) {
-    return __penguinOut({ ok: false, error: { name: (e && e.name) || 'Error', message: (e && e.message) || String(e) } });
+    return __wafHarnessOut({ ok: false, error: { name: (e && e.name) || 'Error', message: (e && e.message) || String(e) } });
   }
 })()`;
 

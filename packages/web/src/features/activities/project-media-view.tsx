@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import type { LibraryFile, ProjectMediaListing } from "@prismshadow/penguin-server/api";
+import type { LibraryFile, ProjectMediaListing } from "@waterford/waf-harness-server/api";
 import { ApiError } from "../../api/client";
 import {
   Button,
@@ -19,7 +19,7 @@ import {
   Select,
   toastError,
   ICON_SIZE,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
 import {
   TABLE,

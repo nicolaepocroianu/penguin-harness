@@ -15,8 +15,8 @@
  * there: a machine that refuses it keeps its own default Agent, and the rest of the block still
  * lands.
  */
-import { effectiveCommandPolicyRules } from "@prismshadow/penguin-core";
-import type { ProjectConfig } from "@prismshadow/penguin-core";
+import { effectiveCommandPolicyRules } from "@waterford/waf-harness-core";
+import type { ProjectConfig } from "@waterford/waf-harness-core";
 import type { ChatDefaultsDto, CommandPolicyRuleDto } from "../api/types.js";
 import type { MachineApi } from "./machine-api.js";
 

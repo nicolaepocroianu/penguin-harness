@@ -13,7 +13,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PLUGIN_CATEGORIES } from "@prismshadow/penguin-core";
+import { PLUGIN_CATEGORIES } from "@waterford/waf-harness-core";
 import { buildFixtures } from "../src/app/mock/fixtures";
 import { IDS } from "../src/app/mock/ids";
 
@@ -22,9 +22,9 @@ const pluginsRoot = join(__dirname, "..", "..", "..", "plugins");
 const categoryOf = (plugin: string): string | undefined =>
   (
     JSON.parse(readFileSync(join(pluginsRoot, plugin, "package.json"), "utf8")) as {
-      penguin?: { category?: string };
+      wafh?: { category?: string };
     }
-  ).penguin?.category;
+  ).wafh?.category;
 
 /** A plugin's Skills as their SKILL.md frontmatter has them, by name. */
 function shippedSkills(

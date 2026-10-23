@@ -11,10 +11,10 @@ import {
   defaultProjectConfig,
   projectConfigPath,
   renderProjectConfigToml,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { ProjectConfigService } from "../src/services/project-config-service.js";
 import { makeTempRoot } from "./helpers.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 
 const P = "project-cfg";
 const PRICED = {

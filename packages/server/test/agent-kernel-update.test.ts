@@ -20,7 +20,7 @@ import {
   VAULT_PLACEHOLDER,
   defaultSystemConfig,
   systemConfigPath,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   AgentConfigResponse,
   AgentKernelUpdateResponse,

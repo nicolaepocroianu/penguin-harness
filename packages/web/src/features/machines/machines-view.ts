@@ -15,8 +15,8 @@ import type {
   MachineSshFailure,
   MachineSocketFact,
   MachinesResponse,
-} from "@prismshadow/penguin-server/api";
-import type { RetryPhase } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import type { RetryPhase } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
 

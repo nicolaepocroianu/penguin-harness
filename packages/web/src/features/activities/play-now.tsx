@@ -7,7 +7,7 @@
  * the activity. The timeline under the player is what plays a scene again.
  */
 import { Fragment } from "react";
-import { Dot, GlyphIcon, ICON_SIZE, ICONS, InfoPopover } from "@prismshadow/penguin-ui";
+import { Dot, GlyphIcon, ICON_SIZE, ICONS, InfoPopover } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneName } from "../../lib/tone";
 import { ClipWave } from "./clip-wave";

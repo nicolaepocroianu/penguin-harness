@@ -50,8 +50,8 @@ import type {
   OrgHandbookFilesResponse,
 } from "../../api/types.js";
 import { TICKET_SLUG_PATTERN } from "../../api/types.js";
-import { Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
-import type { ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Interface, Module, Provide, Use } from "@waterford/waf-harness-core/kernel";
+import type { ClassCtx } from "@waterford/waf-harness-core/kernel";
 import { HttpError } from "../../http/errors.js";
 import { publishToProjectUsers } from "../../http/routes/events.js";
 import type { Channels, Clock, Config, Log } from "../../hmr/capabilities.js";
@@ -146,7 +146,7 @@ const CEO_WORKSPACE = "ceo";
 /**
  * Who performs a write: a person (route user) or, through the control-env token from the
  * control environment of a session, that session's employee. `agentId` is the employee the
- * command subprocess was handed (`PENGUIN_AGENT_ID`) and it wins over the session, so a
+ * command subprocess was handed (`WAFH_AGENT_ID`) and it wins over the session, so a
  * command run from a subagent or a nested session of an employee is still recorded as that
  * employee; `sessionId` answers when there is no Agent id to go by.
  */
@@ -213,7 +213,7 @@ export class OrganizationService {
     return this.deps.now?.() ?? Date.now();
   }
 
-  /** The organization a session belongs to, for the `PENGUIN_ORG_ID` control variable. */
+  /** The organization a session belongs to, for the `WAFH_ORG_ID` control variable. */
   orgIdOfSession(sessionId: string): string | null {
     return this.deps.cache.ownerOfSession(sessionId)?.orgId ?? null;
   }
@@ -274,7 +274,7 @@ export class OrganizationService {
    * The principal a write is recorded under: the Agent id the caller carries when it names an
    * employee of this organization, else the employee of the calling session, else the person.
    * The Agent id comes first because it is the narrower fact — the session may be a desk that
-   * spawned the command, while `PENGUIN_AGENT_ID` names exactly who ran it.
+   * spawned the command, while `WAFH_AGENT_ID` names exactly who ran it.
    */
   private actorPrincipal(org: LoadedOrg, actor: Actor): string {
     if (actor.agentId !== undefined && org.byId.has(actor.agentId)) {
@@ -971,7 +971,7 @@ export class OrganizationService {
       );
       // The desk exists from the moment the employee does. It is what every surface
       // addressing the employee by Session id needs — the sidebar's desk row and its
-      // messaging binding, `penguin org desk show`, an @-mention — and opening it only on
+      // messaging binding, `wafh org desk show`, an @-mention — and opening it only on
       // first use left a fresh hire with a row pointing at no Session at all. A desk is a
       // Session, not a run: nothing is dispatched here. A failure (the Agent or the
       // partition disappeared between the writes above and this line) is recorded and the
@@ -1925,8 +1925,8 @@ export class OrganizationService {
           403,
           "not_ticket_owner",
           owner === null
-            ? `Only the ticket's owner starts its sessions; ${ticketId} has no employee owner — assign an owner first (\`penguin org ticket assign ${ticketId} --owner agent:<employee>\`) and its desk picks it up in its next sweep.`
-            : `Only the ticket's owner starts its sessions; assign the ticket (\`penguin org ticket assign ${ticketId} --owner agent:<employee>\`) and its desk picks it up in its next sweep.`,
+            ? `Only the ticket's owner starts its sessions; ${ticketId} has no employee owner — assign an owner first (\`wafh org ticket assign ${ticketId} --owner agent:<employee>\`) and its desk picks it up in its next sweep.`
+            : `Only the ticket's owner starts its sessions; assign the ticket (\`wafh org ticket assign ${ticketId} --owner agent:<employee>\`) and its desk picks it up in its next sweep.`,
         );
       }
       const agentId = req.agentId ?? owner;
@@ -2717,7 +2717,7 @@ Mission: ${input.mission}
 ${input.duties !== undefined ? `\nDuties: ${input.duties}\n` : ""}
 This organization works in ${input.language === "en" ? "English" : "the configured language (" + input.language + ")"}: channel messages, tickets, handbook documents and reports are written in it; commands, file names, ids and field names stay ASCII.
 
-Your organization directory is \`<app_data_dir>/organizations/${input.orgId}/\`. At the start of every work run read \`handbook/README.md\` (the handbook index; the directory is the company's knowledge base), then follow the \`company-employee\` skill; use \`company-ceo\`, \`company-hr\` or \`company-finance\` when your title is that role, and \`company-research\` when you run experiments or review them. Inside your sessions the \`penguin org\` commands already know your organization, Project, Agent and session from the environment.
+Your organization directory is \`<app_data_dir>/organizations/${input.orgId}/\`. At the start of every work run read \`handbook/README.md\` (the handbook index; the directory is the company's knowledge base), then follow the \`company-employee\` skill; use \`company-ceo\`, \`company-hr\` or \`company-finance\` when your title is that role, and \`company-research\` when you run experiments or review them. Inside your sessions the \`wafh org\` commands already know your organization, Project, Agent and session from the environment.
 `;
 }
 
@@ -2732,12 +2732,12 @@ function initBody(org: LoadedOrg): string {
     "If the mission above says the organization MIRRORS a real company — one digital twin per real colleague, a company that only relays between people — follow the `company-mirror` skill instead and skip the checklist below. If it is a research mission — experiments to run, results to claim, papers to write — the checklist applies and the `company-research` skill adds two things: at least one dedicated reviewer who authors nothing it reviews, and no experiment loop before its owner has an approved resource envelope from the board.",
     "",
     'You are the CEO of a brand-new organization and this is its initialization run. The board decides the important things; you propose. Whatever touches this machine, spends money or reaches outside the organization — heavy compute, paid services, writing outside the shared workspace, anything irreversible, a missing credential — every employee, you included, asks the board in the all-hands channel before it starts (`company-employee`, "What you may not decide alone"). Work through the following, in order:',
-    `1. Read the handbook. Then write ONE proposal to the board (${board}) in the all-hands channel — \`penguin org channel send -m "@${board} …"\` — with your reading of the mission, the streams and first tickets you intend to file, the roles you intend to hire (HR and finance first) with budgets — every one on the organization's model, or the Project's default model when the organization names none, unless the mission asked for a particular one on a role, so propose no models — and how you will split the shared workspace. End with the explicit question and END THIS RUN: hire nothing, schedule nothing and file nothing before the board answers.`,
-    `2. The answer arrives as a mention or in this conversation. Once the board confirms, hire HR and finance first — \`penguin org hire --new-agent ${org.orgId}_hr --title HR --reports-to ${ceo} --duties "…"\` and the same for \`${org.orgId}_finance\` — then the confirmed roles.`,
-    "3. Partition the shared workspace as confirmed. You already work in `ceo/`, and a hire given no `--workspace` lands in a sub-directory named after its Agent id; the root of the shared workspace holds the shared inputs everyone reads and is nobody's desk. Assign a different sub-directory where a partition should be named for the stream rather than the employee (`penguin org employee set <agent_id> --workspace <sub-directory>`); a relative sub-directory is created when you assign it.",
-    "4. Put yourself, HR and finance on the calendar (`penguin org calendar add …`) as a rota, not a broadcast: you daily at 09:00, HR every three days at 10:00, finance weekly at 16:00 (organization timezone, ISO instants with the offset — never `--start-at now`), and give every later hire its own distinct hour.",
-    "5. File the confirmed tickets in `proposed` (`penguin org ticket create …`): one parent ticket for the project-level goal and children per stream. Assign an owner as you accept one into `in_progress` (`penguin org ticket assign <id> --owner agent:<employee>`): that employee's desk picks it up in its next sweep and starts the ticket session itself. Only a ticket's owner may start its sessions, so run `penguin org ticket start <id>` for the tickets you own yourself — the desk schedules and tracks, and never does the ticket work itself.",
-    "6. Open one channel per stream (`penguin org channel create ch_<stream> --name …`) and invite its owner (`penguin org channel invite ch_<stream> agent:<agent_id>`), so a stream's thread does not drown the all-hands channel.",
+    `1. Read the handbook. Then write ONE proposal to the board (${board}) in the all-hands channel — \`wafh org channel send -m "@${board} …"\` — with your reading of the mission, the streams and first tickets you intend to file, the roles you intend to hire (HR and finance first) with budgets — every one on the organization's model, or the Project's default model when the organization names none, unless the mission asked for a particular one on a role, so propose no models — and how you will split the shared workspace. End with the explicit question and END THIS RUN: hire nothing, schedule nothing and file nothing before the board answers.`,
+    `2. The answer arrives as a mention or in this conversation. Once the board confirms, hire HR and finance first — \`wafh org hire --new-agent ${org.orgId}_hr --title HR --reports-to ${ceo} --duties "…"\` and the same for \`${org.orgId}_finance\` — then the confirmed roles.`,
+    "3. Partition the shared workspace as confirmed. You already work in `ceo/`, and a hire given no `--workspace` lands in a sub-directory named after its Agent id; the root of the shared workspace holds the shared inputs everyone reads and is nobody's desk. Assign a different sub-directory where a partition should be named for the stream rather than the employee (`wafh org employee set <agent_id> --workspace <sub-directory>`); a relative sub-directory is created when you assign it.",
+    "4. Put yourself, HR and finance on the calendar (`wafh org calendar add …`) as a rota, not a broadcast: you daily at 09:00, HR every three days at 10:00, finance weekly at 16:00 (organization timezone, ISO instants with the offset — never `--start-at now`), and give every later hire its own distinct hour.",
+    "5. File the confirmed tickets in `proposed` (`wafh org ticket create …`): one parent ticket for the project-level goal and children per stream. Assign an owner as you accept one into `in_progress` (`wafh org ticket assign <id> --owner agent:<employee>`): that employee's desk picks it up in its next sweep and starts the ticket session itself. Only a ticket's owner may start its sessions, so run `wafh org ticket start <id>` for the tickets you own yourself — the desk schedules and tracks, and never does the ticket work itself.",
+    "6. Open one channel per stream (`wafh org channel create ch_<stream> --name …`) and invite its owner (`wafh org channel invite ch_<stream> agent:<agent_id>`), so a stream's thread does not drown the all-hands channel.",
     `7. Report to the board in the all-hands channel, mentioning @${board}, and name the next decision you need, if any.`,
   ].join("\n");
 }

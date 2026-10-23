@@ -16,7 +16,7 @@
  */
 import { createElement as h } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { MachineEnvOnly, MachineInfo, UiPrefs } from "@prismshadow/penguin-server/api";
+import type { MachineEnvOnly, MachineInfo, UiPrefs } from "@waterford/waf-harness-server/api";
 import { apiError, json, stubFetch } from "./helpers/fetch";
 import { button, click, hasButton, mount, settle, unmountAll, waitFor } from "./helpers/dom";
 
@@ -44,7 +44,7 @@ const machine = (id: string, envOnly: MachineEnvOnly[]): MachineInfo => ({
   keepConnected: true,
   api: null,
   status: { state: "running", checkedAt: "2026-10-15T08:00:00.000Z", port: 7364 },
-  root: "/home/ubuntu/.penguin/data",
+  root: "/home/ubuntu/.waf-harness/data",
   configSync: {
     at: "2026-10-15T08:00:00.000Z",
     ok: true,

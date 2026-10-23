@@ -1,41 +1,41 @@
 /**
- * `penguin org` — company mode: a thin client over the organization API. Every
+ * `wafh org` — company mode: a thin client over the organization API. Every
  * subcommand addresses one organization of one Project. The organization's files under
  * the Project directory (the employee tree, the desks ledger, calendar, tickets,
  * channels) stay the single source of truth; each command reads a projection of them or
  * writes through the route that edits them, with the same validated-writer contract
  * `schedule` has — API errors surface verbatim, so an agent gets synchronous validation.
  *
- *   penguin org ls [--project-id <id>] [--json] [--server <url>]
- *   penguin org create --org-id <id> --mission <s> [--name <s>] [--ceo-budget <usd>]
- *   penguin org show | chart
- *   penguin org hire (--agent-id <id> | --new-agent <id> [--name] [--description] [--skills <a,b>])
+ *   wafh org ls [--project-id <id>] [--json] [--server <url>]
+ *   wafh org create --org-id <id> --mission <s> [--name <s>] [--ceo-budget <usd>]
+ *   wafh org show | chart
+ *   wafh org hire (--agent-id <id> | --new-agent <id> [--name] [--description] [--skills <a,b>])
  *                    --title <s> --reports-to <agent_id> [--workspace <path>] [--budget <usd>] [--duties <s>]
- *   penguin org employee set <agent_id> [--name] [--title] [--reports-to] [--workspace] [--budget] [--duties]
+ *   wafh org employee set <agent_id> [--name] [--title] [--reports-to] [--workspace] [--budget] [--duties]
  *                    [--model-id <id> --provider <p>]
- *   penguin org employee avatar [<agent_id>] (--file <image> | --clear)
- *   penguin org leave <agent_id>
- *   penguin org desk show|renew [<agent_id>]
- *   penguin org calendar ls [--agent-id] | add <name> … | update <name> … | rm <name>
- *   penguin org ticket ls [--status] [--owner] [--blocked] | show <id> | create … | move <id> --to <col>
+ *   wafh org employee avatar [<agent_id>] (--file <image> | --clear)
+ *   wafh org leave <agent_id>
+ *   wafh org desk show|renew [<agent_id>]
+ *   wafh org calendar ls [--agent-id] | add <name> … | update <name> … | rm <name>
+ *   wafh org ticket ls [--status] [--owner] [--blocked] | show <id> | create … | move <id> --to <col>
  *                    | assign <id> --owner <p> | block <id> --reason <s> [--by] | unblock <id>
  *                    | progress <id> -m <text> | start <id> [-m] [--workspace] [--agent-id]
  *                    | attach <id> [--session]
- *   penguin org channel ls | create <id> [--name] [--purpose] | show <id> | invite <id> <principal>...
+ *   wafh org channel ls | create <id> [--name] [--purpose] | show <id> | invite <id> <principal>...
  *                    | join <id> | leave <id> | remove <id> <principal> | archive <id> | unarchive <id>
  *                    | tail [--channel <id>] [--date <d>] [-n <count>]
  *                    | send -m <text> [--channel <id>] [--ref-ticket] [--ref-session]
- *   penguin org handbook list | show [path] | write <path> (-m <text> | --file <f>) | rm <path>
- *   penguin org finance [--period <yyyy-mm>]
+ *   wafh org handbook list | show [path] | write <path> (-m <text> | --file <f>) | rm <path>
+ *   wafh org finance [--period <yyyy-mm>]
  *
- * Every subcommand takes `--org-id` (default: PENGUIN_ORG_ID, the variable company mode
+ * Every subcommand takes `--org-id` (default: WAFH_ORG_ID, the variable company mode
  * adds to the control environment of desk and ticket sessions; there is no default
  * organization), `--project-id`, `--json` and `--server`. The same environment
  * identifies the caller: `--agent-id` on the calendar commands and the desk positional
- * default to PENGUIN_AGENT_ID; `ticket start` sends it as the employee the ticket
+ * default to WAFH_AGENT_ID; `ticket start` sends it as the employee the ticket
  * session runs as (its own `--agent-id` enlists a colleague on the caller's own ticket,
  * and outside a session the server picks the ticket owner); the ticket writes and
- * the channel writes carry PENGUIN_SESSION_ID in their body so the file records the
+ * the channel writes carry WAFH_SESSION_ID in their body so the file records the
  * employee rather than the token's user, and `ticket attach` attaches that session by
  * default. The reads that depend on who is asking — `channel ls`, `channel show`,
  * `channel tail` — and the member DELETE behind `leave` / `remove` carry the same
@@ -43,7 +43,7 @@
  * an employee as the signed-in person and shows it every channel. `--json` prints the
  * response DTO as one line (`ticket ls` its filtered list, `channel tail` the messages
  * it shows); write commands otherwise print a one-line confirmation.
- * Docs: /docs/cli § "penguin org".
+ * Docs: /docs/cli § "wafh org".
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -72,7 +72,7 @@ import type {
   OrgTicketsResponse,
   OrganizationDetail,
   OrganizationsResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   resolveAgentId,
   resolveConnection,
@@ -159,14 +159,14 @@ function refuseDotSegments(value: string, t: Messages): boolean {
 
 /**
  * Resolves the organization's coordinates and connects. `--org-id` defaults to
- * PENGUIN_ORG_ID and to nothing else; it is read before the connection so a missing one
+ * WAFH_ORG_ID and to nothing else; it is read before the connection so a missing one
  * never auto-starts a server. Null after the error.
  */
 async function orgScope(
   opts: { orgId?: string; projectId?: string; server?: string },
   t: Messages,
 ): Promise<OrgScope | null> {
-  const orgId = opts.orgId?.trim() || process.env.PENGUIN_ORG_ID?.trim() || "";
+  const orgId = opts.orgId?.trim() || process.env.WAFH_ORG_ID?.trim() || "";
   if (orgId === "") {
     fail(t, t.org.orgIdMissing());
     return null;
@@ -190,9 +190,9 @@ function scoped(cmd: Command, t: Messages): Command {
     .option("--server <url>", t.common.server);
 }
 
-/** The calling session (the control environment's PENGUIN_SESSION_ID), when the CLI runs inside one. */
+/** The calling session (the control environment's WAFH_SESSION_ID), when the CLI runs inside one. */
 function callerSessionId(): string | undefined {
-  return process.env.PENGUIN_SESSION_ID?.trim() || undefined;
+  return process.env.WAFH_SESSION_ID?.trim() || undefined;
 }
 
 /**
@@ -204,7 +204,7 @@ function callerSessionId(): string | undefined {
  */
 function actorFields(): { sessionId?: string; agentId?: string } {
   const sessionId = callerSessionId();
-  const agentId = process.env.PENGUIN_AGENT_ID?.trim() || undefined;
+  const agentId = process.env.WAFH_AGENT_ID?.trim() || undefined;
   return {
     ...(sessionId !== undefined ? { sessionId } : {}),
     ...(agentId !== undefined ? { agentId } : {}),
@@ -782,7 +782,7 @@ export function registerOrgCommand(program: Command, t: Messages): void {
   });
 
   // An employee's picture, from a file: the CLI is how an Agent sets its own (the id defaults
-  // to PENGUIN_AGENT_ID). The server takes a data URL under the same cap as a person's avatar;
+  // to WAFH_AGENT_ID). The server takes a data URL under the same cap as a person's avatar;
   // the format and the size are checked here so the refusal names the file and what to do.
   scoped(
     employee
@@ -792,7 +792,7 @@ export function registerOrgCommand(program: Command, t: Messages): void {
       .option("--clear", t.org.avatarClear),
     t,
   ).action(async (given: string | undefined, opts) => {
-    const agentId = given?.trim() || process.env.PENGUIN_AGENT_ID?.trim() || "";
+    const agentId = given?.trim() || process.env.WAFH_AGENT_ID?.trim() || "";
     if (agentId === "") {
       fail(t, t.org.avatarNoAgent());
       return;
@@ -1280,7 +1280,7 @@ export function registerOrgCommand(program: Command, t: Messages): void {
     // employee may start a session only on a ticket it owns, and anyone else's is a 403.
     const agentId =
       (typeof opts.agentId === "string" ? opts.agentId.trim() : "") ||
-      process.env.PENGUIN_AGENT_ID?.trim() ||
+      process.env.WAFH_AGENT_ID?.trim() ||
       undefined;
     const res = await scope.client.request<OrgTicketStartResponse>(
       "POST",
@@ -1294,7 +1294,7 @@ export function registerOrgCommand(program: Command, t: Messages): void {
         ...(opts.workspace !== undefined ? { workspace: String(opts.workspace) } : {}),
       },
     );
-    // Like `run --background`: the bare session id is what `penguin session input` / `penguin session log` address later.
+    // Like `run --background`: the bare session id is what `wafh session input` / `wafh session log` address later.
     if (opts.json === true) printJson({ sessionId: res.sessionId });
     else printLine(res.sessionId);
   });

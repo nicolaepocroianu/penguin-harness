@@ -829,7 +829,7 @@ export class Environment implements EnvironmentInterface {
         } else {
           // Other message types without origin: protocol misuse, ignore and warn (keep the parent stream clean).
           process.stderr.write(
-            `[penguin] tool "${name}" yielded unexpected message type "${p.type}"; ignored.\n`,
+            `[wafh] tool "${name}" yielded unexpected message type "${p.type}"; ignored.\n`,
           );
         }
       }

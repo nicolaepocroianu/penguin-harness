@@ -6,7 +6,7 @@
  * A listener subscribes in its own setup and unsubscribes in its effect, so a hot reload never
  * leaves a stale one behind. What a listener throws is its own: the deploy is never failed by it.
  */
-import { Component, Interface, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, type ClassCtx } from "@waterford/waf-harness-core/kernel";
 import type { DeployedEvent } from "./deploy-types.js";
 
 export type DeployedListener = (event: DeployedEvent) => void;

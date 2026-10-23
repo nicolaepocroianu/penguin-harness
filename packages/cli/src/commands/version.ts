@@ -1,5 +1,5 @@
 /**
- * `penguin version` — what is running here.
+ * `wafh version` — what is running here.
  *
  * Two audiences, one producer. Bare, it prints the single line core computed as the build's
  * identity, which for a source build is git's own description (`v0.2.3-14-g9e8f7d6-dirty`)
@@ -10,7 +10,7 @@
  * The JSON carries a second half the line cannot: the harness this data root has in its HMR
  * store — what a hot update put there, which a restart resumes. It is a property of the root
  * rather than of this process, so it answers "what was pushed to this machine" where the line
- * answers "what am I". The two differ whenever `penguin` runs the packaged CLI on a machine
+ * answers "what am I". The two differ whenever `wafh` runs the packaged CLI on a machine
  * that has a pushed one in its store.
  *
  * The subcommand exists alongside `-v, --version` rather than replacing it: both render
@@ -19,8 +19,8 @@
  */
 import path from "node:path";
 import type { Command } from "commander";
-import { buildInfo, resolveRoot } from "@prismshadow/penguin-core";
-import { versionReport } from "@prismshadow/penguin-server/version-report";
+import { buildInfo, resolveRoot } from "@waterford/waf-harness-core";
+import { versionReport } from "@waterford/waf-harness-server/version-report";
 import type { Messages } from "../i18n.js";
 
 export function registerVersionCommand(program: Command, t: Messages): void {

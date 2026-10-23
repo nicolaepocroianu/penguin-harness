@@ -5,7 +5,7 @@ import { rungLimits, rungName } from "../src/index.js";
 describe("the DSH rung", () => {
   it.each([
     ["linux", "bwrap", "bubblewrap"],
-    ["linux", "/opt/penguin/node_modules/.bin/landlock-run", "Landlock"],
+    ["linux", "/opt/wafh/node_modules/.bin/landlock-run", "Landlock"],
     ["darwin", "sandbox-exec", "Seatbelt"],
     ["win32", "C:\\node.exe", "the Windows ACL runner"],
   ] as const)("on %s, %s is %s", (platform, program, name) => {

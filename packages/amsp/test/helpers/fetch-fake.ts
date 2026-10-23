@@ -35,7 +35,7 @@ export interface ServedStream {
 
 type Answer = (call: FetchCall) => Response | Promise<Response>;
 
-export const BASE_URL = "http://penguin.test/api/amsp/v1";
+export const BASE_URL = "http://wafh.test/api/amsp/v1";
 
 const encoder = new TextEncoder();
 

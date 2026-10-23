@@ -1,9 +1,9 @@
 /**
- * @penguinharness/sandbox-seatbelt — a macOS Seatbelt sandbox backend.
+ * @waf-harness/sandbox-seatbelt — a macOS Seatbelt sandbox backend.
  *
  * A PLUGIN PACKAGE, not part of the platform: a Project asks for it on the Plugins page
  * and the harness resolves it from the installation. It compiles against the
- * `@prismshadow/penguin-core/plugin` surface (types, plus the decorators its bundle
+ * `@waterford/waf-harness-core/plugin` surface (types, plus the decorators its bundle
  * carries) and has no runtime dependency on the
  * harness or on any other backend.
  *
@@ -34,14 +34,14 @@ import { execFile, spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { Bind, Component, Interface, Use } from "@prismshadow/penguin-core/plugin";
+import { Bind, Component, Interface, Use } from "@waterford/waf-harness-core/plugin";
 import type {
   ConfinedArgv,
   Plugin,
   SandboxPolicy,
   SandboxProvider,
   SandboxProviderSource,
-} from "@prismshadow/penguin-core/plugin";
+} from "@waterford/waf-harness-core/plugin";
 
 /** Default probe budget; a probe that hangs must not hang the first spawn forever. */
 const PROBE_TIMEOUT_MS = 5_000;
@@ -205,7 +205,7 @@ export async function loadSeatbeltProvider(
   internals: SeatbeltInternals & { platform?: NodeJS.Platform } = {},
 ): Promise<SandboxProvider | null> {
   const platform = internals.platform ?? process.platform;
-  // Not this host's backend: a decline, not a failure (see penguin-bwrap's loader).
+  // Not this host's backend: a decline, not a failure (see wafh-bwrap's loader).
   if (platform !== "darwin") return null;
   const { runner } = internals.settings?.() ?? { runner: internals.runner ?? defaultRunner() };
   const usable = internals.probe
@@ -238,7 +238,7 @@ export function createSeatbeltProvider(internals: SeatbeltInternals = {}): Sandb
       if (!usable.has(runner)) usable.set(runner, probe(PROBE_TIMEOUT_MS, runner));
       if (!usable.get(runner)) {
         throw new Error(
-          `penguin-seatbelt cannot confine on this host: '${runner}' is missing or refuses the ` +
+          `wafh-seatbelt cannot confine on this host: '${runner}' is missing or refuses the ` +
             "profile (it exists only on macOS); refusing to run the command unconfined.",
         );
       }
@@ -265,7 +265,7 @@ export function createSeatbeltProvider(internals: SeatbeltInternals = {}): Sandb
     "SandboxModule.providers": [
       {
         id: "sandbox-seatbelt.provider",
-        name: "penguin-seatbelt",
+        name: "wafh-seatbelt",
         dimensions: ["fs-write", "network", "network-local", "mask-paths", "closed-temp"],
       },
     ],
@@ -296,7 +296,7 @@ export class SandboxSeatbelt {
 
   setup() {
     const config = this.config;
-    // A loader: after a save of the sandbox card a failed check runs again (see penguin-bwrap).
+    // A loader: after a save of the sandbox card a failed check runs again (see wafh-bwrap).
     this.provider = () =>
       loadSeatbeltProvider({
         settings: () => seatbeltSettingsOf(config.get(SEATBELT_GROUP)),

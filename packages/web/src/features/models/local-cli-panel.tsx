@@ -13,7 +13,7 @@ import type {
   CodingAgentDiscoveryResponse,
   CodingAgentServerInfo,
   CodingAgentTestResult,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   discoverCodingAgents,
   listCodingAgents,
@@ -37,7 +37,7 @@ import {
   SkeletonList,
   Text,
   toastError,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { AddAgentModal } from "./add-agent-modal";
 import { AgentEnvEditor } from "./agent-env-editor";
 import {

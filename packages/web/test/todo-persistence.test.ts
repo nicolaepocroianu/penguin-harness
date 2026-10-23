@@ -17,7 +17,7 @@ import type {
   UsageBucket,
   UsageErrorItem,
   UsageResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { apiError, json, stubFetch } from "./helpers/fetch";
 import { button, click, hasButton, mount, run, unmountAll, waitFor } from "./helpers/dom";
 
@@ -111,7 +111,7 @@ async function client() {
   const { UsagePage } = await import("../src/features/usage/usage-page");
   const { useUpdateBadges } = await import("../src/lib/use-update-badges");
   const { useTodoDismissals, dismissTodo } = await import("../src/lib/todo-dismissals");
-  const { Toaster } = await import("@prismshadow/penguin-ui");
+  const { Toaster } = await import("@waterford/waf-harness-ui");
   const { setActiveStrings } = await import("../src/lib/strings");
   const { en } = await import("../src/lib/strings-en");
   setActiveStrings(en);

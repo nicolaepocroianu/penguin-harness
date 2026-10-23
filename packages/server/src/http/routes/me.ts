@@ -47,8 +47,8 @@ import {
   MAX_ATTACHMENT_MB,
   MIN_ATTACHMENT_MB,
 } from "../../services/attachment-limits.js";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
-import type { ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
+import type { ClassCtx } from "@waterford/waf-harness-core/kernel";
 import { Config, Desktop } from "../../hmr/capabilities.js";
 import type { Auth, Users } from "../../mechanisms/identity.js";
 import type { Settings, UiPrefsStore } from "../../mechanisms/settings.js";

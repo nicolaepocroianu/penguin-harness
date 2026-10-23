@@ -1,5 +1,5 @@
 /** Bind the shared site control to this site's preferences and translations. */
-import { SiteThemeToggle, useSiteTheme } from "@prismshadow/penguin-ui/site";
+import { SiteThemeToggle, useSiteTheme } from "@waterford/waf-harness-ui/site";
 import { S } from "../lib/strings";
 
 export function ThemeToggle() {

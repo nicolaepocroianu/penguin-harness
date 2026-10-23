@@ -7,7 +7,7 @@ import { useState } from "react";
 import type {
   CodingAgentEnvEntryInfo,
   CodingAgentEnvRequest,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { setCodingAgentEnv } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
@@ -23,7 +23,7 @@ import {
   useGuardedClose,
   useUnsavedChanges,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { envKeyProblem, keepAllExcept } from "./agent-env";
 
 export function AgentEnvEditor({

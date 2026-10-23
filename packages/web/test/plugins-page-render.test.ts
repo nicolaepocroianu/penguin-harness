@@ -57,7 +57,7 @@ import {
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { PluginIndexEntry, PluginItem } from "@prismshadow/penguin-server/api";
+import type { PluginIndexEntry, PluginItem } from "@waterford/waf-harness-server/api";
 import {
   InstallRow,
   ModuleApplyBody,
@@ -90,7 +90,7 @@ import { LocaleProvider } from "../src/state/locale";
 import { stubLocalStorage } from "./helpers/storage";
 
 beforeEach(() => {
-  stubLocalStorage().setItem("penguin.lang", "en");
+  stubLocalStorage().setItem("wafh.lang", "en");
   setActiveStrings(en);
 });
 
@@ -181,7 +181,7 @@ describe("the notice about incompatible plugins", () => {
 });
 
 const BWRAP: PluginIndexEntry = {
-  name: "@penguinharness/sandbox-bwrap",
+  name: "@waf-harness/sandbox-bwrap",
   version: "0.2.3",
   description: "Bubblewrap sandbox backend.",
   descriptionZh: "Bubblewrap 沙箱后端。",
@@ -192,7 +192,7 @@ const BWRAP: PluginIndexEntry = {
 };
 
 const moduleRow = (state: "none" | "active", shipped = true): PluginRow => ({
-  key: "module:@penguinharness/sandbox-bwrap",
+  key: "module:@waf-harness/sandbox-bwrap",
   name: "sandbox-bwrap",
   category: "sandbox",
   module: { specifier: BWRAP.name, entry: BWRAP, state, shipped },
@@ -202,7 +202,7 @@ const LIBRARY: PluginItem = {
   name: "data-analysis",
   description: "Data analysis.",
   version: "0.2.13",
-  package: "@penguinharness/data-analysis",
+  package: "@waf-harness/data-analysis",
   source: "builtin",
   skills: [{ name: "data-analysis", description: "", version: "2026.10.04.1" }],
   hooks: [],
@@ -310,7 +310,7 @@ describe("exporting a plugin", () => {
   it("offers a library plugin's package and a server module's on this server, and nothing for one not here", () => {
     expect(pluginArchiveUrl(libraryRow)).toBe("/api/plugins/data-analysis/archive");
     expect(pluginArchiveUrl(moduleRow("active"))).toBe(
-      "/api/plugins/registry/archive?name=%40penguinharness%2Fsandbox-bwrap",
+      "/api/plugins/registry/archive?name=%40waf-harness%2Fsandbox-bwrap",
     );
     // Shipped with the build, so on this server even before anything lists it.
     expect(pluginArchiveUrl(moduleRow("none"))).not.toBeNull();
@@ -444,11 +444,11 @@ describe("a plugin with no description", () => {
 
   it("leaves a shipped package no index knows saying it ships with the build, not the placeholder", () => {
     const unknown: PluginRow = {
-      key: "module:@penguinharness/sandbox-dsh",
+      key: "module:@waf-harness/sandbox-dsh",
       name: "sandbox-dsh",
       category: "sandbox",
       module: {
-        specifier: "@penguinharness/sandbox-dsh",
+        specifier: "@waf-harness/sandbox-dsh",
         entry: undefined,
         state: "none",
         shipped: true,

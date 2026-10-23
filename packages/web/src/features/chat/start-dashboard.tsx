@@ -40,12 +40,12 @@ import {
   ICONS,
   ICON_GAP,
   ICON_SIZE,
-  PenguinLogo,
+  WafHarnessLogo,
   RuledSection,
   Text,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { VersionStamp } from "../../components/account/version-stamp";
-import { PENGUIN_LOGO_URL } from "../../lib/brand-logo";
+import { WAFH_LOGO_URL } from "../../lib/brand-logo";
 import { S } from "../../lib/strings";
 import { NAV_ICONS } from "../../lib/nav-icons";
 import { versionBadgeFor } from "../../lib/update-flow";
@@ -153,8 +153,8 @@ function StartBrand() {
           the side), not the theme's radius scale, which would make it a circle in Frost and a
           square in Console: the mark keeps one shape everywhere. */}
       <div className="relative col-start-1 row-span-2 row-start-1 aspect-square max-h-24 justify-self-start self-stretch">
-        <PenguinLogo
-          src={PENGUIN_LOGO_URL}
+        <WafHarnessLogo
+          src={WAFH_LOGO_URL}
           className="absolute inset-0 h-full w-full rounded-[24%] ring-1 ring-line-muted"
         />
       </div>
@@ -169,7 +169,7 @@ function StartBrand() {
 }
 
 /**
- * The product's name with a break opportunity between its words ("Penguin" / "Harness"): one
+ * The product's name with a break opportunity between its words ("WAF Harness" / "Harness"): one
  * word to a reader, but a display title too wide for a phone column at the largest text size
  * breaks there instead of pushing the page sideways.
  */

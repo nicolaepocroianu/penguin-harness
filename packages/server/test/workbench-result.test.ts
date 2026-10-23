@@ -5,7 +5,7 @@
  * Given an automatic request retry that later succeeds, its recoverable error does not win.
  */
 import { describe, expect, it } from "vitest";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import { workbenchResult } from "../src/workbenches/result.js";
 const message = (payload: object, origin?: string[]): OmniMessage =>
   ({

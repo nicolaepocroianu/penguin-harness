@@ -7,7 +7,7 @@
  * exit detail, output tail) renders in the tool cards' output styling. The Trace page shows the
  * raw marker text as-is.
  */
-import { ActivityGroup, DISCLOSURE_OUTPUT_PRE_CLASS } from "@prismshadow/penguin-ui";
+import { ActivityGroup, DISCLOSURE_OUTPUT_PRE_CLASS } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import type { BackgroundTaskDone } from "./agent-handoff";
 

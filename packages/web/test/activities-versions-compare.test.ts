@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { VersionDiff } from "@prismshadow/penguin-server/api";
+import type { VersionDiff } from "@waterford/waf-harness-server/api";
 import {
   compareTabs,
   isSame,

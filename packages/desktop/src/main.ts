@@ -9,14 +9,14 @@
  * the web UI could open DevTools, when the shell's own View menu already
  * does it.
  *
- * One window over the embedded server: fork penguin-server as a utilityProcess on the
- * shared data root (PENGUIN_HOME or ~/.penguin/data), learn its port (last launch's when
+ * One window over the embedded server: fork wafh-server as a utilityProcess on the
+ * shared data root (WAFH_HOME or ~/.waf-harness/data), learn its port (last launch's when
  * still free, so origin-scoped localStorage preferences survive restarts), and load
  * `http://localhost:<port>/api/auth/claim?token=…` — the one-shot token lands
  * the window signed in as admin. The window is a plain browser environment (no preload,
  * no node integration); every capability flows through the server's HTTP API.
  *
- * Attach mode: when a live server (e.g. `penguin web`) already owns the data root, the
+ * Attach mode: when a live server (e.g. `wafh web`) already owns the data root, the
  * window loads that instance instead. The one-shot token buys nothing there, so the shell
  * signs the window in the other way it is entitled to — a session minted straight into the
  * data root it owns (see attach-session.ts) — and the same move answers any later arrival at
@@ -31,7 +31,7 @@
  * utilityProcess relay the client updater uses.
  *
  * Built-in browser: the main window (and no other) may host <webview> guests in the
- * `persist:penguin-browser` partition, and builtin-browser.ts relays raw CDP and cookie writes
+ * `persist:wafh-browser` partition, and builtin-browser.ts relays raw CDP and cookie writes
  * for them over that same port. That relay is the only part of the browser the shell carries,
  * and it lives here because it has to: a guest's `webContents.debugger` and the partition's
  * session are main-process APIs that neither the page nor the server process can reach. The
@@ -46,13 +46,13 @@
  *
  * Dev isolation: the dev profile — an unpackaged run, or any build launched with `--dev`
  * — takes a dev-suffixed identity (own userData, and with it the single-instance lock and
- * sticky port) and defaults to the ~/.penguin/dev-data root, so it runs beside an
+ * sticky port) and defaults to the ~/.waf-harness/dev-data root, so it runs beside an
  * installed release build (see app-identity.ts). Updating and the per-launch CLI link
  * repair stay with the release profile: both touch the one installation the two
  * instances share.
  *
- * Smoke hook (PENGUIN_DESKTOP_SMOKE=1): after the first load settles, print a
- * `DESKTOP-SMOKE-RESULT {json}` line (+ screenshot when PENGUIN_DESKTOP_SMOKE_SHOT is
+ * Smoke hook (WAFH_DESKTOP_SMOKE=1): after the first load settles, print a
+ * `DESKTOP-SMOKE-RESULT {json}` line (+ screenshot when WAFH_DESKTOP_SMOKE_SHOT is
  * set) and quit through the regular quit path, exercising the graceful server stop.
  */
 import fs from "node:fs";
@@ -68,10 +68,10 @@ import {
   shell,
 } from "electron";
 import type { WindowOpenHandlerResponse } from "electron";
-import { resolveRoot } from "@prismshadow/penguin-core";
-import { mintApiToken } from "@prismshadow/penguin-server/auth-token";
-import { liveServerLock } from "@prismshadow/penguin-server/lock";
-import type { ServerLock } from "@prismshadow/penguin-server/lock";
+import { resolveRoot } from "@waterford/waf-harness-core";
+import { mintApiToken } from "@waterford/waf-harness-server/auth-token";
+import { liveServerLock } from "@waterford/waf-harness-server/lock";
+import type { ServerLock } from "@waterford/waf-harness-server/lock";
 import { appIdentity, desktopDataRoot, resolveProfile } from "./app-identity.js";
 import {
   createSignInGuard,
@@ -180,7 +180,7 @@ let rendererDeaths = 0;
 let rendererHealthyTimer: NodeJS.Timeout | null = null;
 
 // app.name, not a literal: a dev run raises this box while the installed build may be
-// running beside it, and a dialog titled "PenguinHarness" cannot be attributed to either.
+// running beside it, and a dialog titled "WAF Harness" cannot be attributed to either.
 function fatal(context: string, err: unknown): void {
   const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
   dialog.showErrorBox(app.name, `${context}\n\n${detail}`);
@@ -636,7 +636,7 @@ async function startServerAndWindow(dataRoot: string): Promise<void> {
   if (webDist !== null && !fs.existsSync(webDistEntry(webDist))) {
     throw new Error(
       `The Web App is missing: ${webDistEntry(webDist)} does not exist. ` +
-        `This build was packed without the web assets, or PENGUIN_WEB_DIST points elsewhere.`,
+        `This build was packed without the web assets, or WAFH_WEB_DIST points elsewhere.`,
     );
   }
   const started = await startEmbeddedServer({
@@ -693,10 +693,10 @@ async function handleServerExit(dataRoot: string, code: number): Promise<void> {
 }
 
 async function boot(): Promise<void> {
-  // Explicit PENGUIN_HOME wins; otherwise the release profile shares the CLI's data root
+  // Explicit WAFH_HOME wins; otherwise the release profile shares the CLI's data root
   // and the dev profile takes the repo's dev root (the rule, and why, live in app-identity.ts).
   const dataRoot = desktopDataRoot({
-    envHome: process.env.PENGUIN_HOME,
+    envHome: process.env.WAFH_HOME,
     profile,
     homedir: os.homedir(),
     releaseRoot: resolveRoot,
@@ -707,7 +707,7 @@ async function boot(): Promise<void> {
   }
   const existing = await liveServerLock(dataRoot);
   if (existing !== null) {
-    // Attach mode: another server — a `penguin web` run, an older app still up — holds this
+    // Attach mode: another server — a `wafh web` run, an older app still up — holds this
     // data root, and the one-shot token only works against a server this shell spawned. The
     // window is signed in the other way the product recognizes instead: a session minted
     // straight into the root this shell owns, which is the same authority the CLI mints on.
@@ -800,7 +800,7 @@ if (!app.requestSingleInstanceLock()) {
     (async () => {
       // GUI launches on macOS/Linux miss the login shell's exports (model API keys for
       // core's env fallback, the PATH the agent shell needs). Import them fill-missing
-      // before anything reads process.env — boot() resolves PENGUIN_HOME from it, and
+      // before anything reads process.env — boot() resolves WAFH_HOME from it, and
       // the forked server inherits it (#351).
       await applyLoginShellEnv({
         platform: process.platform,
@@ -820,7 +820,7 @@ if (!app.requestSingleInstanceLock()) {
       });
       // Standard menu plus native desktop-only actions; the window gets no IPC channel.
       // The install item is the release profile's, like the per-launch repair below: the
-      // `penguin` command has one owner, and a `--dev` instance of the same install would
+      // `wafh` command has one owner, and a `--dev` instance of the same install would
       // rewrite it and record having done so in its own userData.
       installAppMenu({
         includeCliInstall: profile === "release" && currentCliInstallKind() !== null,
@@ -838,12 +838,12 @@ if (!app.requestSingleInstanceLock()) {
       openTray();
       initUpdater(() => win);
       await boot();
-      // Install or repair the bundled 'penguin' command. Runs every launch: that is what
+      // Install or repair the bundled 'wafh' command. Runs every launch: that is what
       // carries it across an update and repairs a link a moved app left dangling. Only the
       // release profile does it — a `--dev` instance of the same install has nothing of
       // its own to link, and one owner keeps the link from being rewritten twice. Skipped
       // in smoke mode — the macOS administrator prompt would hang the automated run.
-      if (profile === "release" && process.env.PENGUIN_DESKTOP_SMOKE !== "1") {
+      if (profile === "release" && process.env.WAFH_DESKTOP_SMOKE !== "1") {
         await ensureCliCommand();
       }
     })().catch((err) => fatal(`${app.name} failed to start.`, err)),
@@ -856,7 +856,7 @@ if (!app.requestSingleInstanceLock()) {
 const SMOKE_SETTLE_MS = 2500;
 
 function armSmokeProbe(target: BrowserWindow): void {
-  if (process.env.PENGUIN_DESKTOP_SMOKE !== "1") return;
+  if (process.env.WAFH_DESKTOP_SMOKE !== "1") return;
   target.webContents.once("did-finish-load", () => {
     setTimeout(() => {
       void (async () => {
@@ -867,7 +867,7 @@ function armSmokeProbe(target: BrowserWindow): void {
             origin: appOrigin,
             embedded: server !== null,
           };
-          const shot = process.env.PENGUIN_DESKTOP_SMOKE_SHOT;
+          const shot = process.env.WAFH_DESKTOP_SMOKE_SHOT;
           if (shot) {
             const image = await target.webContents.capturePage();
             const { writeFileSync } = await import("node:fs");

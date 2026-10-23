@@ -6,7 +6,7 @@
  * handed and reports each edit; the page owns the drafts, the errors and what a change sets in
  * motion.
  */
-import type { PluginConfigEntry, PluginConfigField } from "@prismshadow/penguin-server/api";
+import type { PluginConfigEntry, PluginConfigField } from "@waterford/waf-harness-server/api";
 import {
   Checkbox,
   Input,
@@ -14,7 +14,7 @@ import {
   Select,
   Textarea,
   ToggleRow,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import type { Locale } from "../../state/locale";
 import { localizedText } from "../chat/skill-use";

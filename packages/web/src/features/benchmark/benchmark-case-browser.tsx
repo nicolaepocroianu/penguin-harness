@@ -16,9 +16,9 @@ import type {
   BenchmarkCaseSummary,
   CaseMaterial,
   WorkspaceFileEntry,
-} from "@prismshadow/penguin-server/api";
-import { FileBrowser, Pill } from "@prismshadow/penguin-ui";
-import type { FileBrowserPreview, FileTreeRow, TreeToggle } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { FileBrowser, Pill } from "@waterford/waf-harness-ui";
+import type { FileBrowserPreview, FileTreeRow, TreeToggle } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { joinWorkspacePath } from "../../lib/file-path";

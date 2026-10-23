@@ -1,11 +1,11 @@
 /**
  * Which FFmpeg this server runs, and running it.
  *
- * Penguin ships FFmpeg through the `ffmpeg-static` package (an optional dependency: its
+ * WAF Harness ships FFmpeg through the `ffmpeg-static` package (an optional dependency: its
  * install script downloads the binary for this platform; GPL, run as a separate program and
  * never linked). The one to run is, in order:
  *
- * 1. `PENGUIN_FFMPEG_PATH`, when an admin points at a build of their own;
+ * 1. `WAFH_FFMPEG_PATH`, when an admin points at a build of their own;
  * 2. the bundled binary, resolved at run time from `ffmpeg-static` — the desktop app stages
  *    that package beside its server bundle (packages/desktop/scripts/build-assets.mjs), so the
  *    same lookup finds it there;
@@ -34,7 +34,7 @@ function bundledFfmpeg(): string | null {
 
 /** The FFmpeg executable to run: the admin's, the bundled one, or `ffmpeg` from PATH. */
 export function ffmpegPath(env: NodeJS.ProcessEnv = process.env): string {
-  return env.PENGUIN_FFMPEG_PATH?.trim() || bundledFfmpeg() || "ffmpeg";
+  return env.WAFH_FFMPEG_PATH?.trim() || bundledFfmpeg() || "ffmpeg";
 }
 
 /** Why FFmpeg could not be run at all, worded for what it was needed for. */

@@ -35,7 +35,7 @@ beforeEach(() => {
   vi.stubEnv("SystemRoot", process.env.SystemRoot || path.resolve("windows"));
   vi.spyOn(childProcess, "execFileSync").mockImplementation((...args: unknown[]) => {
     const { env } = args[2] as { env: Record<string, string> };
-    return JSON.stringify(answer(env.PENGUIN_SIGNED_FILE!));
+    return JSON.stringify(answer(env.WAFH_SIGNED_FILE!));
   });
 });
 afterEach(async () => {
@@ -82,7 +82,7 @@ describe("Windows release artifact gate", () => {
 
   it.each([
     // The repeated key carries the right value: only the duplicate itself can fail it.
-    ["a duplicate key", (text: string) => `${text}path: penguin-desktop-win32-x64.exe\n`],
+    ["a duplicate key", (text: string) => `${text}path: wafh-desktop-win32-x64.exe\n`],
     ["malformed YAML", () => "broken: ["],
   ])("refuses latest.yml with %s", async (_name, edit) => {
     const { root } = await fixture();
@@ -92,10 +92,10 @@ describe("Windows release artifact gate", () => {
   });
 
   it.each([
-    "penguin-desktop-win32-x64.exe",
-    "penguin-desktop-win32-x64.exe.blockmap",
+    "wafh-desktop-win32-x64.exe",
+    "wafh-desktop-win32-x64.exe.blockmap",
     "latest.yml",
-    "win-unpacked/PenguinHarness.exe",
+    "win-unpacked/WAF Harness.exe",
     "win-unpacked/resources/elevate.exe",
     "win-unpacked/resources/app-update.yml",
   ])("refuses a build without %s", async (relative) => {

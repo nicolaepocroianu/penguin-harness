@@ -12,7 +12,7 @@ import {
 describe("trayMenuTemplate", () => {
   it("lists the actions in order, separated into groups", () => {
     const template = trayMenuTemplate({
-      appName: "PenguinHarness",
+      appName: "WAF Harness",
       closeToTray: true,
       locale: "en",
     });
@@ -30,17 +30,16 @@ describe("trayMenuTemplate", () => {
 
   it("names the app in the first entry, dev suffix included", () => {
     expect(
-      trayMenuTemplate({ appName: "PenguinHarness", closeToTray: true, locale: "en" })[0]?.label,
-    ).toBe("Open PenguinHarness");
+      trayMenuTemplate({ appName: "WAF Harness", closeToTray: true, locale: "en" })[0]?.label,
+    ).toBe("Open WAF Harness");
     expect(
-      trayMenuTemplate({ appName: "PenguinHarness Dev", closeToTray: true, locale: "en" })[0]
-        ?.label,
-    ).toBe("Open PenguinHarness Dev");
+      trayMenuTemplate({ appName: "WAF Harness Dev", closeToTray: true, locale: "en" })[0]?.label,
+    ).toBe("Open WAF Harness Dev");
   });
 
   it("shows the close-to-tray preference as a checkbox", () => {
     for (const closeToTray of [true, false]) {
-      const item = trayMenuTemplate({ appName: "PenguinHarness", closeToTray, locale: "en" }).find(
+      const item = trayMenuTemplate({ appName: "WAF Harness", closeToTray, locale: "en" }).find(
         (entry) => entry.action === "toggle-close-to-tray",
       );
       expect(item).toEqual({

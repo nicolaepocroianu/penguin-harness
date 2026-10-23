@@ -2,7 +2,7 @@
  * git for deploys: the port every git command goes through (`clone.ts` speaks it), the real
  * one that spawns `git`, the branches a deploy works on, and comparing remotes.
  *
- * git authenticates with the host's own SSH keys; Penguin stores no git credential. So that
+ * git authenticates with the host's own SSH keys; WAF Harness stores no git credential. So that
  * a missing key fails rather than waits on a prompt nobody sees, the child runs with
  * `GIT_TERMINAL_PROMPT=0` and SSH in batch mode. No shell, a time limit, bounded output.
  *

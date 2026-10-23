@@ -24,7 +24,7 @@
  */
 import { useMemo, useSyncExternalStore } from "react";
 import type { ComponentType } from "react";
-import { ICONS } from "@prismshadow/penguin-ui";
+import { ICONS } from "@waterford/waf-harness-ui";
 import type { CommandId } from "../../lib/shortcuts/types";
 import type { DockPosition } from "./dock-state";
 

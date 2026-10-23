@@ -38,7 +38,7 @@ const plugin = (name: string) => ({
   name,
   description: "",
   version: "0.0.0",
-  package: `@penguinharness/${name}`,
+  package: `@waf-harness/${name}`,
   source: "builtin",
   skills: [{ name, description: "", version: "" }],
   hooks: [],
@@ -117,7 +117,7 @@ describe("start page counts", () => {
     await settle();
     await first.unmount();
 
-    srv.state.benchmarks.push("penguinharness-benchmark-sec-a");
+    srv.state.benchmarks.push("waf-harness-benchmark-sec-a");
     const second = await visit(counts);
     await settle();
 

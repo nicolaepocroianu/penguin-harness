@@ -24,7 +24,7 @@ import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import { Button } from "@prismshadow/penguin-ui";
+import { Button } from "@waterford/waf-harness-ui";
 import { AgentCard, AgentNameLink } from "../src/features/agents/agents-page";
 import { S } from "../src/lib/strings";
 import { clickOn, fakeElement } from "./helpers/fake-dom";

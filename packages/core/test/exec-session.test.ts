@@ -91,7 +91,7 @@ let tmp: string;
 let env: Environment;
 
 beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), "penguin-exec-session-"));
+  tmp = await mkdtemp(path.join(tmpdir(), "wafh-exec-session-"));
   env = new Environment({ workspaceDir: tmp, toolConfig: sessionConfig() });
 });
 
@@ -159,10 +159,10 @@ describe("exec_command — long-running command sessions", () => {
 
     const res = await runTool(env, "input_command", {
       process_id: pid,
-      chars: "penguin\n",
+      chars: "wafh\n",
       yield_time_ms: 2000,
     });
-    expect(res.output).toContain("got:penguin");
+    expect(res.output).toContain("got:wafh");
     expect(res.stopReason).toBe("completed");
   });
 
@@ -303,45 +303,45 @@ describe("harness environment variables never reach a spawned command", () => {
   const KEYS = [
     "PORT",
     "HOST",
-    "PENGUIN_CLI_ENTRY",
-    "PENGUIN_WEB_DIST",
-    "PENGUIN_DESKTOP_TOKEN",
-    "PENGUIN_PORT_FILE",
-    "PENGUIN_SEED_ADMIN_PASSWORD",
-    "PENGUIN_HOME",
-    "PENGUIN_WEB_DB",
-    // A sample of the PENGUIN_* the prefix rule covers that no by-name list ever named: the
+    "WAFH_CLI_ENTRY",
+    "WAFH_WEB_DIST",
+    "WAFH_DESKTOP_TOKEN",
+    "WAFH_PORT_FILE",
+    "WAFH_SEED_ADMIN_PASSWORD",
+    "WAFH_HOME",
+    "WAFH_WEB_DB",
+    // A sample of the WAFH_* the prefix rule covers that no by-name list ever named: the
     // resolved shell, the release feed, the UI language and the install location. Whether these
     // specific ones are set at run time is beside the point — the rule is the prefix, and a new
     // variable added next release has to be covered without anyone remembering this file.
-    "PENGUIN_SHELL",
-    "PENGUIN_UPDATE_FEED_URL",
-    "PENGUIN_LANG",
-    "PENGUIN_INSTALL_DIR",
+    "WAFH_SHELL",
+    "WAFH_UPDATE_FEED_URL",
+    "WAFH_LANG",
+    "WAFH_INSTALL_DIR",
   ] as const;
   const saved: Partial<Record<(typeof KEYS)[number], string | undefined>> = {};
 
   beforeEach(() => {
-    // `penguin web` writes PORT/HOST into its own process env as the channel to the server
+    // `wafh web` writes PORT/HOST into its own process env as the channel to the server
     // module, so this is exactly the state a real serving process is in.
     for (const k of KEYS) saved[k] = process.env[k];
     process.env.PORT = "7364";
     process.env.HOST = "127.0.0.1";
-    process.env.PENGUIN_CLI_ENTRY = "/opt/penguin/lib/dist/index.js";
-    process.env.PENGUIN_WEB_DIST = "/opt/penguin/web";
+    process.env.WAFH_CLI_ENTRY = "/opt/wafh/lib/dist/index.js";
+    process.env.WAFH_WEB_DIST = "/opt/wafh/web";
     // The desktop shell's process credentials: a leaked token
     // would let an Agent-run command call the server's shutdown endpoint.
-    process.env.PENGUIN_DESKTOP_TOKEN = "secret-desktop-token";
-    process.env.PENGUIN_PORT_FILE = "/tmp/port-file";
-    process.env.PENGUIN_SEED_ADMIN_PASSWORD = "penguin-0000";
+    process.env.WAFH_DESKTOP_TOKEN = "secret-desktop-token";
+    process.env.WAFH_PORT_FILE = "/tmp/port-file";
+    process.env.WAFH_SEED_ADMIN_PASSWORD = "wafh-0000";
     // The data roots this very process is serving from. Inherited, they aim an Agent-started
     // harness at the running one's data — where the lock is already held, so it cannot start.
-    process.env.PENGUIN_HOME = "/home/someone/.penguin/data";
-    process.env.PENGUIN_WEB_DB = "/home/someone/.penguin/data/web.db";
-    process.env.PENGUIN_SHELL = "/opt/penguin/bin/bash";
-    process.env.PENGUIN_UPDATE_FEED_URL = "https://example.invalid/feed";
-    process.env.PENGUIN_LANG = "zh";
-    process.env.PENGUIN_INSTALL_DIR = "/opt/penguin";
+    process.env.WAFH_HOME = "/home/someone/.waf-harness/data";
+    process.env.WAFH_WEB_DB = "/home/someone/.waf-harness/data/web.db";
+    process.env.WAFH_SHELL = "/opt/wafh/bin/bash";
+    process.env.WAFH_UPDATE_FEED_URL = "https://example.invalid/feed";
+    process.env.WAFH_LANG = "zh";
+    process.env.WAFH_INSTALL_DIR = "/opt/wafh";
   });
   afterEach(() => {
     for (const k of KEYS) {
@@ -365,7 +365,7 @@ describe("harness environment variables never reach a spawned command", () => {
 
   it("a differently-cased spelling is stripped too, for Windows' sake", async () => {
     // Windows looks environment names up without regard to case but stores the casing that was
-    // written, so `set Port=3000` before `penguin web` reaches a child as PORT — invisible to a
+    // written, so `set Port=3000` before `wafh web` reaches a child as PORT — invisible to a
     // strip that only removes the upper-case name. POSIX keeps `Port` and `PORT` apart, which is
     // what lets this run here at all: without the case-insensitive match it passes through.
     process.env.Port = "3000";
@@ -380,7 +380,7 @@ describe("harness environment variables never reach a spawned command", () => {
   });
 
   it("inherited FORCE_COLOR is removed, so the NO_COLOR=1 hardening actually wins", async () => {
-    // Node deliberately lets FORCE_COLOR defeat NO_COLOR, so a nested `penguin run` under a
+    // Node deliberately lets FORCE_COLOR defeat NO_COLOR, so a nested `wafh run` under a
     // color-forcing parent (issue #102 observed FORCE_COLOR=3, NO_COLOR=1, TERM=dumb at once)
     // would keep emitting ANSI escapes unless the inherited override is removed outright.
     const saved = {
@@ -403,7 +403,7 @@ describe("harness environment variables never reach a spawned command", () => {
   });
 
   it("the rest of the host environment still passes through", async () => {
-    // Deliberately not a PENGUIN_* name any more. This case asserts that stripping is narrow —
+    // Deliberately not a WAFH_* name any more. This case asserts that stripping is narrow —
     // that a variable the user's own project relies on survives — and a harness-prefixed name
     // can no longer stand for that, since the prefix is itself the rule.
     process.env.MY_PROJECT_TEST_PASSTHROUGH = "kept";
@@ -433,21 +433,21 @@ describe("harness environment variables never reach a spawned command", () => {
     }
   });
 
-  it("a PENGUIN_* nobody has invented yet is stripped, because the rule is the prefix", async () => {
+  it("a WAFH_* nobody has invented yet is stripped, because the rule is the prefix", async () => {
     // The point of matching on the prefix: this variable exists in no list, and a feature that
     // adds one next release inherits the protection without anyone editing this file.
-    process.env.PENGUIN_SOME_FUTURE_SETTING = "leaked";
+    process.env.WAFH_SOME_FUTURE_SETTING = "leaked";
     try {
       const res = await runTool(env, "exec_command", {
-        cmd: `node -e "console.log('X=[' + (process.env.PENGUIN_SOME_FUTURE_SETTING ?? '') + ']')"`,
+        cmd: `node -e "console.log('X=[' + (process.env.WAFH_SOME_FUTURE_SETTING ?? '') + ']')"`,
       });
       expect(res.output).toContain("X=[]");
     } finally {
-      delete process.env.PENGUIN_SOME_FUTURE_SETTING;
+      delete process.env.WAFH_SOME_FUTURE_SETTING;
     }
   });
 
-  it("the vault can put PENGUIN_HOME back, which is how a shared data root is asked for", async () => {
+  it("the vault can put WAFH_HOME back, which is how a shared data root is asked for", async () => {
     // Sharing a root with the running harness is a legitimate config decision; inheriting it from
     // whichever process happens to be serving is not. The vault is where that decision is made.
     // The value is deliberately not path-shaped. Git Bash's MSYS layer rewrites POSIX-looking
@@ -458,40 +458,40 @@ describe("harness environment variables never reach a spawned command", () => {
     const vaultEnv = new Environment({
       workspaceDir: tmp,
       toolConfig: sessionConfig(),
-      vault: { PENGUIN_HOME: "vault-supplied-root" },
+      vault: { WAFH_HOME: "vault-supplied-root" },
     });
     try {
       const res = await runTool(vaultEnv, "exec_command", {
-        cmd: `node -e "console.log('PENGUIN_HOME=[' + (process.env.PENGUIN_HOME ?? '') + ']')"`,
+        cmd: `node -e "console.log('WAFH_HOME=[' + (process.env.WAFH_HOME ?? '') + ']')"`,
       });
-      expect(res.output).toContain("PENGUIN_HOME=[vault-supplied-root]");
+      expect(res.output).toContain("WAFH_HOME=[vault-supplied-root]");
     } finally {
       vaultEnv.dispose();
     }
   });
 
-  it("an explicit injection layered after the strip wins, for any PENGUIN_* name", async () => {
+  it("an explicit injection layered after the strip wins, for any WAFH_* name", async () => {
     // The strip governs inheritance only — it runs while the host env is copied and never
     // re-applies to entries spread in after it. That seam is what every injection layer
     // relies on (the vault stands in for all of them here): the host's copy of the name is
     // set to a different value to prove the child's value came from the injection, not
     // through inheritance.
-    const savedInherited = process.env.PENGUIN_API_URL;
-    process.env.PENGUIN_API_URL = "http://inherited.invalid";
+    const savedInherited = process.env.WAFH_API_URL;
+    process.env.WAFH_API_URL = "http://inherited.invalid";
     const vaultEnv = new Environment({
       workspaceDir: tmp,
       toolConfig: sessionConfig(),
-      vault: { PENGUIN_API_URL: "http://injected.example" },
+      vault: { WAFH_API_URL: "http://injected.example" },
     });
     try {
       const res = await runTool(vaultEnv, "exec_command", {
-        cmd: `node -e "console.log('A=[' + (process.env.PENGUIN_API_URL ?? '') + ']')"`,
+        cmd: `node -e "console.log('A=[' + (process.env.WAFH_API_URL ?? '') + ']')"`,
       });
       expect(res.output).toContain("A=[http://injected.example]");
     } finally {
       vaultEnv.dispose();
-      if (savedInherited === undefined) delete process.env.PENGUIN_API_URL;
-      else process.env.PENGUIN_API_URL = savedInherited;
+      if (savedInherited === undefined) delete process.env.WAFH_API_URL;
+      else process.env.WAFH_API_URL = savedInherited;
     }
   });
 });
@@ -600,7 +600,7 @@ describe("confineSpawn seam rewrites the exact argv a command spawns", () => {
   });
 
   it("a confined Session's file tools write only inside its workspace, as its commands may", async () => {
-    const outside = await mkdtemp(path.join(tmpdir(), "penguin-outside-"));
+    const outside = await mkdtemp(path.join(tmpdir(), "wafh-outside-"));
     const floored = new Environment({
       workspaceDir: tmp,
       toolConfig: {
@@ -665,9 +665,9 @@ describe("confineSpawn seam rewrites the exact argv a command spawns", () => {
       argv: [
         process.execPath,
         "-e",
-        "console.log('RUNNER=' + process.env.PENGUIN_RUNNER_MARK + ' PATH=' + (process.env.PATH ?? '').length)",
+        "console.log('RUNNER=' + process.env.WAFH_RUNNER_MARK + ' PATH=' + (process.env.PATH ?? '').length)",
       ],
-      env: { PENGUIN_RUNNER_MARK: "set-by-confiner" },
+      env: { WAFH_RUNNER_MARK: "set-by-confiner" },
     });
     const res = await runTool(confinedEnv, "exec_command", { cmd: "echo original" });
     expect(res.output).toContain("RUNNER=set-by-confiner");
@@ -798,28 +798,28 @@ describe("proxyEnv policy governs the proxy variables commands inherit", () => {
 describe("controlEnv injects the host's harness-control variables into commands", () => {
   // The hosting server threads a controlEnv getter through Environment ->
   // CommandSessionManager so commands the Agent runs can drive the harness back through
-  // the CLI/API (PENGUIN_API_URL / PENGUIN_API_TOKEN / the Session coordinates).
+  // the CLI/API (WAFH_API_URL / WAFH_API_TOKEN / the Session coordinates).
 
-  it("injected PENGUIN_* variables reach the child even though inherited ones are stripped", async () => {
-    // The host process's own PENGUIN_API_URL must NOT leak through inheritance; the same
+  it("injected WAFH_* variables reach the child even though inherited ones are stripped", async () => {
+    // The host process's own WAFH_API_URL must NOT leak through inheritance; the same
     // name from controlEnv must arrive — injection happens after the prefix strip.
-    process.env.PENGUIN_API_URL = "http://inherited.example:1";
+    process.env.WAFH_API_URL = "http://inherited.example:1";
     const controlled = new Environment({
       workspaceDir: tmp,
       toolConfig: sessionConfig(),
       controlEnv: () => ({
-        PENGUIN_API_URL: "http://localhost:7364",
-        PENGUIN_SESSION_ID: "session-x",
+        WAFH_API_URL: "http://localhost:7364",
+        WAFH_SESSION_ID: "session-x",
       }),
     });
     try {
       const res = await runTool(controlled, "exec_command", {
-        cmd: `node -e "console.log('U=[' + (process.env.PENGUIN_API_URL ?? '') + '] S=[' + (process.env.PENGUIN_SESSION_ID ?? '') + ']')"`,
+        cmd: `node -e "console.log('U=[' + (process.env.WAFH_API_URL ?? '') + '] S=[' + (process.env.WAFH_SESSION_ID ?? '') + ']')"`,
       });
       expect(res.output).toContain("U=[http://localhost:7364] S=[session-x]");
     } finally {
       controlled.dispose();
-      delete process.env.PENGUIN_API_URL;
+      delete process.env.WAFH_API_URL;
     }
   });
 
@@ -827,12 +827,12 @@ describe("controlEnv injects the host's harness-control variables into commands"
     const controlled = new Environment({
       workspaceDir: tmp,
       toolConfig: sessionConfig(),
-      vault: { PENGUIN_API_TOKEN: "vault-token", KEEP_ME: "vault-kept" },
-      controlEnv: () => ({ PENGUIN_API_TOKEN: "boot-token" }),
+      vault: { WAFH_API_TOKEN: "vault-token", KEEP_ME: "vault-kept" },
+      controlEnv: () => ({ WAFH_API_TOKEN: "boot-token" }),
     });
     try {
       const res = await runTool(controlled, "exec_command", {
-        cmd: `node -e "console.log('T=[' + (process.env.PENGUIN_API_TOKEN ?? '') + '] K=[' + (process.env.KEEP_ME ?? '') + ']')"`,
+        cmd: `node -e "console.log('T=[' + (process.env.WAFH_API_TOKEN ?? '') + '] K=[' + (process.env.KEEP_ME ?? '') + ']')"`,
       });
       expect(res.output).toContain("T=[boot-token] K=[vault-kept]");
     } finally {
@@ -845,10 +845,10 @@ describe("controlEnv injects the host's harness-control variables into commands"
     const controlled = new Environment({
       workspaceDir: tmp,
       toolConfig: sessionConfig(),
-      controlEnv: () => ({ PENGUIN_API_TOKEN: token }),
+      controlEnv: () => ({ WAFH_API_TOKEN: token }),
     });
     try {
-      const read = `node -e "console.log('T=[' + (process.env.PENGUIN_API_TOKEN ?? '') + ']')"`;
+      const read = `node -e "console.log('T=[' + (process.env.WAFH_API_TOKEN ?? '') + ']')"`;
       expect((await runTool(controlled, "exec_command", { cmd: read })).output).toContain(
         "T=[first]",
       );
@@ -866,7 +866,7 @@ describe.skipIf(process.platform === "win32")(
   "pathPrepend puts the host's own directories in front of a command's PATH",
   () => {
     // The hosting server threads a pathPrepend getter through Environment ->
-    // CommandSessionManager so a command an Agent runs reaches the harness's own `penguin`
+    // CommandSessionManager so a command an Agent runs reaches the harness's own `wafh`
     // rather than whatever the machine has installed globally.
     // A shell BUILTIN, deliberately: these cases run with PATH rewritten out from under
     // them (that is the subject), so a reader that has to be found on PATH would be
@@ -880,7 +880,7 @@ describe.skipIf(process.platform === "win32")(
     beforeEach(async () => {
       shimDir = path.join(tmp, "shim");
       await mkdir(shimDir, { recursive: true });
-      const script = path.join(shimDir, "penguin");
+      const script = path.join(shimDir, "wafh");
       await writeFile(script, "#!/bin/sh\necho harness-cli\n");
       await chmod(script, 0o755);
       prepend = [shimDir];
@@ -894,7 +894,7 @@ describe.skipIf(process.platform === "win32")(
     afterEach(() => prepared.dispose());
 
     it("a bare command name resolves the prepended directory's copy", async () => {
-      const res = await runTool(prepared, "exec_command", { cmd: "penguin" });
+      const res = await runTool(prepared, "exec_command", { cmd: "wafh" });
       expect(res.output).toContain("harness-cli");
     });
 
@@ -932,7 +932,7 @@ describe.skipIf(process.platform === "win32")(
       const res = await runTool(prepared, "exec_command", { cmd: READ_PATH });
       expect(res.output).not.toContain(shimDir);
       prepend = [shimDir];
-      expect((await runTool(prepared, "exec_command", { cmd: "penguin" })).output).toContain(
+      expect((await runTool(prepared, "exec_command", { cmd: "wafh" })).output).toContain(
         "harness-cli",
       );
     });

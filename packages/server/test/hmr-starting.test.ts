@@ -12,7 +12,7 @@ describe("the answers with no App behind them", () => {
     expect(res.headers.get("retry-after")).toBe("1");
     // Never cached: the next request has to reach the App, not this answer.
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.text()).toBe("penguin-server is starting");
+    expect(await res.text()).toBe("wafh-server is starting");
   });
 
   it("names the fault and promises no retry when no platform is running", async () => {

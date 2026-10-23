@@ -176,7 +176,7 @@ describe("glyph paths outside the registry", () => {
       glyphHits(
         "probe.tsx",
         [
-          'import { ICONS } from "@prismshadow/penguin-ui";',
+          'import { ICONS } from "@waterford/waf-harness-ui";',
           "const TRASH_ICON = ICONS.trash;",
           "export const Line = ({ d }: { d: string }) => <path d={d} />;",
           'const MENU_ICON = "Menu";',

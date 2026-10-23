@@ -4,7 +4,7 @@ import type {
   ModuleBuildDiff,
   ModuleBuildList,
   VersionStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   buildFileRows,
   buildLabel,

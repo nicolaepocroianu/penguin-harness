@@ -40,7 +40,7 @@ export function removeTemps(): void {
 
 /** The plugin's manifests in the first commit. */
 export const MANIFEST = {
-  name: "@penguinharness/waf-authoring",
+  name: "@waf-harness/waf-authoring",
   version: "0.2.14",
   files: ["skills"],
 };

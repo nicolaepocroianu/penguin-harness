@@ -28,7 +28,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { CaseRequest, CaseSet, CaseSummary, CaseVault, HiddenChecks, Split } from "./types.js";
 
-export const SEALED_FORMAT = "penguin-activity-bench/1";
+export const SEALED_FORMAT = "wafh-activity-bench/1";
 
 const DEFAULT_VIEWPORT = { width: 1280, height: 800 };
 

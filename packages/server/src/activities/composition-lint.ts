@@ -18,7 +18,7 @@
  *
  * The approach, a quick source lint whose findings go back to the agent, follows open-design's
  * artifact linter (`apps/daemon/src/lint-artifact.ts` in github.com/nexu-io/open-design,
- * Apache-2.0). Its rules there are about marketing pages; the ones here are Penguin's own for
+ * Apache-2.0). Its rules there are about marketing pages; the ones here are WAF Harness's own for
  * scenes, with the filler and emoji checks adapted from it.
  */
 import type { CompositionLintCode, CompositionLintFinding } from "./composition-types.js";

@@ -77,7 +77,7 @@ In the panel, use the switch on the task's row. The change takes effect at once:
 
 A task that can never fire again is moved out of the lists: a one-off task that has run, a one-off task whose time passed while the service was stopped, and a task past its end time. The scheduler moves its file, unchanged, into the agent's `agent_state/schedule/expired/` folder. A one-off task moves as soon as it runs. A task with a queued run moves once that run is sent.
 
-An archived task leaves every list and count: this panel, the agent's **Schedules** tab and its card on the **Agents** page, the alarm clock mark, the schedules API and `penguin schedule ls`. The list of scheduled tasks in the agent's system prompt drops it from the next model context. The file stays on disk.
+An archived task leaves every list and count: this panel, the agent's **Schedules** tab and its card on the **Agents** page, the alarm clock mark, the schedules API and `wafh schedule ls`. The list of scheduled tasks in the agent's system prompt drops it from the next model context. The file stays on disk.
 
 To bring a task back, edit the times in its file so it can fire again, then move the file back into `agent_state/schedule/`, named `<name>.toml`. An archived file carries a time suffix when an older copy was already in `expired/`; drop the suffix when you move it back. A file moved back with its times still past is archived again.
 
@@ -105,7 +105,7 @@ The alarm clock mark reads the same list and refreshes with it, so the mark and 
 ## Limits
 
 - A repeating task runs at most once every 5 minutes: the shortest period is 5 minutes. A shorter period makes the task invalid.
-- Tasks run only while the PenguinHarness service is running.
+- Tasks run only while the WAF Harness service is running.
 - Missed runs are not made up. When a fire time passes while the service is stopped, a repeating task skips it and a one-off task is marked missed and archived.
 
 ## How it works

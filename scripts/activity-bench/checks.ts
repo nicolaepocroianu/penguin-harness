@@ -177,7 +177,7 @@ export class HarnessCheckRunner implements CheckRunner {
     hidden: boolean,
   ): Promise<CheckRun> {
     // A folder that never exists: the modules' URLs, so the harness finds its siblings.
-    const base = `${pathToFileURL(path.join(os.tmpdir(), `penguin-bench-${randomBytes(8).toString("hex")}`)).href}/`;
+    const base = `${pathToFileURL(path.join(os.tmpdir(), `wafh-bench-${randomBytes(8).toString("hex")}`)).href}/`;
     const input = JSON.stringify({
       playUrl,
       viewport: checks.viewport,

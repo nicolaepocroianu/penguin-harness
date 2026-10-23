@@ -1,6 +1,6 @@
 /**
  * Agent API management (`/api/projects/:projectId/agents/:agentId/api`): the API tab and
- * `penguin agent api` read and change one Agent's exposure here.
+ * `wafh agent api` read and change one Agent's exposure here.
  *
  *   GET    /               member   the switch, keyless access, the approval mode, the keys
  *   PUT    /               owner    change the switch, keyless access and/or the approval mode
@@ -13,10 +13,10 @@
  * the Agent State the Agent itself can rewrite. And the writes take the owner's sign-in, never
  * the local API token every tool subprocess holds (403 `human_required`, see requireHuman): an
  * Agent must not switch on its own exposure from its shell. The reads stay open to the token,
- * for `penguin agent api status` and `keys ls`.
+ * for `wafh agent api status` and `keys ls`.
  */
 import { Hono } from "hono";
-import { THINKING_LEVEL_NAMES, resolveModelRef } from "@prismshadow/penguin-core";
+import { THINKING_LEVEL_NAMES, resolveModelRef } from "@waterford/waf-harness-core";
 import { assertWorkspaceAllowed } from "../../services/workspace-guard.js";
 import type { Context } from "hono";
 import type {

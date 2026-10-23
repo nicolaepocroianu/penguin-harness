@@ -1,6 +1,6 @@
 /**
  * The Plugins page's "incompatible plugins only" filter: a display preference of this browser
- * (`penguin.pluginsIncompatibleOnly`), switched in Settings › Plugins and by the page's own
+ * (`wafh.pluginsIncompatibleOnly`), switched in Settings › Plugins and by the page's own
  * notices, and read by the page to narrow its list to the plugins this build cannot fully run.
  *
  * A tiny store rather than a plain read, because the switch and the list it filters are on screen
@@ -10,7 +10,7 @@
  */
 import { useSyncExternalStore } from "react";
 
-export const PLUGINS_INCOMPATIBLE_ONLY_KEY = "penguin.pluginsIncompatibleOnly";
+export const PLUGINS_INCOMPATIBLE_ONLY_KEY = "wafh.pluginsIncompatibleOnly";
 const ON = "1";
 const OFF = "0";
 

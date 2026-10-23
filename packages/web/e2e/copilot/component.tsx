@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ModelOAuthDialog } from "../../src/features/models/models-page";
-import { providerInfo } from "@prismshadow/penguin-core/model-catalog";
+import { providerInfo } from "@waterford/waf-harness-core/model-catalog";
 import { setActiveStrings } from "../../src/lib/strings";
 import { en } from "../../src/lib/strings-en";
 import "../../src/styles.css";

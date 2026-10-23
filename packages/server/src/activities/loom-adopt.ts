@@ -1,12 +1,12 @@
 /**
- * Turning what Loom authored into what Penguin stores, when a project adopts a Loom product
+ * Turning what Loom authored into what WAF Harness stores, when a project adopts a Loom product
  * in place (service.claimModuleProduct).
  *
  * Loom's specification is used as it is, with one repair. The media plan is made again from
- * it, as Penguin makes every plan, and Loom's bindings (paths, scripts, descriptions, voices,
+ * it, as WAF Harness makes every plan, and Loom's bindings (paths, scripts, descriptions, voices,
  * timings, playback, book words, and assets the plan does not make) are carried onto it.
- * Loom's own manifest stays where it is, Penguin's plan merged into it (loom-manifest.ts), so
- * what Penguin's plan has no field for is still Loom's; a copy is kept as
+ * Loom's own manifest stays where it is, WAF Harness's plan merged into it (loom-manifest.ts), so
+ * what WAF Harness's plan has no field for is still Loom's; a copy is kept as
  * `asset_manifest.loom.json`. Everything that cannot be carried is named, so an author sees
  * what was lost rather than finding it by eye.
  */
@@ -45,7 +45,7 @@ export interface SourceRef {
   implementationFeatures?: string[];
 }
 
-/** What Penguin would create for the product. */
+/** What WAF Harness would create for the product. */
 export interface MappedProduct {
   productCode: string;
   moduleFolder: string;
@@ -54,7 +54,7 @@ export interface MappedProduct {
   bookMode: "decodable" | "readAlong" | null;
 }
 
-/** What Penguin would create for one ref. */
+/** What WAF Harness would create for one ref. */
 export interface MappedActivity {
   refNum: number;
   title: string;
@@ -69,7 +69,7 @@ export interface MappedActivity {
   media: Record<string, CarriedBinding[]>;
 }
 
-/** What Loom bound one asset to, as far as Penguin's manifest can keep it. */
+/** What Loom bound one asset to, as far as WAF Harness's manifest can keep it. */
 export interface CarriedBinding {
   key: string;
   /** Absent for an asset in a role only Loom's book reader knows, which is never carried. */
@@ -103,18 +103,18 @@ export interface CarriedBinding {
   };
 }
 
-/** A path Penguin's manifest accepts: relative, under media/, no traversal. */
+/** A path WAF Harness's manifest accepts: relative, under media/, no traversal. */
 const MEDIA_PATH = /^media\/[A-Za-z0-9_./ -]+$/;
 
-/** A key Penguin's manifest accepts. */
+/** A key WAF Harness's manifest accepts. */
 const SAFE_KEY = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 
-/** A voice Penguin's manifest accepts. */
+/** A voice WAF Harness's manifest accepts. */
 const VOICE = /^[A-Za-z0-9 _.-]{1,64}$/;
 
 const MEDIA_TYPES = new Set(["image", "audio", "video", "animation"]);
 
-/** Loom's word pronunciation, as Penguin keeps it, or null for anything else. */
+/** Loom's word pronunciation, as WAF Harness keeps it, or null for anything else. */
 function carriedWord(asset: Record<string, unknown>): CarriedBinding["bookWord"] | null {
   if (asset.role !== "bookWord" || asset.type !== "audio" || typeof asset.word !== "string")
     return null;
@@ -251,22 +251,22 @@ export interface LoomAdoption {
   repaired: string[];
 }
 
-/** A title Penguin can store, since it requires one and Loom does not. */
+/** A title WAF Harness can store, since it requires one and Loom does not. */
 function titleFor(product: SourceProduct, ref: SourceRef): string {
   return ref.title?.trim() || product.title?.trim() || `${product.productCode}-${ref.refNum}`;
 }
 
 /**
- * What Penguin would make of a Loom product and its refs.
+ * What WAF Harness would make of a Loom product and its refs.
  *
  * Two repairs are applied rather than refused, because refusing would make most of the
  * real corpus unopenable, and both are recorded:
  *
  * A product naming a canonical ref that does not exist gets its lowest ref instead — the
- * same repair migration 18 makes for existing Penguin rows, and three real products need
+ * same repair migration 18 makes for existing WAF Harness rows, and three real products need
  * it.
  *
- * A product with no title at all takes the ref's, or its address, because Penguin requires
+ * A product with no title at all takes the ref's, or its address, because WAF Harness requires
  * one.
  */
 export function adoptLoomProduct(product: SourceProduct, refs: readonly SourceRef[]): LoomAdoption {
@@ -299,7 +299,7 @@ export function adoptLoomProduct(product: SourceProduct, refs: readonly SourceRe
       dropped.push(
         `Ref ${ref.refNum} has no ${DEFAULT_LANGUAGE_CODE} group, so there is nothing to translate from.`,
       );
-    // Checked here rather than on the way in, so a specification Penguin will not accept
+    // Checked here rather than on the way in, so a specification WAF Harness will not accept
     // is a reported loss instead of a ref that gets created and then cannot be finished.
     // A half-written ref is worse than a missing one: it looks adopted and does nothing.
     let spec = ref.spec;
@@ -320,7 +320,7 @@ export function adoptLoomProduct(product: SourceProduct, refs: readonly SourceRe
         validateActivitySpec(spec);
       } catch (error) {
         dropped.push(
-          `Ref ${ref.refNum} has a specification Penguin will not accept, so it was not carried: ${(error as Error).message}`,
+          `Ref ${ref.refNum} has a specification WAF Harness will not accept, so it was not carried: ${(error as Error).message}`,
         );
         spec = null;
       }
@@ -330,7 +330,7 @@ export function adoptLoomProduct(product: SourceProduct, refs: readonly SourceRe
     const lostNames = Object.entries(carried.lost).map(([name, count]) => `${name} (${count})`);
     if (lostNames.length)
       dropped.push(
-        `Ref ${ref.refNum}: Loom's per-asset ${lostNames.join(", ")} were not carried; Penguin's media plan has no field for them.`,
+        `Ref ${ref.refNum}: Loom's per-asset ${lostNames.join(", ")} were not carried; WAF Harness's media plan has no field for them.`,
       );
     if (carried.badPaths)
       dropped.push(

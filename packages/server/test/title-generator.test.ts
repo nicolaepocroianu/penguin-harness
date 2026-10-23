@@ -11,7 +11,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { DatabaseSync } from "node:sqlite";
-import type { OmniMessage, SessionTitleResult } from "@prismshadow/penguin-core";
+import type { OmniMessage, SessionTitleResult } from "@waterford/waf-harness-core";
 import { openDatabase } from "../src/db/database.js";
 import { SessionsRepo } from "../src/db/repos/sessions.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
@@ -20,7 +20,7 @@ import type { ChannelEvent } from "../src/runtime/channel.js";
 import { TitleGenerator, fallbackTitle } from "../src/runtime/title-generator.js";
 import type { UsageContext } from "../src/runtime/usage-recorder.js";
 import { waitFor } from "./helpers.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 
 const ROW: SessionRow = {
   sessionId: "session-t1",
@@ -311,7 +311,7 @@ describe("title-generator", () => {
   });
 
   describe("fallbackTitle attachment material", () => {
-    const filePath = "/home/someone/.penguin/agents/default_agent/scratchpad/s-1/report.pdf";
+    const filePath = "/home/someone/.waf-harness/agents/default_agent/scratchpad/s-1/report.pdf";
 
     it("gives an attachment-only message no fallback rather than a truncated path", () => {
       // The composer sends a file with no typed text as a message whose whole body is the

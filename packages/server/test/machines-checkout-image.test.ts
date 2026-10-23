@@ -52,7 +52,7 @@ const BUILD: PushedBuild = {
 
 const temps: string[] = [];
 const temp = () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-checkout-image-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-checkout-image-"));
   temps.push(dir);
   return dir;
 };
@@ -97,7 +97,7 @@ describe("a build laid down as a store", () => {
     // The helper a terminal is spawned through has to arrive runnable.
     expect(back.assets?.exec).toEqual(BUILD.assets?.exec);
 
-    // What `penguin-hmr` runs on the machine that receives this directory.
+    // What `wafh-hmr` runs on the machine that receives this directory.
     const cli = await readPushedCli(root);
     expect(cli.kind).toBe("bundle");
     if (cli.kind === "bundle") expect(fs.readFileSync(cli.file, "utf8")).toBe(BUILD.cli);
@@ -132,7 +132,7 @@ describe("finding the checkout", () => {
   };
 
   it("is found from any depth inside it, and nothing is found outside one", () => {
-    const repo = workspace("penguin-harness");
+    const repo = workspace("waf-harness");
     const deep = path.join(repo, "packages", "server", "src", "machines");
     fs.mkdirSync(deep, { recursive: true });
 
@@ -142,17 +142,17 @@ describe("finding the checkout", () => {
   });
 
   it("a server installed into another pnpm workspace never takes that workspace's deploy script for its packer", () => {
-    // `pnpm add @prismshadow/penguin-cli` in a project of one's own: the server sits under the
+    // `pnpm add @waterford/waf-harness-cli` in a project of one's own: the server sits under the
     // project's node_modules, and the project's own scripts/deploy.mjs deploys something else.
     const project = workspace("my-app");
     const installed = path.join(
       project,
       "node_modules",
       ".pnpm",
-      "@prismshadow+penguin-server@0.2.13",
+      "@waterford+waf-harness-server@0.2.13",
       "node_modules",
-      "@prismshadow",
-      "penguin-server",
+      "@waterford",
+      "waf-harness-server",
       "dist",
     );
     fs.mkdirSync(installed, { recursive: true });
@@ -233,7 +233,7 @@ describe("the packer", () => {
         "console.error('Could not resolve entry module \"index.html\".');",
         'console.error("    at getRollupError (file:///repo/rollup/parseAst.js:317:41)");',
         'console.error("    at async Promise.all (index 0)");',
-        'console.error("[deploy] Command failed: pnpm --filter @prismshadow/penguin-web build");',
+        'console.error("[deploy] Command failed: pnpm --filter @waterford/waf-harness-web build");',
         "process.exit(1);",
       ].join("\n"),
     );
@@ -247,7 +247,7 @@ describe("the packer", () => {
         "building the web dist…",
         "error during build:",
         'Could not resolve entry module "index.html".',
-        "Command failed: pnpm --filter @prismshadow/penguin-web build",
+        "Command failed: pnpm --filter @waterford/waf-harness-web build",
       ].join("\n"),
     });
   });
@@ -260,8 +260,8 @@ describe("the provenance a build records", () => {
       "https://github.com/Prism-Shadow/penguin-harness.git",
     ],
     [
-      "https://oauth2:token-placeholder@git.example.com/team/penguin-harness.git",
-      "https://git.example.com/team/penguin-harness.git",
+      "https://oauth2:token-placeholder@git.example.com/team/waf-harness.git",
+      "https://git.example.com/team/waf-harness.git",
     ],
   ])("a remote cloned with a credential is recorded without it (%s)", (remote, recorded) => {
     expect(withoutCredentials(remote)).toBe(recorded);

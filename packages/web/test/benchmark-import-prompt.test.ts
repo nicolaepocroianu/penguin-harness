@@ -13,7 +13,7 @@
  * - A local path and a description get leads of their own, and the same tail.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
 import { buildAiDraft } from "../src/features/ai-create/ai-bridge";
 import {
   benchmarkImportChat,
@@ -63,7 +63,7 @@ describe("importing a Benchmark through an Agent", () => {
         true,
       );
       for (const token of CONTRACT) expect(draft.text, token).toContain(token);
-      expect(draft.text).not.toContain("penguin benchmark");
+      expect(draft.text).not.toContain("wafh benchmark");
     }
   });
 

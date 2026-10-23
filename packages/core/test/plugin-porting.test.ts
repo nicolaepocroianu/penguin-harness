@@ -16,7 +16,7 @@
  * - What it leaves is a package the plugin library reads with no warning.
  *
  * port-mcp.mjs, on the upstream plugin:
- * - A Codex `.mcp.json`'s servers become `penguin.mcp_servers`: an angle-bracket placeholder and
+ * - A Codex `.mcp.json`'s servers become `wafh.mcp_servers`: an angle-bracket placeholder and
  *   each `env_vars` name become a `${KEY}` reference listed in the server's setup, a literal OAuth
  *   client secret is not carried (a reference and a note instead), a literal client id is kept,
  *   another client's callback settings are left behind, and the upstream note is passed on.
@@ -53,7 +53,7 @@ afterEach(async () => {
 
 /** A package directory being built: a package.json and `files` (paths relative to it). */
 async function building(files: Record<string, string | Uint8Array>): Promise<string> {
-  pkg = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-porting-"));
+  pkg = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-porting-"));
   await fs.writeFile(
     path.join(pkg, "package.json"),
     JSON.stringify({ name: "@ported/demo", version: "0.1.2", description: "Demo." }),
@@ -82,7 +82,7 @@ const PORT_MCP = path.resolve(
 
 /** An upstream plugin folder made of `files`; the scripts read it, nothing writes it. */
 async function upstream(files: Record<string, string>): Promise<string> {
-  pkg = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-port-mcp-"));
+  pkg = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-port-mcp-"));
   for (const [rel, data] of Object.entries(files)) {
     await fs.mkdir(path.dirname(path.join(pkg, rel)), { recursive: true });
     await fs.writeFile(path.join(pkg, rel), data);
@@ -475,7 +475,7 @@ describe("port-mcp.mjs", () => {
       JSON.stringify({
         name: "@ported/cloudflare",
         version: "0.1.2",
-        penguin: { mcp_servers: ported.mcp_servers },
+        wafh: { mcp_servers: ported.mcp_servers },
       }),
     );
     expect(readLibraryPackage(dir).mcpServers).toEqual([{ ...ported.mcp_servers[0], oauth: true }]);

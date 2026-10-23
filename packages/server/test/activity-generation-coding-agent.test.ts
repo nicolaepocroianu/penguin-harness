@@ -1,13 +1,13 @@
 /**
  * Agent-driven activity stages run on an external coding agent: the run is an ordinary
  * Session whose model is the coding agent — a real spawned ACP agent takes the stage's prompt
- * in the run's workspace — and is followed and collected exactly as a Penguin agent's run is.
+ * in the run's workspace — and is followed and collected exactly as a WAF Harness agent's run is.
  */
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ActivityDetail, ActivityDraft, ActivityRun } from "../src/activities/domain.js";
 import type { ActivityGenerationService } from "../src/activities/generation.js";
-import { findLatestTraceFile, readTrace, tracesDir } from "@prismshadow/penguin-core";
+import { findLatestTraceFile, readTrace, tracesDir } from "@waterford/waf-harness-core";
 import { activitySpec } from "./activity-fixtures.js";
 import { apiClient, createTestApp, loginAdmin, type TestApp } from "./helpers.js";
 
@@ -129,7 +129,7 @@ describe("activity stages on an external coding agent", () => {
     throw new Error("the run's Session was never stopped");
   });
 
-  it("requires a Penguin agent or a coding agent to run a stage", async () => {
+  it("requires a WAF Harness agent or a coding agent to run a stage", async () => {
     const { admin, endpoint } = await fixture({});
     const response = await admin.post(`${endpoint}/generate-spec`, { expectedRevision: "x" });
     expect(response.status).toBe(400);

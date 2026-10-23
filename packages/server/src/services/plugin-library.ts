@@ -8,14 +8,14 @@
  * library types is withheld from the API until someone adds it here on purpose; skill bodies
  * and hook scripts never travel in a listing.
  */
-import { libraryPlugin, needsSignIn } from "@prismshadow/penguin-core";
+import { libraryPlugin, needsSignIn } from "@waterford/waf-harness-core";
 import type {
   HookManifest,
   InstalledMcpServer,
   LibraryPlugin,
   PluginMcpServer,
   SkillMetadata,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   AgentMcpServerItem,
   HookItem,

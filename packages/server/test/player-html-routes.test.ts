@@ -4,7 +4,7 @@
  * for. The way to a played ref is activity-play-routes.test.ts's.
  */
 import { describe, expect, it } from "vitest";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import { ActivityPlayerHtmlRoutes } from "../src/activities/player-html-routes.js";
 
 function player() {

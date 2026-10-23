@@ -4,13 +4,13 @@
  * partitions the shared workspace, schedules everyone and files the first tickets; the
  * calendar drives the desks; ticket sessions do the work and write back; review and done
  * reach the right people — the board at once, an employee in its next sweep; finance rolls the spend up the reporting line and to the parent
- * ticket. Every command an employee would run through `penguin org` hits the same service
+ * ticket. Every command an employee would run through `wafh org` hits the same service
  * methods the routes call, attributed to the employee's session.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { parseOrgTriggerMessage } from "@prismshadow/penguin-core";
+import { parseOrgTriggerMessage } from "@waterford/waf-harness-core";
 import { DEFAULT_CHANNEL_ID } from "../src/organization/paths.js";
 import { makeOrgHarness } from "./org-harness.js";
 import type { OrgHarness } from "./org-harness.js";
@@ -70,7 +70,7 @@ describe("scenario: the DeepSeek Harness plugin Marketplace company", () => {
     // Heavy compute is time-bound, so an ordinary multi-core build is not an ask.
     expect(prose).toContain("saturates the CPU or a GPU for more than a few minutes");
     expect(handbook).toContain("## Ask before it touches the machine or the outside");
-    expect(handbook).toContain("penguin org ticket block <id> --reason … --by user:alice");
+    expect(handbook).toContain("wafh org ticket block <id> --reason … --by user:alice");
 
     // 2. The CEO (from its desk) confirms the mission with the board in the all-hands channel …
     const m1 = await service.sendChannelMessage(P, ORG, "alice", DEFAULT_CHANNEL_ID, {

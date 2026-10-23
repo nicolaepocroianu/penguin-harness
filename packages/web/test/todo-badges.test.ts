@@ -8,7 +8,7 @@
  * version, a different model, a newer error — raises it again.
  */
 import { describe, expect, it } from "vitest";
-import type { AgentSummary, UsageErrorsPage } from "@prismshadow/penguin-server/api";
+import type { AgentSummary, UsageErrorsPage } from "@waterford/waf-harness-server/api";
 import {
   kernelUpdateTodo,
   pluginUpdateTodo,

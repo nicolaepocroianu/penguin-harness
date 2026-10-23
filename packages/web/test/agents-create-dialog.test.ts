@@ -22,12 +22,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement as h, useState } from "react";
 import { useNavigate } from "react-router";
-import { hasUnsaved } from "@prismshadow/penguin-ui";
+import { hasUnsaved } from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { CreateAgentDialog } from "../src/features/agents/create-agent-dialog";
 import type { LocationChoice, PluginPickItem } from "../src/features/agents/create-agent-dialog";
-import type { PluginItem } from "@prismshadow/penguin-server/api";
+import type { PluginItem } from "@waterford/waf-harness-server/api";
 import {
   PROJECT_ID,
   agentServer,

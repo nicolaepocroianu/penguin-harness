@@ -130,7 +130,7 @@ describe("test browser", () => {
   });
 
   it("uses the browser a release package ships when the home has none", async () => {
-    const bundled = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-bundled-browsers-"));
+    const bundled = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-bundled-browsers-"));
     cleanups.push(() => fs.rm(bundled, { recursive: true, force: true }));
     await placeExecutable(bundled);
     const { status, browser, home } = await setup({ bundledDir: bundled });
@@ -257,7 +257,7 @@ describe("installer and lookup", () => {
     for (const dir of dirs.splice(0)) await fs.rm(dir, { recursive: true, force: true });
   });
   const tempDir = async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-test-browser-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-test-browser-"));
     dirs.push(dir);
     return dir;
   };

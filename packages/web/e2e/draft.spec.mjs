@@ -70,7 +70,7 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
 
   // No Session exists yet: entering the site lands on the draft page (the brand heading marks the draft page).
   await page.goto(`${BASE}/chat`);
-  await expect(page.getByRole("heading", { name: "PenguinHarness" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "WAF Harness" })).toBeVisible();
 
   const ta = page.getByPlaceholder(/输入消息/);
 
@@ -129,7 +129,7 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
     .toBe("high");
 
   // Reload only after the body is persisted via debounce: both the body and the two selections should restore from the cache.
-  const draftKey = `penguin.chatDraft.${userId}.${projectId}`;
+  const draftKey = `wafh.chatDraft.${userId}.${projectId}`;
   await expect
     .poll(() => page.evaluate((k) => localStorage.getItem(k), draftKey))
     .toContain("Draft body must not be lost");
@@ -192,7 +192,7 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
 
   // A session in a named Workspace groups under that directory's basename, and its group
   // header's "+" pre-fills the draft's Workspace selection with the group's path.
-  const namedWs = mkdtempSync(join(tmpdir(), "penguin-e2e-ws-"));
+  const namedWs = mkdtempSync(join(tmpdir(), "wafh-e2e-ws-"));
   const namedRes = await page.request.post(
     `${BASE}/api/projects/${projectId}/agents/default_agent/sessions`,
     { data: { workspace: namedWs } },
@@ -204,7 +204,7 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
     .getByText(wsLabel, { exact: true })
     .locator("xpath=ancestor::div[contains(@class,'items-center')][1]");
   await wsHeader.getByRole("button", { name: "在此工作区新建对话" }).click();
-  await expect(page.getByRole("heading", { name: "PenguinHarness" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "WAF Harness" })).toBeVisible();
   await expect(page.getByLabel("Workspace")).toContainText(wsLabel);
 
   // Regression (review): the route-state prefill applies once per navigation only — after the
@@ -249,7 +249,7 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
   await expect(page.getByLabel("Workspace")).not.toContainText(wsLabel);
 
   // —— Pinning: the header's hover pin toggle lifts a group above the others in its mode and
-  // persists per Project (localStorage penguin.sidebarPinnedGroups.<projectId>); order is
+  // persists per Project (localStorage wafh.sidebarPinnedGroups.<projectId>); order is
   // asserted geometrically, like layout.spec does for the login language buttons. ——
   // Sidebar-scoped for the same reason as the group assertion above: the draft's Workspace
   // pill would also read 临时工作区 whenever its selection is empty.
@@ -264,7 +264,7 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
   await tempHeader.getByRole("button", { name: "置顶分组" }).click();
   await expect
     .poll(() =>
-      page.evaluate((k) => localStorage.getItem(k), `penguin.sidebarPinnedGroups.${projectId}`),
+      page.evaluate((k) => localStorage.getItem(k), `wafh.sidebarPinnedGroups.${projectId}`),
     )
     .toContain("temp-workspaces");
   await expect.poll(async () => (await yOf(tempLabel)) < (await yOf(namedLabel))).toBe(true);
@@ -295,7 +295,7 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
   await page.getByRole("button", { name: "列表选项" }).click();
   await page.getByRole("menuitemradio", { name: "按 Agent 分组" }).click();
   await expect
-    .poll(() => page.evaluate(() => localStorage.getItem("penguin.sidebarGroupMode")))
+    .poll(() => page.evaluate(() => localStorage.getItem("wafh.sidebarGroupMode")))
     .toBe("agent");
 
   // —— Sidebar group-header "+": create a draft with that group's Agent (overrides the previously cached Agent) ——
@@ -323,7 +323,7 @@ test("draft: pick model/approval -> reload restores them -> send creates the ses
 
   // —— Input draft for an existing session: cached by user x Session, restored on reload, cleared once sending succeeds ——
   await ta.fill("Draft inside the session");
-  const sessionKey = `penguin.chatDraft.session.${userId}.${secondSessionId}`;
+  const sessionKey = `wafh.chatDraft.session.${userId}.${secondSessionId}`;
   await expect
     .poll(() => page.evaluate((k) => localStorage.getItem(k), sessionKey))
     .toContain("Draft inside the session");

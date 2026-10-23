@@ -1,7 +1,7 @@
 /** The landing page's footer columns in the shared site footer. */
 import { Link } from "react-router";
-import { SiteFooter } from "@prismshadow/penguin-ui/site";
-import type { SiteLinkProps } from "@prismshadow/penguin-ui/site";
+import { SiteFooter } from "@waterford/waf-harness-ui/site";
+import type { SiteLinkProps } from "@waterford/waf-harness-ui/site";
 import { S } from "../lib/strings";
 import { DOCS_URL, galleryUrl, LICENSE_URL, RELEASES_URL, REPO_URL } from "../lib/links";
 
@@ -14,7 +14,7 @@ export function Footer() {
     <SiteFooter
       brand={{
         name: S.siteName,
-        logo: `${import.meta.env.BASE_URL}penguin-logo.svg`,
+        logo: `${import.meta.env.BASE_URL}wafh-logo.svg`,
         tagline: S.footer.tagline,
       }}
       columns={[

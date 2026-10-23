@@ -3,7 +3,7 @@
  *
  * `GET /preview/activity/:key/*` sits outside `/api` and outside the auth middleware, as
  * Loom's dev-sandbox does: the key names the activity (see `play-links.ts`) and is no
- * credential, so a link is the same every time. A module's code -- Loom's or Penguin's,
+ * credential, so a link is the same every time. A module's code -- Loom's or WAF Harness's,
  * written by an agent either way -- runs in this page, and on the App's origin it would run
  * with the author's session. So only a preview host (see `isPreviewHost`) serves it as is;
  * anywhere else it is served sandboxed, with an opaque origin.
@@ -12,7 +12,7 @@
  * bundle, the module's files, the media, the framework's shared resources, and the few
  * backend calls the framework makes, answered the way the WAF backend would answer them.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono, type Context } from "hono";
 import type { Config } from "../hmr/capabilities.js";
 import { hostOnly, isPreviewHost, requestAuthority } from "../services/preview-token.js";

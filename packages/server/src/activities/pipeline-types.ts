@@ -34,7 +34,7 @@ export type PipelineStepStatus =
 export type PipelineNote =
   | "planCurrent"
   | "allTranslated"
-  | "needsPenguinAgent"
+  | "needsWafHarnessAgent"
   | "noNarration"
   | "noImages"
   /** Word pronunciations are recorded for decodable books only. */
@@ -130,7 +130,7 @@ export interface PipelineInput extends PipelineRunInputs {
 
 /** What a sequence's steps run with, besides which steps and in which scope. */
 export interface PipelineRunInputs {
-  /** The Penguin agent that runs agent steps, or owns the coding agent's Session. */
+  /** The WAF Harness agent that runs agent steps, or owns the coding agent's Session. */
   agentId: string;
   codingAgentId?: string;
   voice?: string;

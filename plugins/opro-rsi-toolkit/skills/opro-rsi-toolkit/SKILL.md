@@ -1,7 +1,7 @@
 ---
 name: opro-rsi-toolkit
 description: Reproduce OPRO (Large Language Models as Optimizers, Yang et al. 2023) on an agent and a frozen Benchmark, or on the precise-summary demo task shipped with this Skill: propose instructions from the scored history, measure each one, keep the best.
-version: 2026.10.12.1
+version: 2026.10.23.1
 ---
 
 # OPRO
@@ -28,7 +28,7 @@ This Skill is the experiment's controller and needs `run_subagent`; if that tool
 | Exemplars per step, k (`num_few_shot_questions_for_instruction_refinement`) | 3, drawn at random, seeded by the step | 3 |
 | `few_shot_qa_pairs` | true: each exemplar carries its training answer | false unless the user supplies or authorizes training outputs |
 | `initial_instructions` | `Let's solve the problem.` | the same, unless the user declares a seed |
-| Sampling | optimizer temperature 1.0, scorer 0.0 | the providers' defaults (Penguin sets no temperature); record it |
+| Sampling | optimizer temperature 1.0, scorer 0.0 | the providers' defaults (WAF Harness sets no temperature); record it |
 
 The smoke profile applies unless the user sets parameters. The source's budget (200 steps × 8 proposals) is never a default: run it only when the user asks for it, after you state its arithmetic (see "Budget") and they confirm. A target score or a round limit is not an OPRO parameter: report against one if given, but never stop or skip on it.
 
@@ -39,7 +39,7 @@ The paths of `references/evaluation.md`, from the Environment's `App Data Dir`, 
 ```text
 PROJECT_DIR  = <app_data_dir>
 PROJECT_ID   = basename of PROJECT_DIR
-PENGUIN_HOME = dirname of PROJECT_DIR
+WAFH_HOME = dirname of PROJECT_DIR
 TARGET       = PROJECT_DIR/agents/<test_agent_id>
 STATE        = TARGET/agent_state
 BENCHMARK    = PROJECT_DIR/benchmarks/<benchmark_id>

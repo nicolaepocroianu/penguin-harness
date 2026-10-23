@@ -1,6 +1,6 @@
 /**
  * Home: the hero with the app live under it, three rows of the app at work, the self-evolution
- * loop with its demo, the one-sentence case, what PenguinHarness is made of, what is already
+ * loop with its demo, the one-sentence case, what WAF Harness is made of, what is already
  * built around the agent, the cost comparison, customer scenarios, the latest posts, how to
  * install, and the close.
  */

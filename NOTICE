@@ -1,0 +1,7 @@
+WAF Harness
+Copyright 2026 Waterford Research Institute
+
+This product is derived from PenguinHarness (https://github.com/Prism-Shadow/penguin-harness),
+copyright the PenguinHarness authors, licensed under the Apache License, Version 2.0. The
+original work has been modified: among other changes it is renamed to WAF Harness, carries a
+new logo, and adds Waterford activity authoring.

@@ -15,10 +15,10 @@
  * gallery's root applies them through the package's `applyThemeAttributes`, so a size or a font
  * pairing chosen here is what a user of the app would have chosen in its Settings.
  */
-import { INITIAL_THEME_ID, THEME_IDS } from "@prismshadow/penguin-ui";
-import type { ThemeId } from "@prismshadow/penguin-ui";
-import { DEFAULT_TEXT_SIZE, TEXT_SIZES } from "@prismshadow/penguin-ui/boot";
-import type { TextSize } from "@prismshadow/penguin-ui/boot";
+import { INITIAL_THEME_ID, THEME_IDS } from "@waterford/waf-harness-ui";
+import type { ThemeId } from "@waterford/waf-harness-ui";
+import { DEFAULT_TEXT_SIZE, TEXT_SIZES } from "@waterford/waf-harness-ui/boot";
+import type { TextSize } from "@waterford/waf-harness-ui/boot";
 import { ACCENT_IDS, THEME_ACCENT } from "./accents";
 import { CJK_FONTS, LATIN_FONTS, LEGACY_SIZES } from "./themes";
 import type { FontCjk, FontLatin } from "./themes";
@@ -97,7 +97,7 @@ export function parseGalleryState(search: string, remembered: RememberedPrefs = 
   };
 }
 
-/** What storage holds: the gallery's own keys (`penguin-gallery.<key>`) and the site's mode. */
+/** What storage holds: the gallery's own keys (`wafh-gallery.<key>`) and the site's mode. */
 export interface StoredPrefs {
   gallery: Partial<Record<PrefKey, string>>;
   siteTheme: ModePref | null;

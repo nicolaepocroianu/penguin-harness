@@ -24,8 +24,8 @@ import {
   STREAM_REVEALS,
   StreamText,
   usePrefersReducedMotion,
-} from "@prismshadow/penguin-ui";
-import type { StreamReveal } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { StreamReveal } from "@waterford/waf-harness-ui";
 import { streamScript } from "../../app/mock/stream-script";
 import { streamingAnswer } from "../../app/mock/transcripts";
 import { BoardGroup, ReplayButton } from "../../foundations/shared";

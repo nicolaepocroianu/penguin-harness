@@ -1,7 +1,7 @@
 /**
  * listEndpointModels: the thin MMSP wrapper — routes by the given client type, passes the key
  * and the base URL exactly as its caller gives them (nothing for an absent one), names
- * PenguinHarness and its version in the User-Agent, and returns the listing verbatim (order
+ * WAF Harness and its version in the User-Agent, and returns the listing verbatim (order
  * preserved, no dedup: presentation policy belongs to callers). What a missing key means is
  * MMSP's (model-client.test.ts holds it on the wire).
  *
@@ -13,7 +13,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { VERSION } from "../src/index.js";
 
-const defaultHeaders = { "User-Agent": `penguinharness/${VERSION}` };
+const defaultHeaders = { "User-Agent": `waf-harness/${VERSION}` };
 
 const captured = vi.hoisted(() => ({
   options: [] as Record<string, unknown>[],

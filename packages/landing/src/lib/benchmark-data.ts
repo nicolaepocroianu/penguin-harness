@@ -29,8 +29,8 @@ const GPT = "GPT-5.5";
 
 export const DATA_BENCH: BenchResult[] = [
   {
-    kind: "penguin",
-    framework: "PenguinHarness",
+    kind: "wafh",
+    framework: "WAF Harness",
     model: DEEPSEEK,
     accuracyPct: 66.67,
     tokensM: 18.037757,
@@ -57,8 +57,8 @@ export const DATA_BENCH: BenchResult[] = [
 
 export const CODE_BENCH: BenchResult[] = [
   {
-    kind: "penguin",
-    framework: "PenguinHarness",
+    kind: "wafh",
+    framework: "WAF Harness",
     model: DEEPSEEK,
     accuracyPct: 71.25,
     tokensM: 200.0,

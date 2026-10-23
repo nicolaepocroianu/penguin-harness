@@ -1,9 +1,9 @@
 /**
- * @penguinharness/sandbox-bwrap — a bubblewrap sandbox backend.
+ * @waf-harness/sandbox-bwrap — a bubblewrap sandbox backend.
  *
  * A PLUGIN PACKAGE, not part of the platform: a Project asks for it on the Plugins page
  * and the harness resolves it from the installation (see the server's plugin/loader.ts).
- * It compiles against the `@prismshadow/penguin-core/plugin` surface (types, plus the
+ * It compiles against the `@waterford/waf-harness-core/plugin` surface (types, plus the
  * decorators its bundle carries) and has no runtime dependency on the harness — and
  * none on the DSH ecosystem either:
  * it talks to `bwrap` directly and implements every dimension of the sandbox interface,
@@ -36,14 +36,14 @@ import { accessSync, constants, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { Bind, Component, Interface, Use } from "@prismshadow/penguin-core/plugin";
+import { Bind, Component, Interface, Use } from "@waterford/waf-harness-core/plugin";
 import type {
   ConfinedArgv,
   Plugin,
   SandboxPolicy,
   SandboxProvider,
   SandboxProviderSource,
-} from "@prismshadow/penguin-core/plugin";
+} from "@waterford/waf-harness-core/plugin";
 
 /** Default probe budget; a probe that hangs must not hang the first spawn forever. */
 const PROBE_TIMEOUT_MS = 5_000;
@@ -105,7 +105,7 @@ export function bwrapSettingsOf(
 }
 
 /** Test seams: inject the probe verdict, and the settings the provider reads at each confine. */
-export interface PenguinBwrapInternals {
+export interface WafHarnessBwrapInternals {
   probe?: (timeoutMs: number, runner: string) => boolean;
   runner?: string;
   settings?: () => BwrapSettings;
@@ -155,7 +155,7 @@ export function bwrapProfileArgs(policy: SandboxPolicy): string[] {
     // An empty network namespace also loses the host's loopback, so "localhost only" has no
     // spelling here. The service never routes it here (no network-local dimension); refuse
     // rather than read it as an open network.
-    throw new Error("penguin-bwrap cannot confine to the local network (localhost only)");
+    throw new Error("wafh-bwrap cannot confine to the local network (localhost only)");
   }
   if (policy.network === "none") args.push("--unshare-net");
   for (const target of policy.maskPaths ?? []) {
@@ -223,8 +223,8 @@ function probeAsync(timeoutMs: number, runner: string): Promise<string | null> {
  * records the rejection and the settings page shows it, and loads it again after the next save
  * of the sandbox card. The confine-time probe stays, for a runner changed while mounted.
  */
-export async function loadPenguinBwrapProvider(
-  internals: PenguinBwrapInternals & { platform?: NodeJS.Platform } = {},
+export async function loadWafHarnessBwrapProvider(
+  internals: WafHarnessBwrapInternals & { platform?: NodeJS.Platform } = {},
 ): Promise<SandboxProvider | null> {
   const platform = internals.platform ?? process.platform;
   // Not this host's backend: a decline, not a failure — the deployment installed it for
@@ -244,10 +244,10 @@ export async function loadPenguinBwrapProvider(
     // Ubuntu 23.10 and later lets only AppArmor-profiled programs create them (24.04's default).
     // Neither is needed for the sandbox to work: sandbox-dsh confines files through Landlock.
     throw new Error(
-      `'${runner}' is missing or refuses the base profile (${refusal}). Are unprivileged user namespaces allowed on this host? Debian: \`sysctl kernel.unprivileged_userns_clone\`; Ubuntu 23.10 and later: \`sysctl kernel.apparmor_restrict_unprivileged_userns\`. @penguinharness/sandbox-dsh confines file writes without them, through Landlock. Optional: a one-time root step lets bubblewrap run here, adding network isolation and masked paths — see "Sandbox on Ubuntu" in the CLI quickstart`,
+      `'${runner}' is missing or refuses the base profile (${refusal}). Are unprivileged user namespaces allowed on this host? Debian: \`sysctl kernel.unprivileged_userns_clone\`; Ubuntu 23.10 and later: \`sysctl kernel.apparmor_restrict_unprivileged_userns\`. @waf-harness/sandbox-dsh confines file writes without them, through Landlock. Optional: a one-time root step lets bubblewrap run here, adding network isolation and masked paths — see "Sandbox on Ubuntu" in the CLI quickstart`,
     );
   }
-  return createPenguinBwrapProvider(internals);
+  return createWafHarnessBwrapProvider(internals);
 }
 
 /**
@@ -256,7 +256,9 @@ export async function loadPenguinBwrapProvider(
  * unavailable bwrap throws — fail-closed — rather than degrading to a weaker profile, because
  * the dimensions routed here (network, mask-paths) have no weaker form.
  */
-export function createPenguinBwrapProvider(internals: PenguinBwrapInternals = {}): SandboxProvider {
+export function createWafHarnessBwrapProvider(
+  internals: WafHarnessBwrapInternals = {},
+): SandboxProvider {
   const probe = internals.probe ?? defaultProbe;
   const settings =
     internals.settings ??
@@ -273,7 +275,7 @@ export function createPenguinBwrapProvider(internals: PenguinBwrapInternals = {}
       if (!usable.has(runner)) usable.set(runner, probe(probeTimeoutMs, runner));
       if (!usable.get(runner)) {
         throw new Error(
-          `penguin-bwrap cannot confine on this host: '${runner}' is missing or refuses the ` +
+          `wafh-bwrap cannot confine on this host: '${runner}' is missing or refuses the ` +
             "base profile; refusing to run the command unconfined. Install bubblewrap, or " +
             "drop the network / mask-paths requirements so another backend can serve the policy.",
         );
@@ -303,7 +305,7 @@ export function createPenguinBwrapProvider(internals: PenguinBwrapInternals = {}
     "SandboxModule.providers": [
       {
         id: "sandbox-bwrap.provider",
-        name: "penguin-bwrap",
+        name: "wafh-bwrap",
         dimensions: ["fs-write", "network", "mask-paths", "closed-temp"],
       },
     ],
@@ -350,7 +352,7 @@ export class SandboxBwrap {
     // A loader, not a load: after a save of the sandbox card the service calls it again if the
     // check failed, so a corrected program mounts the backend without a restart.
     this.provider = () =>
-      loadPenguinBwrapProvider({
+      loadWafHarnessBwrapProvider({
         settings: () => bwrapSettingsOf(config.get(BWRAP_GROUP)),
       });
   }

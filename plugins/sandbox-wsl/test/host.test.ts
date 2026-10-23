@@ -82,7 +82,7 @@ describe("WSL output", () => {
 
   it("returns empty streams when WSL writes nothing", async () => {
     const child = wslProcess();
-    const result = runWsl(["--terminate", "penguin-sandbox"]);
+    const result = runWsl(["--terminate", "wafh-sandbox"]);
     child.emit("close", 0);
     expect(await result).toEqual({ code: 0, stdout: "", stderr: "" });
   });

@@ -1,18 +1,18 @@
 /**
- * `penguin config` — manages a Project's models, its groups' connections, the default model,
+ * `wafh config` — manages a Project's models, its groups' connections, the default model,
  * Agent-level vault environment variables, and UI language.
  *
- *   penguin config model add --provider <group> --model-id <upstream id> [--api-key <key> | --clear-api-key] [--base-url <url> | --clear-base-url] [--client-type <type> | --clear-client-type] [--context-window <n>] [--max-tokens <n>] [--vision | --no-vision] [--fast-mode | --no-fast-mode] [--price-cache-read <n>] [--price-cache-write <n>] [--price-output <n>] [--set-default] [--project-id <id>] [--root <dir>]
- *   penguin config model add --provider <group> [--api-key <key> | --clear-api-key] [--base-url <url> | --clear-base-url] [--client-type <type> | --clear-client-type] [--project-id <id>] [--root <dir>]
- *   penguin config model default --provider <group> --model-id <upstream id> [--project-id <id>] [--root <dir>]
- *   penguin config model vision --provider <group> --model-id <upstream id> [--project-id <id>] [--root <dir>]
- *   penguin config model list [--project-id <id>] [--root <dir>]
- *   penguin config model remove --provider <group> --model-id <upstream id> [--project-id <id>] [--root <dir>]
- *   penguin config model remove --provider <group> [--project-id <id>] [--root <dir>]
- *   penguin config vault set --key <name> --value <value> [--agent-id <id>] [--root <dir>]
- *   penguin config vault list [--agent-id <id>] [--root <dir>]
- *   penguin config vault remove --key <name> [--agent-id <id>] [--root <dir>]
- *   penguin config lang <en>
+ *   wafh config model add --provider <group> --model-id <upstream id> [--api-key <key> | --clear-api-key] [--base-url <url> | --clear-base-url] [--client-type <type> | --clear-client-type] [--context-window <n>] [--max-tokens <n>] [--vision | --no-vision] [--fast-mode | --no-fast-mode] [--price-cache-read <n>] [--price-cache-write <n>] [--price-output <n>] [--set-default] [--project-id <id>] [--root <dir>]
+ *   wafh config model add --provider <group> [--api-key <key> | --clear-api-key] [--base-url <url> | --clear-base-url] [--client-type <type> | --clear-client-type] [--project-id <id>] [--root <dir>]
+ *   wafh config model default --provider <group> --model-id <upstream id> [--project-id <id>] [--root <dir>]
+ *   wafh config model vision --provider <group> --model-id <upstream id> [--project-id <id>] [--root <dir>]
+ *   wafh config model list [--project-id <id>] [--root <dir>]
+ *   wafh config model remove --provider <group> --model-id <upstream id> [--project-id <id>] [--root <dir>]
+ *   wafh config model remove --provider <group> [--project-id <id>] [--root <dir>]
+ *   wafh config vault set --key <name> --value <value> [--agent-id <id>] [--root <dir>]
+ *   wafh config vault list [--agent-id <id>] [--root <dir>]
+ *   wafh config vault remove --key <name> [--agent-id <id>] [--root <dir>]
+ *   wafh config lang <en>
  *
  * `--model-id` always takes the **upstream id** (the request id sent to MMSP verbatim),
  * which together with `--provider` forms a `(provider, model_id)` paired reference —
@@ -42,10 +42,10 @@
  * `model list` prints the groups' stored connections, then every model's effective values,
  * marking the group's with `(provider)` and an environment key with `(env)`.
  * `--root` specifies the data root directory (priority: option >
- * PENGUIN_HOME > ~/.penguin/data). The UI language is controlled by the PENGUIN_LANG
+ * WAFH_HOME > ~/.waf-harness/data). The UI language is controlled by the WAFH_LANG
  * environment variable; `config lang` writes it into the shell startup file and restarts
  * the shell to take effect.
- * Docs: /docs/cli § "penguin config".
+ * Docs: /docs/cli § "wafh config".
  */
 import { homedir } from "node:os";
 import path from "node:path";
@@ -76,7 +76,7 @@ import {
   setProviderConnection,
   setVaultEntry,
   setVisionModel,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import {
   fastModeProtocol,
   fixedClientType,
@@ -85,7 +85,7 @@ import {
   providerInfo,
   unaddableModel,
   unroutableVendorModel,
-} from "@prismshadow/penguin-server/model-catalog";
+} from "@waterford/waf-harness-server/model-catalog";
 import { parseApprovalAnswer } from "../approval.js";
 import { resolveRootOption } from "../root-option.js";
 import { getMessages, maskApiKey, type Messages } from "../i18n.js";

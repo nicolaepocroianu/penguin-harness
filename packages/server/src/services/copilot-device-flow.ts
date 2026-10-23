@@ -31,8 +31,7 @@ export class CopilotDeviceFlow {
     ) => Promise<number>,
     private readonly fetchImpl: typeof fetch = (...args) => fetch(...args),
     private readonly now: () => number = Date.now,
-    private readonly clientId: () => string | undefined = () =>
-      process.env.PENGUIN_COPILOT_CLIENT_ID,
+    private readonly clientId: () => string | undefined = () => process.env.WAFH_COPILOT_CLIENT_ID,
   ) {}
 
   private sweep(): void {
@@ -68,7 +67,7 @@ export class CopilotDeviceFlow {
     const clientId = this.clientId()?.trim();
     if (!clientId)
       throw badRequest(
-        "Set PENGUIN_COPILOT_CLIENT_ID to your GitHub OAuth App client ID and enable device flow for that app.",
+        "Set WAFH_COPILOT_CLIENT_ID to your GitHub OAuth App client ID and enable device flow for that app.",
       );
     this.sweep();
     // Reserve before awaiting GitHub: concurrent starts cannot exceed the in-memory bound.

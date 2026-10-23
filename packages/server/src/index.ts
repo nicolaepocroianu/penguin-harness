@@ -2,10 +2,10 @@
  * Server process entry point: the whole startup lifecycle, as one ordered sequence.
  *
  * Importing this module STARTS the server — the CLI runs a server in its own process by
- * `await import("@prismshadow/penguin-server")` and nothing else, so main() is invoked at
+ * `await import("@waterford/waf-harness-server")` and nothing else, so main() is invoked at
  * module scope rather than exported.
  *
- * main() comes first in the file and is the sequence itself: each step is one PenguinServer
+ * main() comes first in the file and is the sequence itself: each step is one WafHarnessServer
  * method, named after what it does and appearing in the order main() calls it. The order
  * carries real constraints — the proxy dispatcher before any outbound request, the instance
  * lock before the database opens, plugins loaded before the platform boots against them,
@@ -20,9 +20,9 @@ import type { Server as HttpServer } from "node:http";
 import { config as loadDotenv } from "dotenv";
 import { serve } from "@hono/node-server";
 import { bootAppDeps, createApp } from "./app.js";
-import { HmrHost, hmrMain } from "@prismshadow/penguin-hmr";
-import type { Hmr } from "@prismshadow/penguin-hmr";
-import type { Instance } from "@prismshadow/penguin-core/kernel";
+import { HmrHost, hmrMain } from "@waterford/waf-harness-hmr";
+import type { Hmr } from "@waterford/waf-harness-hmr";
+import type { Instance } from "@waterford/waf-harness-core/kernel";
 import { packagedPlatform } from "./hmr/platform.js";
 import { startingResponse } from "./hmr/starting.js";
 import type { PlatformApi, ServerHmrHost } from "./hmr/platform.js";
@@ -46,11 +46,11 @@ import type { Auth } from "./mechanisms/identity.js";
 /**
  * The startup lifecycle: one line per step, in the order they have to happen.
  *
- * This is the file's table of contents — each call below is a PenguinServer method, and
+ * This is the file's table of contents — each call below is a WafHarnessServer method, and
  * reading them top to bottom is the whole of what starting a server does.
  */
 async function main(): Promise<void> {
-  const server = new PenguinServer();
+  const server = new WafHarnessServer();
   server.loadEnv();
   server.installProxy();
   server.readConfig();
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
  * the only caller and runs them in order, which is what lets the spine fields below be
  * read without a null check from the step after the one that assigns them.
  */
-class PenguinServer {
+class WafHarnessServer {
   /** Set at seed when this server still has no admin password; printed once the port is known. */
   private pendingFirstLoginNotice = false;
 
@@ -162,7 +162,7 @@ class PenguinServer {
     const existing = await liveServerLock(this.config.root);
     if (existing === null) return;
     console.error(
-      `Another PenguinHarness server is already running on this data root (pid ${existing.pid}).`,
+      `Another WAF Harness server is already running on this data root (pid ${existing.pid}).`,
     );
     console.error(`Existing instance: http://localhost:${existing.port}/`);
     process.exit(EXIT_ALREADY_RUNNING);
@@ -275,7 +275,7 @@ class PenguinServer {
    *
    * Nothing is printed in desktop mode: the shell's own window signs in through its one-shot
    * token, so a link in a log would be a credential nobody needs. Nothing is printed either
-   * when the pinned PENGUIN_SEED_ADMIN_PASSWORD is still the admin's actual password — the
+   * when the pinned WAFH_SEED_ADMIN_PASSWORD is still the admin's actual password — the
    * operator knows it. The pin alone is not enough: an offline reset-admin-password replaces
    * the password with an unknowable one while the pin stays configured, and the rescue flow
    * IS this link, so the gate verifies the pin against the hash rather than trusting it.
@@ -320,7 +320,7 @@ class PenguinServer {
   }
 
   /**
-   * Announces the port (PENGUIN_PORT_FILE), the last step of startup. The port is bound
+   * Announces the port (WAFH_PORT_FILE), the last step of startup. The port is bound
    * long before this — a client that arrives early is answered rather than refused — but
    * the announcement means the App is up, because that is what a reader waits for: the
    * desktop shell opens its window on it. Between the bind and here every request gets the
@@ -347,7 +347,7 @@ class PenguinServer {
     // Client-update relay: under the shell this process is an Electron utilityProcess and
     // carries process.parentPort; wire it to the desktop service so the update routes can
     // read the shell's updater snapshot and forward check/install. Absent port (a plain
-    // `penguin server|web` run, or tests) wires nothing.
+    // `wafh server|web` run, or tests) wires nothing.
     if (this.deps.desktop !== null) {
       const shellPort = shellPortOf(process);
       if (shellPort !== null) wireShellUpdatePort(this.deps.desktop, shellPort);
@@ -381,17 +381,17 @@ class PenguinServer {
 
   /** Everything derived from the actual bound port, run once the listener is up. */
   private onListening(port: number): void {
-    console.log(`penguin-server started: http://${this.appHost()}:${port}`);
+    console.log(`wafh-server started: http://${this.appHost()}:${port}`);
     console.log(`Data root: ${this.config.root}`);
     console.log(`SQLite: ${this.config.dbPath}`);
     // Named for the same reason the data root is: it is the one path the static tail
     // serves from when no pushed web version is restored, and the only trace of a wrong
-    // PENGUIN_WEB_DIST or a missing build is otherwise a 404 on every page.
+    // WAFH_WEB_DIST or a missing build is otherwise a 404 on every page.
     console.log(`Web dist: ${this.config.webDist}`);
     if (!fs.existsSync(path.join(this.config.webDist, "index.html"))) {
       console.warn(
         `[server] Web dist has no index.html; the Web App answers 404 unless a pushed web ` +
-          `version is restored. Build packages/web or point PENGUIN_WEB_DIST at a build.`,
+          `version is restored. Build packages/web or point WAFH_WEB_DIST at a build.`,
       );
     }
     if (this.config.desktopToken !== null) console.log("Desktop mode: enabled");
@@ -572,7 +572,7 @@ class PenguinServer {
 /** Exit code for "another server already owns this data root" (see lock.ts). */
 const EXIT_ALREADY_RUNNING = 3;
 
-/** Port announcement (PENGUIN_PORT_FILE): tmp + rename, so a polling reader never sees a partial write. */
+/** Port announcement (WAFH_PORT_FILE): tmp + rename, so a polling reader never sees a partial write. */
 function writePortFile(file: string, port: number): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
@@ -581,6 +581,6 @@ function writePortFile(file: string, port: number): void {
 }
 
 // Runs on import, which is what starting this server means. It is the last line of the
-// file because main() reaches PenguinServer, whose declaration has to have been evaluated
+// file because main() reaches WafHarnessServer, whose declaration has to have been evaluated
 // by the time the call happens.
 await main();

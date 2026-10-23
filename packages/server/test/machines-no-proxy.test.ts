@@ -130,7 +130,7 @@ describe("machine traffic and the proxy settings", () => {
 
   it("a call to a machine's API is answered by the machine, and the proxy sees nothing", async () => {
     const { machinePort, socksPort, seenByProxy } = await rig();
-    const api = machineApi(sessionAgent(socksPort, machinePort), machinePort, "penguin_session=x");
+    const api = machineApi(sessionAgent(socksPort, machinePort), machinePort, "wafh_session=x");
 
     const answer = await api.request("GET", "/api/version");
 
@@ -148,7 +148,7 @@ describe("machine traffic and the proxy settings", () => {
     const forward = machinesProxy(async () => ({
       agent: sessionAgent(socksPort, machinePort),
       port: machinePort,
-      cookie: "penguin_session=x",
+      cookie: "wafh_session=x",
       adoptedAt: null,
       session: 1,
     }));

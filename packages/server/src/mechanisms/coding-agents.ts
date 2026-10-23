@@ -1,15 +1,15 @@
 /**
  * The coding-agents mechanism: what the route group may require, declared apart from what
  * implements it (the service in coding-agents/service.ts over the
- * @prismshadow/penguin-coding-agents kernel).
+ * @waterford/waf-harness-coding-agents kernel).
  */
-import { Interface, type Opaque } from "@prismshadow/penguin-core/kernel";
+import { Interface, type Opaque } from "@waterford/waf-harness-core/kernel";
 import type {
   AgentPermissionOutcome,
   AgentServerDefinition,
   AgentSessionEvent,
   AgentSessionOptions,
-} from "@prismshadow/penguin-coding-agents";
+} from "@waterford/waf-harness-coding-agents";
 import type { ChannelApi } from "../hmr/capabilities.js";
 import type { RuntimeSession } from "../runtime/session-manager.js";
 import type {
@@ -104,9 +104,9 @@ export abstract class CodingAgents extends Interface<{
   setConfigOption(sessionId: string, configId: string, value: boolean | string): Promise<void>;
   respondPermission(requestId: string, outcome: AgentPermissionOutcome): boolean;
   /**
-   * A new Penguin Session run by a coding agent: `modelId` names the agent, optionally with
+   * A new WAF Harness Session run by a coding agent: `modelId` names the agent, optionally with
    * one of its models (`<agent>::<configId>::<value>`). The agent's session opens in
-   * `workspace`, or in a new temporary one under the owning Penguin Agent. The runtime is
+   * `workspace`, or in a new temporary one under the owning WAF Harness Agent. The runtime is
    * what the session manager drives; it writes the Session's Trace.
    */
   openSessionRuntime(args: {

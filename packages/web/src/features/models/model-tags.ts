@@ -14,7 +14,7 @@
  * and amber the marks have always worn, and identity is carried by the words in every case —
  * the tone only sorts them at a glance, and never alone says which mark this is.
  */
-import type { ToneName } from "@prismshadow/penguin-ui";
+import type { ToneName } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import type { DiscountedPrice } from "./model-grouping";
 

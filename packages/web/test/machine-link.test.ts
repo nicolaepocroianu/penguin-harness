@@ -15,7 +15,7 @@
  *   failure, whose own words it gives instead.
  */
 import { describe, expect, it } from "vitest";
-import type { MachineInfo, MachinesResponse } from "@prismshadow/penguin-server/api";
+import type { MachineInfo, MachinesResponse } from "@waterford/waf-harness-server/api";
 import { machineLink, remoteAgentsEmpty } from "../src/lib/machine-link";
 import { S } from "../src/lib/strings";
 
@@ -29,7 +29,7 @@ const machine = (machineId: string, over: Partial<MachineInfo> = {}): MachineInf
   socket: null,
   api: null,
   status: null,
-  root: "$HOME/.penguin/data",
+  root: "$HOME/.waf-harness/data",
   ...over,
 });
 const list = (...machines: MachineInfo[]): MachinesResponse => ({

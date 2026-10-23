@@ -3,11 +3,11 @@
  * git checkout, against the pull request's base commit. A plugin's version is its npm version;
  * the dated versions live on the parts an install writes — each skill, the hook package.
  *
- * - A workbench source change fails until its package.json penguin.version changes.
+ * - A workbench source change fails until its package.json wafh.version changes.
  * - A skill whose files changed without a new version fails, naming the skill; raising its
  *   version passes.
- * - A changed hook script, or a changed hook command in package.json's `penguin.hooks`, fails
- *   until `penguin.hooks.version` is raised.
+ * - A changed hook script, or a changed hook command in package.json's `wafh.hooks`, fails
+ *   until `wafh.hooks.version` is raised.
  * - The rest of package.json, README.md and icon.svg reach no installed copy and need nothing.
  * - Hook commands moved unchanged from a base's plugin.json into package.json need no bump; moved
  *   and changed at once, they need one, measured against the version the base's plugin.json had.
@@ -27,14 +27,14 @@ const skillMd = (version: string | null, body = "Do the thing.") =>
 
 const HOOKS = { version: "2026.10.04.1", stop: [{ command: "stop.mjs", timeout: 60 }] };
 
-/** The demo plugin's package.json, its `penguin` block carrying `hooks`. */
+/** The demo plugin's package.json, its `wafh` block carrying `hooks`. */
 const packageJson = (hooks: unknown = HOOKS, extra: Record<string, unknown> = {}) =>
   JSON.stringify({
-    name: "@penguinharness/demo",
+    name: "@waf-harness/demo",
     version: "0.2.13",
     description: "Demo.",
     ...extra,
-    penguin: { short_description: "Demo.", hooks },
+    wafh: { short_description: "Demo.", hooks },
   });
 
 /** The repo's layout: dated versions on the skill and on the hook package. */
@@ -82,7 +82,7 @@ async function writeAll(files: Record<string, string | null>): Promise<void> {
 
 /** A checkout whose base commit holds `files`; answers the base sha. */
 async function checkout(files: Record<string, string>): Promise<string> {
-  repo = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-version-guard-"));
+  repo = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-version-guard-"));
   git("init", "-q");
   await writeAll(files);
   git("add", "-A");
@@ -116,7 +116,7 @@ describe("the plugin version guard", () => {
     expect(raised.ok).toBe(true);
   });
 
-  it("fails a changed hook script or hook command until penguin.hooks.version is raised", async () => {
+  it("fails a changed hook script or hook command until wafh.hooks.version is raised", async () => {
     const base = await checkout(PER_PART);
     expect((await guard(base, { "plugins/demo/hooks/stop.mjs": "export const x = 1;\n" })).ok).toBe(
       false,
@@ -125,7 +125,7 @@ describe("the plugin version guard", () => {
     const longer = { ...HOOKS, stop: [{ command: "stop.mjs", timeout: 90 }] };
     const command = await guard(base, { "plugins/demo/package.json": packageJson(longer) });
     expect(command.ok).toBe(false);
-    expect(command.out).toContain("plugins/demo/hooks changed but penguin.hooks.version is still");
+    expect(command.out).toContain("plugins/demo/hooks changed but wafh.hooks.version is still");
 
     const raised = await guard(base, {
       "plugins/demo/package.json": packageJson({ ...longer, version: "2026.10.09.2" }),
@@ -147,11 +147,11 @@ describe("the plugin version guard", () => {
   });
 
   it("lets hook commands moved unchanged from the base's plugin.json through, and holds a moved command that changed", async () => {
-    // The base before the move: the hook declaration in plugin.json, no penguin block.
+    // The base before the move: the hook declaration in plugin.json, no wafh block.
     const base = await checkout({
       ...PER_PART,
       "plugins/demo/package.json": JSON.stringify({
-        name: "@penguinharness/demo",
+        name: "@waf-harness/demo",
         version: "0.2.13",
       }),
       "plugins/demo/plugin.json": JSON.stringify({ description: "Demo.", hooks: HOOKS }),
@@ -166,7 +166,7 @@ describe("the plugin version guard", () => {
       "plugins/demo/package.json": packageJson({ ...HOOKS, stop: [{ command: "stop.mjs" }] }),
     });
     expect(changed.ok).toBe(false);
-    expect(changed.out).toContain("penguin.hooks.version is still 2026.10.04.1");
+    expect(changed.out).toContain("wafh.hooks.version is still 2026.10.04.1");
   });
 
   it("counts plugin directories only, and reads a plugin new since the base without noise", async () => {
@@ -174,9 +174,9 @@ describe("the plugin version guard", () => {
     const run = await guard(base, {
       "plugins/README.md": "# The plugin library\n",
       "plugins/fresh/package.json": JSON.stringify({
-        name: "@penguinharness/fresh",
+        name: "@waf-harness/fresh",
         version: "0.2.13",
-        penguin: { category: "office-productivity" },
+        wafh: { category: "office-productivity" },
       }),
       "plugins/fresh/skills/one/SKILL.md": skillMd("2026.10.09.1"),
     });
@@ -190,7 +190,7 @@ describe("the plugin version guard", () => {
   it("requires a new dated workbench version when source changes", async () => {
     const file = "plugins/demo/workbenches/desk/package.json";
     const manifest = (version: string) =>
-      JSON.stringify({ name: "desk", version: "1.0.0", penguin: { version } });
+      JSON.stringify({ name: "desk", version: "1.0.0", wafh: { version } });
     const base = await checkout({
       ...PER_PART,
       [file]: manifest("2026.10.14.1"),

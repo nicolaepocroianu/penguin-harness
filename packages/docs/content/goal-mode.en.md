@@ -30,7 +30,7 @@ Skills you select in the composer are added to the first round's message as a `[
 
 ### From CLI chat
 
-In `penguin chat`, enter:
+In `wafh chat`, enter:
 
 ```
 /goal[:<budget>] <objective>
@@ -45,7 +45,7 @@ For example:
 ### From a one-shot run
 
 ```
-penguin run --goal [budget] -m "<objective>"
+wafh run --goal [budget] -m "<objective>"
 ```
 
 The command exits with code 0 only when the goal completes.

@@ -3,7 +3,11 @@
  * tested without a DOM: seconds as the fields show them, how long it
  * plays, which audio can be added to it, and how what the server reports is worded.
  */
-import type { AssetManifest, TimelineIssue, VideoTimeline } from "@prismshadow/penguin-server/api";
+import type {
+  AssetManifest,
+  TimelineIssue,
+  VideoTimeline,
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 
 type Asset = AssetManifest["assets"][string][number];

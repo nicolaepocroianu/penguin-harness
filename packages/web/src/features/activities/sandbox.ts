@@ -8,7 +8,7 @@ export interface SandboxStatusLike {
 }
 
 /**
- * Whether there is a module to show at all, whoever built it: Penguin's assembly, or Loom,
+ * Whether there is a module to show at all, whoever built it: WAF Harness's assembly, or Loom,
  * whose modules the sandbox finds in the WAF checkout.
  */
 export function sandboxHasModule(status: SandboxStatusLike | null): boolean {

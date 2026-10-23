@@ -16,8 +16,8 @@ import type {
   PluginConfigField,
   PluginConfigTableColumn,
   PluginConfigTableRow,
-} from "@prismshadow/penguin-server/api";
-import { InfoPopover, Switch } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { InfoPopover, Switch } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { EnumCell } from "./plugin-config-enum-cell";
 import { PinToggle, WrappingNameBox } from "./plugin-config-table-cells";

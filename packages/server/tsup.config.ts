@@ -12,26 +12,26 @@ import { MEDIA_PLACEHOLDER_ASSETS } from "../../scripts/media-placeholder-assets
 // admin-password rescue); "./secret-file" is the shared symlink-safe writer;
 // "./hmr/manifest" is the host-less harness.json reader the CLI's thin loader
 // resolves the current cli bundle through, and "./version-report" is the shared
-// assembler `penguin version` and GET /api/version both render (core plus that
+// assembler `wafh version` and GET /api/version both render (core plus that
 // same reader — no server). There is deliberately no
 // "./platform" subpath: src/hmr/entry.ts (this package's platform artifact
 // compile target — see its own module doc) is compiled straight from source by
 // esbuild in scripts/deploy.mjs, never through this package's published dist,
 // so it has no reason to be a tsup entry or a subpath export.
 /**
- * PENGUIN_BUILD_JS_ONLY=1 skips the declarations: scripts/dev-prebuild.mjs builds this
+ * WAFH_BUILD_JS_ONLY=1 skips the declarations: scripts/dev-prebuild.mjs builds this
  * package only so that the dev CLI's runtime imports of it resolve, and nothing at runtime
  * reads a .d.ts. The declaration pass is most of a full build's time. The declarations an
  * earlier full build left are kept rather than cleaned, so the CLI's and the desktop's
  * typecheck still find this package's types after a dev start.
  */
-const jsOnly = process.env.PENGUIN_BUILD_JS_ONLY === "1";
+const jsOnly = process.env.WAFH_BUILD_JS_ONLY === "1";
 
 const entry = {
   index: "src/index.ts",
   "api/types": "src/api/types.ts",
   lock: "src/lock.ts",
-  // "./machine-status": what `penguin server status` prints. A CONTROLLER runs that command
+  // "./machine-status": what `wafh server status` prints. A CONTROLLER runs that command
   // over ssh to ask a machine what it is, so the reader has to be importable without a
   // server — see src/machine-status.ts.
   "machine-status": "src/machine-status.ts",
@@ -77,7 +77,7 @@ const shared = {
   target: "node24",
   // The hot-update mechanism is a package for the boundary, not for npm (it is `private`):
   // inlined here so this package's published dist stays self-contained.
-  noExternal: ["@prismshadow/penguin-hmr"],
+  noExternal: ["@waterford/waf-harness-hmr"],
   // Two builds write dist/ at once, so neither may clean it: it is emptied once, before both.
   clean: false,
 } satisfies Options;
@@ -93,7 +93,7 @@ export default defineConfig(() => {
       sourcemap: true,
       // Scripts that run somewhere else, as REAL files beside the bundles: the release installers
       // a remote install feeds to the far side (the one thing that has to arrive before the CLI
-      // does; everything after is a `penguin` subcommand the machine already has). Each is
+      // does; everything after is a `wafh` subcommand the machine already has). Each is
       // resolved next to this module at runtime, so each has to exist in dist/ —
       // which `files: ["dist"]` is what npm ships. tsup only emits its entries, and these are
       // copied and never imported, so nothing in the module graph would pull them along. A

@@ -17,7 +17,7 @@
  */
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { isValidId } from "@prismshadow/penguin-core";
+import { isValidId } from "@waterford/waf-harness-core";
 import type {
   ArchivedSessionSource,
   ArchivedSessionsBatch,

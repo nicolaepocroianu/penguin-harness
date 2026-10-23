@@ -95,7 +95,7 @@ import type {
   SessionStatus,
   SkillMetadataItem,
   TaskInputPart,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   AgentAvatar,
   AttachmentFile,
@@ -121,8 +121,8 @@ import {
   noAutofill,
   toastError,
   toastInfo,
-} from "@prismshadow/penguin-ui";
-import type { MenuSelectOption, TagInputChip } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { MenuSelectOption, TagInputChip } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { formatBytes, humanizeTokens } from "../../lib/format";
 import { fitTextarea } from "../../lib/textarea-fit";
@@ -221,11 +221,11 @@ function AgentMenuList({
  * Mid-run send mode: steer (delivered mid-run as a [user_steering] input) vs follow-up
  * (queued server-side until the run ends). A remembered per-user UI preference, persisted
  * the same way as the sidebar grouping mode (validated localStorage read under a
- * `penguin.*` key); configurable from the "+" menu's settings row in draft state and active
+ * `wafh.*` key); configurable from the "+" menu's settings row in draft state and active
  * sessions alike.
  */
 type SteerMode = "steer" | "followup";
-const STEER_MODE_KEY = "penguin.steerMode";
+const STEER_MODE_KEY = "wafh.steerMode";
 function initialSteerMode(): SteerMode {
   return localStorage.getItem(STEER_MODE_KEY) === "followup" ? "followup" : "steer";
 }

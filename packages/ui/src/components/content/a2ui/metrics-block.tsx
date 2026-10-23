@@ -18,8 +18,8 @@ import {
   formatNumber,
   metricDetail,
   resolveMetric,
-} from "@prismshadow/penguin-core/a2ui";
-import type { A2uiLang, A2uiMetric, A2uiMetrics } from "@prismshadow/penguin-core/a2ui";
+} from "@waterford/waf-harness-core/a2ui";
+import type { A2uiLang, A2uiMetric, A2uiMetrics } from "@waterford/waf-harness-core/a2ui";
 import { useUiStrings } from "../../../strings";
 import type { A2uiStrings } from "../../../strings";
 import { ICON_SIZE } from "../../../icon-scale";

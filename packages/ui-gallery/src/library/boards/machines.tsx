@@ -17,23 +17,23 @@ import {
   MachineList,
   MachineStatusPill,
   MachineToolbar,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import type {
   MachineCardFact,
   MachineCardProps,
   MachineState,
   MachineStepState,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 
 /** Aliases, paths, versions, ports and ssh's own words are data, not copy. */
-const ROOT = "/home/ubuntu/.penguin/data";
+const ROOT = "/home/ubuntu/.waf-harness/data";
 const VERSION = "v0.2.16";
 const OLD_VERSION = "v0.2.15";
 const PORT = "7364";
 const SSH_SAID = "ssh: connect to host 10.0.0.12 port 22: Connection timed out";
-const JOB_LINE = "Downloading penguin-harness 0.2.16…";
+const JOB_LINE = "Downloading waf-harness 0.2.16…";
 const STEPS_RUNNING: MachineStepState[] = [
   "done",
   "done",
@@ -100,7 +100,7 @@ export function MachinesBoard() {
     ...over,
   });
   const cards: MachineCardProps[] = [
-    card("penguin-dev", "serving", {
+    card("wafh-dev", "serving", {
       local: { tag: t.card.thisServer, undeletable: t.card.undeletable },
       facts: facts(true, { port: true }),
       use: { label: t.card.use, onClick: noop },

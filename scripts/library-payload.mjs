@@ -2,7 +2,7 @@
  * The skill/hook plugin library as something a hot push carries.
  *
  * Core reads the library through Node from a "host package" — the package whose
- * `dependencies` name the `@penguinharness/*` plugin packages (packages/core/src/plugins).
+ * `dependencies` name the `@waf-harness/*` plugin packages (packages/core/src/plugins).
  * A pushed platform bundle sits in the data root's store, where nothing above it is a
  * package, so it fell back to the program that booted it: a machine installed before a
  * plugin existed never offered that plugin, however new its platform was. Creating an
@@ -11,7 +11,7 @@
  *
  * So the push carries the library it was built with, as one archive laid out as that host
  * package: `library/package.json` (the dependency list) and
- * `library/node_modules/@penguinharness/<name>/…` (each plugin directory as it is in the
+ * `library/node_modules/@waf-harness/<name>/…` (each plugin directory as it is in the
  * repo — a plugin is committed content with no build). The platform points core at it at boot
  * (server hmr/platform.ts, `usePushedPluginLibrary`).
  */
@@ -20,7 +20,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-const PREFIX = "@penguinharness/";
+const PREFIX = "@waf-harness/";
 /** Never part of a plugin's content. */
 const SKIP = new Set(["node_modules", "test", "tests"]);
 
@@ -66,13 +66,13 @@ export async function libraryPayload(repoRoot) {
       });
     }
   }
-  const stage = await fsp.mkdtemp(path.join(os.tmpdir(), "penguin-library-"));
+  const stage = await fsp.mkdtemp(path.join(os.tmpdir(), "wafh-library-"));
   const manifest = path.join(stage, "package.json");
   await fsp.writeFile(
     manifest,
     `${JSON.stringify(
       {
-        name: "penguin-plugin-library",
+        name: "wafh-plugin-library",
         private: true,
         version: "0.0.0",
         dependencies: Object.fromEntries(deps.map((dep) => [dep, "*"])),

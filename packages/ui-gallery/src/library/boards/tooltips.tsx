@@ -1,5 +1,5 @@
 /** Tooltips: the package's one tooltip, by attribute (read by the frame's TooltipLayer) and by component, and on a truncated line. */
-import { Button, ICONS, Tooltip } from "@prismshadow/penguin-ui";
+import { Button, ICONS, Tooltip } from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 

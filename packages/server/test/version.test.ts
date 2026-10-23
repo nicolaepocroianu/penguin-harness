@@ -1,16 +1,16 @@
 /**
  * The version routes and the update check behind the About page.
  *
- * - GET /api/version needs a session and serves exactly the report `penguin version --json`
+ * - GET /api/version needs a session and serves exactly the report `wafh version --json`
  *   prints; a root with nothing pushed reports no harness, and a pushed one reports its store.
  * - The update check reports a newer release with its URL and date; an unreachable endpoint
  *   is still a 200, carrying `error: network` instead of a 5xx.
- * - The lookup names PenguinHarness and its version as its User-Agent.
+ * - The lookup names WAF Harness and its version as its User-Agent.
  * - A plain check is answered from the cache; `?force=1` (the manual check) bypasses it and
  *   the fresh outcome is what later plain checks see.
  * - A rate-limit answer reads as rate_limited, any other bad status or body as bad_response;
  *   a latest release that is not newer is no update.
- * - PENGUIN_UPDATE_CHECK=off answers disabled and never dials out, forced or not; so does a
+ * - WAFH_UPDATE_CHECK=off answers disabled and never dials out, forced or not; so does a
  *   build whose repository publishes no releases, and the lookup asks for the newest release
  *   of the build's own repository.
  * - A success is cached for an hour and a failure for ten minutes.
@@ -23,8 +23,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { RELEASE_IDENTITY, VERSION } from "@prismshadow/penguin-core";
-import type { ReleaseIdentity } from "@prismshadow/penguin-core";
+import { RELEASE_IDENTITY, VERSION } from "@waterford/waf-harness-core";
+import type { ReleaseIdentity } from "@waterford/waf-harness-core";
 import { versionReport } from "../src/version-report.js";
 import type {
   RestartResponse,
@@ -42,11 +42,11 @@ import { fakeFetch } from "./fixtures/fetch.js";
 import type { FetchScript } from "./fixtures/fetch.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 
 /** A repository that publishes releases: the lookup paths below need one to run at all. */
 const PUBLISHING: ReleaseIdentity = {
-  repository: "example/penguin-harness",
+  repository: "example/waf-harness",
   publishesReleases: true,
 };
 
@@ -100,7 +100,7 @@ describe("GET /api/version", () => {
     // Compared against the producer, never against literals. The release workflow STAMPS
     // core's constants before it builds and tests, so a hardcoded null passes everywhere
     // except the one job that matters — the npm publish — where it failed the release.
-    // This is also the contract that `penguin version --json` prints the same record: the
+    // This is also the contract that `wafh version --json` prints the same record: the
     // route adds no field of its own and drops none.
     expect(body).toEqual(await versionReport(t.root));
     // Non-vacuous floor, in case the report itself ever comes back degenerate.
@@ -127,13 +127,13 @@ describe("GET /api/version", () => {
       path.join(hmrDir, "harness.json"),
       JSON.stringify({
         cli: { bundle: "store/cli/abc123.mjs" },
-        source: { repo: "https://example.com/penguin.git", revision: "v0.2.3-7-gabc1234" },
+        source: { repo: "https://example.com/wafh.git", revision: "v0.2.3-7-gabc1234" },
         pushedAt: "2026-08-20T10:15:00.000Z",
       }),
     );
 
     expect((await get()).harness).toEqual({
-      source: { repo: "https://example.com/penguin.git", revision: "v0.2.3-7-gabc1234" },
+      source: { repo: "https://example.com/wafh.git", revision: "v0.2.3-7-gabc1234" },
       pushedAt: "2026-08-20T10:15:00.000Z",
       bundles: { platform: null, cli: "store/cli/abc123.mjs", web: null },
       assets: null,
@@ -224,11 +224,11 @@ describe("GET /api/version/update-check", () => {
 });
 
 describe("UpdateCheckService", () => {
-  it("names PenguinHarness and its version as the lookup's User-Agent", async () => {
+  it("names WAF Harness and its version as the lookup's User-Agent", async () => {
     const check = updateCheck(() => releaseResponse("v99.0.0"));
     await check.service.check();
     expect(check.requests.map((r) => r.headers.get("user-agent"))).toEqual([
-      `penguinharness/${VERSION}`,
+      `waf-harness/${VERSION}`,
     ]);
   });
 
@@ -251,7 +251,7 @@ describe("UpdateCheckService", () => {
     const check = updateCheck(() => releaseResponse("v99.0.0"));
     await check.service.check();
     expect(check.requests.map((r) => r.url)).toEqual([
-      "https://api.github.com/repos/example/penguin-harness/releases/latest",
+      "https://api.github.com/repos/example/waf-harness/releases/latest",
     ]);
   });
 
@@ -275,8 +275,8 @@ describe("UpdateCheckService", () => {
     expect(result.updateAvailable).toBe(false);
   });
 
-  it("never dials out under PENGUIN_UPDATE_CHECK=off, forced or not", async () => {
-    const check = updateCheck(() => releaseResponse("v99.0.0"), { PENGUIN_UPDATE_CHECK: "off" });
+  it("never dials out under WAFH_UPDATE_CHECK=off, forced or not", async () => {
+    const check = updateCheck(() => releaseResponse("v99.0.0"), { WAFH_UPDATE_CHECK: "off" });
     for (const force of [false, true]) {
       const result = await check.service.check(force);
       expect(result.disabled).toBe(true);
@@ -333,13 +333,13 @@ describe("POST /api/version/update", () => {
   let t: TestApp;
   let savedEntry: string | undefined;
   beforeEach(async () => {
-    savedEntry = process.env.PENGUIN_CLI_ENTRY;
-    delete process.env.PENGUIN_CLI_ENTRY;
+    savedEntry = process.env.WAFH_CLI_ENTRY;
+    delete process.env.WAFH_CLI_ENTRY;
     t = await createTestApp();
   });
   afterEach(async () => {
-    if (savedEntry === undefined) delete process.env.PENGUIN_CLI_ENTRY;
-    else process.env.PENGUIN_CLI_ENTRY = savedEntry;
+    if (savedEntry === undefined) delete process.env.WAFH_CLI_ENTRY;
+    else process.env.WAFH_CLI_ENTRY = savedEntry;
     await t.cleanup();
   });
 
@@ -359,7 +359,7 @@ describe("POST /api/version/update", () => {
 
   it("refuses before running anything: this build's repository publishes no releases", async () => {
     // Even with a CLI to run: the refusal comes first, so nothing is spawned.
-    process.env.PENGUIN_CLI_ENTRY = path.join(t.root, "no-such-cli.js");
+    process.env.WAFH_CLI_ENTRY = path.join(t.root, "no-such-cli.js");
     const admin = await loginAdmin(t.app);
     const res = await apiClient(t.app, admin.cookie).post("/api/version/update", {});
     expect(res.status).toBe(200);
@@ -379,7 +379,7 @@ describe("POST /api/version/update", () => {
 
 describe("POST /api/version/restart", () => {
   it("is admin-only, and refuses when nothing supervises the process", async () => {
-    // Tests boot unsupervised (PENGUIN_SUPERVISED unset): exiting would stop a service nobody
+    // Tests boot unsupervised (WAFH_SUPERVISED unset): exiting would stop a service nobody
     // brings back, so the route says so instead of leaving.
     const t = await createTestApp();
     try {

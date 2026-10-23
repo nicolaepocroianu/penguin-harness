@@ -57,8 +57,14 @@ import type {
   ToolCallOutputPayload,
   ToolCallPayload,
   ToolListReadyPayload,
-} from "@prismshadow/penguin-core";
-import type { AmspError, AmspEvent, RunDone, StopReason, TokenCounts } from "@prismshadow/amsp";
+} from "@waterford/waf-harness-core";
+import type {
+  AmspError,
+  AmspEvent,
+  RunDone,
+  StopReason,
+  TokenCounts,
+} from "@waterford/waf-harness-amsp";
 import type { ServerEvent } from "../api/types.js";
 import type { ChannelEvent } from "../runtime/channel.js";
 

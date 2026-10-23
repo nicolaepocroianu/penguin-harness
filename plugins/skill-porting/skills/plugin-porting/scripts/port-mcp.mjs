@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Turns the MCP servers of a Codex or Claude Code plugin into the `penguin.mcp_servers` of a
-// PenguinHarness plugin package.
+// Turns the MCP servers of a Codex or Claude Code plugin into the `wafh.mcp_servers` of a
+// WAF Harness plugin package.
 //
 //   node port-mcp.mjs <source dir> [--root <upstream folder url>]
 //                     [--oauth <server>]... [--bearer <server>[=KEY]]...
@@ -9,7 +9,7 @@
 // `.mcp.json`), from `.claude-plugin/plugin.json`'s `mcpServers` (a file or an inline map), or
 // from a root `.mcp.json`; a map with or without the `mcpServers` wrapper. It prints
 // `{ "mcp_servers": [...], "notes": [...] }`: paste `mcp_servers` into the package.json's
-// `penguin` block and the notes into the README. Values a server needs from the user become
+// `wafh` block and the notes into the README. Values a server needs from the user become
 // `${KEY}` references to the Agent's vault, each listed in the server's `setup`; the package
 // never carries a value. Rules:
 // - the server's name is its key lower-cased, `[^a-z0-9_-]` → `-`, starting with a letter or a

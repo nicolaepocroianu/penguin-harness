@@ -18,15 +18,15 @@ import type {
   OmniMessage,
   SessionSource,
   ToolCallPayload,
-} from "@prismshadow/penguin-core/omnimessage";
+} from "@waterford/waf-harness-core/omnimessage";
 import type {
   MCPServerConfig,
   ThinkingLevelName,
   ToolDefinitionConfig,
-} from "@prismshadow/penguin-core/interfaces";
+} from "@waterford/waf-harness-core/interfaces";
 // Build/harness identity is not an interface contract — it ships from the barrel (core's version-info.ts).
-import type { HarnessInfo, VersionReport, HarnessHistory } from "@prismshadow/penguin-core";
-import type { IfacesDiff } from "@prismshadow/penguin-hmr";
+import type { HarnessInfo, VersionReport, HarnessHistory } from "@waterford/waf-harness-core";
+import type { IfacesDiff } from "@waterford/waf-harness-hmr";
 import type { WorkbenchInfo } from "../mechanisms/workbenches.js";
 
 // ---------------------------------------------------------------------------
@@ -124,17 +124,17 @@ export interface MeResponse {
   user: UserInfo;
   /**
    * Whether Workspace HTML previews open on a separate origin (the loopback
-   * counterpart of the App host, or PENGUIN_PREVIEW_ORIGIN when set). False means this
+   * counterpart of the App host, or WAFH_PREVIEW_ORIGIN when set). False means this
    * deployment has no usable preview origin —
    * the App is reached on something other than a loopback name and
-   * PENGUIN_PREVIEW_ORIGIN is unset — so previews fall back to the same-origin sandbox,
+   * WAFH_PREVIEW_ORIGIN is unset — so previews fall back to the same-origin sandbox,
    * where `localStorage`, cookies and third-party embeds do not work. Computed per
    * request, since it depends on the host the caller is using.
    */
   previewIsolated: boolean;
   /**
    * Whether this server runs in desktop mode (spawned by the desktop shell with
-   * PENGUIN_DESKTOP_TOKEN). The web app then hides the logout entry, the
+   * WAFH_DESKTOP_TOKEN). The web app then hides the logout entry, the
    * initial-password banner and the self-update entry.
    */
   desktopMode: boolean;
@@ -282,7 +282,7 @@ export interface ServerSettings {
    */
   activityRunLimitMinutes: number | null;
   /**
-   * Whether users may drive their own Chrome through the PenguinHarness Browser extension
+   * Whether users may drive their own Chrome through the WAF Harness Browser extension
    * (default on). Off closes every connected extension (close code 4009), refuses new
    * connections, and makes the chrome backend unavailable (`extension_disabled`); pairings are
    * kept, so turning it on again lets the extensions reconnect.
@@ -1535,7 +1535,7 @@ export interface AgentConfigUpdateRequest {
 
 // ---------------------------------------------------------------------------
 // Agent API (/api/projects/:projectId/agents/:agentId/api; the stream itself is AMSP,
-// /api/amsp/v1, whose snake_case wire types live in @prismshadow/amsp)
+// /api/amsp/v1, whose snake_case wire types live in @waterford/waf-harness-amsp)
 // ---------------------------------------------------------------------------
 
 /** One API key of an Agent, as listed: the secret itself is shown once, at creation, and never again. */
@@ -1543,7 +1543,7 @@ export interface AgentApiKeyInfo {
   keyId: string;
   /** 1-64 characters, given by whoever created it. */
   name: string;
-  /** The key's first 16 characters (`penguin_` + 8), enough to tell keys apart. */
+  /** The key's first 16 characters (`wafh_` + 8), enough to tell keys apart. */
   prefix: string;
   /** user_id of the Project owner who created it. */
   createdBy: string;
@@ -1605,7 +1605,7 @@ export interface AgentApiKeyCreateRequest {
   name: string;
 }
 
-/** The one response that carries the secret (`penguin_` + 43 base64url characters); only its hash is stored. */
+/** The one response that carries the secret (`wafh_` + 43 base64url characters); only its hash is stored. */
 export interface AgentApiKeyCreateResponse {
   key: AgentApiKeyInfo;
   secret: string;
@@ -1685,7 +1685,7 @@ export interface MemoryTransferFile {
  */
 export interface MemoryScopeExport {
   /** Format marker, so a foreign JSON file is refused with a clear reason rather than half-imported. */
-  format: "penguin-memory-scope";
+  format: "wafh-memory-scope";
   /** Document version. A reader accepts exactly this; a later format bumps it and states its own compatibility. */
   version: 1;
   /** The scope this was exported from. Informational: an import writes into the scope its URL names. */
@@ -2287,7 +2287,7 @@ export interface SessionCreateRequest {
   client?: "web" | "cli" | "org";
   /**
    * The Session's source, when it is not a person's conversation: only `cli` is accepted from
-   * a client (`penguin run` sends it); every other source is the server's own to write, and
+   * a client (`wafh run` sends it); every other source is the server's own to write, and
    * absent means `user`. The retired `benchmark` is still accepted, as `cli`, until 0.3.0, for
    * an older CLI or Web App that still sends it.
    */
@@ -4683,13 +4683,13 @@ export interface HookItem {
 
 /**
  * One library plugin as the listing describes it: the manifest fields (its package.json — npm's
- * fields and the `penguin` block) plus what it ships (skill bodies and scripts are never sent).
+ * fields and the `wafh` block) plus what it ships (skill bodies and scripts are never sent).
  * Every field but the identity, the version and the contents is optional: a field the package
  * does not carry is missing here, and the page says so rather than inventing one.
  */
 export interface PluginItem {
   name: string;
-  /** Display name (`penguin.title`, `title_zh`); absent → the page shows `name`. */
+  /** Display name (`wafh.title`, `title_zh`); absent → the page shows `name`. */
   title?: string;
   titleZh?: string;
   /** English one-liner (package.json `description`); "" when the package carries none. */
@@ -4699,7 +4699,7 @@ export interface PluginItem {
   shortDescriptionZh?: string;
   /** The plugin's npm version (its package.json, following the release) — what the card shows. Installed copies are compared part by part instead: each skill's `version`, and {@link hookVersion}. */
   version: string;
-  /** The npm package the plugin is, e.g. `@penguinharness/a2ui` — what Delete and a server module's row name it by. */
+  /** The npm package the plugin is, e.g. `@waf-harness/a2ui` — what Delete and a server module's row name it by. */
   package: string;
   /** Where the plugin comes from: `builtin` — a package this build ships; `installed` — one an admin installed on the server (by name, link or zip). */
   source: "builtin" | "installed";
@@ -4713,13 +4713,13 @@ export interface PluginItem {
   workbenches?: Array<{ name: string; version: string }>;
   /** The hook points the plugin's hook package answers at (`[]` without one). */
   hooks: string[];
-  /** The hook package's own dated version (`penguin.hooks.version`, `YYYY.MM.DD.N`); absent without a hook package. */
+  /** The hook package's own dated version (`wafh.hooks.version`, `YYYY.MM.DD.N`); absent without a hook package. */
   hookVersion?: string;
-  /** The plugin's raw icon SVG (`icon.svg` at the package root, or `penguin.icon` — every built-in plugin ships one; an unsafe one is never sent), the icon of everything it ships; the frontend draws the puzzle-piece plugin glyph without it. */
+  /** The plugin's raw icon SVG (`icon.svg` at the package root, or `wafh.icon` — every built-in plugin ships one; an unsafe one is never sent), the icon of everything it ships; the frontend draws the puzzle-piece plugin glyph without it. */
   icon?: string;
-  /** The demo the Plugins page's quick start pre-fills (`penguin.quick_start`); absent = pre-select its first skill. */
+  /** The demo the Plugins page's quick start pre-fills (`wafh.quick_start`); absent = pre-select its first skill. */
   quickStart?: QuickStartItem;
-  /** The MCP servers the plugin installs into an Agent's `tools.mcpServers` (`penguin.mcp_servers`); `[]` without any. */
+  /** The MCP servers the plugin installs into an Agent's `tools.mcpServers` (`wafh.mcp_servers`); `[]` without any. */
   mcpServers: PluginMcpServerItem[];
 }
 
@@ -4887,7 +4887,7 @@ export interface PluginIndexEntry {
   shortDescriptionZh?: string;
   /**
    * The plugin's raw icon SVG (optional; the card draws the puzzle piece without it). The
-   * listing fills these display fields from the package's own package.json (its `penguin`
+   * listing fills these display fields from the package's own package.json (its `wafh`
    * block) and icon when the package is on this server, over whatever the index row says.
    */
   icon?: string;
@@ -4965,7 +4965,7 @@ export interface LanguageIndexResponse {
 
 /**
  * GET /api/version: the running build's identity plus this root's pushed harness, verbatim
- * from `versionReport()` — the same record `penguin version --json` prints, so the two
+ * from `versionReport()` — the same record `wafh version --json` prints, so the two
  * cannot drift apart. Field meanings live on {@link VersionReport} and {@link HarnessInfo};
  * the ones the web reads are `version` and `buildDate` (the stamped release date behind the
  * sidebar's "last updated", needing no network, and null for a source build or a release
@@ -4973,7 +4973,7 @@ export interface LanguageIndexResponse {
  */
 export type VersionResponse = VersionReport;
 
-export type { HarnessHistoryEntry, IfacesSummary } from "@prismshadow/penguin-core";
+export type { HarnessHistoryEntry, IfacesSummary } from "@waterford/waf-harness-core";
 export type {
   WorkbenchInfo,
   WorkbenchVersion,
@@ -4992,7 +4992,12 @@ export interface VersionRollbackResponse {
 
 /** GET /api/version/history/diff?from=&to=: what changed between two stored interface tables. */
 export type VersionHistoryDiffResponse = IfacesDiff;
-export type { IfaceChange, IfacesDiff, MemberChange, ModuleChange } from "@prismshadow/penguin-hmr";
+export type {
+  IfaceChange,
+  IfacesDiff,
+  MemberChange,
+  ModuleChange,
+} from "@waterford/waf-harness-hmr";
 
 /**
  * GET /api/version/update-check: newest published release vs the running version.
@@ -5013,7 +5018,7 @@ export interface UpdateCheckResponse {
   /** When this result was produced (ISO 8601) — a cached result keeps its original timestamp. */
   checkedAt: string;
   /**
-   * Present (true) when update checks are turned off — via PENGUIN_UPDATE_CHECK=off, or because
+   * Present (true) when update checks are turned off — via WAFH_UPDATE_CHECK=off, or because
    * this build's repository publishes no releases (core's RELEASE_IDENTITY); no network call was made.
    */
   disabled?: true;
@@ -5240,7 +5245,7 @@ export interface DesktopOpenPrivacySettingsMessage {
 }
 
 /**
- * The outcome of one self-update run (`penguin update --yes` on the server host), carried
+ * The outcome of one self-update run (`wafh update --yes` on the server host), carried
  * by {@link UpdateJobStatus.result}. `unsupported` covers both a server not launched via
  * the CLI and the CLI's own refusals (source checkout, unrecognized install layout, Windows).
  */
@@ -5248,7 +5253,7 @@ export interface UpdateRunResponse {
   status: "updated" | "failed" | "unsupported";
   /**
    * Set when the server does not run the CLI at all: this build's repository publishes no
-   * releases (`fork`), or the server was started without `penguin server|web`.
+   * releases (`fork`), or the server was started without `wafh server|web`.
    */
   reason?: "fork" | "not_launched_via_cli";
   /** Tail of the update command's combined stdout+stderr (capped; empty when nothing ran). */
@@ -5288,7 +5293,7 @@ export interface UpdateJobStatus {
 
 /**
  * POST /api/version/restart (admin only): asks the process to exit with the supervisor's
- * restart code after a graceful shutdown, so `penguin server|web` relaunches it on the
+ * restart code after a graceful shutdown, so `wafh server|web` relaunches it on the
  * installed release. `restarting: false` when nothing supervises this process — it was
  * started some other way than through the CLI, or it is a dev run — and the page shows the
  * manual restart hint instead.
@@ -5438,7 +5443,7 @@ export interface MachineInfo {
    */
   status: MachineServerStatus | null;
   /**
-   * The data root the server there runs on (`PENGUIN_HOME`). This instance's PROFILE decides
+   * The data root the server there runs on (`WAFH_HOME`). This instance's PROFILE decides
    * it — a dev instance names the machine's dev root and never the release one beside it
    * (machines/layout.ts) — which is exactly what a reader looking at two instances of this
    * page needs to tell them apart. Written in that machine's own spelling once its platform
@@ -5819,8 +5824,8 @@ export type MachineCheck =
     }
   /** Free space in the machine's home against what an install needs, in MB. */
   | { id: "disk"; state: "pass" | "warn" | "fail"; freeMb: number; needMb: number }
-  /** The port its server would start on: free, already its PenguinHarness server's, or taken by something else. */
-  | { id: "port"; state: "pass" | "fail"; port: number; holder: "free" | "penguin" | "other" }
+  /** The port its server would start on: free, already its WAF Harness server's, or taken by something else. */
+  | { id: "port"; state: "pass" | "fail"; port: number; holder: "free" | "wafh" | "other" }
   | { id: "platform" | "tools" | "download" | "disk" | "port"; state: "skip" };
 
 /**
@@ -6520,14 +6525,14 @@ export interface OrgTicketBlockRequest {
 export interface OrgTicketProgressRequest {
   text: string;
   /**
-   * The calling session (CLI: PENGUIN_SESSION_ID); the session is booked as a contributing
+   * The calling session (CLI: WAFH_SESSION_ID); the session is booked as a contributing
    * session and the history entry is attributed to its employee. Honoured only for a request
    * carrying the local API token — the control environment's credential; a signed-in user's
    * write is attributed to the user.
    */
   sessionId?: string;
   /**
-   * The calling employee's Agent id (CLI: PENGUIN_AGENT_ID from the control environment), the
+   * The calling employee's Agent id (CLI: WAFH_AGENT_ID from the control environment), the
    * identity a write is recorded under; it wins over the session's employee, is honoured only
    * with the local API token, like sessionId, and is ignored — the write falls back to the
    * session's employee, then to the person — when it names no employee.
@@ -6536,7 +6541,7 @@ export interface OrgTicketProgressRequest {
 }
 
 export interface OrgTicketStartRequest {
-  /** The employee the ticket session runs as (CLI: PENGUIN_AGENT_ID); defaults to the ticket owner. */
+  /** The employee the ticket session runs as (CLI: WAFH_AGENT_ID); defaults to the ticket owner. */
   agentId?: string;
   message?: string;
   /** Another directory inside the shared workspace; defaults to the employee's desk workspace. */
@@ -6555,7 +6560,7 @@ export interface OrgChannelMessageSendRequest {
   text: string;
   refs?: { ticket?: string; session?: string; replyTo?: string };
   /**
-   * The calling session (CLI: PENGUIN_SESSION_ID): the message is sent as its Agent and
+   * The calling session (CLI: WAFH_SESSION_ID): the message is sent as its Agent and
    * inherits its hop. Honoured only for a request carrying the local API token — the control
    * environment's credential; a signed-in user's message is sent as the user, at hop 0.
    */
@@ -7241,7 +7246,7 @@ export interface CodingAgentServerInfo {
    * once its running sessions end.
    */
   envPending?: boolean;
-  /** Set when Penguin manages this agent itself (Models → Built-in), naming which built-in. */
+  /** Set when WAF Harness manages this agent itself (Models → Built-in), naming which built-in. */
   builtin?: string;
 }
 
@@ -7249,7 +7254,7 @@ export interface CodingAgentsResponse {
   agents: CodingAgentServerInfo[];
 }
 
-/** Where a built-in agent (one Penguin downloads and runs itself) stands on this server. */
+/** Where a built-in agent (one WAF Harness downloads and runs itself) stands on this server. */
 export type BuiltinAgentStatus =
   "not-installed" | "downloading" | "ready" | "update-available" | "failed" | "unsupported";
 
@@ -7303,7 +7308,7 @@ export interface CodingAgentDiscoveryCandidate {
    * Whether the agent is signed in: read from its stored credentials on every call, from
    * its own status command after a probed refresh, and "missing" once a real turn failed
    * for want of a sign-in. Absent for an agent not detected, or one that keeps its sign-in
-   * nowhere Penguin knows to look.
+   * nowhere WAF Harness knows to look.
    */
   authStatus?: "ok" | "missing" | "unknown";
   /**
@@ -7380,7 +7385,7 @@ export interface CodingAgentSessionInfo {
    * How a later server process could reopen this session: `resume` or `load` (the agent
    * replays its history), or `none` when the session ends with the agent's process.
    */
-  resumeSupport: import("@prismshadow/penguin-coding-agents").AgentResumeSupport;
+  resumeSupport: import("@waterford/waf-harness-coding-agents").AgentResumeSupport;
   /** A user-set display name; absent, the session is named by its agent and workspace. */
   title?: string;
 }
@@ -7390,7 +7395,7 @@ export interface CodingAgentSessionsResponse {
 }
 
 export interface CodingAgentSessionDetailResponse extends CodingAgentSessionInfo {
-  configOptions: import("@prismshadow/penguin-coding-agents").AgentSessionConfigOption[];
+  configOptions: import("@waterford/waf-harness-coding-agents").AgentSessionConfigOption[];
   events: CodingAgentEvent[];
 }
 
@@ -7431,9 +7436,9 @@ export interface CodingAgentModeRequest {
 }
 
 /** The kernel's protocol-neutral event vocabulary, re-exported for API consumers. */
-export type CodingAgentEvent = import("@prismshadow/penguin-coding-agents").AgentSessionEvent;
+export type CodingAgentEvent = import("@waterford/waf-harness-coding-agents").AgentSessionEvent;
 export type CodingAgentConfigOption =
-  import("@prismshadow/penguin-coding-agents").AgentSessionConfigOption;
+  import("@waterford/waf-harness-coding-agents").AgentSessionConfigOption;
 export type { AudioTarget, AudioResult } from "../activities/audio.js";
 export type {
   SoundFormat,
@@ -7499,9 +7504,9 @@ export type {
 
 // ---------------------------------------------------------------------------
 // The agent browser, two backends behind one link (see builtin-browser/): the desktop's
-// built-in browser — Electron <webview> guests in the persist:penguin-browser partition,
+// built-in browser — Electron <webview> guests in the persist:wafh-browser partition,
 // driven over CDP by the shell on the server's behalf — and the user's own Chrome, driven
-// through the PenguinHarness Browser extension over a WebSocket the extension opens.
+// through the WAF Harness Browser extension over a WebSocket the extension opens.
 // ---------------------------------------------------------------------------
 
 /** The browser an agent drives: the desktop's built-in one, or the user's own Chrome. */
@@ -7523,7 +7528,7 @@ export interface BrowserLinkCapabilities {
 
 /**
  * One tab of the agent browser. Built-in: a guest page, `id` its webContents id. Chrome: a tab
- * the extension drives (one it created in the Penguin tab group, or one the user added), `id`
+ * the extension drives (one it created in the WAF Harness tab group, or one the user added), `id`
  * Chrome's tab id; `canGoBack`/`canGoForward` are always false there (the tabs API cannot read
  * them).
  */
@@ -7658,7 +7663,7 @@ export interface BrowserExtensionPairResponse {
  * - 4001 replaced: another extension of the same user connected (last connected wins); do not
  *   auto-retry.
  * - 4003 revoked: the pairing was revoked (or the token was); forget this server.
- * - 4005 protocol_mismatch: no `penguin-browser.1` subprotocol, or a hello the server does not
+ * - 4005 protocol_mismatch: no `wafh-browser.1` subprotocol, or a hello the server does not
  *   speak; the extension needs updating.
  * - 4008 ping_timeout: two pings (or the hello) went unanswered.
  * - 4009 disabled: an admin switched Chrome connections off; retry hourly.
@@ -7926,7 +7931,7 @@ export type DesktopBrowserCommand =
   | { op: "throttle"; tabIds: number[] }
   /**
    * Chrome only (the shell answers `unknown_op`). Reply: `{ tab: BuiltinBrowserTab }`. A tab at
-   * `url` (http(s) or about:blank, checked by the server) in the extension's Penguin tab group;
+   * `url` (http(s) or about:blank, checked by the server) in the extension's WAF Harness tab group;
    * `activate` asks for it to be the selected tab of its window.
    */
   | { op: "open-tab"; url: string; activate: boolean }

@@ -31,7 +31,7 @@
  */
 import { useState } from "react";
 import type { ChangeEvent } from "react";
-import type { UpdateProfileRequest, UserInfo } from "@prismshadow/penguin-server/api";
+import type { UpdateProfileRequest, UserInfo } from "@waterford/waf-harness-server/api";
 import {
   Button,
   ConfirmModal,
@@ -45,7 +45,7 @@ import {
   toastSuccess,
   useFormDraft,
   useSaving,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";

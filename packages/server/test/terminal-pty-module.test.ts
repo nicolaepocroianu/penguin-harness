@@ -55,13 +55,13 @@ function fakeNodePty(dir: string, copy: string, loads: boolean, binding = false)
   );
 }
 
-/** An installed program (`<program>/lib/dist/penguin-hmr.js`) and a pushed assets directory. */
+/** An installed program (`<program>/lib/dist/wafh-hmr.js`) and a pushed assets directory. */
 async function machine(opts: { program: boolean; pushed: boolean; programBinding?: boolean }) {
   const root = await makeTempRoot();
   roots.push(root);
   const lib = path.join(root, "program", "lib");
   fs.mkdirSync(path.join(lib, "dist"), { recursive: true });
-  const entry = path.join(lib, "dist", "penguin-hmr.js");
+  const entry = path.join(lib, "dist", "wafh-hmr.js");
   fs.writeFileSync(entry, "");
   fakeNodePty(lib, "program", opts.program, opts.programBinding);
   const assets = path.join(root, "data", "hmr", "store", "assets", "abc");

@@ -26,7 +26,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate, Outlet, useNavigate, useParams } from "react-router";
-import type { OrganizationSummary } from "@prismshadow/penguin-server/api";
+import type { OrganizationSummary } from "@waterford/waf-harness-server/api";
 import {
   Button,
   EmptyState,
@@ -37,7 +37,7 @@ import {
   PageFrame,
   PageHeader,
   Skeleton,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { useCompany } from "../../state/company";
 import { useProject } from "../../state/project";

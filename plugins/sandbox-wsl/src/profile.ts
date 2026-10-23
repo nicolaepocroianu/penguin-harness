@@ -38,7 +38,7 @@
  * distro uses one of them, not both.
  */
 import path from "node:path";
-import type { SandboxPolicy } from "@prismshadow/penguin-core/plugin";
+import type { SandboxPolicy } from "@waterford/waf-harness-core/plugin";
 
 /** Where WSL mounts the Windows drives inside a distro (its default automount root). */
 export const MOUNT_ROOT = "/mnt";
@@ -106,7 +106,7 @@ export function bwrapArgs(policy: SandboxPolicy, host: ProfileHost): string[] {
     // bwrap's empty network namespace also loses the host's loopback, so "localhost only" has
     // no spelling here. The service never routes it here (no network-local dimension); refuse
     // rather than read it as an open network.
-    throw new Error("penguin-wsl cannot confine to the local network (localhost only)");
+    throw new Error("wafh-wsl cannot confine to the local network (localhost only)");
   }
   const args = ["--die-with-parent", "--unshare-all"];
   if (policy.network !== "none") args.push("--share-net");
@@ -117,7 +117,7 @@ export function bwrapArgs(policy: SandboxPolicy, host: ProfileHost): string[] {
     const workspace = toLinuxPath(policy.workspaceRoot, host.distro);
     if (workspace === null) {
       throw new Error(
-        `penguin-wsl: the Workspace ${policy.workspaceRoot} has no path inside the WSL distro ` +
+        `wafh-wsl: the Workspace ${policy.workspaceRoot} has no path inside the WSL distro ` +
           "(it must be on a local drive), so it cannot be confined there.",
       );
     }

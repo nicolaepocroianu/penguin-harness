@@ -18,7 +18,7 @@ describe("activity image preview binding", () => {
   });
 
   async function wafFixture(relativePath = "media/images/cat.png") {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-image-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-waf-image-"));
     roots.push(root);
     await fs.mkdir(path.join(root, "framework", "src"), { recursive: true });
     await fs.writeFile(path.join(root, "framework", "package.json"), "{}");

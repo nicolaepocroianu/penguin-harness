@@ -80,7 +80,7 @@ import type {
   SessionCategoryCounts,
   SessionInfo,
   SessionStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { useStore } from "zustand/react";
 import { createStore } from "zustand/vanilla";
 import * as api from "../api/endpoints";
@@ -1716,11 +1716,11 @@ export function applyUserEvent(
     if (source === null) onWebUpdated();
     return;
   }
-  // A Session now exists that this list did not create — `penguin chat`, another tab, on this
+  // A Session now exists that this list did not create — `wafh chat`, another tab, on this
   // server or on a machine. Nothing short of a fetch can put the row in place with everything a
   // row needs (title, workspace, counts), so reload; the same answer schedule_fired gives below,
   // for the same reason. Only a person's conversation can land in this list: what a program
-  // opens (the Agent API, a schedule, `penguin run`) is archived until kept, and a subagent or
+  // opens (the Agent API, a schedule, `wafh run`) is archived until kept, and a subagent or
   // company Session is in no list, so their creation leaves the list as it is.
   //
   // The Project is compared whatever the event came from. A machine's Projects carry THIS

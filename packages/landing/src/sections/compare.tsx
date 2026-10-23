@@ -1,7 +1,7 @@
 /**
- * Building on an agent library against PenguinHarness, as two panels with a looping
+ * Building on an agent library against WAF Harness, as two panels with a looping
  * "construction" animation: on a shared cycle the library side lays one block at a time (still
- * short of the skyline when the cycle resets) while the PenguinHarness side raises a whole
+ * short of the skyline when the cycle resets) while the WAF Harness side raises a whole
  * skyline almost at once and holds it. The panels' text names what each side leaves to you or
  * already has. Reduced-motion users see both builds complete.
  */
@@ -71,7 +71,7 @@ function ComparePanel({
   name: string;
   mode: string;
   note: string;
-  /** PenguinHarness's panel: its name wears the brand hue, like its skyline. */
+  /** WAF Harness's panel: its name wears the brand hue, like its skyline. */
   emphasized?: boolean;
   children: ReactNode;
 }) {
@@ -112,7 +112,7 @@ export function Compare() {
         <ComparePanel {...c.library}>
           <SlowBuild key={`slow-${cycle}`} />
         </ComparePanel>
-        <ComparePanel {...c.penguin} emphasized>
+        <ComparePanel {...c.wafh} emphasized>
           <FastBuild key={`fast-${cycle}`} />
         </ComparePanel>
       </div>

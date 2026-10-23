@@ -12,7 +12,7 @@ describe("resolveShellRc", () => {
     const zsh = resolveShellRc("/bin/zsh", "/home/u");
     expect(zsh.kind).toBe("zsh");
     expect(zsh.rcPath).toBe(join("/home/u", ".zshrc"));
-    expect(zsh.body("zh")).toBe("export PENGUIN_LANG=zh");
+    expect(zsh.body("zh")).toBe("export WAFH_LANG=zh");
 
     const bash = resolveShellRc("/usr/bin/bash", "/home/u");
     expect(bash.kind).toBe("bash");
@@ -21,7 +21,7 @@ describe("resolveShellRc", () => {
     const fish = resolveShellRc("/usr/local/bin/fish", "/home/u");
     expect(fish.kind).toBe("fish");
     expect(fish.rcPath).toBe(join("/home/u", ".config", "fish", "config.fish"));
-    expect(fish.body("en")).toBe("set -gx PENGUIN_LANG en");
+    expect(fish.body("en")).toBe("set -gx WAFH_LANG en");
   });
 
   it("falls back to ~/.profile for an unknown shell", () => {
@@ -33,31 +33,31 @@ describe("resolveShellRc", () => {
 
 describe("upsertBlock", () => {
   it("appends a marked block when none exists", () => {
-    const out = upsertBlock("export PATH=/x\n", "export PENGUIN_LANG=zh");
+    const out = upsertBlock("export PATH=/x\n", "export WAFH_LANG=zh");
     expect(out).toContain("export PATH=/x");
-    expect(out).toContain("# >>> PenguinHarness PENGUIN_LANG >>>");
-    expect(out).toContain("export PENGUIN_LANG=zh");
-    expect(out).toContain("# <<< PenguinHarness PENGUIN_LANG <<<");
+    expect(out).toContain("# >>> WAF Harness WAFH_LANG >>>");
+    expect(out).toContain("export WAFH_LANG=zh");
+    expect(out).toContain("# <<< WAF Harness WAFH_LANG <<<");
   });
 
   it("replaces the block in place and is idempotent", () => {
-    const first = upsertBlock("", "export PENGUIN_LANG=zh");
-    const second = upsertBlock(first, "export PENGUIN_LANG=en");
+    const first = upsertBlock("", "export WAFH_LANG=zh");
+    const second = upsertBlock(first, "export WAFH_LANG=en");
     // Only one block remains, with its content replaced by the latest value.
-    expect(second.match(/PenguinHarness PENGUIN_LANG/g)?.length).toBe(2); // begin + end markers
-    expect(second).toContain("export PENGUIN_LANG=en");
-    expect(second).not.toContain("export PENGUIN_LANG=zh");
+    expect(second.match(/WAF Harness WAFH_LANG/g)?.length).toBe(2); // begin + end markers
+    expect(second).toContain("export WAFH_LANG=en");
+    expect(second).not.toContain("export WAFH_LANG=zh");
     // Writing the same value again is stable (the block does not keep growing).
-    const third = upsertBlock(second, "export PENGUIN_LANG=en");
+    const third = upsertBlock(second, "export WAFH_LANG=en");
     expect(third).toBe(second);
   });
 
   it("preserves surrounding content when replacing", () => {
-    const base = "line1\n" + upsertBlock("", "export PENGUIN_LANG=zh") + "line2\n";
-    const out = upsertBlock(base, "export PENGUIN_LANG=en");
+    const base = "line1\n" + upsertBlock("", "export WAFH_LANG=zh") + "line2\n";
+    const out = upsertBlock(base, "export WAFH_LANG=en");
     expect(out.startsWith("line1\n")).toBe(true);
     expect(out.endsWith("line2\n")).toBe(true);
-    expect(out).toContain("export PENGUIN_LANG=en");
+    expect(out).toContain("export WAFH_LANG=en");
   });
 });
 
@@ -68,26 +68,26 @@ describe("applyLanguageToRc", () => {
   });
 
   it("writes the export line to the resolved startup file", async () => {
-    home = await mkdtemp(join(tmpdir(), "penguin-lang-"));
+    home = await mkdtemp(join(tmpdir(), "wafh-lang-"));
     const { rcPath, kind } = await applyLanguageToRc("zh", { shell: "/bin/zsh", home });
     expect(kind).toBe("zsh");
     expect(rcPath).toBe(join(home, ".zshrc"));
     const content = await readFile(rcPath, "utf8");
-    expect(content).toContain("export PENGUIN_LANG=zh");
+    expect(content).toContain("export WAFH_LANG=zh");
 
     // Switching the language again updates the file in place instead of appending.
     await applyLanguageToRc("en", { shell: "/bin/zsh", home });
     const updated = await readFile(rcPath, "utf8");
-    expect(updated).toContain("export PENGUIN_LANG=en");
-    expect(updated).not.toContain("export PENGUIN_LANG=zh");
-    expect(updated.match(/# >>> PenguinHarness/g)?.length).toBe(1);
+    expect(updated).toContain("export WAFH_LANG=en");
+    expect(updated).not.toContain("export WAFH_LANG=zh");
+    expect(updated.match(/# >>> WAF Harness/g)?.length).toBe(1);
   });
 
   it("creates nested config dir for fish", async () => {
-    home = await mkdtemp(join(tmpdir(), "penguin-lang-"));
+    home = await mkdtemp(join(tmpdir(), "wafh-lang-"));
     const { rcPath } = await applyLanguageToRc("en", { shell: "/usr/bin/fish", home });
     expect(rcPath).toBe(join(home, ".config", "fish", "config.fish"));
     const content = await readFile(rcPath, "utf8");
-    expect(content).toContain("set -gx PENGUIN_LANG en");
+    expect(content).toContain("set -gx WAFH_LANG en");
   });
 });

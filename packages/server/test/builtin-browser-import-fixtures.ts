@@ -41,7 +41,7 @@ export class FakeMachine {
   readonly vars: Record<string, string | undefined> = {};
 
   constructor(readonly platform: NodeJS.Platform) {
-    this.root = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-import-test-"));
+    this.root = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-import-test-"));
     this.home = path.join(this.root, "home");
     this.tmp = path.join(this.root, "tmp");
     fs.mkdirSync(this.home, { recursive: true });

@@ -24,7 +24,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
 import { serve } from "@hono/node-server";
-import type { ModelEntry } from "@prismshadow/penguin-core";
+import type { ModelEntry } from "@waterford/waf-harness-core";
 import type { ModelsResponse, ModelsUpdateRequest } from "../src/api/types.js";
 import { envSourced, planModelSync, syncModelsToMachine } from "../src/machines/models-sync.js";
 import type { LocalModels } from "../src/machines/models-sync.js";
@@ -429,7 +429,7 @@ describe("machineApi", () => {
       server.listen(0, "127.0.0.1", () => resolve((server.address() as AddressInfo).port)),
     );
     try {
-      const api = machineApi(new http.Agent(), port, "penguin_session=x");
+      const api = machineApi(new http.Agent(), port, "wafh_session=x");
       await expect(api.request("GET", "/api/projects")).rejects.toThrow(
         /closed mid-answer|socket hang up|aborted/,
       );

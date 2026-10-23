@@ -14,7 +14,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { BenchmarkSummary } from "@prismshadow/penguin-server/api";
+import type { BenchmarkSummary } from "@waterford/waf-harness-server/api";
 import { BenchmarkHeaderFacts } from "../src/features/benchmark/benchmark-detail-page";
 
 const FOLDER =
@@ -40,7 +40,7 @@ describe("the facts under a Benchmark page's title", () => {
 
   it("links the repository folder an Agent imported the Benchmark from", () => {
     const html = render({
-      id: "penguinharness-benchmark-sec-a",
+      id: "waf-harness-benchmark-sec-a",
       version: "2026.10.09.1",
       origin: { kind: "git", url: FOLDER, ref: "c12d65bc20beb5130ed57b3b7983c62d497b7d2f" },
     });

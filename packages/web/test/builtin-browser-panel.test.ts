@@ -27,7 +27,7 @@ import type {
   BrowserBackendInfo,
   BuiltinBrowserStatus,
   BuiltinBrowserTab,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { BuiltinBrowserPanel } from "../src/features/builtin-browser/browser-panel";
 import { ChromeStatusRow } from "../src/features/builtin-browser/chrome-status-row";
 import { switchBrowserBackend } from "../src/features/builtin-browser/browser-actions";
@@ -38,8 +38,8 @@ import { apiError, json, stubFetch } from "./helpers/fetch";
 /** Toasts raised during a test, by kind (the real store would leave its dismiss timers running). */
 const toasts = vi.hoisted(() => [] as string[]);
 
-vi.mock("@prismshadow/penguin-ui", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@prismshadow/penguin-ui")>();
+vi.mock("@waterford/waf-harness-ui", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@waterford/waf-harness-ui")>();
   return {
     ...actual,
     toastSuccess: (text: string) => toasts.push(`success: ${text}`),

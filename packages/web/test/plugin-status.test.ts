@@ -23,7 +23,7 @@
  *   Agent.
  */
 import { describe, expect, it } from "vitest";
-import type { AgentMcpServerItem, PluginMcpServerItem } from "@prismshadow/penguin-server/api";
+import type { AgentMcpServerItem, PluginMcpServerItem } from "@waterford/waf-harness-server/api";
 import {
   changedParts,
   installNeedsConfirm,

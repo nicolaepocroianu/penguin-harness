@@ -12,9 +12,9 @@ import type {
   MachineJob,
   MachinePhase,
   SshHostResponse,
-} from "@prismshadow/penguin-server/api";
-import { ICONS } from "@prismshadow/penguin-ui";
-import type { MachineState } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { ICONS } from "@waterford/waf-harness-ui";
+import type { MachineState } from "@waterford/waf-harness-ui";
 import {
   formatBytes,
   formatDateTime,
@@ -598,7 +598,7 @@ export function checkLine(check: MachineCheck, alias: string): CheckLine {
     case "port":
       return check.holder === "other"
         ? line(c.portTaken(check.port))
-        : check.holder === "penguin"
+        : check.holder === "wafh"
           ? line(c.portOurs(check.port))
           : line(c.portFree(check.port));
   }

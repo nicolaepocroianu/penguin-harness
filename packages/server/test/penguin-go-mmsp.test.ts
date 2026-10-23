@@ -25,11 +25,11 @@ import {
   toolCall,
   toolCallOutput,
   inlineData,
-} from "@prismshadow/penguin-core";
-import type { LLMOutcome, OmniMessage } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { LLMOutcome, OmniMessage } from "@waterford/waf-harness-core";
 import type { ErrorBody, ModelsResponse } from "../src/api/types.js";
 import { PlatformAuthService, platformConnection } from "../src/services/platform-auth-service.js";
-import { migratePenguinGoRoutes } from "../src/services/project-config-migrations.js";
+import { migrateWafHarnessGoRoutes } from "../src/services/project-config-migrations.js";
 import { fakeFetch, jsonResponse, stubFetch } from "./fixtures/fetch.js";
 import { createTestApp, provisionUser, apiClient } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
@@ -74,7 +74,7 @@ function catalog(state: "overlap" | "mmsp") {
 function delivery(state: "overlap" | "mmsp", key = "ep_delivered") {
   return {
     status: "claimed",
-    client: { id: "penguin-harness" },
+    client: { id: "waf-harness" },
     mmspBaseURL: base,
     user: { id: 7, username: "retained-account" },
     connection: { ...catalog(state), apiKey: key },
@@ -236,7 +236,7 @@ describe("Penguin Go stored projects", () => {
       expect(
         fake.calls
           .filter((c) => c.url.endsWith("/poll"))
-          .every((c) => c.headers.get("x-penguin-protocol") === "mmsp"),
+          .every((c) => c.headers.get("x-wafh-protocol") === "mmsp"),
       ).toBe(true);
     },
   );
@@ -252,7 +252,7 @@ describe("Penguin Go stored projects", () => {
       .run(id, "penguin-go", "deepseek-flash", 0.4, new Date().toISOString());
     const fake = fakeFetch((call) => {
       expect(call.url).toBe("https://go.penguin.ooo/api/client/models");
-      expect(call.headers.get("x-penguin-protocol")).toBe("mmsp");
+      expect(call.headers.get("x-wafh-protocol")).toBe("mmsp");
       expect(call.headers.get("authorization")).toBe("Bearer saved-device-key");
       const body = catalog("overlap");
       body.endpoints.mmsp = deliveredBase;
@@ -357,29 +357,29 @@ describe("Penguin Go stored projects", () => {
   it("migration includes retired model ids and needs no saved key", () => {
     const raw = oldConfig("");
     raw.models[0]!.model_id = "retired-go-model";
-    expect(migratePenguinGoRoutes(raw)).toBe(2);
+    expect(migrateWafHarnessGoRoutes(raw)).toBe(2);
     expect(raw.models[0]).toMatchObject({
       model_id: "retired-go-model",
       client_type: "mmsp",
       base_url: base,
     });
-    expect(migratePenguinGoRoutes(raw)).toBe(0);
+    expect(migrateWafHarnessGoRoutes(raw)).toBe(0);
   });
   it("a redirected row keeps the protocol it previously inherited from the Go group", () => {
     const raw = oldConfig("ep_inherited");
     Object.assign(raw.providers["penguin-go"], { client_type: "openai-chat" });
     delete (raw.models[2] as Record<string, unknown>).client_type;
     const before = structuredClone(raw.models[2]);
-    migratePenguinGoRoutes(raw);
+    migrateWafHarnessGoRoutes(raw);
     expect(raw.models[2]).toEqual({ ...before, client_type: "openai-chat" });
-    expect(migratePenguinGoRoutes(raw)).toBe(0);
+    expect(migrateWafHarnessGoRoutes(raw)).toBe(0);
   });
   it("refuses another protocol on the Go group and its rows, and saves a redirected row's stored one back", async () => {
     const id = await project();
     const url = `/api/projects/${id}/models`;
     const refused = async (res: Response) => {
       expect(res.status).toBe(400);
-      expect(((await res.json()) as ErrorBody).error.code).toBe("penguin_go_protocol_fixed");
+      expect(((await res.json()) as ErrorBody).error.code).toBe("wafh_go_protocol_fixed");
     };
     await refused(await owner.put(`${url}/providers/penguin-go`, { clientType: "openai-chat" }));
     await refused(await owner.put(`${url}/providers/penguin-go`, { clientType: null }));
@@ -407,7 +407,7 @@ describe("Penguin Go stored projects", () => {
     expect(rowRefused.status).toBe(400);
     // A refused row names itself, so a machine's config sync skips that row, not the table.
     expect(((await rowRefused.json()) as { error: Record<string, unknown> }).error).toMatchObject({
-      code: "penguin_go_protocol_fixed",
+      code: "wafh_go_protocol_fixed",
       details: { provider: "penguin-go", modelId: "deepseek-flash" },
     });
     const rows = (await t.deps.projectConfigService.readRaw(id)).models as Record<
@@ -424,7 +424,7 @@ describe("Penguin Go stored projects", () => {
     raw.providers["penguin-go"].base_url = "https://user.example/v1";
     raw.models[0]!.base_url = "https://user.example/v1";
     const before = structuredClone(raw);
-    expect(migratePenguinGoRoutes(raw)).toBe(0);
+    expect(migrateWafHarnessGoRoutes(raw)).toBe(0);
     expect(raw).toEqual(before);
   });
 });

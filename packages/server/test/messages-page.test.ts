@@ -37,12 +37,12 @@ import {
   toolCall,
   toolCallOutput,
   userText,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import {
   buildBackgroundTaskDoneMessage,
   buildHandoffMessage,
-} from "@prismshadow/penguin-core/markers";
-import type { OmniMessage, SessionMetaPayload, TokenCounts } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core/markers";
+import type { OmniMessage, SessionMetaPayload, TokenCounts } from "@waterford/waf-harness-core";
 import { decodeCursor, encodeCursor } from "../src/services/message-window.js";
 import { MESSAGES_PAGE_MAX_BYTES } from "../src/services/trace-service.js";
 import type { TraceService } from "../src/services/trace-service.js";

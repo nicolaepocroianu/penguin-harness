@@ -16,7 +16,7 @@ import type {
   ActivityRun,
   AssetManifest,
   VideoTimeline,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { ApiError } from "../../api/client";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";

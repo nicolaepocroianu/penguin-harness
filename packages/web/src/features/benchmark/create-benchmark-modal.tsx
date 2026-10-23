@@ -12,7 +12,7 @@
  * is in flight.
  */
 import { useRef, useState } from "react";
-import type { BenchmarkSummary } from "@prismshadow/penguin-server/api";
+import type { BenchmarkSummary } from "@waterford/waf-harness-server/api";
 import {
   Button,
   FieldLabel,
@@ -28,7 +28,7 @@ import {
   toastSuccess,
   useFormDraft,
   useGuardedClose,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";

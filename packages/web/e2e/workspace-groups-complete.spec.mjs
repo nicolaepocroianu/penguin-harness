@@ -40,7 +40,7 @@ test("every Workspace with conversations is a group, placed by recency across th
   page,
 }) => {
   // Real directories: a Workspace is validated by realpath and must exist.
-  const root = await mkdtemp(join(tmpdir(), "penguin-wsall-"));
+  const root = await mkdtemp(join(tmpdir(), "wafh-wsall-"));
   const dirs = [];
   for (let i = 1; i <= WORKSPACES; i++) {
     const dir = join(root, name(i));

@@ -1,5 +1,5 @@
 /**
- * `penguin plugin`, driven through `cli()` in-process against the fake server:
+ * `wafh plugin`, driven through `cli()` in-process against the fake server:
  *
  * - `install` asks the Project's server to install the specifier, with the local API token,
  *   and says what landed — a plugin of Skills goes to the library, server modules are loaded.
@@ -55,7 +55,7 @@ afterEach(() => {
 
 const out = () => stdout.join("");
 
-describe("penguin plugin install", () => {
+describe("wafh plugin install", () => {
   it("installs the specifier in the Project and says a plugin of Skills went to the library", async () => {
     server.plugins.install = () => ({
       body: { installed: { name: "@acme/notes", version: "1.0.0", library: true, modules: false } },
@@ -103,7 +103,7 @@ describe("penguin plugin install", () => {
   });
 });
 
-describe("penguin plugin install <directory>", () => {
+describe("wafh plugin install <directory>", () => {
   let work: string | null = null;
   afterEach(async () => {
     if (work !== null) await fs.rm(work, { recursive: true, force: true });
@@ -112,7 +112,7 @@ describe("penguin plugin install <directory>", () => {
 
   /** A package directory holding `files` (paths relative to it); answers its path. */
   async function packageDir(files: Record<string, string>): Promise<string> {
-    work = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-cli-plugin-"));
+    work = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-cli-plugin-"));
     const dir = path.join(work, "notes-port");
     for (const [rel, text] of Object.entries(files)) {
       await fs.mkdir(path.dirname(path.join(dir, rel)), { recursive: true });
@@ -126,7 +126,7 @@ describe("penguin plugin install <directory>", () => {
       name: "@acme/notes",
       version: "1.0.0",
       description: "Take notes.",
-      penguin: { short_description: "Notes.", category: "office-productivity" },
+      wafh: { short_description: "Notes.", category: "office-productivity" },
     }),
     "skills/notes/SKILL.md":
       "---\nname: notes\ndescription: Take notes.\nversion: 2026.10.10.1\n---\n\nBody.\n",
@@ -161,7 +161,7 @@ describe("penguin plugin install <directory>", () => {
       "package.json": JSON.stringify({
         name: "@ported/mail",
         version: "0.1.9",
-        penguin: {
+        wafh: {
           mcp_servers: [
             {
               name: "gmail",
@@ -248,7 +248,7 @@ describe("penguin plugin install <directory>", () => {
   });
 });
 
-describe("penguin plugin remove and list", () => {
+describe("wafh plugin remove and list", () => {
   it("removes a plugin by name, and lists what remains with its state", async () => {
     server.plugins.listed = [
       { specifier: "@acme/sandbox-x", active: true, builtin: false, modules: [], replaces: [] },
@@ -263,7 +263,7 @@ describe("penguin plugin remove and list", () => {
     ];
     server.plugins.library = [
       { name: "notes", package: "@acme/notes", version: "1.0.0", source: "installed" },
-      { name: "a2ui", package: "@penguinharness/a2ui", version: "0.2.13", source: "builtin" },
+      { name: "a2ui", package: "@waf-harness/a2ui", version: "0.2.13", source: "builtin" },
     ];
     expect(await cli(["plugin", "remove", "@acme/broken"])).toBe(0);
     expect(server.requests.find((r) => r.method === "DELETE")).toMatchObject({
@@ -279,6 +279,6 @@ describe("penguin plugin remove and list", () => {
     expect(lines.find((l) => l.includes("@acme/notes"))).toContain(t.plugin.kindLibrary());
     // A built-in plugin is the build's, not installed on the server: it is not listed.
     expect(out()).not.toContain("@acme/broken");
-    expect(out()).not.toContain("@penguinharness/a2ui");
+    expect(out()).not.toContain("@waf-harness/a2ui");
   });
 });

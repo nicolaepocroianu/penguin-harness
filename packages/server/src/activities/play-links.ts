@@ -11,7 +11,7 @@
  * links for the checks it runs, and a module run makes one for its own workspace before its
  * agent starts; neither can depend on the sandbox, which depends on the runs it plays.
  */
-import { Component, Interface } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface } from "@waterford/waf-harness-core/kernel";
 
 /**
  * How long a module run counts as played after a link to it was made, so cleanup leaves its

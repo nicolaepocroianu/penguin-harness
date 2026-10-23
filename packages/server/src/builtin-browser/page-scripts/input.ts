@@ -6,7 +6,7 @@
  */
 
 /** The text a clicked element is reported by: what a person would read on it, short. */
-const LABEL_OF = String.raw`function __penguinLabelOf(el) {
+const LABEL_OF = String.raw`function __wafHarnessLabelOf(el) {
   if (!el) return '';
   const text = el.innerText || el.value || el.getAttribute('aria-label') || el.getAttribute('title') || el.getAttribute('alt') || '';
   return String(text).replace(/\s+/g, ' ').trim().slice(0, 80);
@@ -28,14 +28,14 @@ el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
 await new Promise((resolve) => setTimeout(resolve, 60));
 const rect = el.getBoundingClientRect();
 if (rect.width < 1 || rect.height < 1) throw new Error('The element matching ' + sel + ' has no size on the page (hidden?)');
-return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2), tag: el.tagName.toLowerCase(), text: __penguinLabelOf(el) };`;
+return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2), tag: el.tagName.toLowerCase(), text: __wafHarnessLabelOf(el) };`;
 }
 
 /** What is at a viewport point, for a click by coordinates. */
 export function pointTargetScript(x: number, y: number): string {
   return `${LABEL_OF}
 const el = document.elementFromPoint(${JSON.stringify(x)}, ${JSON.stringify(y)});
-return el ? { tag: el.tagName.toLowerCase(), text: __penguinLabelOf(el) } : {};`;
+return el ? { tag: el.tagName.toLowerCase(), text: __wafHarnessLabelOf(el) } : {};`;
 }
 
 /**

@@ -43,7 +43,7 @@ let workspace: string;
 let restoreKeys: () => void;
 
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-memory-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-memory-"));
   workspace = path.join(root, "projects", "my-app");
   await fs.mkdir(workspace, { recursive: true });
   restoreKeys = stubProviderKeys();

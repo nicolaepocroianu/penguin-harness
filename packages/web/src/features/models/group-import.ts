@@ -6,7 +6,7 @@
  * follows the group. The listing arrives in the endpoint's own order and is kept in it; entries
  * that produce no row are counted for the toast (see buildImportedRows).
  */
-import type { ProviderConnectionUpdate } from "@prismshadow/penguin-server/api";
+import type { ProviderConnectionUpdate } from "@waterford/waf-harness-server/api";
 import type { RowState } from "./models-page";
 
 /** The endpoint the group is imported from (the add-group dialog's fields). */

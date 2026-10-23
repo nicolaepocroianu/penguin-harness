@@ -38,14 +38,14 @@ function webPrompt(locale: TrayLocale): { body: string; discard: string; keep: s
 
 describe("the unload question", () => {
   it.each(["en"] as const)("asks in the Web App's own words (%s)", (locale) => {
-    const box = unloadPrompt(locale, "PenguinHarness");
+    const box = unloadPrompt(locale, "WAF Harness");
     const web = webPrompt(locale);
     expect(`${box.message} ${box.detail}`).toBe(web.body);
     expect(box.buttons).toEqual([web.discard, web.keep]);
   });
 
   it("offers discarding first and keeps the edits by default and on Escape", () => {
-    const box = unloadPrompt("en", "PenguinHarness");
+    const box = unloadPrompt("en", "WAF Harness");
     expect(box.buttons?.[UNLOAD_DISCARD]).toBe("Discard changes");
     expect(box.defaultId).toBe(UNLOAD_KEEP);
     expect(box.cancelId).toBe(UNLOAD_KEEP);

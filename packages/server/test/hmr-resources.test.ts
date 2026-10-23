@@ -13,15 +13,15 @@ import {
   schema,
   type,
   upgrade,
-} from "@prismshadow/penguin-core/kernel";
-import type { Json } from "@prismshadow/penguin-core/kernel";
-import { HotResources } from "@prismshadow/penguin-hmr";
+} from "@waterford/waf-harness-core/kernel";
+import type { Json } from "@waterford/waf-harness-core/kernel";
+import { HotResources } from "@waterford/waf-harness-hmr";
 import { TerminalManager } from "../src/terminal/manager.js";
 import type { TerminalSession } from "../src/terminal/session.js";
 import { DECLARED_RESOURCES as PARKED, packagedPlatform } from "../src/hmr/platform.js";
 import {
   RESOURCE_IFACES_RESOURCE_ID,
-  PENGUIN_FAMILY,
+  WAFH_FAMILY,
   HMR_INTERFACES,
   HMR_INTERFACES_RESOURCE_ID,
   HMR_CHANNELS_RESOURCE_ID,
@@ -41,7 +41,7 @@ import {
  * is refused, which is the rule the last describe in this file drives.
  */
 async function bootPlatform(r: HotResources, context?: { terminals?: string[] }) {
-  r.register(HMR_INTERFACES_RESOURCE_ID, { family: PENGUIN_FAMILY });
+  r.register(HMR_INTERFACES_RESOURCE_ID, { family: WAFH_FAMILY });
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   try {
     return await boot(
@@ -132,7 +132,7 @@ describe("resource-interface reconciliation at create()", () => {
     const r = new HotResources();
     const dispose = vi.fn();
     r.register(RESOURCE_IFACES_RESOURCE_ID, {
-      family: PENGUIN_FAMILY,
+      family: WAFH_FAMILY,
       terminal: ["id"],
       platform: PARKED.platform,
     });
@@ -337,7 +337,7 @@ describe("runtime capability handshake", () => {
     // Offering NOTHING, in the same document every host describes itself in, is the
     // honest statement "no business runtime stands behind me" — terminals-only is legal.
     const r = new HotResources();
-    r.register(HMR_INTERFACES_RESOURCE_ID, { family: PENGUIN_FAMILY });
+    r.register(HMR_INTERFACES_RESOURCE_ID, { family: WAFH_FAMILY });
     expect(claimHmrCapabilities(r)).toEqual({ kind: "bare" });
   });
 
@@ -351,7 +351,7 @@ describe("runtime capability handshake", () => {
   it("names no config member added after runtimes shipped, so an older runtime still claims", () => {
     // Naming one would refuse every installed runtime that predates it, and a push can never
     // replace the runtime. These are optional on ServerConfig and defaulted by their consumer.
-    for (const later of ["cliEntry", "penguinGoOrigin", "modelscopeBridgeUrl"]) {
+    for (const later of ["cliEntry", "wafHarnessGoOrigin", "modelscopeBridgeUrl"]) {
       expect(HMR_INTERFACES.config).not.toContain(later);
     }
     // A runtime that published exactly today's list minus nothing more: the pre-#716 shape.

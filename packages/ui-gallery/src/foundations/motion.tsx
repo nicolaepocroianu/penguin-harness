@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AnimationEvent, CSSProperties, ReactNode } from "react";
-import { Dot, GlyphIcon, ICONS, Spinner, StreamingCaret } from "@prismshadow/penguin-ui";
+import { Dot, GlyphIcon, ICONS, Spinner, StreamingCaret } from "@waterford/waf-harness-ui";
 import { useGallery } from "../state";
 import { BoardGroup, NAV_GLYPHS, ReplayButton } from "./shared";
 import { SPECIMEN } from "./specimens";

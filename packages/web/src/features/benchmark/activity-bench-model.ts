@@ -3,7 +3,7 @@
  * and the order a scoreboard's evaluations are read in. Kept apart from the section so a test can
  * pin them without a DOM.
  */
-import type { BenchmarkEvaluation } from "@prismshadow/penguin-server/api";
+import type { BenchmarkEvaluation } from "@waterford/waf-harness-server/api";
 
 /** The bench home a folder pick asks for: an empty pick forgets it. */
 export function benchHomeChoice(picked: string): string | null {

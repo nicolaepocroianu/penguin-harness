@@ -10,7 +10,7 @@ import type {
   DeploySettingsUpdate,
   DeploySettingsView,
   DeployTarget,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import type { Strings } from "../../lib/strings";
 
 export type DeployGroupKey = "qa" | "prod" | "jobs" | "repos" | "git" | "timeouts";

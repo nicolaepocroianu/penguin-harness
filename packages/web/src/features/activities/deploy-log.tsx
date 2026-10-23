@@ -4,7 +4,7 @@
  * When a run seen running ends, its end is announced and the deploy state is read again.
  */
 import { useEffect, useRef, useState } from "react";
-import type { DeployLogLine, DeployRun } from "@prismshadow/penguin-server/api";
+import type { DeployLogLine, DeployRun } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { useActivityClient } from "./activity-client";
 import { appendLog, runLine } from "./deploy-model";

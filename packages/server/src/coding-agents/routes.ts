@@ -1,4 +1,4 @@
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Hono } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import { codingAgentsRoutes } from "../http/routes/coding-agents.js";

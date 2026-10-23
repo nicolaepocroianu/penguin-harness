@@ -14,7 +14,7 @@
  */
 import { createElement as h } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { AssistantText } from "@prismshadow/penguin-ui";
+import { AssistantText } from "@waterford/waf-harness-ui";
 import { mount, settle, unmountAll } from "./helpers/dom";
 
 interface FakeTransition {

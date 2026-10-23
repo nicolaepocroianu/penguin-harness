@@ -21,7 +21,7 @@ import {
   type WorkspaceSection,
 } from "./workspace-model";
 
-export const LAYOUTS_KEY = "penguin.activityLayouts";
+export const LAYOUTS_KEY = "wafh.activityLayouts";
 
 /** The most layouts an author may save; the built-ins do not count. */
 export const MAX_SAVED_PRESETS = 20;

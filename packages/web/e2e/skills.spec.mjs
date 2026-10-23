@@ -16,7 +16,7 @@
  *   UI language (zh: "使用 X 技能") and preselecting that skill — the toolbar's skill dropdown
  *   button shows a count badge of 1, and that item shows as selected in the menu;
  * - the skill dropdown: the search box filters by name (typing "sdk" leaves only
- *   penguin-sdk); clicking a row toggles selection **without closing the menu**;
+ *   wafh-sdk); clicking a row toggles selection **without closing the menu**;
  * - selections are written into the draft (#74 comment): in draft state, checking the dropdown
  *   then reloading keeps both the body and the selection; in session state, selecting via slash
  *   then reloading likewise persists (keyed by user x Session);
@@ -65,9 +65,9 @@ const SKILLS = [
   "ace-rsi-toolkit",
   "awm-rsi-toolkit",
   "data-analysis",
-  "penguin-sdk",
-  "penguin-plugin",
-  "penguin-config",
+  "wafh-sdk",
+  "wafh-plugin",
+  "wafh-config",
   "unified-llm-api",
   "web-design",
   "software-engineering",
@@ -214,15 +214,15 @@ test("skills: library list and cards -> manage-install Modal -> quick-invoke pre
   }
   await expect(row("data-analysis")).toHaveAttribute("aria-pressed", "true");
 
-  // Search filter: typing "sdk" leaves only penguin-sdk.
+  // Search filter: typing "sdk" leaves only wafh-sdk.
   await page.getByPlaceholder("搜索技能").fill("sdk");
-  await expect(row("penguin-sdk")).toBeVisible();
+  await expect(row("wafh-sdk")).toBeVisible();
   await expect(row("data-analysis")).toHaveCount(0);
   await page.getByPlaceholder("搜索技能").fill("");
 
-  // Clicking a row toggles its selection **without closing the menu**: select penguin-sdk, then deselect it.
-  await row("penguin-sdk").click();
-  await expect(row("penguin-sdk")).toHaveAttribute("aria-pressed", "true");
+  // Clicking a row toggles its selection **without closing the menu**: select wafh-sdk, then deselect it.
+  await row("wafh-sdk").click();
+  await expect(row("wafh-sdk")).toHaveAttribute("aria-pressed", "true");
   await expect(skillsBtn).toContainText("2");
 
   // —— Survives a reload (#74 comment): checking the dropdown writes into the draft immediately, so both the body and the selection persist after a reload ——
@@ -230,10 +230,10 @@ test("skills: library list and cards -> manage-install Modal -> quick-invoke pre
   await expect(ta).toHaveValue("使用 data-analysis 技能");
   await expect(skillsBtn).toContainText("2");
   await skillsBtn.click();
-  await expect(row("penguin-sdk")).toHaveAttribute("aria-pressed", "true");
+  await expect(row("wafh-sdk")).toHaveAttribute("aria-pressed", "true");
 
-  await row("penguin-sdk").click();
-  await expect(row("penguin-sdk")).toHaveAttribute("aria-pressed", "false");
+  await row("wafh-sdk").click();
+  await expect(row("wafh-sdk")).toHaveAttribute("aria-pressed", "false");
   await expect(skillsBtn).toContainText("1");
   // Escape closes the menu (built into the Dropdown).
   await page.keyboard.press("Escape");

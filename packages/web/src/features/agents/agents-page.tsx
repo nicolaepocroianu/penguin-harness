@@ -31,7 +31,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
 import {
   AgentAvatar,
   Pill,
@@ -54,7 +54,7 @@ import {
   UpdatePill,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
@@ -84,7 +84,7 @@ import type { PluginPickItem } from "./create-agent-dialog";
 /** Built-in Agents; the server also rejects deletion, so no delete entry point is shown here. */
 const BUILTIN_AGENT_IDS = new Set([
   "default_agent",
-  "penguin_support",
+  "wafh_support",
   "media_agent",
   "activity_agent",
 ]);

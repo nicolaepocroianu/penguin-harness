@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { SandboxPolicy } from "@prismshadow/penguin-core/plugin";
+import type { SandboxPolicy } from "@waterford/waf-harness-core/plugin";
 import {
   decodeOutput,
   localDrives,
@@ -39,7 +39,7 @@ export interface WslSettings {
   packages: string[];
 }
 
-export const DEFAULT_DISTRO = "penguin-sandbox";
+export const DEFAULT_DISTRO = "wafh-sandbox";
 /**
  * Ubuntu by default, not Alpine. Alpine's rootfs is a tenth of the size, but it is musl: a
  * prebuilt native npm module, a pip wheel or a downloaded binary that works everywhere else
@@ -57,7 +57,7 @@ export const ALPINE_MIRROR = "https://dl-cdn.alpinelinux.org/alpine";
 /** `nodejs` is what runs the harness's hook scripts and its file-tool helper inside the distro (see core's fs-worker.ts); the rest is what a shell session expects to find. */
 export const DEFAULT_PACKAGES = ["git", "curl", "nodejs"];
 /** The account commands run as inside the distro: not root, so bwrap is the only way up. */
-export const SANDBOX_USER = "penguin";
+export const SANDBOX_USER = "wafh";
 
 /** Its group's stored document as settings; anything unusable falls back to the default. */
 export function wslSettingsOf(doc: Record<string, unknown>): WslSettings {
@@ -282,7 +282,7 @@ export async function installWsl(
       }
       continue;
     }
-    const done = /PENGUIN-EXIT (-?\d+)/.exec(text);
+    const done = /WAFH-EXIT (-?\d+)/.exec(text);
     if (done) {
       exit = Number(done[1]);
       break;
@@ -459,7 +459,7 @@ export function provisionScript(
       // Recommends are off, so the account tools are named rather than assumed.
       `id ${SANDBOX_USER} >/dev/null 2>&1 || useradd -m -s /bin/bash ${SANDBOX_USER}`,
       "bwrap --version",
-      "echo PENGUIN-PROVISIONED",
+      "echo WAFH-PROVISIONED",
       "",
     ].join("\n");
   }
@@ -476,7 +476,7 @@ export function provisionScript(
     `apk add --no-progress ${pkgs.join(" ")}`,
     `id ${SANDBOX_USER} >/dev/null 2>&1 || adduser -D -s /bin/bash ${SANDBOX_USER}`,
     "bwrap --version",
-    "echo PENGUIN-PROVISIONED",
+    "echo WAFH-PROVISIONED",
     "",
   ].join("\n");
 }
@@ -600,7 +600,7 @@ export async function initialize(
       },
     },
   );
-  if (provisioned.code !== 0 || !provisioned.stdout.includes("PENGUIN-PROVISIONED")) {
+  if (provisioned.code !== 0 || !provisioned.stdout.includes("WAFH-PROVISIONED")) {
     const why = provisioned.stderr || lastLine || `exit ${provisioned.code}`;
     return fail(
       `provisioning ${distro} failed: ${why}. If packages could not be downloaded, set a reachable mirror.`,
@@ -729,7 +729,7 @@ export async function check(
   );
 
   report({ en: "writing where the drives are covered", zh: "写被遮盖的磁盘路径" });
-  const covered = await confined(base, "echo x > /mnt/c/Users/penguin-probe.txt && echo WROTE");
+  const covered = await confined(base, "echo x > /mnt/c/Users/wafh-probe.txt && echo WROTE");
   add(
     "the mount that hides the drives refuses writes too",
     "遮盖磁盘的挂载同样拒绝写入",

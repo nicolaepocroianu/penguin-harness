@@ -1,15 +1,15 @@
 /**
- * Agent API keys: `penguin_` + 43 base64url characters (32 random bytes), shown once at creation.
+ * Agent API keys: `wafh_` + 43 base64url characters (32 random bytes), shown once at creation.
  * Only the sha256 of a key is stored, so authenticating a request is a lookup of a fixed-length
  * digest — its timing does not depend on how much of a guess matches a real key.
  */
 import { createHash, randomBytes } from "node:crypto";
 
 /** The marker every key starts with, so a leaked one is recognizable for what it is. */
-export const AGENT_API_KEY_PREFIX = "penguin_";
+export const AGENT_API_KEY_PREFIX = "wafh_";
 
-/** How many leading characters of a key the list shows (`penguin_` + 8). */
-const SHOWN_PREFIX_LENGTH = 16;
+/** How many leading characters of a key the list shows (`wafh_` + 8). */
+const SHOWN_PREFIX_LENGTH = AGENT_API_KEY_PREFIX.length + 8;
 
 /** sha256 of a presented key, hex: what `agent_api_keys.token_hash` holds. */
 export function hashAgentApiKey(secret: string): string {

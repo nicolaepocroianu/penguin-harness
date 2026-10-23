@@ -1,5 +1,5 @@
 /**
- * `penguin chat` creates its Session at the first message, never at startup: a chat opened and
+ * `wafh chat` creates its Session at the first message, never at startup: a chat opened and
  * left writes nothing on the server. Drives the real REPL over a fake stdin against the
  * in-process fake server — the one fake, at the HTTP boundary — feeding each line once the REPL
  * has drawn its prompt.
@@ -52,7 +52,7 @@ const taskTexts = (s: FakeSessionState): string[] =>
   s.tasks.map((b) => (b.input as Array<{ text: string }>)[0]!.text);
 
 /**
- * Runs `penguin chat <argv>` over a piped stdin, writing each line once the REPL has drawn its
+ * Runs `wafh chat <argv>` over a piped stdin, writing each line once the REPL has drawn its
  * next `> ` prompt; `end` closes the input after the last one, as a pipe that runs dry does.
  */
 async function driveChat(
@@ -85,7 +85,7 @@ async function driveChat(
     const program = new Command();
     program.exitOverride();
     registerChatCommand(program, t);
-    const done = program.parseAsync(["node", "penguin", "chat", ...argv]);
+    const done = program.parseAsync(["node", "wafh", "chat", ...argv]);
     for (let i = 0; i < lines.length; i++) {
       await Promise.race([waitForPrompt(i + 1), done]);
       stdin.write(`${lines[i]}\n`);
@@ -102,7 +102,7 @@ async function driveChat(
   }
 }
 
-/** `penguin chat` on a fake terminal: stdin claims a TTY, so it reads keys in raw mode. */
+/** `wafh chat` on a fake terminal: stdin claims a TTY, so it reads keys in raw mode. */
 function startTerminalChat() {
   const stdin = new PassThrough() as PassThrough & {
     isTTY: boolean;
@@ -120,7 +120,7 @@ function startTerminalChat() {
   const program = new Command();
   program.exitOverride();
   registerChatCommand(program, t);
-  const done = program.parseAsync(["node", "penguin", "chat"]).finally(() => {
+  const done = program.parseAsync(["node", "wafh", "chat"]).finally(() => {
     Object.defineProperty(process, "stdin", { value: realStdin, configurable: true });
   });
   return {
@@ -135,7 +135,7 @@ function startTerminalChat() {
   };
 }
 
-describe("starting penguin chat and leaving it", () => {
+describe("starting wafh chat and leaving it", () => {
   const leavings: Array<[string, string[], boolean]> = [
     ["/exit", ["/exit"], false],
     ["/quit", ["/quit"], false],

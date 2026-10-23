@@ -20,7 +20,7 @@
  *   workflow-example-en, workflow-build-en, workflow-page-en (before the edit),
  *   workflow-edit-en, workflow-page-after-en, workflow-history-en,
  *   workflow-restore-en, workflow-fill-app-en,
- *   penguinharness-0-2-14-workflow-en (= page after), penguinharness-0-2-14-workflow-edit-en.
+ *   waf-harness-0-2-14-workflow-en (= page after), waf-harness-0-2-14-workflow-edit-en.
  *
  * Env: SHOT_SCRATCH (data roots go under it), SHOT_OUT, SHOT_LANGS (default "en"),
  * SHOT_SRV_PORT / SHOT_MOCK_PORT (default 19120 / 19121).
@@ -41,7 +41,7 @@ const OUT_DIR = process.env.SHOT_OUT ?? path.join(SCRATCH, "out");
 const LANGS = (process.env.SHOT_LANGS ?? "en").split(",");
 const SRV_PORT = Number(process.env.SHOT_SRV_PORT ?? 19120);
 const MOCK_PORT = Number(process.env.SHOT_MOCK_PORT ?? 19121);
-const ADMIN_PASSWORD = "penguin-2026";
+const ADMIN_PASSWORD = "wafh-2026";
 // The App is canonically served on `localhost` (127.0.0.1 is the Workspace-preview host).
 const BASE = `http://localhost:${SRV_PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
@@ -86,14 +86,14 @@ const PACKAGE_JSON = `${JSON.stringify(
     name: "legal-desk",
     version: "1.0.0",
     type: "module",
-    penguin: {
+    wafh: {
       modules: [
         {
           name: "Workbench",
           requires: {
-            host: { iface: "@prismshadow/penguin-server#WorkbenchHost", from: "Host" },
+            host: { iface: "@waterford/waf-harness-server#WorkbenchHost", from: "Host" },
           },
-          provides: { main: "@prismshadow/penguin-server#WorkbenchMain" },
+          provides: { main: "@waterford/waf-harness-server#WorkbenchMain" },
           contributes: {
             "WebModule.sessionTabs": [
               {
@@ -112,7 +112,7 @@ const PACKAGE_JSON = `${JSON.stringify(
   2,
 )}\n`;
 
-const INDEX_TS = `import type { WorkbenchPackage } from "@prismshadow/penguin-server/plugin";
+const INDEX_TS = `import type { WorkbenchPackage } from "@waterford/waf-harness-server/plugin";
 
 type Risk = "high" | "medium" | "low";
 
@@ -817,9 +817,9 @@ async function provisionUser(adminCookie, lang) {
   try {
     await api(cookie, "PUT", "/api/me/password", {
       oldPassword: initial,
-      newPassword: `penguin-${userId}-2026`,
+      newPassword: `wafh-${userId}-2026`,
     });
-    password = `penguin-${userId}-2026`;
+    password = `wafh-${userId}-2026`;
   } catch {}
   cookie = await login(userId, password);
   const projects = (await api(cookie, "GET", "/api/projects")).json;
@@ -853,12 +853,12 @@ const mock = await startMock();
 const srv = spawn("node", [path.join(ROOT, "packages/server/dist/index.js")], {
   env: {
     ...process.env,
-    PENGUIN_HOME: HOME,
-    PENGUIN_WEB_DB: path.join(RUN, "web.db"),
-    PENGUIN_WEB_DIST: path.join(ROOT, "packages/web/dist"),
+    WAFH_HOME: HOME,
+    WAFH_WEB_DB: path.join(RUN, "web.db"),
+    WAFH_WEB_DIST: path.join(ROOT, "packages/web/dist"),
     PORT: String(SRV_PORT),
     HOST: "127.0.0.1",
-    PENGUIN_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
+    WAFH_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
     TZ: "Asia/Shanghai",
   },
   stdio: ["ignore", "pipe", "pipe"],
@@ -886,9 +886,9 @@ try {
   // Rotate the admin's seeded password too, as a person would on first sign-in.
   await api(adminCookie, "PUT", "/api/me/password", {
     oldPassword: ADMIN_PASSWORD,
-    newPassword: "penguin-admin-2026",
+    newPassword: "wafh-admin-2026",
   }).catch(() => {});
-  const admin = await login("admin", "penguin-admin-2026").catch(() => adminCookie);
+  const admin = await login("admin", "wafh-admin-2026").catch(() => adminCookie);
 
   const browser = await chromium.launch({
     env: {
@@ -922,12 +922,12 @@ try {
     await context.addInitScript(
       ([l, projectId]) => {
         try {
-          localStorage.setItem("penguin.lang", l);
-          localStorage.setItem("penguin.themeId", "modern");
-          localStorage.setItem("penguin.theme", "light");
-          localStorage.setItem("penguin.lastProjectId", projectId);
-          if (!localStorage.getItem(`penguin.lastAgentId.${projectId}`)) {
-            localStorage.setItem(`penguin.lastAgentId.${projectId}`, "default_agent");
+          localStorage.setItem("wafh.lang", l);
+          localStorage.setItem("wafh.themeId", "modern");
+          localStorage.setItem("wafh.theme", "light");
+          localStorage.setItem("wafh.lastProjectId", projectId);
+          if (!localStorage.getItem(`wafh.lastAgentId.${projectId}`)) {
+            localStorage.setItem(`wafh.lastAgentId.${projectId}`, "default_agent");
           }
         } catch {}
       },
@@ -1024,7 +1024,7 @@ try {
     await expandSteps(page);
     await page.waitForTimeout(1200);
     await shot(main(), `workflow-edit-${lang}`);
-    await shot(main(), `penguinharness-0-2-14-workflow-edit-${lang}`);
+    await shot(main(), `waf-harness-0-2-14-workflow-edit-${lang}`);
     await page.setViewportSize({ width: 1440, height: 900 });
 
     // ---- 5. The desk after the edit -----------------------------------------------------
@@ -1032,7 +1032,7 @@ try {
     await frame.getByText(text.risk, { exact: true }).waitFor({ timeout: 30000 });
     await page.waitForTimeout(1200);
     await shot(main(), `workflow-page-after-${lang}`, { clip: await topOf(main(), 640) });
-    await shot(main(), `penguinharness-0-2-14-workflow-${lang}`, {
+    await shot(main(), `waf-harness-0-2-14-workflow-${lang}`, {
       clip: await topOf(main(), 640),
     });
 

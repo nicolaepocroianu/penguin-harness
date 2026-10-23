@@ -1,12 +1,12 @@
 /**
- * `penguin session input` — send a message into an existing session, or poll its last answer.
+ * `wafh session input` — send a message into an existing session, or poll its last answer.
  *
- *   penguin session input [session_id] [-m <text>] [--timeout <duration>]
+ *   wafh session input [session_id] [-m <text>] [--timeout <duration>]
  *                         [--project-id <id>] [--agent-id <id>] [--json] [--server <url>]
  *
- * `[session_id]` accepts a full id or a unique fragment (e.g. the 8-hex tail `penguin
+ * `[session_id]` accepts a full id or a unique fragment (e.g. the 8-hex tail `wafh
  * session ls` prints); omitted, it is the agent's most recent session (announced as a dim
- * `[latest]` line on stderr — see resolveSessionTarget), which makes bare `penguin
+ * `[latest]` line on stderr — see resolveSessionTarget), which makes bare `wafh
  * session input` the answer to "what did my agent last say".
  *
  * With `-m`: a running session gets the text as steering (POST /steer, delivered between
@@ -23,13 +23,13 @@
  * before the snapshot is taken; still running at expiry prints the current latest text
  * plus the still-running note, exit 0 (`--timeout 0` snapshots immediately).
  *
- * The fragment search scopes to the project (PENGUIN_PROJECT_ID / default_project);
+ * The fragment search scopes to the project (WAFH_PROJECT_ID / default_project);
  * a full session id needs no scope.
- * Docs: /docs/cli § "penguin session input".
+ * Docs: /docs/cli § "wafh session input".
  */
 import type { Command } from "commander";
-import { isModelMessage, type OmniMessage } from "@prismshadow/penguin-core";
-import { toFallbackMarkdown } from "@prismshadow/penguin-core/a2ui";
+import { isModelMessage, type OmniMessage } from "@waterford/waf-harness-core";
+import { toFallbackMarkdown } from "@waterford/waf-harness-core/a2ui";
 import { StreamRenderer, dim } from "../render.js";
 import { parseDurationMs } from "../duration.js";
 import { promptApproval } from "../approval.js";
@@ -55,7 +55,7 @@ export function latestAssistantText(messages: OmniMessage[]): string | null {
   return null;
 }
 
-/** Registers `input` under the `penguin session` group (see session.ts). */
+/** Registers `input` under the `wafh session` group (see session.ts). */
 export function registerInputCommand(session: Command, t: Messages): void {
   session
     .command("input [sessionId]")

@@ -14,7 +14,7 @@
  * different semantics.
  */
 
-const DECLINE_HEADER = "x-penguin-platform-decline";
+const DECLINE_HEADER = "x-wafh-platform-decline";
 /**
  * Random per boot, compared by VALUE in seamHttp. The header name is guessable, and this
  * adapter is meant for every platform-side app — including ones that might one day copy

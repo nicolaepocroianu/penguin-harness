@@ -34,9 +34,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { approvalDecision, assistantText, toolCall } from "@prismshadow/penguin-core";
-import type { ApproveFn, OmniMessage, TextPayload } from "@prismshadow/penguin-core";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { approvalDecision, assistantText, toolCall } from "@waterford/waf-harness-core";
+import type { ApproveFn, OmniMessage, TextPayload } from "@waterford/waf-harness-core";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import type {
   MessagingBindingsResponse,
   QQBindingResponse,

@@ -6,7 +6,7 @@
  * process: a start while one runs joins it, and the finished status stays readable until
  * the next start (which is also how a failed run is retried).
  *
- * How the self-update works: `penguin server|web` exports PENGUIN_CLI_ENTRY (its own entry
+ * How the self-update works: `wafh server|web` exports WAFH_CLI_ENTRY (its own entry
  * script path) before importing this server, and the job re-runs that script as
  * `node <entry> update --yes` — the CLI's update command owns all install-kind detection,
  * download and replacement logic (packages/cli/src/commands/update.ts). A server started
@@ -23,10 +23,10 @@
  * run that prints none of it (an npm install, say) stays in `resolving` with no
  * percentage — the phase is a hint for the bar, never a fact the outcome depends on.
  *
- * Interpreting the CLI's outcome: `penguin update` exits non-zero only when an upgrade was
+ * Interpreting the CLI's outcome: `wafh update` exits non-zero only when an upgrade was
  * attempted and failed; refusals (source checkout, unrecognized layout, Windows) print a
  * message and exit 0. Exit codes alone therefore cannot separate "updated" from
- * "unsupported", so the spawn forces PENGUIN_LANG=en and classifies by the refusal
+ * "unsupported", so the spawn forces WAFH_LANG=en and classifies by the refusal
  * messages' stable English fragments (packages/cli/src/i18n.ts, `update` section). That
  * matching is reliable here because the spawned CLI and this server ship in lockstep from
  * the same install — the strings can never be from a different release than this code.
@@ -34,9 +34,9 @@
  * A platform hot-swap while a run is in flight builds a fresh service that knows nothing of
  * it; the child finishes on its own and only its status is lost. Rare enough to accept.
  */
-import { RELEASE_IDENTITY } from "@prismshadow/penguin-core";
-import type { ReleaseIdentity } from "@prismshadow/penguin-core";
-import { Component, Interface } from "@prismshadow/penguin-core/kernel";
+import { RELEASE_IDENTITY } from "@waterford/waf-harness-core";
+import type { ReleaseIdentity } from "@waterford/waf-harness-core";
+import { Component, Interface } from "@waterford/waf-harness-core/kernel";
 import { spawn } from "node:child_process";
 import type { UpdateJobPhase, UpdateJobStatus, UpdateRunResponse } from "../api/types.js";
 
@@ -52,7 +52,7 @@ const UPDATE_TIMEOUT_MS = 10 * 60 * 1000;
  */
 const REFUSAL_MARKERS = [
   "runs from a source checkout", // sourceCheckout
-  "Cannot tell how this penguin was installed", // unknownInstall
+  "Cannot tell how this wafh was installed", // unknownInstall
   "could not be identified", // npmUnknownManager
   "does not run on Windows", // windowsUnsupported
   "cannot run your package manager for you", // windowsGlobalInstall
@@ -130,18 +130,18 @@ export type UpdateRunner = (
 
 export const spawnUpdateRunner: UpdateRunner = (cliEntry, onOutput) =>
   new Promise((resolve) => {
-    // PENGUIN_LANG=en pins the CLI's output language so classifyUpdateRun's markers match
+    // WAFH_LANG=en pins the CLI's output language so classifyUpdateRun's markers match
     // regardless of the deployment's configured CLI language. Under the desktop app
     // process.execPath is the Electron binary, which runs the script only with
     // ELECTRON_RUN_AS_NODE; without it a second copy of the app starts, window and all.
     const child = spawn(process.execPath, [cliEntry, "update", "--yes"], {
       env: {
         ...process.env,
-        PENGUIN_LANG: "en",
+        WAFH_LANG: "en",
         ...(process.versions.electron !== undefined ? { ELECTRON_RUN_AS_NODE: "1" } : {}),
       },
       stdio: ["ignore", "pipe", "pipe"],
-      // A server with no console (the desktop app's, or one `penguin` started in the
+      // A server with no console (the desktop app's, or one `wafh` started in the
       // background) would otherwise open a console window for the run on Windows.
       windowsHide: true,
     });

@@ -3,7 +3,7 @@ import type {
   WafRepoStatus,
   WafWorkspaceSettings,
   WafWorkspaceStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   shouldPollWafWorkspace,
   wafFormFromSettings,
@@ -95,7 +95,7 @@ describe("the WAF workspace page", () => {
     expect(shouldPollWafWorkspace(status())).toBe(false);
   });
 
-  it("offers no Prepare for an existing checkout, which Penguin only reads", () => {
+  it("offers no Prepare for an existing checkout, which WAF Harness only reads", () => {
     const view = wafWorkspaceView(status({ managed: false, root: "C:/waterford" }));
     expect(view.line).toBe("Using the existing checkout at C:/waterford");
     expect(view.canPrepare).toBe(false);

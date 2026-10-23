@@ -20,7 +20,7 @@ const ID = "report-writing-v1";
 let dir: string;
 
 beforeEach(async () => {
-  dir = path.join(await fs.mkdtemp(path.join(os.tmpdir(), "penguin-place-bench-")), "benchmarks");
+  dir = path.join(await fs.mkdtemp(path.join(os.tmpdir(), "wafh-place-bench-")), "benchmarks");
   await fs.mkdir(dir);
 });
 

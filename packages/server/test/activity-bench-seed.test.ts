@@ -43,7 +43,7 @@ afterEach(async () => {
 });
 
 function tempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-bench-seed-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-bench-seed-"));
   temps.push(dir);
   return dir;
 }
@@ -190,7 +190,7 @@ describe("preparing the seed", () => {
     expect(models.defaultModel).toEqual({ provider: chosen.provider, modelId: chosen.modelId });
     expect(chosen.credential?.apiKeyMasked).toBeTruthy();
     expect(models.models.filter((row) => row.credential?.apiKeyMasked)).toHaveLength(1);
-    // The WAF workspace Penguin prepared in the home, and the browser it installed there.
+    // The WAF workspace WAF Harness prepared in the home, and the browser it installed there.
     const { status } = (await (await s.admin.get("/api/admin/waf-workspace")).json()) as {
       status: { managed: boolean; ready: boolean; root: string };
     };
@@ -306,7 +306,7 @@ describe("preparing the seed", () => {
         cwd: REPO,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env, PENGUIN_BENCH_HOME: "" },
+        env: { ...process.env, WAFH_BENCH_HOME: "" },
         timeout: 60_000,
       });
     const home = tempDir();
@@ -322,19 +322,19 @@ describe("preparing the seed", () => {
   it("starts every bench server with the bench's own Claude folder, never the person's", () => {
     vi.stubEnv("CLAUDE_CONFIG_DIR", path.join(os.homedir(), ".claude"));
     vi.stubEnv("ANTHROPIC_API_KEY", "not-for-the-server");
-    vi.stubEnv("PENGUIN_HOME", path.join(os.homedir(), ".penguin"));
+    vi.stubEnv("WAFH_HOME", path.join(os.homedir(), ".waf-harness"));
     const env = bootEnv(
-      { home: "/bench/seed", claudeConfig: "/bench/claude-config", env: { PENGUIN_X: "1" } },
+      { home: "/bench/seed", claudeConfig: "/bench/claude-config", env: { WAFH_X: "1" } },
       "/bench/seed-server/server.port",
       "token",
     );
     expect(env).toMatchObject({
       CLAUDE_CONFIG_DIR: "/bench/claude-config",
-      PENGUIN_HOME: "/bench/seed",
-      PENGUIN_DESKTOP_TOKEN: "token",
+      WAFH_HOME: "/bench/seed",
+      WAFH_DESKTOP_TOKEN: "token",
       HOST: "127.0.0.1",
       PORT: "0",
-      PENGUIN_X: "1",
+      WAFH_X: "1",
     });
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
     // The plumbing stays (the server needs PATH and a home directory to run at all).

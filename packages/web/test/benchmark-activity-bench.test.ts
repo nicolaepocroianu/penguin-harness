@@ -6,7 +6,7 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import type { BenchmarkEvaluation } from "@prismshadow/penguin-server/api";
+import type { BenchmarkEvaluation } from "@waterford/waf-harness-server/api";
 import { benchHomeChoice, newestFirst } from "../src/features/benchmark/activity-bench-model";
 
 const evaluation = (version: number): BenchmarkEvaluation => ({

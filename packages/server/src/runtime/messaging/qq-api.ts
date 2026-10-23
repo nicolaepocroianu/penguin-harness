@@ -31,7 +31,7 @@
  * this product makes is a PASSIVE REPLY carrying the `msg_id` of an inbound message, and
  * that is a budget — see qq-connector.ts, which owns the accounting.
  */
-import { userAgent } from "@prismshadow/penguin-core";
+import { userAgent } from "@waterford/waf-harness-core";
 import { WebSocket } from "undici";
 import { MessagingChannelError, httpStatusRecovers } from "./connector.js";
 

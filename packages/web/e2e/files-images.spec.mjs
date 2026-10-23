@@ -47,7 +47,7 @@ for (const [theme, dimensions] of ["modern", "github", "geek"].flatMap((theme) =
   test(`SVG without fixed dimensions is visible in preview and lightbox (${theme}, ${dimensions || "viewBox"})`, async ({
     page,
   }, testInfo) => {
-    await page.addInitScript((value) => localStorage.setItem("penguin.themeId", value), theme);
+    await page.addInitScript((value) => localStorage.setItem("wafh.themeId", value), theme);
     const image = await openImage(page, "viewbox.svg", svg(dimensions));
     const size = await image.evaluate((img) => ({
       width: img.clientWidth,

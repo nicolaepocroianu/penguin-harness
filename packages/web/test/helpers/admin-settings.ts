@@ -5,7 +5,7 @@
  * with {@link AdminSettingsServer.refuseNext}, or keep writes in flight with
  * {@link AdminSettingsServer.hold}.
  */
-import type { MeResponse, ServerSettings } from "@prismshadow/penguin-server/api";
+import type { MeResponse, ServerSettings } from "@waterford/waf-harness-server/api";
 import { apiError, json, stubFetch } from "./fetch";
 import type { FakeFetch, FetchRequest } from "./fetch";
 

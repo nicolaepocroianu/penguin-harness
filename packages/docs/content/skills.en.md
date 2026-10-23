@@ -50,7 +50,7 @@ The buttons on the right of a card:
 
 The whole plugin is installed: all of its Skills, its hook package and its MCP servers. New conversations pick it up right away. In a conversation already open, the hook package and the MCP servers apply from the next turn, and the Skills after the next compaction.
 
-A plugin with a stdio MCP server asks before it installs on an agent that does not have it yet: the dialog shows the command that the PenguinHarness server will run whenever a session of the agent starts. An update's confirmation shows the command as well, and so does creating an agent, or hiring an employee, with such a plugin picked.
+A plugin with a stdio MCP server asks before it installs on an agent that does not have it yet: the dialog shows the command that the WAF Harness server will run whenever a session of the agent starts. An update's confirmation shows the command as well, and so does creating an agent, or hiring an employee, with such a plugin picked.
 
 An MCP server may need values before it can connect, such as an API token. The plugin names them, and they live in the agent's [vault](/agents#vault-tab), never in the plugin or in the agent's configuration. While one is missing, the agent's row shows a key icon; point at it for the missing keys. The Project owner selects **Set up** on that row and fills in one field per key; a key the vault already holds shows as set and asks for nothing. Other members see which keys are missing and that the owner sets them. The keys can also be added on the agent's **Vault** tab. A server that signs in with OAuth shows a sign-in icon instead: this version cannot sign in yet, so the server stays unconnected. Either way the plugin counts as installed, and the server is skipped when a conversation connects.
 
@@ -68,7 +68,7 @@ Other ways to install:
 
 ## Update installed plugins
 
-New versions of the built-in plugins arrive with PenguinHarness updates. An agent keeps its installed copy until you update it. When an install is behind the library, you see:
+New versions of the built-in plugins arrive with WAF Harness updates. An agent keeps its installed copy until you update it. When an install is behind the library, you see:
 
 - a red dot on **Plugins** in the sidebar;
 - a notice at the top of the **Plugins** page, "Changes detected: N to upgrade", with **Update now** and **Dismiss**;
@@ -164,11 +164,11 @@ To upload a zip file:
 
 The Plugins page views one machine at a time, this server by default. Its picker lists this server and the machines the Project reaches or names in a plugin table; when a selected machine leaves the choices, the page returns to this server. Installed includes the viewed machine's `[plugins.<machineId>]` table and the shared `[plugins]` table. Install and Remove write only that machine's own table. Shared rows are tagged **Shared by all machines** and cannot be removed on the page, including a package pinned in both tables: removing its machine-specific entry would leave it running. Agents and the API can still edit the shared table. Available lists packages neither table asks that machine to run.
 
-One server plugin runs without being asked for: the DSH sandbox backend, `@penguinharness/sandbox-dsh`. It works on Windows, macOS and Linux, and it confines nothing by itself: only a session that asks for confinement uses it. Activity runs on a Penguin agent ask for it, so that their agent can change files only in the run's own folder. A run on a coding agent does not: the coding agent runs its own commands, outside Penguin's sandbox. Nor do images, speech and sounds, which the server makes itself, with no agent. An admin turns that off with **Confine activity agents** in **System settings > WAF workspace**. With the switch on and no sandbox available, activity runs on a Penguin agent do not start, and the page says why.
+One server plugin runs without being asked for: the DSH sandbox backend, `@waf-harness/sandbox-dsh`. It works on Windows, macOS and Linux, and it confines nothing by itself: only a session that asks for confinement uses it. Activity runs on a WAF Harness agent ask for it, so that their agent can change files only in the run's own folder. A run on a coding agent does not: the coding agent runs its own commands, outside WAF Harness's sandbox. Nor do images, speech and sounds, which the server makes itself, with no agent. An admin turns that off with **Confine activity agents** in **System settings > WAF workspace**. With the switch on and no sandbox available, activity runs on a WAF Harness agent do not start, and the page says why.
 
 Previewing a module that a run built runs that module's own build script on the server, whichever agent the run had. While the switch is on, that build asks for the sandbox too: it can change files only in the module's folder, and with no sandbox available the preview is not built and says why. A module run on a coding agent is then not started either, since its player check plays a build of the module it writes. Switch on or off, the build gets none of the server's environment variables, only what Node and npm need to start: `NODE_OPTIONS` is left out on purpose, so a build that needs a Node flag, such as a larger heap, sets it in its own script. When the pinned Sass that a run module's stylesheet is compiled with is installed for the first time, npm reads the `.npmrc` every run's module is scaffolded with, not the module's own or the server user's `~/.npmrc`. A module from the WAF checkout is built as before.
 
-Releasing a module runs its own code too: the release's first stage runs `npm ci`, `npm run buildDebug`, `npm run lint` and `npm run buildRelease` on the commit it has just made of the module, and the next one compiles that commit's stylesheet. Neither runs in the module's clone. Each time, Penguin writes the commit's files, without the repository, into a check folder of its own in its data folder (`activity-deploy/checks`), runs them there, and removes the folder once they end. The release takes only the compiled `res/style.css` from that folder, and makes package.json and its lock from the commit, not from what is on disk. They run as a preview build does: while the switch is on, through the sandbox, able to change files only in the check folder, and with no sandbox available the stage fails before it changes anything and says why. Like an activity agent, they can still read every file the server can and reach the network. Switch on or off, they get none of the server's environment variables. `npm ci` also gets the proxy and certificate settings npm needs to reach the registry, and installs as the module's own `.npmrc` says, the file the release build installs with, but without the server user's `~/.npmrc`. git and Jenkins are not sandboxed: they use the clone's own credentials. git runs no hook, no file-system monitor and no commit-signing program that a clone's own settings name. Before pushing a branch whose `.gitattributes` send files to Git LFS, Penguin uploads those files itself, as LFS's hook would. Each run of the checks gets a check folder of its own, and an assembled module's `.lfsconfig` is never copied into the clone.
+Releasing a module runs its own code too: the release's first stage runs `npm ci`, `npm run buildDebug`, `npm run lint` and `npm run buildRelease` on the commit it has just made of the module, and the next one compiles that commit's stylesheet. Neither runs in the module's clone. Each time, WAF Harness writes the commit's files, without the repository, into a check folder of its own in its data folder (`activity-deploy/checks`), runs them there, and removes the folder once they end. The release takes only the compiled `res/style.css` from that folder, and makes package.json and its lock from the commit, not from what is on disk. They run as a preview build does: while the switch is on, through the sandbox, able to change files only in the check folder, and with no sandbox available the stage fails before it changes anything and says why. Like an activity agent, they can still read every file the server can and reach the network. Switch on or off, they get none of the server's environment variables. `npm ci` also gets the proxy and certificate settings npm needs to reach the registry, and installs as the module's own `.npmrc` says, the file the release build installs with, but without the server user's `~/.npmrc`. git and Jenkins are not sandboxed: they use the clone's own credentials. git runs no hook, no file-system monitor and no commit-signing program that a clone's own settings name. Before pushing a branch whose `.gitattributes` send files to Git LFS, WAF Harness uploads those files itself, as LFS's hook would. Each run of the checks gets a check folder of its own, and an assembled module's `.lfsconfig` is never copied into the clone.
 
 The Plugins page does not offer package-global Delete plugin, which would remove the shared and other machines’ entries. Manage installs still edits Agent copies; module Remove writes only the viewed machine’s own table. Replies from a previous Project visit, including a return to the same Project, do not replace the current module snapshot.
 
@@ -183,7 +183,7 @@ To install a server plugin:
 
 To remove one, select **Remove** and confirm. The plugin leaves the Project's list, and a package installed from npm is uninstalled once no Project asks for it. Removing stops the runs in progress the same way.
 
-Only admins see **Install** and **Remove**; everyone else sees the cards and their details. A plugin that ships with PenguinHarness installs without a download. A change applies without restarting the server: the server rebuilds its business surface around the new list, which is why runs in progress stop. Afterwards the card's status reads **Installed**, **Restart to load** when the server could not apply the change without a restart, or **Failed to load**, with the reason when you point at it.
+Only admins see **Install** and **Remove**; everyone else sees the cards and their details. A plugin that ships with WAF Harness installs without a download. A change applies without restarting the server: the server rebuilds its business surface around the new list, which is why runs in progress stop. Afterwards the card's status reads **Installed**, **Restart to load** when the server could not apply the change without a restart, or **Failed to load**, with the reason when you point at it.
 
 The lists are the `[plugins]` and `[plugins.<machineId>]` tables of the Project's config; see [Configuration Reference](/configuration#plugins). For the routes, see [Server API](/server-api#plugin-registry-and-project-plugins), and for how the server loads plugins, see [Server Boot and Subsystems](/server-boot#re-assembly).
 
@@ -195,14 +195,14 @@ To export a plugin, open its details and select **Export**. The download is the 
 
 To import a plugin, select **Import plugin** in the page header. Only admins see the button. Each tab of the dialog is one way in, and it opens on **Agent**:
 
-- **Agent**: for a web page, a repository, a folder in a repository, a Codex or Claude Code plugin, or a description, type the source. Choose an example or enter your own source. The dialog builds a prompt for the Project's default agent. The agent reviews the package and installs it with [`penguin plugin install`](/cli#penguin-plugin). When the source is not a PenguinHarness package yet, the agent first ports it into one by the `plugin-porting` Skill of the `skill-porting` plugin, then installs the folder it built. Expand **Full prompt** to preview or copy it, or select **Open a new chat** to start a draft; nothing is sent until you send it.
+- **Agent**: for a web page, a repository, a folder in a repository, a Codex or Claude Code plugin, or a description, type the source. Choose an example or enter your own source. The dialog builds a prompt for the Project's default agent. The agent reviews the package and installs it with [`wafh plugin install`](/cli#wafh-plugin). When the source is not a WAF Harness package yet, the agent first ports it into one by the `plugin-porting` Skill of the `skill-porting` plugin, then installs the folder it built. Expand **Full prompt** to preview or copy it, or select **Open a new chat** to start a draft; nothing is sent until you send it.
 - **Zip**: choose a zip of a plugin's package directory, such as an exported plugin. `package.json` sits at its root or in its one top-level directory, and it holds no `node_modules`. When the server has another version of the package, the dialog asks before replacing it. Upload only what you trust.
 - **npm**: type an npm package name, which may carry a version, range or tag, such as `@scope/name` or `name@1.2.0`, and select **Install**. The server installs it from the npm registry.
-- **Link**: type an https link to a git repository or a tarball, such as `https://github.com/acme/penguin-notes`, and select **Install**. The server fetches and installs it with npm, from any https address you give, internal ones included. A path, an `http:` link or a link with credentials is refused before anything runs. So is a link to a folder or a file inside a GitHub repository (`…/tree/…`, `…/blob/…`), which npm cannot install: the field offers **Ask an agent**, which takes the link to the agent tab.
+- **Link**: type an https link to a git repository or a tarball, such as `https://github.com/acme/wafh-notes`, and select **Install**. The server fetches and installs it with npm, from any https address you give, internal ones included. A path, an `http:` link or a link with credentials is refused before anything runs. So is a link to a folder or a file inside a GitHub repository (`…/tree/…`, `…/blob/…`), which npm cannot install: the field offers **Ask an agent**, which takes the link to the agent tab.
 
-Porting keeps what a PenguinHarness plugin can carry and lists the rest. The upstream skills become the package's skills, with their frontmatter reduced to `name`, `description` and a date `version`. The display name, the short description, the category, the SVG icon and the first default prompt go into the `penguin` block. MCP servers are carried too: the Skill's `port-mcp.mjs` script turns a Codex `.mcp.json` or a Claude Code `mcpServers` map into [`penguin.mcp_servers`](#mcp-servers-in-a-plugin). A placeholder such as `<GMAIL_PUBLIC_CLIENT_ID>` and an environment variable the upstream server reads become `${KEY}` references to the vault, each listed as a key to set up; a client secret published upstream is not carried and becomes a key to set up as well; a stdio command that ships with the plugin is rooted at `${PLUGIN_ROOT}`. Commands that only point at a skill, subagents, another tool's hooks, hosted apps and images are not carried; the package's README names each of them under "Not carried". A hosted app (`.app.json`) is a ChatGPT connector id, which resolves only inside ChatGPT.
+Porting keeps what a WAF Harness plugin can carry and lists the rest. The upstream skills become the package's skills, with their frontmatter reduced to `name`, `description` and a date `version`. The display name, the short description, the category, the SVG icon and the first default prompt go into the `wafh` block. MCP servers are carried too: the Skill's `port-mcp.mjs` script turns a Codex `.mcp.json` or a Claude Code `mcpServers` map into [`wafh.mcp_servers`](#mcp-servers-in-a-plugin). A placeholder such as `<GMAIL_PUBLIC_CLIENT_ID>` and an environment variable the upstream server reads become `${KEY}` references to the vault, each listed as a key to set up; a client secret published upstream is not carried and becomes a key to set up as well; a stdio command that ships with the plugin is rooted at `${PLUGIN_ROOT}`. Commands that only point at a skill, subagents, another tool's hooks, hosted apps and images are not carried; the package's README names each of them under "Not carried". A hosted app (`.app.json`) is a ChatGPT connector id, which resolves only inside ChatGPT.
 
-However it arrives, the package's install scripts run on the server as the server's user, as when a package is installed from npm. A stdio MCP server in the package is a command the server runs whenever a session of an agent that has it starts, under that session's [sandbox](/settings#sandbox) when one is set, and a remote MCP server is an address the server connects to; the plugin's details show both. A package under the name of a server plugin that ships with PenguinHarness is refused, and so is a package that turns out not to be a plugin; by the time a link is refused, its install scripts have already run.
+However it arrives, the package's install scripts run on the server as the server's user, as when a package is installed from npm. A stdio MCP server in the package is a command the server runs whenever a session of an agent that has it starts, under that session's [sandbox](/settings#sandbox) when one is set, and a remote MCP server is an address the server connects to; the plugin's details show both. A package under the name of a server plugin that ships with WAF Harness is refused, and so is a package that turns out not to be a plugin; by the time a link is refused, its install scripts have already run.
 
 What happens next depends on the plugin. A plugin of Skills, hooks or MCP servers joins the library, tagged **installed on server**; install it on an agent with **Manage installs**. A plugin of server modules is also added to the Project and loaded, which stops the agent runs in progress, as [installing a server plugin](#server-plugins) does. A plugin from a link or a zip is added for this server only, because another machine would fetch the package's name from the npm registry and could get a different package. To run it on another machine, import it there.
 
@@ -251,21 +251,21 @@ The built-in plugins, by category (`PLUGIN_CATEGORIES` in `packages/core/src/plu
 | Office Productivity | `a2ui` | Rich reply blocks — a choice, a form, steps, a callout, a Mermaid diagram, or a weather, clock, countdown or metrics widget, written as a fenced block inside ordinary Markdown, rendered by the Web App with its own components (a pick fills the composer as plain text) and shown as readable text elsewhere — with STE-style writing rules for Chinese and English, scripts that turn a weather lookup or a system snapshot into a block, and a checker script that validates and scores a draft before it is sent (preinstalled) |
 | | `data-analysis` | Complete data-analysis tasks with bounded evidence inspection, explicit answer-changing decisions, native artifact handling and final output verification |
 | | `use-firecrawl` | Web search and page scraping into clean markdown via the Firecrawl API |
-| | `browser-automation` | Drive the agent browser with `penguin browser`, the desktop app's [Built-in Browser](/builtin-browser) or [your own Chrome](/builtin-browser#use-your-own-chrome): read pages as simplified HTML or text, act with JavaScript and trusted clicks and typing, and extract data such as Amazon orders, signed in with your own accounts |
+| | `browser-automation` | Drive the agent browser with `wafh browser`, the desktop app's [Built-in Browser](/builtin-browser) or [your own Chrome](/builtin-browser#use-your-own-chrome): read pages as simplified HTML or text, act with JavaScript and trusted clicks and typing, and extract data such as Amazon orders, signed in with your own accounts |
 | | `use-bento-slides` | Author and edit Bento presentations: single-file `.bento.html` decks whose document is JSON, mapping material to charts, morph transitions and state slides |
 | | `humanizer` | Strip AI-writing tells from prose in any language and rewrite it into the register of books, newspapers and encyclopedias (not preinstalled: install from the library when needed) |
 | | `goal` | The stop hook behind [goal mode](/goal-mode): keeps the Session working toward an objective until it is complete, blocked, or out of Token budget (preinstalled) |
 | | `continual-learning` | When a Task ends after more than 30 turns, hands its condensed excerpt to a background subagent that folds the durable findings into the agent's Skills (not preinstalled) |
-| | `agent-company` | The whole toolkit of [company mode](/company-mode), with seven Skills: `company-setup` (create an organization with the user: one question at a time, a summary to confirm, then `penguin org create`; it never hires or files tickets), `company-employee` (the protocol every desk and ticket Session follows: trigger blocks, the ticket board, blocking, asking the board before heavy or irreversible work, channel etiquette, budgets), `company-ceo` (mission to tickets, hiring, Workspace partitioning, review, reporting to the board), `company-hr` (calendar coverage, hiring and offboarding, evaluation), `company-finance` (budgets, the daily audit, alerts and pauses), `company-research` (a research organization's authors and reviewers: freeze the evaluation harness and the metric, run the experiment loop inside a resource envelope the board approved, keep only what improves the metric, and put every claim through a reviewer who tries to break it) and `company-mirror` (a company of digital twins: one twin per real colleague, bound to that colleague's bot, relaying instead of filing tickets). Not preinstalled: the organization installs it when it creates the CEO and hires employees, and an agent that should be able to create an organization installs it from the library |
-| | `penguin-support` | PenguinHarness product support, with the `penguin-support` Skill (answer product questions and troubleshoot from the official docs and source code) and a support [workbench](#workbench-plugins): a question list, a new-question dialog and conversation details with follow-ups. Not preinstalled: the default Project's built-in support agent, PenguinHarness Support, comes with it, and any other agent can install it from the library |
-| Software Development | `software-development` | Software development end to end, with two Skills: `software-engineering` (investigate, implement and validate with minimal scope) and `web-design` (the Penguin visual language for generated web UIs) |
+| | `agent-company` | The whole toolkit of [company mode](/company-mode), with seven Skills: `company-setup` (create an organization with the user: one question at a time, a summary to confirm, then `wafh org create`; it never hires or files tickets), `company-employee` (the protocol every desk and ticket Session follows: trigger blocks, the ticket board, blocking, asking the board before heavy or irreversible work, channel etiquette, budgets), `company-ceo` (mission to tickets, hiring, Workspace partitioning, review, reporting to the board), `company-hr` (calendar coverage, hiring and offboarding, evaluation), `company-finance` (budgets, the daily audit, alerts and pauses), `company-research` (a research organization's authors and reviewers: freeze the evaluation harness and the metric, run the experiment loop inside a resource envelope the board approved, keep only what improves the metric, and put every claim through a reviewer who tries to break it) and `company-mirror` (a company of digital twins: one twin per real colleague, bound to that colleague's bot, relaying instead of filing tickets). Not preinstalled: the organization installs it when it creates the CEO and hires employees, and an agent that should be able to create an organization installs it from the library |
+| | `wafh-support` | WAF Harness product support, with the `wafh-support` Skill (answer product questions and troubleshoot from the official docs and source code) and a support [workbench](#workbench-plugins): a question list, a new-question dialog and conversation details with follow-ups. Not preinstalled: the default Project's built-in support agent, WAF Harness Support, comes with it, and any other agent can install it from the library |
+| Software Development | `software-development` | Software development end to end, with two Skills: `software-engineering` (investigate, implement and validate with minimal scope) and `web-design` (the WAF Harness visual language for generated web UIs) |
 | | `use-claude-code` | Run Claude Code on a remote host over SSH: a persistent expect session, headless `-p` with the stdin fix, a tmux-driven interactive TUI and multi-turn continuity (not preinstalled: install from the library when needed) |
 | | `use-codex` | Delegate coding tasks through the Codex ACP adapter using a ChatGPT subscription: project-scoped device sign-in, model discovery, progress, cancellation and human responses through MCP. Tasks have workspace write access. Install the plugin, follow the `codex` skill's Agent MCP setup and connect your account. Includes its Codex runtime; requires Node 24+. Not preinstalled and not a model-picker provider. |
 | | `waf-authoring` | Authoring WAF activities, with 16 Skills covering the activity-state contract, the XState-backed state machine, assessment, audio, video, asset and layout patterns, element ids, style guardrails and the book module contract. (not preinstalled: install from the library when needed) |
-| AI App Development | `agent-development` | Agent development on PenguinHarness, with six Skills: `agent-initialization` (set an agent up from a requirement: its `AGENTS.md`, Skills and hooks), `penguin-sdk` (build agent/AI/RAG apps on the SDK, or connect a program to an agent over the Agent API; it asks which way first), `penguin-plugin` (build the workbenches an agent keeps beside its chat), `unified-llm-api` (call model APIs through `@prismshadow/mmsp`), `penguin-config` (manage model keys, defaults and Vault secrets) and `penguin-orchestration` (drive agents, Sessions, costs and schedules from a shell) |
+| AI App Development | `agent-development` | Agent development on WAF Harness, with six Skills: `agent-initialization` (set an agent up from a requirement: its `AGENTS.md`, Skills and hooks), `wafh-sdk` (build agent/AI/RAG apps on the SDK, or connect a program to an agent over the Agent API; it asks which way first), `wafh-plugin` (build the workbenches an agent keeps beside its chat), `unified-llm-api` (call model APIs through `@prismshadow/mmsp`), `wafh-config` (manage model keys, defaults and Vault secrets) and `wafh-orchestration` (drive agents, Sessions, costs and schedules from a shell) |
 | | `agent-evaluation` | Agent Evaluation, with two Skills: `benchmark-design` (design and calibrate a capability Benchmark, or import a published Benchmark package) and `agent-evaluation` (execute and score one isolated case). The Default RSI Toolkit measures through it |
 | | `model-development` | Model development on your own hardware, with three Skills: `llamafactory` (fine-tune), `ollama` (run local models) and `vllm` (serve behind an OpenAI-compatible endpoint) |
-| | `skill-porting` | Port Skills from external sources (plugin marketplaces, skills.sh registries, GitHub repos or local folders) into the agent after review and normalization, or, with its `plugin-porting` Skill, turn a whole Codex or Claude Code plugin into a PenguinHarness plugin package and install it on the server |
+| | `skill-porting` | Port Skills from external sources (plugin marketplaces, skills.sh registries, GitHub repos or local folders) into the agent after review and normalization, or, with its `plugin-porting` Skill, turn a whole Codex or Claude Code plugin into a WAF Harness plugin package and install it on the server |
 | Agent Sandbox | `sandbox-bwrap`, `sandbox-seatbelt`, `sandbox-wsl`, `sandbox-dsh` | Server plugins rather than library content: the backends that confine every command an agent runs, installed on the server by an admin. See [Server plugins](#server-plugins) and [Settings](/settings#sandbox) |
 
 ## How it works
@@ -274,27 +274,27 @@ This section describes the file formats, naming and versioning rules, loading an
 
 ### Plugin file format
 
-A plugin is an npm package. Its `package.json` is the manifest: npm's own fields, plus a `penguin` block for everything that is PenguinHarness's. The content sits beside it in fixed directories, and nothing declares where:
+A plugin is an npm package. Its `package.json` is the manifest: npm's own fields, plus a `wafh` block for everything that is WAF Harness's. The content sits beside it in fixed directories, and nothing declares where:
 
 ```text
 <plugin>/
-├── package.json               # the manifest: npm's fields and a `penguin` block
+├── package.json               # the manifest: npm's fields and a `wafh` block
 ├── icon.svg                   # the plugin's icon (every built-in plugin ships one)
 ├── README.md                  # optional: what the details show under the description
 ├── skills/<name>/SKILL.md     # zero or more skills, each with its own date version
 └── hooks/*.mjs                # at most one hook package: plain Node scripts
 ```
 
-MCP servers have no files: the package declares them in `penguin.mcp_servers` (see [MCP servers in a plugin](#mcp-servers-in-a-plugin)). A package with `skills/`, `hooks/` or at least one entry in `penguin.mcp_servers` is a plugin of the library; one with `ifaces.json` is a [server plugin](#server-plugins).
+MCP servers have no files: the package declares them in `wafh.mcp_servers` (see [MCP servers in a plugin](#mcp-servers-in-a-plugin)). A package with `skills/`, `hooks/` or at least one entry in `wafh.mcp_servers` is a plugin of the library; one with `ifaces.json` is a [server plugin](#server-plugins).
 
 ```json
 {
-  "name": "@penguinharness/goal",
+  "name": "@waf-harness/goal",
   "version": "0.2.13",
   "description": "Goal mode: a stop hook that keeps the session working toward an objective …",
-  "keywords": ["penguin-plugin", "penguinharness", "hooks"],
+  "keywords": ["wafh-plugin", "waf-harness", "hooks"],
   "license": "Apache-2.0",
-  "penguin": {
+  "wafh": {
     "short_description": "Loop the session on an objective until it is done.",
     "category": "office-productivity",
     "icon": "icon.svg",
@@ -315,10 +315,10 @@ npm's fields:
 | `name` | Required. A valid npm name; the part after the scope is the plugin name and must match `^[A-Za-z0-9_-]+$` |
 | `version` | Required. A release version, such as `1.2.0`: the plugin's version |
 | `description` | One-line English description; without it the card says "No description" |
-| `keywords` | Optional; `penguin-plugin` is the keyword to find plugins by on npm |
+| `keywords` | Optional; `wafh-plugin` is the keyword to find plugins by on npm |
 | `author`, `license`, `homepage`, `repository` | Optional; the details show them, and leave out the ones a package lacks |
 
-`penguin` fields, all optional:
+`wafh` fields, all optional:
 
 | Field | Meaning |
 | --- | --- |
@@ -336,10 +336,10 @@ Missing means missing. Only a package without a valid `name` or `version` is ref
 
 ### MCP servers in a plugin
 
-`penguin.mcp_servers` lists the MCP servers that installing the plugin adds to an agent. Each entry has the shape of a `tools.mcpServers` entry in `system_config.yaml` (see [MCP Servers](/tools#mcp-servers)), plus an optional `setup`:
+`wafh.mcp_servers` lists the MCP servers that installing the plugin adds to an agent. Each entry has the shape of a `tools.mcpServers` entry in `system_config.yaml` (see [MCP Servers](/tools#mcp-servers)), plus an optional `setup`:
 
 ```json
-"penguin": {
+"wafh": {
   "mcp_servers": [
     {
       "name": "cloudflare-api",
@@ -381,15 +381,15 @@ Missing means missing. Only a package without a valid `name` or `version` is ref
 - A plugin built around someone else's product carries a `use-` prefix (`use-firecrawl`), so the name says what it is for rather than claiming the product.
 - A self-evolution toolkit's name ends in `-rsi-toolkit` (`default-rsi-toolkit`, `ape-rsi-toolkit`), so the family reads as what it is; an algorithm toolkit's one Skill carries the plugin's name.
 - A plugin's version is its npm version, the `version` of its `package.json`, which follows the release.
-- Date versions, `YYYY.MM.DD.N` (the date plus a sequence number for that day), belong to what an agent may edit locally: each Skill's `SKILL.md` carries its own `version`, and the hook package's is `penguin.hooks.version`. Change a Skill and raise its `version`; change a hook script or the `penguin.hooks` commands and raise `penguin.hooks.version`. CI checks both on every pull request (`scripts/check-plugin-versions.mjs`).
+- Date versions, `YYYY.MM.DD.N` (the date plus a sequence number for that day), belong to what an agent may edit locally: each Skill's `SKILL.md` carries its own `version`, and the hook package's is `wafh.hooks.version`. Change a Skill and raise its `version`; change a hook script or the `wafh.hooks` commands and raise `wafh.hooks.version`. CI checks both on every pull request (`scripts/check-plugin-versions.mjs`).
 - Date versions are compared by date, then by sequence number: `2026.08.29.10` follows `2026.08.29.9`. An installed copy is behind when one of its parts carries an older version than the library's same part; the update notice and buttons count it once per plugin.
-- Every plugin is its own npm package, `@penguinharness/<name>`, at `plugins/<name>/` in the repository. The loader in `@prismshadow/penguin-core` reads the plugin names from the host package's dependency list and resolves each package through Node. The desktop app declares the same packages as dependencies, and its installer packs them. At runtime the plugin files are the source of truth for library content and are read on every call.
+- Every plugin is its own npm package, `@waf-harness/<name>`, at `plugins/<name>/` in the repository. The loader in `@waterford/waf-harness-core` reads the plugin names from the host package's dependency list and resolves each package through Node. The desktop app declares the same packages as dependencies, and its installer packs them. At runtime the plugin files are the source of truth for library content and are read on every call.
 
 ### Skill file format
 
 A Skill's directory name is its authoritative name and must match `^[A-Za-z0-9_-]+$`; it overrides any `name` in the frontmatter.
 
-A library `SKILL.md` has three frontmatter fields. The short descriptions live in the package's `penguin` block.
+A library `SKILL.md` has three frontmatter fields. The short descriptions live in the package's `wafh` block.
 
 | Field | Meaning |
 | --- | --- |
@@ -403,7 +403,7 @@ Parsing is tolerant: only `key: value` scalar lines inside the first `---` block
 
 ### Hook package manifest
 
-An installed hook package is the plugin's `hooks/` directory, installed as `agent_state/hooks/<plugin>/` with a generated `hooks.json` beside the scripts. The manifest holds the plugin's identity fields (`name`, `description`), the package's own `version` (the plugin's `penguin.hooks.version`) and one command list per hook point:
+An installed hook package is the plugin's `hooks/` directory, installed as `agent_state/hooks/<plugin>/` with a generated `hooks.json` beside the scripts. The manifest holds the plugin's identity fields (`name`, `description`), the package's own `version` (the plugin's `wafh.hooks.version`) and one command list per hook point:
 
 ```json
 {
@@ -453,8 +453,8 @@ Installed Skills live under `agent_state/skills/<name>/`, and hook packages unde
 
 ## Workbench plugins
 
-A plugin can ship `workbenches/<id>/package.json`, `index.ts` and UI source files alongside its Skills. The workbench manifest declares `penguin.modules` and a dated `penguin.version` (`YYYY.MM.DD.N`). Include `workbenches` in the npm package's `files` list. Do not ship `state.json`, dot files or `node_modules`.
+A plugin can ship `workbenches/<id>/package.json`, `index.ts` and UI source files alongside its Skills. The workbench manifest declares `wafh.modules` and a dated `wafh.version` (`YYYY.MM.DD.N`). Include `workbenches` in the npm package's `files` list. Do not ship `state.json`, dot files or `node_modules`.
 
 Installing the plugin copies the workbench into the Agent's `workbenches/<id>/` directory. Updates replace shipped source files and retain ticket state and history. A name already used by another plugin or a manually created workbench is refused. Uninstalling removes the workbench and its records.
 
-The built-in `penguin-support` plugin provides the default Project's support Agent with the `penguin-support` Skill and a customer support workbench: a centered question list, a new-question dialog and conversation details with follow-ups. It can also be installed on other Agents.
+The built-in `wafh-support` plugin provides the default Project's support Agent with the `wafh-support` Skill and a customer support workbench: a centered question list, a new-question dialog and conversation details with follow-ups. It can also be installed on other Agents.

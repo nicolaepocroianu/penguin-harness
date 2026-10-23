@@ -23,8 +23,8 @@ import {
   assistantText,
   toolCall,
   userText,
-} from "@prismshadow/penguin-core";
-import type { ApproveFn, OmniMessage } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { ApproveFn, OmniMessage } from "@waterford/waf-harness-core";
 import type { RetryNowResponse, TaskCreateResponse } from "../src/api/types.js";
 import { adoptSession, fakeSession, uniqueSessionId } from "./fixtures/session.js";
 import { apiClient, createTestApp, provisionUser, waitFor } from "./helpers.js";

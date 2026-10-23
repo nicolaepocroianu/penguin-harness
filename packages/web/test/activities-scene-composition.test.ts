@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary, AssetManifest } from "@waterford/waf-harness-server/api";
 import {
   compositionFailure,
   formatSeconds,
@@ -123,11 +123,11 @@ describe("scene compositions in the studio", () => {
   });
 
   it("takes only the bridge's known states from the frame, and speaks to it in its own terms", () => {
-    expect(previewState({ source: "penguin-composition", state: "playing" })).toBe("playing");
-    expect(previewState({ source: "penguin-composition", state: "hacked" })).toBeNull();
+    expect(previewState({ source: "wafh-composition", state: "playing" })).toBe("playing");
+    expect(previewState({ source: "wafh-composition", state: "hacked" })).toBeNull();
     expect(previewState({ source: "elsewhere", state: "ready" })).toBeNull();
     expect(previewState("ready")).toBeNull();
-    expect(previewCommand("restart")).toEqual({ source: "penguin-studio", action: "restart" });
+    expect(previewCommand("restart")).toEqual({ source: "wafh-studio", action: "restart" });
   });
 
   it("warns about a scene that asks the learner to choose, and only that scene", () => {
@@ -150,7 +150,7 @@ describe("scene compositions in the studio", () => {
   });
 
   it("never takes 'unavailable' from the frame: only the studio decides that", () => {
-    expect(previewState({ source: "penguin-composition", state: "unavailable" })).toBeNull();
+    expect(previewState({ source: "wafh-composition", state: "unavailable" })).toBeNull();
   });
 
   it("words every refusal the compose route reports by code", () => {

@@ -1,13 +1,13 @@
 /**
  * The whole CLI as a plain function: commander commands over
- * @prismshadow/penguin-core, returning an exit code.
+ * @waterford/waf-harness-core, returning an exit code.
  *
- * Built twice: into this package's `penguin` binary (penguin.ts), and — as the CLI
- * artifact pushed to POST /api/hmr/upgrade — into the bundle `penguin-hmr` loads from
+ * Built twice: into this package's `wafh` binary (wafh.ts), and — as the CLI
+ * artifact pushed to POST /api/hmr/upgrade — into the bundle `wafh-hmr` loads from
  * the HMR store instead (see scripts/deploy.mjs).
  */
 import { Command, CommanderError } from "commander";
-import { buildInfo } from "@prismshadow/penguin-core";
+import { buildInfo } from "@waterford/waf-harness-core";
 import { registerAuthCommand } from "./commands/auth.js";
 import { registerConfigCommand } from "./commands/config.js";
 import { registerRunCommand } from "./commands/run.js";
@@ -35,9 +35,9 @@ export async function cli(argv: string[]): Promise<number> {
   const t = defaultMessages();
   const program = new Command();
   program
-    .name("penguin")
+    .name("wafh")
     .description(t.cliDescription)
-    // The same string `penguin version` prints, so the flag and the subcommand can never
+    // The same string `wafh version` prints, so the flag and the subcommand can never
     // disagree. Commander stores it eagerly, which costs a source build its two git calls on
     // every startup; a release build reads stamped constants and spawns nothing.
     .version(buildInfo().describe, "-v, --version", t.versionDesc)

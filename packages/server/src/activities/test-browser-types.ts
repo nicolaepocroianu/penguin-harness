@@ -1,5 +1,5 @@
 /**
- * What the App sees of the test browser: the Chromium Penguin owns for quality checks and
+ * What the App sees of the test browser: the Chromium WAF Harness owns for quality checks and
  * tests, and the admin install that fetches it. Type-only, so the web can import it.
  *
  * The server words none of it: a failed install is a code, and the tail of the installer's
@@ -19,7 +19,7 @@ export type TestBrowserInstallError =
 
 export interface TestBrowserStatus {
   /**
-   * Whether this copy of Penguin can install and drive the test browser at all. False where
+   * Whether this copy of WAF Harness can install and drive the test browser at all. False where
    * Playwright is not shipped (the desktop app); the page then offers no install.
    */
   available: boolean;

@@ -17,7 +17,7 @@ import {
   GlyphIcon,
   PlusIcon,
   UploadIcon,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { WEB_ICON_SIZES, WEB_ICONS } from "../sources";
 import { useGallery } from "../state";
 import { BoardGroup } from "./shared";

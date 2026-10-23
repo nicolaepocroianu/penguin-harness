@@ -4,20 +4,20 @@
  * The three are separate SPAs but ship to one origin (penguin.ooo, penguin.ooo/docs/ and
  * penguin.ooo/gallery/), so a single localStorage key is all it takes for a language or theme
  * choice to survive the hop between them. The landing page and the docs once wrote
- * `penguin-landing.*` and `penguin-docs.*`; those keys are still read as a fallback, so a visitor
+ * `wafh-landing.*` and `wafh-docs.*`; those keys are still read as a fallback, so a visitor
  * who chose before the sites shared a key keeps that choice.
  *
  * Each site's index.html spells the theme key and its fallbacks in the inline script that applies
  * dark mode before first paint; keep those scripts in step with the keys here.
  */
 
-export const SITE_THEME_KEY = "penguin-site.theme";
-export const SITE_LANG_KEY = "penguin-site.lang";
+export const SITE_THEME_KEY = "wafh-site.theme";
+export const SITE_LANG_KEY = "wafh-site.lang";
 
 /** Pre-unification keys, still read so an existing visitor keeps their choice. */
 const LEGACY_KEYS: Record<string, readonly string[]> = {
-  [SITE_THEME_KEY]: ["penguin-landing.theme", "penguin-docs.theme"],
-  [SITE_LANG_KEY]: ["penguin-landing.lang", "penguin-docs.lang"],
+  [SITE_THEME_KEY]: ["wafh-landing.theme", "wafh-docs.theme"],
+  [SITE_LANG_KEY]: ["wafh-landing.lang", "wafh-docs.lang"],
 };
 
 /**

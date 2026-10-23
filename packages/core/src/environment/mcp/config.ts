@@ -15,7 +15,7 @@
  * `transport` may be omitted when unambiguous: an entry with `command` resolves to `stdio`,
  * an entry with `url` resolves to `http`; `sse` must always be explicit.
  *
- * `permission` sets the approval level PenguinHarness applies to every tool of the server —
+ * `permission` sets the approval level WAF Harness applies to every tool of the server —
  * `"auto"` (the default) trusts each tool's own `readOnlyHint`, `"r"` or `"rw"` overrides it.
  *
  * Values the entry must not hold in plain text — a token in a header, a key in `env` — are

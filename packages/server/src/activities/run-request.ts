@@ -1,4 +1,4 @@
-import type { Opaque } from "@prismshadow/penguin-core/kernel";
+import type { Opaque } from "@waterford/waf-harness-core/kernel";
 import type { AssistFocus } from "./assist.js";
 import type { AcceptanceStage } from "./acceptance-types.js";
 import type { ActivityDraft, ActivityRun } from "./domain.js";
@@ -91,7 +91,7 @@ export type RunOutcome =
 
 /** Who a run and accept runs as, and what its caller is told along the way. */
 export interface RunAndAcceptOptions {
-  /** The Penguin agent the run belongs to (media runs belong to the Media Agent whatever it is). */
+  /** The WAF Harness agent the run belongs to (media runs belong to the Media Agent whatever it is). */
   agentId: string;
   /** Run on an external coding agent instead of `agentId`'s own model. */
   runtime?: { codingAgentId?: string };

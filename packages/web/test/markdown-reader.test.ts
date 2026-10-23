@@ -40,7 +40,7 @@ import {
   ReaderTools,
   UiStringsProvider,
   useMarkdownReader,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { useReaderFind } from "../src/lib/reader-find";
 import { en } from "../src/lib/strings-en";
 import { uiStringsFor } from "../src/lib/ui-strings";
@@ -356,7 +356,7 @@ describe("the find", () => {
     const input = await search("release");
     const registry = (globalThis as unknown as { CSS: { highlights: Map<string, unknown> } }).CSS
       .highlights;
-    expect(registry.has("penguin-find-current")).toBe(true);
+    expect(registry.has("wafh-find-current")).toBe(true);
     const dialogHeard: string[] = [];
     const listener = (e: KeyboardEvent) => dialogHeard.push(e.key);
     window.addEventListener("keydown", listener);
@@ -367,8 +367,8 @@ describe("the find", () => {
     }
     expect(document.querySelector('[role="search"]')).toBeNull();
     expect(titleRow().textContent).toContain(FILE_NAME);
-    expect(registry.has("penguin-find")).toBe(false);
-    expect(registry.has("penguin-find-current")).toBe(false);
+    expect(registry.has("wafh-find")).toBe(false);
+    expect(registry.has("wafh-find-current")).toBe(false);
     expect(dialogHeard).toEqual([]);
   });
 });

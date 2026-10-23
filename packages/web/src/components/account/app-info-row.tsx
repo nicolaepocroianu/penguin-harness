@@ -8,7 +8,7 @@
  * updateModeFor) still gets the row: the version, the release notes and the licences are for
  * everyone. A Menu row, like the menu's other entries.
  */
-import { MenuItem, Spinner } from "@prismshadow/penguin-ui";
+import { MenuItem, Spinner } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { updateRowModel } from "../../lib/update-flow";
 import type { UpdateFlow } from "../../lib/update-flow";

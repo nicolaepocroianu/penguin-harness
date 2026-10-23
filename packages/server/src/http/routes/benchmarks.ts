@@ -15,7 +15,7 @@
  * benchmark_config.toml) along with the evaluations[] from scoreboard.yaml.
  */
 import { Hono, type Context } from "hono";
-import { isValidId } from "@prismshadow/penguin-core";
+import { isValidId } from "@waterford/waf-harness-core";
 import type { AppEnv } from "../../auth/middleware.js";
 import type {
   BenchmarkArchiveGitOrigin,

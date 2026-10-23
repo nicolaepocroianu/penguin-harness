@@ -1,12 +1,12 @@
 /**
  * Is the server this build installed on that machine running, and which machine is it?
  *
- * One ssh round trip answers both: `penguin server status` over there prints one line of
+ * One ssh round trip answers both: `wafh server status` over there prints one line of
  * JSON (machine-status.ts). The far side has Node, so the far side formats; this side
  * carries no parser for a shell's output. ssh's own failure is not a separate condition —
  * it IS the answer "cannot reach this machine", carrying OpenSSH's diagnostic.
  */
-import { remotePenguin } from "./commands.js";
+import { remoteWafHarness } from "./commands.js";
 import type { RemoteLayout } from "./layout.js";
 import { jsonAnswer } from "./answer.js";
 import type { RemoteTarget } from "./commands.js";
@@ -20,7 +20,7 @@ import type { MachineStatus } from "../machine-status.js";
  * which merges the streams and reports an empty stderr.
  */
 export function readServerStateCommand(platform: RemotePlatform, layout: RemoteLayout): string {
-  return `${remotePenguin(platform, layout)} server status 2>&1`;
+  return `${remoteWafHarness(platform, layout)} server status 2>&1`;
 }
 
 type MachineServerState =
@@ -104,22 +104,22 @@ export async function probeServerState(
 }
 
 /**
- * What a machine's `penguin-hmr` says when its data root's store holds no CLI it can run
- * (packages/cli/src/penguin-hmr.ts): `no CLI pushed to <root>; use \`penguin\` instead`, or
+ * What a machine's `wafh-hmr` says when its data root's store holds no CLI it can run
+ * (packages/cli/src/wafh-hmr.ts): `no CLI pushed to <root>; use \`wafh\` instead`, or
  * `the CLI pushed to <root> is unusable: <why>`. Every release ships that entry with these
  * words, and an install is what puts a CLI there — so this is the one far-side answer whose
- * remedy is known here, and the advice to run `penguin` is not one a person on the Machines
+ * remedy is known here, and the advice to run `wafh` is not one a person on the Machines
  * page can take.
  */
 const NO_PUSHED_CLI =
-  /^(no CLI pushed to \S.*; use `penguin` instead|the CLI pushed to \S.* is unusable: .*)$/m;
+  /^(no CLI pushed to \S.*; use `wafh` instead|the CLI pushed to \S.* is unusable: .*)$/m;
 
 /** The page's sentence for a machine whose store has no CLI to run, with the far side's words after it. */
 export function noPushedCliDetail(said: string): string | null {
   const line = NO_PUSHED_CLI.exec(said)?.[0];
   return line === undefined
     ? null
-    : "PenguinHarness is installed on that machine without the build this server runs there, so it cannot be started or asked anything. Install it again from this page (Update, or Force install): that puts the build there. " +
+    : "WAF Harness is installed on that machine without the build this server runs there, so it cannot be started or asked anything. Install it again from this page (Update, or Force install): that puts the build there. " +
         `(It said: ${line})`;
 }
 

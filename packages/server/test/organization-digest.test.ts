@@ -78,11 +78,11 @@ describe("deskDigest", () => {
         "## Since your last sweep",
         "- 2026-09-08-site-launch (Launch the marketing site): assigned to you",
         '- 2026-09-08-domain (Register the domain): blocked — "waiting for the board" (by user:alice)',
-        "- 2026-09-08-backend-api (Backend API): blocker closed (2026-09-08-domain) — verify, then `penguin org ticket unblock 2026-09-08-backend-api`",
+        "- 2026-09-08-backend-api (Backend API): blocker closed (2026-09-08-domain) — verify, then `wafh org ticket unblock 2026-09-08-backend-api`",
         "- 2026-09-07-copy (Site copy): done",
         '- 2026-09-07-logo (Logo): rejected — "off-brand"',
         "",
-        'Decide on each: start a ticket session (`penguin org ticket start <id> -m "…"`), verify and unblock, or leave it — do not do the work at your desk.',
+        'Decide on each: start a ticket session (`wafh org ticket start <id> -m "…"`), verify and unblock, or leave it — do not do the work at your desk.',
       ].join("\n"),
     );
   });

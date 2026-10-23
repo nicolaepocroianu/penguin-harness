@@ -3,13 +3,13 @@
  * files through Landlock, the service routes only what it implements, and the card says so.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { parseManifest } from "@prismshadow/penguin-core/kernel";
-import type { ModuleDef } from "@prismshadow/penguin-core/kernel";
+import { parseManifest } from "@waterford/waf-harness-core/kernel";
+import type { ModuleDef } from "@waterford/waf-harness-core/kernel";
 import type {
   SandboxDimension,
   SandboxProvider,
   SandboxProviderSource,
-} from "@prismshadow/penguin-core/plugin";
+} from "@waterford/waf-harness-core/plugin";
 import type { PluginConfigEntry, PluginConfigResponse } from "../src/api/types.js";
 import { PluginHost } from "../src/plugin/host.js";
 import { SandboxService } from "../src/sandbox/index.js";
@@ -63,7 +63,7 @@ describe("routing between bubblewrap and the DSH adaptor", () => {
   it("where bubblewrap is refused, the adaptor serves files and a network cut fails closed", async () => {
     const dsh = fake("dsh", undefined, "Landlock");
     const svc = await service(
-      ["penguin-bwrap", () => Promise.reject(new Error(REFUSED))],
+      ["wafh-bwrap", () => Promise.reject(new Error(REFUSED))],
       ["dsh-local", dsh.provider],
     );
     svc.configure({ mode: "workspace-write" });
@@ -73,7 +73,7 @@ describe("routing between bubblewrap and the DSH adaptor", () => {
     ]);
     svc.configure({ mode: "workspace-write", network: "none" });
     expect(() => svc.confiner()(ARGV, OPTS)).toThrow(
-      `requires fs-write + network, but no mounted sandbox backend implements all of it (dsh-local: fs-write); backends not in use: penguin-bwrap (${REFUSED})`,
+      `requires fs-write + network, but no mounted sandbox backend implements all of it (dsh-local: fs-write); backends not in use: wafh-bwrap (${REFUSED})`,
     );
     expect(dsh.calls).toHaveLength(1);
   });
@@ -88,7 +88,7 @@ function linuxBackends(bwrap: "refused" | "serving"): PluginHost {
       provides: {},
       contributes: {
         "SandboxModule.providers": [
-          { id: "bwrap.provider", name: "penguin-bwrap", dimensions: BWRAP_DIMENSIONS },
+          { id: "bwrap.provider", name: "wafh-bwrap", dimensions: BWRAP_DIMENSIONS },
           { id: "dsh.provider", name: "dsh-local", dimensions: ["fs-write"] },
         ],
       },
@@ -147,7 +147,7 @@ describe("the sandbox card on the Linux floor", () => {
       expect.objectContaining({
         tone: "muted",
         text: "Enforced here: file writes, by Landlock (dsh-local). Not enforced here: network isolation, localhost-only network, masked paths and closing the temporary directory.",
-        details: `penguin-bwrap is installed but not in use: ${REFUSED}\nSaving this card checks these backends again.`,
+        details: `wafh-bwrap is installed but not in use: ${REFUSED}\nSaving this card checks these backends again.`,
       }),
     ]);
     // A backend for this OS is installed: nothing is offered.
@@ -199,7 +199,7 @@ describe("the sandbox card on the Linux floor", () => {
     const entry = await card();
     expect(entry.notices?.map((n) => [n.text, n.details])).toEqual([
       [
-        "Enforced here: file writes, network isolation, masked paths and closing the temporary directory, by bubblewrap (penguin-bwrap). Not enforced here: localhost-only network.",
+        "Enforced here: file writes, network isolation, masked paths and closing the temporary directory, by bubblewrap (wafh-bwrap). Not enforced here: localhost-only network.",
         undefined,
       ],
     ]);
@@ -225,7 +225,7 @@ describe("closing the temporary directory", () => {
     expect(dsh.calls).toHaveLength(0);
 
     const bwrap = fake("bwrap", BWRAP_DIMENSIONS, "bubblewrap");
-    const both = await service(["dsh-local", dsh.provider], ["penguin-bwrap", bwrap.provider]);
+    const both = await service(["dsh-local", dsh.provider], ["wafh-bwrap", bwrap.provider]);
     both.configure({ mode: "workspace-write", writableTemp: false });
     expect(both.confiner()(ARGV, OPTS).argv).toEqual(["bwrap", ...ARGV]);
   });
@@ -261,14 +261,14 @@ describe("the enforcement headline", () => {
   it("names every backend that adds a dimension, and only those", () => {
     const notice = enforcementNotice(
       [
-        { name: "penguin-bwrap", dimensions: BWRAP_DIMENSIONS, mechanism: "bubblewrap" },
+        { name: "wafh-bwrap", dimensions: BWRAP_DIMENSIONS, mechanism: "bubblewrap" },
         { ...dsh, mechanism: "Landlock" },
         { name: "local-net", dimensions: ["fs-write", "network-local"] },
       ],
       [],
     );
     expect(notice.text).toBe(
-      "Enforced here: file writes, network isolation, localhost-only network, masked paths and closing the temporary directory, by bubblewrap (penguin-bwrap) and local-net.",
+      "Enforced here: file writes, network isolation, localhost-only network, masked paths and closing the temporary directory, by bubblewrap (wafh-bwrap) and local-net.",
     );
   });
 
@@ -277,9 +277,9 @@ describe("the enforcement headline", () => {
       ...dsh,
       limits: [{ text: "scratchpad not writable" }],
     };
-    const notice = enforcementNotice([limited], [{ name: "penguin-bwrap", reason: "refused" }]);
+    const notice = enforcementNotice([limited], [{ name: "wafh-bwrap", reason: "refused" }]);
     expect(notice.details).toBe(
-      "scratchpad not writable\npenguin-bwrap is installed but not in use: refused\nSaving this card checks these backends again.",
+      "scratchpad not writable\nwafh-bwrap is installed but not in use: refused\nSaving this card checks these backends again.",
     );
     // With no backend failing, the limits stand alone, and nothing is checked again.
     expect(enforcementNotice([limited], []).details).toBe("scratchpad not writable");

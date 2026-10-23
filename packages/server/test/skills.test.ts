@@ -35,7 +35,7 @@ import {
   pluginContentVersion,
   skillsDir,
   usePushedPluginLibrary,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   AgentCreateResponse,
   AgentsResponse,
@@ -254,25 +254,21 @@ describe("skills api", () => {
     expect((await owner.post(toPlugins(url), { names: ["agent-development"] })).status).toBe(201);
 
     // Simulate stale/tampered on-disk content.
-    const file = path.join(
-      skillsDir(t.root, projectId, "update_agent"),
-      "penguin-config",
-      "SKILL.md",
-    );
-    await fs.writeFile(file, "---\nname: penguin-config\nversion: 0\n---\nstale\n", "utf8");
+    const file = path.join(skillsDir(t.root, projectId, "update_agent"), "wafh-config", "SKILL.md");
+    await fs.writeFile(file, "---\nname: wafh-config\nversion: 0\n---\nstale\n", "utf8");
 
     const res = await owner.post(toPlugins(url), { names: ["agent-development"] });
     expect(res.status).toBe(201);
     const body = (await res.json()) as AgentSkillsResponse;
     expect(body.skills.map((s) => s.name)).toEqual([
       "agent-initialization",
-      "penguin-config",
-      "penguin-orchestration",
-      "penguin-plugin",
-      "penguin-sdk",
       "unified-llm-api",
+      "wafh-config",
+      "wafh-orchestration",
+      "wafh-plugin",
+      "wafh-sdk",
     ]);
-    expect(await fs.readFile(file, "utf8")).toBe(librarySkill("penguin-config")!.skill.content);
+    expect(await fs.readFile(file, "utf8")).toBe(librarySkill("wafh-config")!.skill.content);
   });
 
   it("unknown skill 404 unknown_skill, with no half-installed state", async () => {
@@ -299,10 +295,10 @@ describe("skills api", () => {
   it("outsiders always get 404 (read, install, uninstall); a missing Agent is 404", async () => {
     const url = base("default_agent");
     expect((await outsider.get(url)).status).toBe(404);
-    expect((await outsider.post(toPlugins(url), { names: ["penguin-sdk"] })).status).toBe(404);
+    expect((await outsider.post(toPlugins(url), { names: ["wafh-sdk"] })).status).toBe(404);
     expect((await outsider.post(`${url}/archive`, { dataBase64: "AAAA" })).status).toBe(404);
-    expect((await outsider.get(`${url}/penguin-sdk/archive`)).status).toBe(404);
-    expect((await outsider.delete(`${url}/penguin-sdk`)).status).toBe(404);
+    expect((await outsider.get(`${url}/wafh-sdk/archive`)).status).toBe(404);
+    expect((await outsider.delete(`${url}/wafh-sdk`)).status).toBe(404);
     // The library catalog isn't scoped under a Project prefix: any logged-in user can read it.
     expect((await outsider.get("/api/plugins")).status).toBe(200);
     // Agent doesn't exist: even a member gets 404.
@@ -368,26 +364,26 @@ describe("skills api", () => {
     const listed = (await (await member.get(base("seeded_agent"))).json()) as AgentSkillsResponse;
     expect(listed.skills.map((s) => s.name)).toEqual([
       "agent-initialization",
-      "penguin-config",
-      "penguin-orchestration",
-      "penguin-plugin",
-      "penguin-sdk",
       "software-engineering",
       "unified-llm-api",
+      "wafh-config",
+      "wafh-orchestration",
+      "wafh-plugin",
+      "wafh-sdk",
       "web-design",
     ]);
     // Installed through the same writer as the Skills tab: SKILL.md is the library file verbatim.
     const onDisk = await fs.readFile(
-      path.join(skillsDir(t.root, projectId, "seeded_agent"), "penguin-sdk", "SKILL.md"),
+      path.join(skillsDir(t.root, projectId, "seeded_agent"), "wafh-sdk", "SKILL.md"),
       "utf8",
     );
-    expect(onDisk).toBe(librarySkill("penguin-sdk")!.skill.content);
+    expect(onDisk).toBe(librarySkill("wafh-sdk")!.skill.content);
   });
 
   it("agent create with an unknown skill is 404 unknown_skill and creates no Agent", async () => {
     const res = await owner.post(`/api/projects/${projectId}/agents`, {
       agentId: "ghost_agent",
-      plugins: ["penguin-sdk", "no-such-plugin"],
+      plugins: ["wafh-sdk", "no-such-plugin"],
     });
     expect(res.status).toBe(404);
     expect(((await res.json()) as { error: { code: string } }).error.code).toBe("unknown_plugin");
@@ -406,7 +402,7 @@ describe("skills api", () => {
     expect(plain.skills).toEqual([]);
     const bad = await owner.post(`/api/projects/${projectId}/agents`, {
       agentId: "bad_seed",
-      plugins: "penguin-sdk",
+      plugins: "wafh-sdk",
     });
     expect(bad.status).toBe(400);
   });
@@ -737,12 +733,12 @@ describe("skills api", () => {
       // Age one installed copy: the library's same skill now carries a higher version than the
       // disk does. The update is reported once, by PLUGIN, however many of its skills lag, and
       // labelled with the library's content version (its newest part).
-      await setInstalledVersion("bare_updates", "penguin-sdk", "2000.01.01.1");
+      await setInstalledVersion("bare_updates", "wafh-sdk", "2000.01.01.1");
       const behind = (await listAgents()).find((a) => a.agentId === "bare_updates")!;
       expect(behind.pluginUpdates).toEqual([
         {
           name: "agent-development",
-          version: pluginContentVersion(librarySkill("penguin-sdk")!.plugin),
+          version: pluginContentVersion(librarySkill("wafh-sdk")!.plugin),
         },
       ]);
       // Reinstalling IS the update, so the badge clears with the same request the trail ends on.
@@ -761,11 +757,11 @@ describe("skills api", () => {
       ).toBe(201);
       // The library skill's own version as it was spelled before the rename: same date, same
       // sequence number, so the installed copy is current and nothing is reported behind.
-      const legacy = librarySkill("penguin-sdk")!.skill.version.replace(
+      const legacy = librarySkill("wafh-sdk")!.skill.version.replace(
         /^(\d{4})\.(\d{2})\.(\d{2})\./,
         "$1-$2-$3.",
       );
-      await setInstalledVersion("legacy_updates", "penguin-sdk", legacy);
+      await setInstalledVersion("legacy_updates", "wafh-sdk", legacy);
       const agent = (await listAgents()).find((a) => a.agentId === "legacy_updates")!;
       expect(agent.pluginUpdates).toEqual([]);
     });
@@ -789,7 +785,7 @@ describe("skills api", () => {
 
     it("counts a directory with no readable SKILL.md as neither installed nor an update", async () => {
       await createPlainAgent("broken_updates");
-      await fs.mkdir(path.join(skillsDir(t.root, projectId, "broken_updates"), "penguin-sdk"), {
+      await fs.mkdir(path.join(skillsDir(t.root, projectId, "broken_updates"), "wafh-sdk"), {
         recursive: true,
       });
       const agent = (await listAgents()).find((a) => a.agentId === "broken_updates")!;
@@ -805,7 +801,7 @@ describe("skills api", () => {
    *
    * - Right after the upgrade, an Agent whose copy the previous release wrote — every part
    *   stamped with the plugin's one date version — is current: nothing is offered.
-   * - A newer version of one skill, or of the hook package (`penguin.hooks.version`), is an
+   * - A newer version of one skill, or of the hook package (`wafh.hooks.version`), is an
    *   update for that plugin, named once; a new npm version alone is not. Reinstalling clears it.
    * - The org runtime's per-plugin answer pairs the part that is behind with its library side.
    * - The listing shows the npm version beside each part's dated version.
@@ -813,7 +809,7 @@ describe("skills api", () => {
    */
   describe("versions part by part, on a fixture library", () => {
     let host: string;
-    const sampleDir = () => path.join(host, "node_modules", "@penguinharness", "sample");
+    const sampleDir = () => path.join(host, "node_modules", "@waf-harness", "sample");
     const write = async (rel: string, text: string) => {
       await fs.mkdir(path.dirname(path.join(sampleDir(), rel)), { recursive: true });
       await fs.writeFile(path.join(sampleDir(), rel), text);
@@ -823,10 +819,10 @@ describe("skills api", () => {
     /** The sample plugin's package.json: its npm version and its hook package's dated version. */
     const manifest = (version: string, hooksVersion: string) =>
       JSON.stringify({
-        name: "@penguinharness/sample",
+        name: "@waf-harness/sample",
         version,
         description: "A sample plugin.",
-        penguin: {
+        wafh: {
           category: "office-productivity",
           hooks: { version: hooksVersion, stop: [{ command: "stop.mjs" }] },
         },
@@ -840,7 +836,7 @@ describe("skills api", () => {
       host = await fs.mkdtemp(path.join(t.root, "fixture-library-"));
       await fs.writeFile(
         path.join(host, "package.json"),
-        JSON.stringify({ name: "fixture-host", dependencies: { "@penguinharness/sample": "*" } }),
+        JSON.stringify({ name: "fixture-host", dependencies: { "@waf-harness/sample": "*" } }),
       );
       await write("package.json", manifest("1.0.0", "2026.10.04.1"));
       await write("skills/one/SKILL.md", skillMd("one", "2026.10.04.1"));

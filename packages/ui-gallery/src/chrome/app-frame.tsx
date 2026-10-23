@@ -10,7 +10,7 @@
  * the fonts it is actually set in, for the readout in the gallery bar's popover and, when the page
  * asks, its own font line.
  */
-import type { ThemeId } from "@prismshadow/penguin-ui";
+import type { ThemeId } from "@waterford/waf-harness-ui";
 import { useEffect, useRef, useState } from "react";
 import { APP_FRAME, appFrameSrc, PHONE_FRAME } from "../app/frame";
 import type { FontReadout } from "../app/fonts";

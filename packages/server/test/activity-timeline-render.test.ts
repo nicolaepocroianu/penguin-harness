@@ -35,7 +35,7 @@ describe("timeline rendering", () => {
   const file = (name: string) => path.join(dir, name);
 
   beforeAll(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-timeline-"));
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-timeline-"));
     // A 3 s recording at another size and rate, a 1 s line of speech, 1 s of music and a blip.
     await runFfmpeg(
       [

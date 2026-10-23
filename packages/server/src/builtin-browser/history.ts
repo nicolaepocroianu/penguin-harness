@@ -1,6 +1,6 @@
 /**
  * The built-in browser's history: every web page a tab visits, plus what an import brought in
- * from a system browser. It feeds the address bar's suggestions and `penguin browser history`.
+ * from a system browser. It feeds the address bar's suggestions and `wafh browser history`.
  *
  * One JSON file, `<root>/builtin-browser/history.json`, read on first use and written
  * atomically a moment after the last change (a page load produces a burst of tab events).
@@ -12,7 +12,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { atomicWriteFile } from "@prismshadow/penguin-core";
+import { atomicWriteFile } from "@waterford/waf-harness-core";
 import type { BuiltinBrowserHistoryEntry, BuiltinBrowserTab } from "../api/types.js";
 
 /** The most entries the file keeps. */

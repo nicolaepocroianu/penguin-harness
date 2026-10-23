@@ -17,7 +17,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement as h } from "react";
-import type { MachineInfo, MachinesResponse, MeResponse } from "@prismshadow/penguin-server/api";
+import type { MachineInfo, MachinesResponse, MeResponse } from "@waterford/waf-harness-server/api";
 import { ADMIN_ME } from "./helpers/admin-settings";
 import { mount, run, settle, unmountAll } from "./helpers/dom";
 import { apiError, json, stubFetch } from "./helpers/fetch";
@@ -44,7 +44,7 @@ function machineList(alias: string): MachinesResponse {
     socket: null,
     api: null,
     status: null,
-    root: "~/.penguin/data",
+    root: "~/.waf-harness/data",
   };
   return { machines: [machine], imageVersion: "0.2.16", job: null, jobs: [] };
 }

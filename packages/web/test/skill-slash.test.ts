@@ -13,7 +13,7 @@
  *   uses, which names the picked skills in the UI language.
  */
 import { describe, expect, it } from "vitest";
-import type { SkillMetadataItem } from "@prismshadow/penguin-server/api";
+import type { SkillMetadataItem } from "@waterford/waf-harness-server/api";
 import {
   filterSkills,
   localizedShortText,
@@ -78,7 +78,7 @@ describe("skillSlashItems (slash skill command item assembly)", () => {
       description: "Create agents from requirements",
       version: "2026.07.01.1",
     },
-    { name: "penguin-sdk", description: "Develop with the Penguin SDK", version: "" },
+    { name: "wafh-sdk", description: "Develop with the WAF Harness SDK", version: "" },
   ];
 
   it("one item per skill: cmd is /<skill_name>, desc follows the UI language (falling back to English without a Chinese short description)", () => {
@@ -88,7 +88,7 @@ describe("skillSlashItems (slash skill command item assembly)", () => {
         cmd: "/agent-initialization",
         desc: "Create agents from requirements",
       },
-      { name: "penguin-sdk", cmd: "/penguin-sdk", desc: "Develop with the Penguin SDK" },
+      { name: "wafh-sdk", cmd: "/wafh-sdk", desc: "Develop with the WAF Harness SDK" },
     ]);
     expect(skillSlashItems(skills, "en")).toEqual([
       {
@@ -96,7 +96,7 @@ describe("skillSlashItems (slash skill command item assembly)", () => {
         cmd: "/agent-initialization",
         desc: "Create agents from requirements",
       },
-      { name: "penguin-sdk", cmd: "/penguin-sdk", desc: "Develop with the Penguin SDK" },
+      { name: "wafh-sdk", cmd: "/wafh-sdk", desc: "Develop with the WAF Harness SDK" },
     ]);
   });
 
@@ -136,7 +136,7 @@ describe("filterSkills (search filter for the skill dropdown)", () => {
       description: "Create agents from requirements",
       version: "2026.07.01.1",
     },
-    { name: "penguin-sdk", description: "Develop with the Penguin SDK", version: "" },
+    { name: "wafh-sdk", description: "Develop with the WAF Harness SDK", version: "" },
   ];
 
   it("an empty query (including pure whitespace) returns everything", () => {
@@ -144,9 +144,9 @@ describe("filterSkills (search filter for the skill dropdown)", () => {
     expect(filterSkills(skills, "en", "   ")).toEqual(skills);
   });
 
-  it("filters by name substring (case-insensitive): sdk leaves only penguin-sdk", () => {
-    expect(filterSkills(skills, "en", "sdk").map((s) => s.name)).toEqual(["penguin-sdk"]);
-    expect(filterSkills(skills, "en", "SDK").map((s) => s.name)).toEqual(["penguin-sdk"]);
+  it("filters by name substring (case-insensitive): sdk leaves only wafh-sdk", () => {
+    expect(filterSkills(skills, "en", "sdk").map((s) => s.name)).toEqual(["wafh-sdk"]);
+    expect(filterSkills(skills, "en", "SDK").map((s) => s.name)).toEqual(["wafh-sdk"]);
   });
 
   it("filters by display copy: zh matches the Chinese short description, en always uses English", () => {

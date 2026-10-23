@@ -571,7 +571,7 @@ describe(`${PIPELINES} → current: ${OUTCOMES}`, () => {
 describe("opening a database from before the run kind and the product level", () => {
   /** A file database rolled back to `name`, the way a server that stopped upgrading left it. */
   function databaseThrough(name: string): string {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-oldschema-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-oldschema-"));
     const file = path.join(dir, "web.db");
     const db = new sqlite.DatabaseSync(file);
     try {

@@ -81,7 +81,7 @@ describe("registerWorkspace / unregisterWorkspace", () => {
 
   it("rejects a temporary-workspace path: the merge can never group it, so an entry would be an unremovable ghost", () => {
     const entries: readonly WorkspaceEntry[] = [];
-    const temp = "/home/u/.penguin/agents/a/workspaces/tmp-0123abcd";
+    const temp = "/home/u/.waf-harness/agents/a/workspaces/tmp-0123abcd";
     expect(registerWorkspace(entries, temp)).toBe(entries);
     expect(registerWorkspace(entries, `${temp}/`)).toBe(entries);
   });
@@ -206,7 +206,7 @@ describe("mergeRegisteredWorkspaces", () => {
   });
 
   it("temp-shaped registered paths never form a group (the merged temp group owns that space); no registrations = groups pass through", () => {
-    const tempPath = "/home/u/.penguin/agents/a/workspaces/tmp-0123abcd";
+    const tempPath = "/home/u/.waf-harness/agents/a/workspaces/tmp-0123abcd";
     const groups = [group(TEMP_WORKSPACE_GROUP_KEY, { temp: true, fullPath: null, label: "" })];
     expect(mergeRegisteredWorkspaces(groups, [{ path: tempPath }]).map((g) => g.key)).toEqual([
       TEMP_WORKSPACE_GROUP_KEY,

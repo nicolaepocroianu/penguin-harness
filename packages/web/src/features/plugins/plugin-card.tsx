@@ -28,7 +28,7 @@
  */
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
-import type { AgentSummary, PluginItem, QuickStartItem } from "@prismshadow/penguin-server/api";
+import type { AgentSummary, PluginItem, QuickStartItem } from "@waterford/waf-harness-server/api";
 import {
   AgentAvatar,
   Button,
@@ -41,7 +41,7 @@ import {
   StatusIcon,
   UpdateDot,
   toastError,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { cardBodyClick } from "../../lib/card-open";
@@ -90,7 +90,7 @@ export interface InstallTarget {
 }
 
 /**
- * A library plugin's quick start: what its package.json's `penguin.quick_start` declares, else its
+ * A library plugin's quick start: what its package.json's `wafh.quick_start` declares, else its
  * first skill invoked by name (the prompt read at click time, in the UI language); null for a
  * plugin with neither.
  */

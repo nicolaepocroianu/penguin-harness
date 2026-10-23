@@ -23,7 +23,7 @@ import type {
   OrgEmployeeState,
   OrgInbox,
   OrgTicketItem,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   INBOX_ROWS,
   boardSummary,

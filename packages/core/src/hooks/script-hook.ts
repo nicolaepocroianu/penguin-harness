@@ -50,7 +50,7 @@ export interface RunHookScriptOptions {
   signal?: AbortSignal;
   /**
    * Directories put at the front of the script's PATH (see
-   * {@link CreateAgentOptions.pathPrepend}), so a hook that shells out to `penguin` reaches
+   * {@link CreateAgentOptions.pathPrepend}), so a hook that shells out to `wafh` reaches
    * the harness running it. Only the environment is involved here: a hook is spawned as
    * `node <script>`, with no shell to re-order PATH afterwards.
    */

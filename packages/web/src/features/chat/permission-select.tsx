@@ -32,7 +32,7 @@ import type {
   ApprovalMode,
   SessionSandbox,
   SessionSandboxPreset,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Dropdown,
   GlyphIcon,
@@ -42,7 +42,7 @@ import {
   MenuItem,
   MenuRadioItem,
   MenuSeparator,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {

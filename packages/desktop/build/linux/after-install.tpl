@@ -1,8 +1,8 @@
 #!/bin/bash
 # Deb post-install (electron-builder deb.afterInstall). Overriding the option REPLACES
 # electron-builder's default template, so this file is that default (app-builder-lib
-# templates/linux/after-install.tpl, v26.15.3) verbatim, plus the marked PenguinHarness
-# section exposing the bundled `penguin` CLI launcher on PATH. The dollar-brace forms
+# templates/linux/after-install.tpl, v26.15.3) verbatim, plus the marked WAF Harness
+# section exposing the bundled `wafh` CLI launcher on PATH. The dollar-brace forms
 # are electron-builder template macros (executable, sanitizedProductName); any other
 # all-letter dollar-brace token fails the build, so shell variables stay brace-less.
 
@@ -16,10 +16,10 @@ else
     ln -sf '/opt/${sanitizedProductName}/${executable}' '/usr/bin/${executable}'
 fi
 
-# PenguinHarness: expose the bundled penguin CLI launcher on PATH. Never clobber a real
+# WAF Harness: expose the bundled wafh CLI launcher on PATH. Never clobber a real
 # file of that name; replacing a (possibly stale) symlink keeps re-installs idempotent.
-if [ ! -e '/usr/bin/penguin' ] || [ -L '/usr/bin/penguin' ]; then
-    ln -sf '/opt/${sanitizedProductName}/resources/app/bin/penguin' '/usr/bin/penguin'
+if [ ! -e '/usr/bin/wafh' ] || [ -L '/usr/bin/wafh' ]; then
+    ln -sf '/opt/${sanitizedProductName}/resources/app/bin/wafh' '/usr/bin/wafh'
 fi
 
 # Check if user namespaces are supported by the kernel and working with a quick test:

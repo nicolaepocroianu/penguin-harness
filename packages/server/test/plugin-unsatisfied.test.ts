@@ -4,7 +4,7 @@ import {
   type ModuleDef,
   type ModuleTree,
   type Problem,
-} from "@prismshadow/penguin-core/kernel";
+} from "@waterford/waf-harness-core/kernel";
 import type { LoadedPlugin } from "../src/plugin/host.js";
 import {
   UnsatisfiedPluginsError,

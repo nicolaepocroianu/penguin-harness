@@ -2,10 +2,10 @@
  * The chips in the activity header beside the journey: a proposal waiting on the author, and
  * the run in flight, which opens where that run is followed rather than only naming it.
  */
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { toneInk, toneName } from "../../lib/tone";
-import { Dot, GlyphIcon, ICON_SIZE, LiveDuration } from "@prismshadow/penguin-ui";
+import { Dot, GlyphIcon, ICON_SIZE, LiveDuration } from "@waterford/waf-harness-ui";
 import { MARK_PATH } from "./journey-header";
 import { runKindLabel } from "./run-toasts";
 import type { StudioPanel } from "./workspace-model";

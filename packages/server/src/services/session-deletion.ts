@@ -16,7 +16,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { scratchpadDir } from "@prismshadow/penguin-core";
+import { scratchpadDir } from "@waterford/waf-harness-core";
 import type { SessionIndex, SessionOrigins } from "../mechanisms/sessions.js";
 import type { Traces } from "../mechanisms/traces.js";
 

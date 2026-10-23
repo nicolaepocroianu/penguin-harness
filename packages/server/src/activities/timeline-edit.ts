@@ -13,7 +13,7 @@
  *
  * The idea is OpenMontage's edit stage, where an "edit director" turns the scene plan and the
  * assets into edit decisions (github.com/calesthio/OpenMontage, skills/pipelines/explainer/), as
- * an idea only; the prompt and the checks are Penguin's own.
+ * an idea only; the prompt and the checks are WAF Harness's own.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -135,7 +135,7 @@ export async function stageTimelineEdit(
 /** The timeline edit prompt: its text is in prompts/timeline.ts. */
 export const timelineEditPrompt = TIMELINE_PROMPT({ TIMELINE_INPUT_FILE, TIMELINE_OUTPUT_FILE });
 
-/** Why what the agent wrote is not a timeline Penguin keeps. */
+/** Why what the agent wrote is not a timeline WAF Harness keeps. */
 export class TimelineEditProblem extends Error {}
 
 /** What the agent's timeline must keep to, from what it was given. */

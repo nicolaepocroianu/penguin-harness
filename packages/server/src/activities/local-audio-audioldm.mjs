@@ -312,11 +312,7 @@ export async function generate({ moduleUrl, cacheDir, downloadDir, text, seconds
   const tensor = (data, dims, type = "float32") => new ort.Tensor(type, data, dims);
   async function session(name, build) {
     const { g, output, dims } = build(await safetensors(files[name]));
-    const graph = await g.save(
-      output,
-      dims,
-      path.join(path.dirname(files[name]), "penguin-v1.onnx"),
-    );
+    const graph = await g.save(output, dims, path.join(path.dirname(files[name]), "wafh-v1.onnx"));
     return ort.InferenceSession.create(graph, {
       executionProviders: ["cpu"],
       intraOpNumThreads: 4,

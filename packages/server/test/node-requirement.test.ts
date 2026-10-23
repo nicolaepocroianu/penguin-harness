@@ -36,7 +36,7 @@ describe("a module's Node requirement", () => {
   });
 
   async function module(files: Record<string, string>) {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-node-requirement-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-node-requirement-"));
     cleanups.push(root);
     for (const [name, text] of Object.entries(files)) {
       await fs.mkdir(path.dirname(path.join(root, name)), { recursive: true });

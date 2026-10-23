@@ -30,7 +30,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import type { MachinesResponse } from "@prismshadow/penguin-server/api";
+import type { MachinesResponse } from "@waterford/waf-harness-server/api";
 import * as api from "../api/endpoints";
 import { apiErrorText } from "../lib/api-error";
 import { useAuth } from "./auth";

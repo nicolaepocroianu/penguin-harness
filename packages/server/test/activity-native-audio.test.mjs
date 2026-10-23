@@ -74,7 +74,7 @@ describe("checkpoint cache", () => {
   });
 });
 async function weights(tensors) {
-  const root = await mkdtemp(path.join(os.tmpdir(), "penguin-audio-graph-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "wafh-audio-graph-"));
   roots.push(root);
   const header = {};
   const parts = [];

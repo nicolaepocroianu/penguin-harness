@@ -24,7 +24,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { applyThemeAttributes } from "@prismshadow/penguin-ui/boot";
+import { applyThemeAttributes } from "@waterford/waf-harness-ui/boot";
 import { asAccentChoice, resolveAccent } from "./lib/accents";
 import { replaceSearch, usePrefersDark, useSearch } from "./lib/location";
 import { probeAccents, probeTokens } from "./lib/token-probe";
@@ -39,11 +39,11 @@ import {
   resolveMode,
 } from "./lib/url-state";
 import type { GalleryState, PrefKey, RememberedPrefs } from "./lib/url-state";
-import { readSitePref, SITE_THEME_KEY } from "@prismshadow/penguin-ui/site";
+import { readSitePref, SITE_THEME_KEY } from "@waterford/waf-harness-ui/site";
 import { S } from "./strings";
 import type { GalleryStrings } from "./strings";
 
-const storageKey = (key: string) => `penguin-gallery.${key}`;
+const storageKey = (key: string) => `wafh-gallery.${key}`;
 
 /** The gallery's own stored preferences and the site's shared mode, resolved. */
 function readRemembered(): RememberedPrefs {

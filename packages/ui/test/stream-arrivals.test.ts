@@ -23,7 +23,7 @@ import { renderStatic } from "../src/testing";
 
 const MIXED = [
   "The workspace is **healthy**. Here is what I checked, with [the log](https://example.invalid/log) ",
-  "and `penguin.toml` in hand.\n\n",
+  "and `wafh.toml` in hand.\n\n",
   "## Summary\n\n",
   "- The build directory is present.\n",
   "- No stray \\*lock\\* files were left.\n\n",

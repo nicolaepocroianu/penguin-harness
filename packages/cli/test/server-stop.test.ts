@@ -1,5 +1,5 @@
 /**
- * `penguin server stop` (commands/server-stop.ts): what "stopped" means, and what a signal
+ * `wafh server stop` (commands/server-stop.ts): what "stopped" means, and what a signal
  * that did not land means. Driven with injected effects — the signal, the clock, the
  * platform — against a real lock file, so no server has to exist to be stopped.
  */
@@ -13,7 +13,7 @@ import type { StopEffects } from "../src/commands/server-stop.js";
 
 /** A lock the liveness probe accepts: this process's pid, and a port that answers. */
 async function liveRoot(): Promise<{ root: string; port: number; close: () => void }> {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-stop-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-stop-"));
   const server = net.createServer();
   const port = await new Promise<number>((resolve) =>
     server.listen(0, "127.0.0.1", () => resolve((server.address() as net.AddressInfo).port)),
@@ -43,7 +43,7 @@ function effects(over: Partial<StopEffects>): StopEffects {
   };
 }
 
-describe("penguin server stop", () => {
+describe("wafh server stop", () => {
   let live: Awaited<ReturnType<typeof liveRoot>>;
   beforeEach(async () => {
     live = await liveRoot();
@@ -54,7 +54,7 @@ describe("penguin server stop", () => {
   });
 
   it("a root nothing is serving is already the outcome asked for", async () => {
-    const empty = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-stop-empty-"));
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-stop-empty-"));
     try {
       expect(await stop(empty, effects({}))).toEqual({ ok: true });
     } finally {

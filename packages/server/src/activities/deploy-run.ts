@@ -9,7 +9,7 @@
  * since it was last run.
  *
  * The log is kept twice: the last 2 000 lines in memory for the one-second polls, and the whole
- * of it (tail bounded at 256 KB) in `PENGUIN_HOME/activity-deploy/logs/<runId>.log`, which is
+ * of it (tail bounded at 256 KB) in `WAFH_HOME/activity-deploy/logs/<runId>.log`, which is
  * what a later reader gets once the process that ran it is gone.
  */
 import fs from "node:fs";
@@ -302,7 +302,7 @@ export interface DeployStageDone {
 
 export interface DeployRunnerDeps {
   store: DeployRunStore;
-  /** Where log files go: PENGUIN_HOME/activity-deploy/logs. */
+  /** Where log files go: WAFH_HOME/activity-deploy/logs. */
   logDir: string;
   now?: () => Date;
   /** Told of each stage that finishes with success; what it throws is ignored. */

@@ -19,11 +19,11 @@ import type {
   BrowserExtensionPairingResponse,
   BrowserExtensionsResponse,
 } from "../../src/api/types.js";
-import { PENGUIN_EXTENSION_ID } from "../../src/builtin-browser/extension-origin.js";
+import { WAFH_EXTENSION_ID } from "../../src/builtin-browser/extension-origin.js";
 import { apiClient, createTestApp, provisionUser } from "../helpers.js";
 import type { TestApp } from "../helpers.js";
 
-const EXTENSION_ORIGIN = `chrome-extension://${PENGUIN_EXTENSION_ID}`;
+const EXTENSION_ORIGIN = `chrome-extension://${WAFH_EXTENSION_ID}`;
 
 let t: TestApp;
 let clock: number;

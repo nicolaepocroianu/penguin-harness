@@ -8,7 +8,7 @@
  * DOM); the API module is mocked at the seam.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SessionsResponse } from "@prismshadow/penguin-server/api";
+import type { SessionsResponse } from "@waterford/waf-harness-server/api";
 
 vi.mock("../src/api/endpoints", () => ({ batchSessions: vi.fn() }));
 

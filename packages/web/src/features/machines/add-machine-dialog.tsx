@@ -23,7 +23,7 @@
  * them changed asks first, and nothing closes it while Add is in flight.
  *
  * How each part looks is the shared package's add-machine shell (`AddMachineShell`,
- * `MachineHostList`, `MachineHostRow`, `AddMachineFooter` in `@prismshadow/penguin-ui`);
+ * `MachineHostList`, `MachineHostRow`, `AddMachineFooter` in `@waterford/waf-harness-ui`);
  * `AddMachineBody` and `AddMachineFooter` here hand it this dialog's words and rows and are pure
  * functions of their props; the dialog around them holds the state, reads the hosts' lines once
  * when it opens, and makes the requests.
@@ -33,7 +33,7 @@ import type {
   MachinesResponse,
   MachinesUseResponse,
   SshHostSummary,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   AddMachineFooter as AddMachineFooterView,
   AddMachineShell,
@@ -42,7 +42,7 @@ import {
   Modal,
   useFormDraft,
   useGuardedClose,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";

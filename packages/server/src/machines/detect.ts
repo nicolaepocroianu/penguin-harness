@@ -14,12 +14,12 @@
 import type { RemoteLayout } from "./layout.js";
 
 /** Separates the identity line from the manifest text in the probe's output. */
-const SECTION = "---penguin---";
+const SECTION = "---wafh---";
 
 /**
  * POSIX probe. `uname -s -m` names the machine; the manifest is read from the layout's
  * program directory, and harness.json from its data root — a remote's own
- * PENGUIN_INSTALL_DIR or PENGUIN_HOME override is not visible over a non-interactive ssh,
+ * WAFH_INSTALL_DIR or WAFH_HOME override is not visible over a non-interactive ssh,
  * and the layout is where an install this page made would land (layout.ts).
  */
 export function posixProbe(layout: RemoteLayout): string {
@@ -54,7 +54,7 @@ export type RemoteArch = "x64" | "arm64";
 export interface RemoteIdentity {
   platform: RemotePlatform;
   arch: RemoteArch;
-  /** Version of the PenguinHarness installed there, or null when there is none. */
+  /** Version of the WAF Harness installed there, or null when there is none. */
   installedVersion: string | null;
   /** Raw text of the remote data root's hmr/harness.json, or null when nothing was pushed. */
   harness: string | null;

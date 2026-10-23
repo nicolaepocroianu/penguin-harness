@@ -4,7 +4,7 @@
  * to confirm without making it again, and what a report adds up to.
  */
 import { describe, expect, it } from "vitest";
-import type { RunCleanupReport } from "@prismshadow/penguin-server/api";
+import type { RunCleanupReport } from "@waterford/waf-harness-server/api";
 import {
   KEEP_DEFAULT,
   KEEP_MAX,

@@ -1,6 +1,6 @@
 # A2UI component reference
 
-Every component the client can render, field by field, with a valid example and the mistakes the checker rejects. The limits here are the checker's: over a limit is an **error** (the block will not render), past a "warn" mark is a **warning** (the block renders, the reader has more to take in). The grammar lives in `@prismshadow/penguin-core/a2ui`; this file and the checker are generated from the same rules, so what passes here renders.
+Every component the client can render, field by field, with a valid example and the mistakes the checker rejects. The limits here are the checker's: over a limit is an **error** (the block will not render), past a "warn" mark is a **warning** (the block renders, the reader has more to take in). The grammar lives in `@waterford/waf-harness-core/a2ui`; this file and the checker are generated from the same rules, so what passes here renders.
 
 ## The fence
 
@@ -118,10 +118,10 @@ A procedure the user performs, 1–15 steps, one instruction per step. A `warnin
     {
       "caution": "Running sessions keep the old key until they restart.",
       "text": "Store the new key in the Vault under the same name.",
-      "code": "penguin config set-key openai sk-...",
+      "code": "wafh config set-key openai sk-...",
       "lang": "sh"
     },
-    { "text": "Send one test request and confirm it succeeds.", "code": "penguin models test openai", "lang": "sh" },
+    { "text": "Send one test request and confirm it succeeds.", "code": "wafh models test openai", "lang": "sh" },
     {
       "warning": "Deleting the old key logs out every client that still uses it.",
       "text": "Delete the old key in the provider console.",

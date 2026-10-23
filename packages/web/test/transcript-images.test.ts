@@ -21,7 +21,7 @@ import { LocaleProvider } from "../src/state/locale";
 import { stubLocalStorage } from "./helpers/storage";
 
 beforeEach(() => {
-  stubLocalStorage().setItem("penguin.lang", "en");
+  stubLocalStorage().setItem("wafh.lang", "en");
 });
 afterEach(() => forgetSessionMachines());
 

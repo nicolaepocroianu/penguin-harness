@@ -31,9 +31,9 @@
  * style of telegram-api.ts.
  */
 import { createDecipheriv, randomBytes } from "node:crypto";
-import { userAgent } from "@prismshadow/penguin-core";
-import { Interface, Module, Provide } from "@prismshadow/penguin-core/kernel";
-import type { Opaque } from "@prismshadow/penguin-core/kernel";
+import { userAgent } from "@waterford/waf-harness-core";
+import { Interface, Module, Provide } from "@waterford/waf-harness-core/kernel";
+import type { Opaque } from "@waterford/waf-harness-core/kernel";
 
 /** Host serving the three bind-task calls (not the bot OpenAPI host). */
 export const QQ_SCAN_BASE = "https://q.qq.com";

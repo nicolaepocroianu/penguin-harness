@@ -1,11 +1,11 @@
 /**
- * Building a module: a run workspace's own build, a checkout module's build into Penguin's
+ * Building a module: a run workspace's own build, a checkout module's build into WAF Harness's
  * output, the player bundle, and the stylesheet compile every one of them and a deploy's
  * prepare stage share.
  *
  * A stylesheet is compiled with the Sass the WAF build pins (`SASS_PACKAGE`), by its
  * command line, as a deploy always compiled it: what the preview shows is what a release
- * ships. That Sass is installed once under Penguin's root on first use and run from there
+ * ships. That Sass is installed once under WAF Harness's root on first use and run from there
  * with this process's Node, so after the first compile nothing asks a registry again.
  *
  * A run workspace's build is its agent's code, so it is built as the agent's own commands ran:
@@ -18,8 +18,8 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { SpawnConfiner } from "@prismshadow/penguin-core";
-import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
+import type { SpawnConfiner } from "@waterford/waf-harness-core";
+import { Component, Interface, Use } from "@waterford/waf-harness-core/kernel";
 import type { Config } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
 import { Sandbox, SandboxModule } from "../sandbox/service.js";
@@ -92,7 +92,7 @@ export abstract class ModuleBuilder extends Interface<{
    * nothing to confine it then, nothing runs and the outcome says why.
    */
   buildRun(workspace: string): Promise<BuildOutcome>;
-  /** A checkout module, built into Penguin's output without writing to the checkout. */
+  /** A checkout module, built into WAF Harness's output without writing to the checkout. */
   buildCheckout(job: CheckoutBuildJob): Promise<BuildOutcome>;
   /** The player bundle, built from the checkout's framework. */
   buildPlayer(job: PlayerBuildJob): Promise<BuildOutcome>;
@@ -123,7 +123,7 @@ export function moduleBuilds(
       spawnNodeScript(PLAYER_BUILD_SCRIPT, {
         cwd: job.frameworkRoot,
         env: {
-          PENGUIN_PLAYER_BUILD: JSON.stringify({
+          WAFH_PLAYER_BUILD: JSON.stringify({
             frameworkRoot: job.frameworkRoot,
             outputRoot: job.outputRoot,
             source: PLAYER_SOURCE,
@@ -133,9 +133,9 @@ export function moduleBuilds(
   };
 }
 
-/** Where the pinned Sass is installed under Penguin's root. */
-export function sassHome(penguinRoot: string): string {
-  return path.join(penguinRoot, "tools", `sass-${SASS_VERSION}`);
+/** Where the pinned Sass is installed under WAF Harness's root. */
+export function sassHome(wafHarnessRoot: string): string {
+  return path.join(wafHarnessRoot, "tools", `sass-${SASS_VERSION}`);
 }
 
 /** The command line script of a complete install of the pinned Sass, or null. */

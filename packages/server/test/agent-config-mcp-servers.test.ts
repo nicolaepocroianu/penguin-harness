@@ -18,7 +18,7 @@ import fs from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
-import { systemConfigPath } from "@prismshadow/penguin-core";
+import { systemConfigPath } from "@waterford/waf-harness-core";
 import type {
   AgentConfigResponse,
   McpServerTestResponse,

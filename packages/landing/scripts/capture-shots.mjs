@@ -10,7 +10,7 @@
  * src/assets/shots/ as chat-<lang>-<mode>.webp (re-encoded to WebP inside Chromium to keep
  * the repo small). The rest of the home page shows the app live, from the gallery.
  *
- * Prereqs: `pnpm --filter @prismshadow/penguin-{core,server,web} build` and Playwright's
+ * Prereqs: `pnpm --filter @waterford/waf-harness-{core,server,web} build` and Playwright's
  * chromium. Run: `node scripts/capture-shots.mjs`. On a shared machine, SHOTS_PORT moves the
  * server (the mock LLM takes the next port) and SHOTS_OUT_DIR writes the shots elsewhere.
  */
@@ -30,8 +30,8 @@ const MOCK_PORT = SRV_PORT + 1;
 // `localhost`, not `127.0.0.1`: that literal address is reserved as the Workspace-preview
 // host, and the API answers 401 on it.
 const BASE = `http://localhost:${SRV_PORT}`;
-// Pins the otherwise-random seeded admin password (PENGUIN_SEED_ADMIN_PASSWORD below).
-const ADMIN_PASSWORD = "penguin-0000";
+// Pins the otherwise-random seeded admin password (WAFH_SEED_ADMIN_PASSWORD below).
+const ADMIN_PASSWORD = "wafh-0000";
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
 
 // ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ cat > claude-code-expert/package.json <<'EOF'
   "private": true,
   "type": "module",
   "scripts": { "start": "tsx src/rag.ts" },
-  "dependencies": { "@prismshadow/penguin-core": "^0.1.0", "tsx": "^4" }
+  "dependencies": { "@waterford/waf-harness-core": "^0.1.0", "tsx": "^4" }
 }
 EOF
 cat > claude-code-expert/src/rag.ts <<'EOF'
@@ -60,7 +60,7 @@ cat > claude-code-expert/src/rag.ts <<'EOF'
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import { createAgent, isModelMessage, userText } from "@prismshadow/penguin-core";
+import { createAgent, isModelMessage, userText } from "@waterford/waf-harness-core";
 
 const walk = (d) =>
   fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
@@ -85,7 +85,7 @@ const score = (q, i) => {
   }
   return s;
 };
-const agent = await createAgent({ root: "penguin_data" });
+const agent = await createAgent({ root: "wafh_data" });
 
 http.createServer(async (req, res) => {
   if (req.method !== "POST") { res.end(fs.readFileSync("public/index.html")); return; }
@@ -156,13 +156,13 @@ const SCRIPTS = {
     turns: [
       {
         thinking:
-          "One sentence is enough — the penguin-sdk skill has the full recipe: collect the corpus, build a BM25 index, answer through a Session with [n] citations linking to the originals.",
+          "One sentence is enough — the wafh-sdk skill has the full recipe: collect the corpus, build a BM25 index, answer through a Session with [n] citations linking to the originals.",
         text: "Collecting the docs into the corpus first:",
         cmd: CMD_COLLECT,
       },
       {
         thinking:
-          "Corpus in place. Now the app: local BM25 retrieval (no embedding credential), cited answers, and a Penguin-style chat UI with citations linking to /corpus originals.",
+          "Corpus in place. Now the app: local BM25 retrieval (no embedding credential), cited answers, and a WAF Harness-style chat UI with citations linking to /corpus originals.",
         text: "Corpus ready — now the retrieval and cited-answer entry:",
         cmd: CMD_APP,
       },
@@ -173,7 +173,7 @@ ${TREE}
 
 - Retrieval: a local BM25 index over every doc chunk, Chinese questions included;
 - Answers: each question streams through a Session, with [1][2] citations that link straight to the \`corpus/\` originals;
-- UI: a Penguin-style chat page with example questions in the empty state;
+- UI: a WAF Harness-style chat page with example questions in the empty state;
 - Run: \`cd claude-code-expert && npm install && npm start\`, then open http://localhost:4630.`,
       },
     ],
@@ -430,9 +430,9 @@ async function provisionUser(adminCookie, lang) {
   try {
     await api(session.cookie, "PUT", "/api/me/password", {
       oldPassword: initial,
-      newPassword: `penguin-${userId}-2026`,
+      newPassword: `wafh-${userId}-2026`,
     });
-    password = `penguin-${userId}-2026`;
+    password = `wafh-${userId}-2026`;
   } catch {}
   session = await login(userId, password);
 
@@ -469,7 +469,7 @@ async function provisionUser(adminCookie, lang) {
 // Main.
 // ---------------------------------------------------------------------------
 
-const dataRoot = mkdtempSync(path.join(os.tmpdir(), "penguin-shots-"));
+const dataRoot = mkdtempSync(path.join(os.tmpdir(), "wafh-shots-"));
 const wsDir = path.join(dataRoot, "workspace-apps");
 mkdirSync(wsDir, { recursive: true });
 mkdirSync(OUT_DIR, { recursive: true });
@@ -480,12 +480,12 @@ console.log(`[shots] mock LLM on ${MOCK}`);
 const srv = spawn("node", [path.join(ROOT, "packages/server/dist/index.js")], {
   env: {
     ...process.env,
-    PENGUIN_HOME: path.join(dataRoot, "home"),
-    PENGUIN_WEB_DB: path.join(dataRoot, "web.db"),
-    PENGUIN_WEB_DIST: path.join(ROOT, "packages/web/dist"),
+    WAFH_HOME: path.join(dataRoot, "home"),
+    WAFH_WEB_DB: path.join(dataRoot, "web.db"),
+    WAFH_WEB_DIST: path.join(ROOT, "packages/web/dist"),
     PORT: String(SRV_PORT),
     HOST: "127.0.0.1",
-    PENGUIN_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
+    WAFH_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -563,8 +563,8 @@ try {
       });
       await context.addInitScript(
         ([t, l]) => {
-          localStorage.setItem("penguin.theme", t);
-          localStorage.setItem("penguin.lang", l);
+          localStorage.setItem("wafh.theme", t);
+          localStorage.setItem("wafh.lang", l);
         },
         [theme, lang],
       );

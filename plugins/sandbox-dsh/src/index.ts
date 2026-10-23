@@ -1,5 +1,5 @@
 /**
- * @penguinharness/sandbox-dsh — the DeepSeek Harness sandbox ecosystem
+ * @waf-harness/sandbox-dsh — the DeepSeek Harness sandbox ecosystem
  * behind this harness's own sandbox interface.
  *
  * A PLUGIN PACKAGE, not part of the platform: a Project asks for it on the Plugins page
@@ -23,14 +23,14 @@
  */
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { Bind, Component } from "@prismshadow/penguin-core/plugin";
+import { Bind, Component } from "@waterford/waf-harness-core/plugin";
 import type {
   ConfinedArgv,
   Plugin,
   SandboxLimit,
   SandboxProvider,
   SandboxProviderSource,
-} from "@prismshadow/penguin-core/plugin";
+} from "@waterford/waf-harness-core/plugin";
 
 /**
  * Programs the Windows ACL restricted-token runner cannot start — and they include the harness's
@@ -62,7 +62,7 @@ const unstartable = (program: string): boolean => {
 
 /** The one setting that fixes an MSYS-runtime session shell, as every refusal of it words it. */
 const SESSION_SHELL_FIX =
-  "Set PENGUIN_SHELL=pwsh (PowerShell 7) — or PENGUIN_SHELL=powershell (Windows PowerShell " +
+  "Set WAFH_SHELL=pwsh (PowerShell 7) — or WAFH_SHELL=powershell (Windows PowerShell " +
   "5.1) where PowerShell 7 is not installed — in the harness's environment and restart it";
 
 /**
@@ -90,7 +90,7 @@ export function assertSessionShellConfinable(
  * Refuse, before the runner is involved, a spawn whose program the ACL runner cannot start.
  * Without this every confined command still fails closed, but with the runner's error — which
  * names WSL or an MSYS internal, not the setting that fixes it. The same `confine()` carries a
- * stdio MCP Server's launch command, which `PENGUIN_SHELL` does not choose: only a program that
+ * stdio MCP Server's launch command, which `WAFH_SHELL` does not choose: only a program that
  * IS the session shell is pointed at that setting. A `sessionShell` of `null` (a host core that
  * does not export it) cannot tell the two apart and keeps the session shell's wording.
  */
@@ -119,12 +119,12 @@ export function assertAclRunnerCanStart(
 
 /**
  * The host's plugin contract, named by a variable so this package's bundle leaves the import to
- * run time: tsup inlines `@prismshadow/penguin-core/plugin` for the decorators (a literal
+ * run time: tsup inlines `@waterford/waf-harness-core/plugin` for the decorators (a literal
  * specifier), and a second, bundled copy of the session shell would be this package's
  * resolution, not the harness's. Resolved where the plugin runs, from the installation; where
  * the host's core cannot be reached the import fails and `hostSessionShell` returns `null`.
  */
-const HOST_CORE: string = "@prismshadow/penguin-core/plugin";
+const HOST_CORE: string = "@waterford/waf-harness-core/plugin";
 
 /**
  * The harness's session shell, from the host's core; `null` when that core does not export

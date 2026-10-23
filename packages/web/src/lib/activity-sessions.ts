@@ -2,7 +2,7 @@
  * Sessions that are an activity's generation runs belong to that activity: they live in
  * its studio, not in the global session list, and opening one goes back to the activity.
  */
-import type { SessionInfo } from "@prismshadow/penguin-server/api";
+import type { SessionInfo } from "@waterford/waf-harness-server/api";
 import { latestConversation, matchesSessionQuery, withoutOrgSessions } from "./session-grouping";
 
 export function withoutActivityRuns(sessions: readonly SessionInfo[]): SessionInfo[] {

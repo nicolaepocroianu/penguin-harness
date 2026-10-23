@@ -199,7 +199,7 @@ async function stageComposition(workspace: string, stage: CompositionStage): Pro
     compositionTemplate(target.width, target.height),
     { flag: "wx" },
   );
-  // Copies for the agent to read; the preview serves the scripts from Penguin, not these.
+  // Copies for the agent to read; the preview serves the scripts from WAF Harness, not these.
   await fs.writeFile(path.join(workspace, COMPOSITION_GSAP_FILE), await gsapSource(), {
     flag: "wx",
   });

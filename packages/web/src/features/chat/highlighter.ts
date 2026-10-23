@@ -12,10 +12,10 @@
  * CSP that forbids it, a construction that throws — the work falls back to this thread, which is
  * exactly the old behaviour and still correct, only blocking.
  */
-import type { HighlightOptions } from "@prismshadow/penguin-ui";
+import type { HighlightOptions } from "@waterford/waf-harness-ui";
 import type { HighlightRequest, HighlightResponse } from "./highlighter.worker";
-import { isRuntimeLanguage, resolveLanguage } from "@prismshadow/penguin-ui";
-import type { RuntimeGrammar } from "@prismshadow/penguin-ui/highlighter";
+import { isRuntimeLanguage, resolveLanguage } from "@waterford/waf-harness-ui";
+import type { RuntimeGrammar } from "@waterford/waf-harness-ui/highlighter";
 
 /** undefined: not tried yet. null: unavailable here, use the main thread. */
 let worker: Worker | null | undefined;
@@ -78,7 +78,7 @@ export async function highlightToHtml(
     // Imported here and not at the top: the engine is already in the worker's bundle, and a
     // static import would put a second copy of it on the main thread for every reader whose
     // worker works — which is all of them.
-    const { highlight } = await import("@prismshadow/penguin-ui/highlighter");
+    const { highlight } = await import("@waterford/waf-harness-ui/highlighter");
     return highlight(code, language, options, runtime);
   }
   const id = (nextId += 1);

@@ -1,7 +1,7 @@
 /**
  * Which repository this build is made from, and whether that repository publishes the
  * releases this build updates to. Every updater reads it — the desktop shell's, the server's
- * update reminder and self-update, `penguin update` — and so does the Web App for its release
+ * update reminder and self-update, `wafh update` — and so does the Web App for its release
  * links.
  *
  * A repository that publishes no releases says so here, and each updater then stands down
@@ -20,6 +20,6 @@ export interface ReleaseIdentity {
 }
 
 export const RELEASE_IDENTITY: ReleaseIdentity = {
-  repository: "nicolaepocroianu/penguin-harness",
+  repository: "nicolaepocroianu/waf-harness",
   publishesReleases: false,
 };

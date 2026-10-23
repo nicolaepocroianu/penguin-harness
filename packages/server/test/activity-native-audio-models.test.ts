@@ -8,7 +8,7 @@ import { LOCAL_AUDIO_MODELS } from "../src/activities/local-audio-models.js";
 import { runLocalAudioWorker } from "../src/activities/local-audio.js";
 
 // Explicit opt-in: the full checkpoints need gigabytes of disk and native RAM.
-const cacheDir = process.env.PENGUIN_AUDIO_SMOKE_CACHE;
+const cacheDir = process.env.WAFH_AUDIO_SMOKE_CACHE;
 describe.skipIf(!cacheDir)("real native sound-effect models", () => {
   it.each(["audiogen", "audioldm"] as const)(
     "generates a five-second %s WAV in the cancellable worker",

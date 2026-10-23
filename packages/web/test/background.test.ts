@@ -11,7 +11,7 @@
  * - Given a decoder failure, choosing a picture releases the temporary URL and keeps the existing background.
  * - Given a valid image, choosing it stores a locally encoded image and reveals the controls.
  */
-import { AppShell } from "@prismshadow/penguin-ui";
+import { AppShell } from "@waterford/waf-harness-ui";
 import { createElement as h } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BackgroundControls } from "../src/features/settings/background-controls";

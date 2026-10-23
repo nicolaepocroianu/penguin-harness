@@ -12,15 +12,15 @@
  * block below the row is always on screen and names the tool and its arguments.
  */
 import { useMemo, useState } from "react";
-import { DETACHED_TOOL_NOTE_PREFIX } from "@prismshadow/penguin-core/interfaces";
+import { DETACHED_TOOL_NOTE_PREFIX } from "@waterford/waf-harness-core/interfaces";
 import {
   Button,
   CopyButton,
   ToolCallCard,
   outputExpandable,
   useElapsedPast,
-} from "@prismshadow/penguin-ui";
-import type { RunState, ToolCallDuration } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { RunState, ToolCallDuration } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toolDisplayName } from "../../lib/tool-alias";
 import { stripAnsi } from "../../lib/strip-ansi";

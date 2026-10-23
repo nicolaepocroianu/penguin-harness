@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from "react-router";
-import { SiteFooter, useRouteScroll, useSearchHotkey } from "@prismshadow/penguin-ui/site";
+import { SiteFooter, useRouteScroll, useSearchHotkey } from "@waterford/waf-harness-ui/site";
 import { Nav } from "./components/nav";
 import { Sidebar } from "./components/sidebar";
 import { DocSearch } from "./components/doc-search";

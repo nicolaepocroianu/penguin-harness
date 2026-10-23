@@ -9,9 +9,9 @@ Prepare the Target for OPRO before H1 is measured: one Target-owned Skill holds 
 ```bash
 PROJECT_DIR="<app_data_dir>"
 PROJECT_ID="$(basename "$PROJECT_DIR")"
-PENGUIN_HOME="$(dirname "$PROJECT_DIR")"
-export PENGUIN_HOME
-penguin agent create --agent-id "<id>" --project-id "$PROJECT_ID" --json
+WAFH_HOME="$(dirname "$PROJECT_DIR")"
+export WAFH_HOME
+wafh agent create --agent-id "<id>" --project-id "$PROJECT_ID" --json
 ```
 
 Then set `memory.enabled: false` in its `system_config.yaml`, replacing the field rather than adding a duplicate key: the paper's scorer answers every problem independently, and a memory saved in one run would reach the next. A new Target keeps its first `version`.

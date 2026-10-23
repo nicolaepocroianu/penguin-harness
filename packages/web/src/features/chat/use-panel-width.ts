@@ -23,7 +23,7 @@ import { useStore } from "zustand/react";
 import { createStore } from "zustand/vanilla";
 
 const MIN_WIDTH = 320;
-const WIDTH_STORAGE_KEY = "penguin.panelWidth";
+const WIDTH_STORAGE_KEY = "wafh.panelWidth";
 
 /** Width cap: at most half the window (keeping the chat column usable), plus a hard 720px readability ceiling. */
 export function maxWidthFor(windowWidth: number): number {

@@ -1,5 +1,5 @@
 /**
- * Build identity: what `penguin version [--json]` and GET /api/version report.
+ * Build identity: what `wafh version [--json]` and GET /api/version report.
  *
  * The git-backed cases run against real throwaway repositories rather than a stubbed git,
  * because the facts under test are the exact output shapes of `git describe --tags --dirty
@@ -21,7 +21,7 @@ import { findCheckoutRoot, readCheckout } from "../src/internal/git-facts.js";
 let tmp: string;
 
 beforeEach(async () => {
-  tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "penguin-build-info-"));
+  tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "wafh-build-info-"));
   resetBuildInfoCache();
 });
 
@@ -197,7 +197,7 @@ describe("stampedCheckout", () => {
   // The stamp is a string literal a bundler substituted for a declared-but-never-defined
   // identifier. These drive it through the same globalThis slot the substitution produces,
   // because the alternative — running a real bundler per case — tests esbuild, not this.
-  const KEY = "__PENGUIN_BUILD_GIT__";
+  const KEY = "__WAFH_BUILD_GIT__";
   const withStamp = <T>(value: unknown, body: () => T): T => {
     const had = KEY in (globalThis as Record<string, unknown>);
     const before = (globalThis as Record<string, unknown>)[KEY];

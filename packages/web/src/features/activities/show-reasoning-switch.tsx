@@ -3,7 +3,7 @@
  * transcript, so only what it did remains. The owner keeps the value (useShowReasoning).
  */
 import { useId } from "react";
-import { Switch } from "@prismshadow/penguin-ui";
+import { Switch } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 
 export function ShowReasoningSwitch({

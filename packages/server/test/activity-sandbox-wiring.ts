@@ -3,7 +3,7 @@
  * over the same authoring and generation stand-ins, and a module builder that builds nothing
  * and records what it was asked to build.
  */
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import type { ModuleBuilder } from "../src/activities/module-builder.js";
 import { ActivityModuleSourceService } from "../src/activities/module-source.js";
 import { ActivityRunStore, type ActivityRuns } from "../src/activities/run-store.js";
@@ -36,11 +36,11 @@ export function wiredSandbox(deps: {
   activities: object;
   /** The generation service's stand-in, read by the module source. */
   generation: object;
-  /** Penguin's root. */
+  /** WAF Harness's root. */
   root: string;
   /** The WAF checkout, or null when there is none. */
   wafRoot: string | null;
-  /** Where runs keep their folders; a run store over Penguin's root by default. */
+  /** Where runs keep their folders; a run store over WAF Harness's root by default. */
   runs?: ActivityRuns;
   builder?: ModuleBuilder;
   /** Whether activity agents are confined, as the admin switch says when read; on by default. */

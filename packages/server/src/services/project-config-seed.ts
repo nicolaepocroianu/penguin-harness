@@ -5,8 +5,8 @@
  * catalog's part comes from the server's built-in catalog; nothing reads the seed when a
  * request is built.
  */
-import { defaultProjectConfig } from "@prismshadow/penguin-core";
-import type { ProjectConfig } from "@prismshadow/penguin-core";
+import { defaultProjectConfig } from "@waterford/waf-harness-core";
+import type { ProjectConfig } from "@waterford/waf-harness-core";
 import {
   PRESET_DEFAULT_MODEL,
   presetModelEntries,

@@ -8,7 +8,7 @@
  * Two implementations, one contract:
  *   - the builtin registry serves the index embedded in this package
  *     (builtin-index.json — the four sandbox backends the workspace ships, each row carrying
- *     the descriptions of the package's own package.json `penguin` block and its icon, so its
+ *     the descriptions of the package's own package.json `wafh` block and its icon, so its
  *     card renders on a server the package is not installed on);
  *   - the HTTP registry fetches an `index.json` URL and runs it through the same
  *     validator, so a remote index is trusted no further than the embedded one — and less
@@ -23,8 +23,8 @@ import type { PluginIndexEntry } from "../api/types.js";
 import builtinIndex from "./builtin-index.json" with { type: "json" };
 import fs from "node:fs/promises";
 import path from "node:path";
-import { parsePluginPackage, readPluginIcon, userAgent } from "@prismshadow/penguin-core";
-import type { PluginPackageFields } from "@prismshadow/penguin-core";
+import { parsePluginPackage, readPluginIcon, userAgent } from "@waterford/waf-harness-core";
+import type { PluginPackageFields } from "@waterford/waf-harness-core";
 import { resolvePluginPackage } from "./loader.js";
 import type { PluginBase } from "./loader.js";
 
@@ -148,7 +148,7 @@ export type PluginDisplay = Pick<
 
 /**
  * What a package on this machine says about itself for its card: the Chinese and short
- * descriptions of its own package.json's `penguin` block, and its icon — read by core's manifest
+ * descriptions of its own package.json's `wafh` block, and its icon — read by core's manifest
  * reader, the same one the library reads a library plugin with, so an icon that is not a plain
  * SVG is never sent. Empty when the package is not here (an index row is then all there is) or
  * carries neither. A package.json that will not read gives nothing rather than failing the
@@ -160,23 +160,23 @@ export async function localPluginDisplay(
 ): Promise<PluginDisplay> {
   const found = resolvePluginPackage(name, bases);
   if (found === null) return {};
-  let penguin: PluginPackageFields;
+  let wafh: PluginPackageFields;
   try {
     const raw = JSON.parse(await fs.readFile(found.manifest, "utf8")) as unknown;
-    penguin = parsePluginPackage(raw, found.manifest).manifest.penguin;
+    wafh = parsePluginPackage(raw, found.manifest).manifest.wafh;
   } catch {
     return {};
   }
   const display: PluginDisplay = {};
-  if (penguin.title !== undefined) display.title = penguin.title;
-  if (penguin.titleZh !== undefined) display.titleZh = penguin.titleZh;
-  if (penguin.descriptionZh !== undefined) display.descriptionZh = penguin.descriptionZh;
-  if (penguin.shortDescription !== undefined) display.shortDescription = penguin.shortDescription;
-  if (penguin.shortDescriptionZh !== undefined) {
-    display.shortDescriptionZh = penguin.shortDescriptionZh;
+  if (wafh.title !== undefined) display.title = wafh.title;
+  if (wafh.titleZh !== undefined) display.titleZh = wafh.titleZh;
+  if (wafh.descriptionZh !== undefined) display.descriptionZh = wafh.descriptionZh;
+  if (wafh.shortDescription !== undefined) display.shortDescription = wafh.shortDescription;
+  if (wafh.shortDescriptionZh !== undefined) {
+    display.shortDescriptionZh = wafh.shortDescriptionZh;
   }
   // No icon, or one that will not do: the card draws the puzzle piece.
-  const { icon } = readPluginIcon(found.dir, penguin.icon);
+  const { icon } = readPluginIcon(found.dir, wafh.icon);
   if (icon !== undefined) display.icon = icon;
   return display;
 }

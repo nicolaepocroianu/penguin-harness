@@ -5,7 +5,7 @@
  * so a finish may have been missed in any Project. The list re-reads its cards on either
  * instead of polling while a run is in flight.
  */
-import type { ActivityServerEvent } from "@prismshadow/penguin-server/api";
+import type { ActivityServerEvent } from "@waterford/waf-harness-server/api";
 
 /** The Project whose list is stale, or null when it may be any Project's. */
 type Listener = (projectId: string | null) => void;

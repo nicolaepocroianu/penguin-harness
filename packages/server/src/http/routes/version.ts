@@ -4,16 +4,16 @@
  *
  *   GET  /api/version               -> versionReport(): the running build's identity plus
  *                                      this root's pushed harness, the same record
- *                                      `penguin version --json` prints
+ *                                      `wafh version --json` prints
  *   GET  /api/version/update-check  -> UpdateCheckService (fail-soft, cached, opt-out env;
  *                                      ?force=1 bypasses the cache for the manual check)
  *   GET  /api/version/update        -> admin only: the self-update job's status
- *   POST /api/version/update        -> admin only: starts the job — `penguin update --yes`
+ *   POST /api/version/update        -> admin only: starts the job — `wafh update --yes`
  *                                      in the background, progress readable at GET
  *                                      (services/update-job.ts owns the run)
  *   POST /api/version/restart       -> admin only: restart into the installed release
  *
- * The restart is the supervisor's job: `penguin server|web` runs this process as a child and
+ * The restart is the supervisor's job: `wafh server|web` runs this process as a child and
  * relaunches it when it exits with core's SERVER_RESTART_EXIT_CODE, which is how the
  * platform's own restart control leaves after the graceful shutdown
  * (services/process-restart.ts). Without a supervisor the route says so (`no_supervisor`)
@@ -32,7 +32,7 @@ import type {
   VersionResponse,
   VersionRollbackResponse,
 } from "../../api/types.js";
-import { diffIfaces } from "@prismshadow/penguin-hmr";
+import { diffIfaces } from "@waterford/waf-harness-hmr";
 import type { HarnessHistoryIface } from "../../services/harness-history.js";
 import { HttpError } from "../errors.js";
 import type { AppEnv } from "../../auth/middleware.js";
@@ -45,7 +45,7 @@ import type { RestartControl } from "../../services/process-restart.js";
 export interface VersionRouteDeps {
   config: ServerConfig;
   updateCheck: UpdateCheck;
-  /** The admin self-update run in the background (`penguin update --yes`), with its progress for the update modal. */
+  /** The admin self-update run in the background (`wafh update --yes`), with its progress for the update modal. */
   updateJob: UpdateJob;
   /** The "restart to update" step: whether a supervisor relaunches this process, and the leaving (services/process-restart.ts). */
   restart: RestartControl;
@@ -125,10 +125,10 @@ export function versionRoutes(deps: VersionRouteDeps): Hono<AppEnv> {
     requireAdmin(c);
     // Which release the run targets is a label for the modal, read from the server's own
     // (cached) lookup — never from the request, and never something the run depends on:
-    // `penguin update` resolves the release itself.
+    // `wafh update` resolves the release itself.
     const check = await deps.updateCheck.check(false);
     const target = check.updateAvailable ? check.latestVersion : null;
-    const cliEntry = process.env.PENGUIN_CLI_ENTRY ?? null;
+    const cliEntry = process.env.WAFH_CLI_ENTRY ?? null;
     return c.json(deps.updateJob.start(cliEntry, target) satisfies UpdateJobStatus);
   });
 

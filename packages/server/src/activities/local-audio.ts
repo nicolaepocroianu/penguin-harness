@@ -10,7 +10,7 @@ import {
   Use,
   type ClassCtx,
   type Opaque,
-} from "@prismshadow/penguin-core/kernel";
+} from "@waterford/waf-harness-core/kernel";
 import type { Config, Hmr } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import {

@@ -1,5 +1,5 @@
 /**
- * The driven-tab set: which Chrome tabs each paired server may drive, and the Penguin tab group
+ * The driven-tab set: which Chrome tabs each paired server may drive, and the WAF Harness tab group
  * each server has in each window. A pure reducer: an action in, the next state and the effects
  * the caller must carry out (tell a server, group or ungroup a tab, stop debugging it) out.
  *
@@ -25,14 +25,14 @@ export interface DrivenTab {
   windowId: number;
   how: TabOrigin;
   openerTabId?: number;
-  /** The Penguin group the tab sits in; absent until grouped, or in a window that holds no groups. */
+  /** The WAF Harness group the tab sits in; absent until grouped, or in a window that holds no groups. */
   groupId?: number;
   released?: TabReleaseReason;
 }
 
 export interface TabSetState {
   tabs: Record<string, DrivenTab>;
-  /** `groupKey(server, windowId)` → the server's Penguin group in that window. */
+  /** `groupKey(server, windowId)` → the server's WAF Harness group in that window. */
   groups: Record<string, number>;
 }
 

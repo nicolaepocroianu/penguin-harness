@@ -4,7 +4,7 @@
  */
 import { useSyncExternalStore } from "react";
 
-export const SHOW_REASONING_KEY = "penguin.activityRunLog.showReasoning";
+export const SHOW_REASONING_KEY = "wafh.activityRunLog.showReasoning";
 
 /** Only an explicit "hidden" hides reasoning, so unreadable storage shows it. */
 export function readShowReasoning(storage?: Pick<Storage, "getItem">): boolean {

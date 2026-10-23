@@ -10,7 +10,7 @@
  * that carries it (at least the entry's `minAgenthub`; an entry newer than the pinned
  * version is not offered). The helper, staging and collection already handle it.
  */
-import { Component, Interface } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface } from "@waterford/waf-harness-core/kernel";
 import type { SoundFormat, SoundKind } from "./sound-types.js";
 
 /** The agenthub release a media run's helper installs. */

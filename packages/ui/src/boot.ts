@@ -17,18 +17,18 @@ import { ACCENT_PRESET_IDS, DEFAULT_THEME_ID, INITIAL_THEME_ID, THEME_IDS } from
 import type { AccentPreset, ThemeId } from "./tokens";
 
 /**
- * localStorage keys. `penguin.theme` predates themes and stores the MODE (light / dark / system).
- * `penguin.fontScale` is the key of the retired three-step size: {@link readTextSize} reads it
+ * localStorage keys. `wafh.theme` predates themes and stores the MODE (light / dark / system).
+ * `wafh.fontScale` is the key of the retired three-step size: {@link readTextSize} reads it
  * once, maps it and removes it; nothing writes it. Drop it with the next minor version.
  */
 export const THEME_STORAGE_KEYS = {
-  mode: "penguin.theme",
-  themeId: "penguin.themeId",
-  accent: "penguin.accent",
-  textSize: "penguin.textSize",
-  fontLatin: "penguin.fontLatin",
-  fontCjk: "penguin.fontCjk",
-  fontScale: "penguin.fontScale",
+  mode: "wafh.theme",
+  themeId: "wafh.themeId",
+  accent: "wafh.accent",
+  textSize: "wafh.textSize",
+  fontLatin: "wafh.fontLatin",
+  fontCjk: "wafh.fontCjk",
+  fontScale: "wafh.fontScale",
 } as const;
 
 /** What the readers need of `localStorage`; a test passes a Map-backed stand-in. */
@@ -179,8 +179,8 @@ export const THEME_FONTS: Readonly<Record<ThemeId, ThemeFonts>> = {
  * them; the pre-paint script reads them so a reload paints the image from the first frame.
  */
 export const BACKGROUND_STORAGE_KEYS = {
-  image: "penguin.background.image",
-  settings: "penguin.background.settings",
+  image: "wafh.background.image",
+  settings: "wafh.background.settings",
 } as const;
 
 export const BACKGROUND_MODES = ["cover", "contain", "tile", "original"] as const;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ModuleProduct } from "@prismshadow/penguin-server/api";
+import type { ModuleProduct } from "@waterford/waf-harness-server/api";
 import { filterModuleProducts, moduleProductKey } from "../src/features/activities/module-products";
 
 const product = (over: Partial<ModuleProduct>): ModuleProduct => ({

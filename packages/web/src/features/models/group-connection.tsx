@@ -16,8 +16,8 @@
  * "Not connected" without a reload.
  */
 import { useState } from "react";
-import type { ModelsResponse } from "@prismshadow/penguin-server/api";
-import type { ModelProviderInfo } from "@prismshadow/penguin-server/model-catalog";
+import type { ModelsResponse } from "@waterford/waf-harness-server/api";
+import type { ModelProviderInfo } from "@waterford/waf-harness-server/model-catalog";
 import {
   ChevronDown,
   ConfirmModal,
@@ -26,7 +26,7 @@ import {
   MenuItem,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";

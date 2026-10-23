@@ -15,8 +15,8 @@ import type {
   DesktopUpdateStatus,
   UpdateCheckResponse,
   UpdateJobStatus,
-} from "@prismshadow/penguin-server/api";
-import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
+} from "@waterford/waf-harness-server/api";
+import { RELEASE_IDENTITY } from "@waterford/waf-harness-core/release-identity";
 import {
   NO_LOCAL,
   clientFlow,
@@ -260,10 +260,10 @@ describe("clientFlow (the desktop shell's own window)", () => {
 
 describe("release links", () => {
   it("point at the Releases of a repository that publishes them", () => {
-    const publishing = { repository: "example/penguin-harness", publishesReleases: true };
-    expect(releasesPageUrl(publishing)).toBe("https://github.com/example/penguin-harness/releases");
+    const publishing = { repository: "example/waf-harness", publishesReleases: true };
+    expect(releasesPageUrl(publishing)).toBe("https://github.com/example/waf-harness/releases");
     expect(releaseUrlFor("0.3.0", publishing)).toBe(
-      "https://github.com/example/penguin-harness/releases/tag/v0.3.0",
+      "https://github.com/example/waf-harness/releases/tag/v0.3.0",
     );
   });
 

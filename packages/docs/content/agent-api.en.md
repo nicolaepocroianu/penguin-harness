@@ -1,9 +1,9 @@
 ---
 title: Agent API
-description: Let a program talk to one agent over HTTP — turn on the agent's API, mint keys, and run it with curl or the @prismshadow/amsp client.
+description: Let a program talk to one agent over HTTP — turn on the agent's API, mint keys, and run it with curl or the @waterford/waf-harness-amsp client.
 ---
 
-The Agent API lets a program outside PenguinHarness — a script, a service, a page in a browser — talk to one agent over HTTP. The program sends its input, reads the run as it happens as an [AMSP](/amsp) event stream, and continues the conversation by its Session id. A run uses the Project's models and credentials, is recorded like any other conversation, and is archived by rule: it is listed under [Settings › Archived chats](/settings#archived-chats), and unarchiving it there keeps it in the sidebar.
+The Agent API lets a program outside WAF Harness — a script, a service, a page in a browser — talk to one agent over HTTP. The program sends its input, reads the run as it happens as an [AMSP](/amsp) event stream, and continues the conversation by its Session id. A run uses the Project's models and credentials, is recorded like any other conversation, and is archived by rule: it is listed under [Settings › Archived chats](/settings#archived-chats), and unarchiving it there keeps it in the sidebar.
 
 Where to go:
 
@@ -28,7 +28,7 @@ Where to go:
 3. Under **New session settings**, choose the model, thinking level and workspace. Each choice saves immediately and applies to new API conversations. Leave them unset to use the Project default model, the Agent/Project thinking configuration and a temporary workspace. Choose the **Approval mode for API conversations** below; see [Approval mode](#approval-mode).
 4. Under **Run settings**, enter a positive **Maximum concurrent runs** and select **Save**. The default is 4.
 5. Under **Keys**, select **New key**, name it and copy the key. It is shown once.
-6. Copy the **Base URL** and the **Agent ID** under **Connection**. **Examples** holds a curl command and a TypeScript snippet with both filled in and `$PENGUIN_AGENT_KEY` in place of the key.
+6. Copy the **Base URL** and the **Agent ID** under **Connection**. **Examples** holds a curl command and a TypeScript snippet with both filled in and `$WAFH_AGENT_KEY` in place of the key.
 
 On the **Agents** page, an agent whose API is on carries an API icon after its name, with the tooltip **API access on**.
 
@@ -55,11 +55,11 @@ API conversations have their own approval mode, separate from the one the compos
 
 An API conversation's sandbox comes from the server's new-chat defaults, as for any new conversation. The Project's preselected approval mode for new conversations does not apply to it.
 
-The two buttons above the examples open this usage guide and copy a prompt for a coding Agent. The prompt includes the current Base URL and Agent ID, with the key read from `PENGUIN_AGENT_KEY`.
+The two buttons above the examples open this usage guide and copy a prompt for a coding Agent. The prompt includes the current Base URL and Agent ID, with the key read from `WAFH_AGENT_KEY`.
 
 ### Keys
 
-- A key is `penguin_` followed by 43 characters. It is shown once, when it is created; the server stores only its SHA-256.
+- A key is `wafh_` followed by 43 characters. It is shown once, when it is created; the server stores only its SHA-256.
 - An agent can have several keys, each with a name. The list shows each key's name, its first characters, when it was created and when it was last used (**never** until its first run).
 - Deleting a key revokes it: the next request that presents it is refused with `401`.
 - A key belongs to one agent. It runs that agent and reads, aborts and answers the approvals of that agent's API conversations, and opens nothing else on the server. A key of another agent is refused with `404` `agent_not_found`.
@@ -67,7 +67,7 @@ The two buttons above the examples open this usage guide and copy a prompt for a
 
 ### Keyless access
 
-**Allow keyless access** lets a request without a key run the agent. It is off by default, and a request that presents a key is still checked while it is on. Switching it on asks first, with the warning below; `penguin agent api enable --open` and `set --open` print the same warning on stderr once it is on.
+**Allow keyless access** lets a request without a key run the agent. It is off by default, and a request that presents a key is still checked while it is on. Switching it on asks first, with the warning below; `wafh agent api enable --open` and `set --open` print the same warning on stderr once it is on.
 
 > [!WARNING]
 > With keyless access on, anything that can reach the server's address can talk to the agent, with the Project's models and credentials. Turn it on only for a server that listens on loopback (`127.0.0.1`).
@@ -82,7 +82,7 @@ The **API** tab ends, for the Project's owner, with **Try it**: an input holding
 
 ```bash
 curl -N http://localhost:7364/api/amsp/v1/agents/demo/coder/runs \
-  -H "Authorization: Bearer $PENGUIN_AGENT_KEY" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $WAFH_AGENT_KEY" -H "Content-Type: application/json" \
   -d '{"input":"Summarize README.md"}'
 ```
 
@@ -101,7 +101,7 @@ To continue the conversation, send the Session id with the next input:
 
 ```bash
 curl -N http://localhost:7364/api/amsp/v1/agents/demo/coder/runs \
-  -H "Authorization: Bearer $PENGUIN_AGENT_KEY" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $WAFH_AGENT_KEY" -H "Content-Type: application/json" \
   -d '{"session_id":"session-2026-10-07-10-00-00-3f9a1c2e","input":"Now list its headings"}'
 ```
 
@@ -117,7 +117,7 @@ All paths are relative to the Base URL. A path under it that matches no route is
 | POST | `/sessions/:sessionId/abort` | `202` when a run was interrupted, `204` when none was running |
 | POST | `/sessions/:sessionId/approvals/:toolCallId` | `{decision: "allow" \| "deny"}`; `204`, or `404` `approval_not_found` when it was already answered |
 
-The API tab and `penguin agent api` manage the settings through `/api/projects/:projectId/agents/:agentId/api` and its `keys` routes, signed in as the Project's owner; see [Server API](/server-api).
+The API tab and `wafh agent api` manage the settings through `/api/projects/:projectId/agents/:agentId/api` and its `keys` routes, signed in as the Project's owner; see [Server API](/server-api).
 
 ### The run request
 
@@ -165,19 +165,19 @@ Once the stream has started, an error is never a separate frame: the run ends wi
 
 ## The amsp client
 
-`@prismshadow/amsp` is the TypeScript client of the Agent API. It has no dependencies, runs in Node 24 and in current browsers, and exports the AMSP event types.
+`@waterford/waf-harness-amsp` is the TypeScript client of the Agent API. It has no dependencies, runs in Node 24 and in current browsers, and exports the AMSP event types.
 
 ```bash
-npm install @prismshadow/amsp
+npm install @waterford/waf-harness-amsp
 ```
 
 ```ts
-import { AgentClient } from "@prismshadow/amsp";
+import { AgentClient } from "@waterford/waf-harness-amsp";
 
 const client = new AgentClient({
   baseUrl: "http://localhost:7364/api/amsp/v1",
   agent: "demo/coder",
-  apiKey: process.env.PENGUIN_AGENT_KEY,
+  apiKey: process.env.WAFH_AGENT_KEY,
 });
 
 const run = client.stream({ input: "Summarize README.md" });
@@ -205,7 +205,7 @@ console.log(second.text, second.usage.total);
 When the approval mode makes a call wait, the run delivers `approval.requested` and the client answers it for you: with `onApproval`'s decision, or `deny` when there is no callback or it throws. It answers whether you iterate or only await the result.
 
 ```ts
-import { AgentClient, parseArguments } from "@prismshadow/amsp";
+import { AgentClient, parseArguments } from "@waterford/waf-harness-amsp";
 
 const result = await client.run({
   input: "Clean up the build output",
@@ -238,7 +238,7 @@ const result = await client.run({
 The same package works in a browser through a bundler. A page on another origin than the server needs a key: the server answers the CORS preflight for any origin, but sends `Access-Control-Allow-Origin: *` only on a request carrying `Authorization`. A cross-origin request may carry only `Authorization` and `Content-Type`, so extra `headers` are for same-origin pages and Node.
 
 ```ts
-import { AgentClient } from "@prismshadow/amsp";
+import { AgentClient } from "@waterford/waf-harness-amsp";
 
 const keyField = document.querySelector<HTMLInputElement>("#key")!;
 const client = new AgentClient({
@@ -317,23 +317,23 @@ class AmspStreamError extends Error {}
 
 ## From the command line
 
-`penguin agent api` manages an agent's API from a terminal, against the running server, with the same rules as the API tab:
+`wafh agent api` manages an agent's API from a terminal, against the running server, with the same rules as the API tab:
 
 | Command | What it does |
 | --- | --- |
-| `penguin agent api status --agent-id <id>` | Shows whether the API is on, keyless access, the approval mode, the Base URL, the Agent ID, the number of keys and the admin switch |
-| `penguin agent api enable --agent-id <id> [--open \| --no-open] [--approve <mode>]` | Turns the API on, optionally setting keyless access and the approval mode |
-| `penguin agent api disable --agent-id <id>` | Turns the API off |
-| `penguin agent api set --agent-id <id> [--open \| --no-open] [--approve <mode>]` | Changes keyless access or the approval mode without turning the API on or off |
-| `penguin agent api keys ls --agent-id <id>` | Lists the keys: id, name, first characters, created, last used |
-| `penguin agent api keys create --agent-id <id> --name <name>` | Mints a key. The key alone goes to stdout, everything else to stderr, so `$(…)` captures just the key |
-| `penguin agent api keys rm <keyId> --agent-id <id>` | Deletes a key |
-| `penguin agent api server on\|off` | The admin switch |
+| `wafh agent api status --agent-id <id>` | Shows whether the API is on, keyless access, the approval mode, the Base URL, the Agent ID, the number of keys and the admin switch |
+| `wafh agent api enable --agent-id <id> [--open \| --no-open] [--approve <mode>]` | Turns the API on, optionally setting keyless access and the approval mode |
+| `wafh agent api disable --agent-id <id>` | Turns the API off |
+| `wafh agent api set --agent-id <id> [--open \| --no-open] [--approve <mode>]` | Changes keyless access or the approval mode without turning the API on or off |
+| `wafh agent api keys ls --agent-id <id>` | Lists the keys: id, name, first characters, created, last used |
+| `wafh agent api keys create --agent-id <id> --name <name>` | Mints a key. The key alone goes to stdout, everything else to stderr, so `$(…)` captures just the key |
+| `wafh agent api keys rm <keyId> --agent-id <id>` | Deletes a key |
+| `wafh agent api server on\|off` | The admin switch |
 
 Each command also takes `--project-id`, `--server` and `--json`. `--approve` takes the four modes: `allow-all`, `read-only`, `always-ask`, `deny-all`. See the [CLI Reference](/cli).
 
-The commands that change something (`enable`, `disable`, `set`, `keys create`, `keys rm` and `server`) need your sign-in: run `penguin auth login` once, or `penguin auth token` on the server's machine. The server refuses them to the local API token, and the CLI then sends them again with that sign-in. Without it they print that hint and exit 1. `status` and `keys ls` need none.
+The commands that change something (`enable`, `disable`, `set`, `keys create`, `keys rm` and `server`) need your sign-in: run `wafh auth login` once, or `wafh auth token` on the server's machine. The server refuses them to the local API token, and the CLI then sends them again with that sign-in. Without it they print that hint and exit 1. `status` and `keys ls` need none.
 
 ## The admin switch
 
-**Settings › Server › Agent API** holds the administrator's **Allow the Agent API** switch, on by default. Turning it off asks first, then refuses every Agent API request with `403` `agent_api_disabled`, the CORS preflight excepted. Agents' switches, approval modes and keys are kept, and every member sees the API tab's switch disabled with a note saying why. See [Agent API](/settings#agent-api) in Settings. The setting is `agentApiEnabled` in `GET`/`PUT /api/admin/settings`, and `penguin agent api server on|off` sets it from a terminal once you have signed in.
+**Settings › Server › Agent API** holds the administrator's **Allow the Agent API** switch, on by default. Turning it off asks first, then refuses every Agent API request with `403` `agent_api_disabled`, the CORS preflight excepted. Agents' switches, approval modes and keys are kept, and every member sees the API tab's switch disabled with a note saying why. See [Agent API](/settings#agent-api) in Settings. The setting is `agentApiEnabled` in `GET`/`PUT /api/admin/settings`, and `wafh agent api server on|off` sets it from a terminal once you have signed in.

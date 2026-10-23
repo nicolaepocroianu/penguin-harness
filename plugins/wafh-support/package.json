@@ -1,0 +1,33 @@
+{
+  "name": "@waf-harness/wafh-support",
+  "version": "0.2.16",
+  "description": "WAF Harness product support with a question list, conversation dialogs and answers grounded in documentation and source code.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Prism-Shadow/penguin-harness.git",
+    "directory": "plugins/wafh-support"
+  },
+  "files": [
+    "icon.svg",
+    "skills",
+    "workbenches",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "wafh": {
+    "title": "WAF Harness Q&A Assistant",
+    "category": "office-productivity",
+    "preinstall": false,
+    "icon": "icon.svg",
+    "short_description": "Product questions, sourced answers and a support workbench.",
+    "quick_start": {
+      "prompt": "How do I create an agent and choose its model in WAF Harness? Cite the official docs.",
+      "skills": [
+        "wafh-support"
+      ]
+    }
+  }
+}

@@ -6,7 +6,7 @@
  */
 import { createElement as h } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
 import { AgentSelect } from "../src/features/agents/agent-select";
 import { S } from "../src/lib/strings";
 import { button, click, field, mount, pressScrim, type, unmountAll, run } from "./helpers/dom";

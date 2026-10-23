@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { bearerToken, SESSION_COOKIE } from "../../auth/middleware.js";
 import type { AppEnv } from "../../auth/middleware.js";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Auth } from "../../mechanisms/identity.js";
 import { HttpError } from "../errors.js";
 import { readJson } from "../validate.js";

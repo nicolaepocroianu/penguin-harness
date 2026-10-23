@@ -2,7 +2,7 @@
  * Limits and naming for the project media library: how much one listing reports, how
  * much one downloaded bundle may hold, and what each file is called inside the zip.
  */
-import { Component, Interface } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface } from "@waterford/waf-harness-core/kernel";
 
 /** The most files one project listing reports, newest first. */
 export const PROJECT_MEDIA_LIMIT = 5000;

@@ -3,7 +3,7 @@ import type { Migration } from "../migration.js";
 export const browserExtensions: Migration = {
   name: "2026-10-04-browser-extensions",
   // Additive: one new table and its index. The Chrome backend's pairings — one row per
-  // PenguinHarness Browser extension a user paired, its token stored hashed. A predecessor
+  // WAF Harness Browser extension a user paired, its token stored hashed. A predecessor
   // build never reads the table, so a rollback survives it; the paired extensions then simply
   // fail to connect until a build that knows them is back.
   swapSafe: true,
@@ -12,7 +12,7 @@ export const browserExtensions: Migration = {
     // IF NOT EXISTS because the declarative track may already have created it (RE-RUNNABLE in
     // index.ts).
     db.exec(`
-      CREATE TABLE IF NOT EXISTS browser_extensions ( -- one row per Chrome paired to a user (builtin-browser/extension-pairing.ts): the PenguinHarness Browser extension's long-lived credential, stored only hashed; NOT rebuildable — a lost row means pairing that Chrome again
+      CREATE TABLE IF NOT EXISTS browser_extensions ( -- one row per Chrome paired to a user (builtin-browser/extension-pairing.ts): the WAF Harness Browser extension's long-lived credential, stored only hashed; NOT rebuildable — a lost row means pairing that Chrome again
         extension_id TEXT PRIMARY KEY,
         user_id      TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
         token_hash   TEXT NOT NULL UNIQUE,

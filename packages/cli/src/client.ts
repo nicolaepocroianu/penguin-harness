@@ -5,37 +5,37 @@
  *
  * Connection resolution order (first hit wins):
  *   1. `--server <url>` — an explicit target. A non-loopback URL requires
- *      PENGUIN_API_TOKEN: the on-disk token file belongs to the LOCAL data root and must
+ *      WAFH_API_TOKEN: the on-disk token file belongs to the LOCAL data root and must
  *      never be sent to a remote host.
- *   2. `PENGUIN_API_URL` — the same, from the environment. Server-driven sessions inject
- *      it (with PENGUIN_API_TOKEN) into tool subprocesses, which is how an agent's own
- *      `penguin` calls find the server that runs them.
- *   3. A live `server.lock` at the data root (PENGUIN_HOME or ~/.penguin/data): attach to
- *      the running local server on `http://localhost:<port>`. A `penguin` started through a
- *      server's `<root>/bin/penguin` shim — in that server's terminals and Agent commands —
- *      gets that server's root as PENGUIN_HOME unless its caller set one (the server's
+ *   2. `WAFH_API_URL` — the same, from the environment. Server-driven sessions inject
+ *      it (with WAFH_API_TOKEN) into tool subprocesses, which is how an agent's own
+ *      `wafh` calls find the server that runs them.
+ *   3. A live `server.lock` at the data root (WAFH_HOME or ~/.waf-harness/data): attach to
+ *      the running local server on `http://localhost:<port>`. A `wafh` started through a
+ *      server's `<root>/bin/wafh` shim — in that server's terminals and Agent commands —
+ *      gets that server's root as WAFH_HOME unless its caller set one (the server's
  *      services/cli-shim.ts), so it attaches to that server rather than the installed one.
  *   4. Auto-start: spawn a detached `node <cli entry> server` with PORT=0, wait for its
  *      lock, attach. The loser of a two-CLI spawn race exits with code 3 ("already
  *      running"), which the lock poll absorbs — it finds the winner's lock either way.
  *
- * Token resolution: PENGUIN_API_TOKEN, else `<root>/api-token` (written by the server
+ * Token resolution: WAFH_API_TOKEN, else `<root>/api-token` (written by the server
  * each boot). A 401 with a file-sourced token re-reads the file once and retries — the
  * server may have restarted (and rotated the token) since the first read.
  *
  * A 403 `human_required` — a write the server takes only from a person's sign-in, such as
  * those that change an Agent's exposure — retries the same request once as the person's
- * stored sign-in (`<root>/cli-session.json`, written by `penguin auth login` or
- * `penguin auth token`), sent as the `penguin_session` cookie in place of the token. Only for
+ * stored sign-in (`<root>/cli-session.json`, written by `wafh auth login` or
+ * `wafh auth token`), sent as the `wafh_session` cookie in place of the token. Only for
  * a loopback target, only for a sign-in made to a loopback server, and only outside a Session
- * (PENGUIN_SESSION_ID unset): inside one the command is an Agent's, and the refusal is the
+ * (WAFH_SESSION_ID unset): inside one the command is an Agent's, and the refusal is the
  * point. Every other request goes exactly as above.
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { resolveRoot } from "@prismshadow/penguin-core";
-import { liveServerLock } from "@prismshadow/penguin-server/lock";
+import { resolveRoot } from "@waterford/waf-harness-core";
+import { liveServerLock } from "@waterford/waf-harness-server/lock";
 import { readSession } from "./auth-session.js";
 import type { Messages } from "./i18n.js";
 
@@ -49,7 +49,7 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 export type TokenSource = "env" | "file" | "none";
 
 /** The server's session cookie (auth/middleware.ts SESSION_COOKIE): a stored sign-in goes as it. */
-const SESSION_COOKIE = "penguin_session";
+const SESSION_COOKIE = "wafh_session";
 
 /** The server's refusal of the local API token on a write only a person may make (requireHuman). */
 const HUMAN_REQUIRED = "human_required";
@@ -65,7 +65,7 @@ export interface Connection {
   loopback: boolean;
   /**
    * Whether the server was found through `root` — its live lock, or one auto-started there —
-   * rather than named by `--server` / PENGUIN_API_URL; then the root says which instance it is.
+   * rather than named by `--server` / WAFH_API_URL; then the root says which instance it is.
    */
   fromRoot: boolean;
 }
@@ -124,7 +124,7 @@ function readTokenFile(root: string): string | null {
  * sign-in to a server elsewhere, whose session must not be sent to this one.
  */
 function readStoredSignIn(root: string): string | null {
-  if (process.env.PENGUIN_SESSION_ID?.trim()) return null;
+  if (process.env.WAFH_SESSION_ID?.trim()) return null;
   const session = readSession(root);
   if (session === null) return null;
   try {
@@ -215,11 +215,11 @@ export async function resolveConnection(
   t: Messages,
 ): Promise<Connection> {
   const root = resolveRoot();
-  const explicit = opts.server?.trim() || process.env.PENGUIN_API_URL?.trim() || "";
+  const explicit = opts.server?.trim() || process.env.WAFH_API_URL?.trim() || "";
   if (explicit !== "") {
     const url = normalizeServerUrl(explicit, t);
     const loopback = isLoopbackUrl(url);
-    if (!loopback && !process.env.PENGUIN_API_TOKEN?.trim()) {
+    if (!loopback && !process.env.WAFH_API_TOKEN?.trim()) {
       throw new Error(t.client.remoteNeedsToken(url.origin));
     }
     return { baseUrl: url.origin, root, autoStarted: false, loopback, fromRoot: false };
@@ -278,7 +278,7 @@ export class ServerClient {
     readonly conn: Connection,
     private readonly t: Messages,
   ) {
-    const envToken = process.env.PENGUIN_API_TOKEN?.trim();
+    const envToken = process.env.WAFH_API_TOKEN?.trim();
     if (envToken) {
       this.token = envToken;
       this.tokenSource = "env";
@@ -489,7 +489,7 @@ export async function* parseSseBody(
 // Session references
 // ---------------------------------------------------------------------------
 
-/** The 8-hex tail of a session id — the short form `penguin session ls` prints. */
+/** The 8-hex tail of a session id — the short form `wafh session ls` prints. */
 export function shortSessionId(sessionId: string): string {
   const m = /-([0-9a-f]{8})$/.exec(sessionId);
   return m === null ? sessionId : m[1]!;
@@ -537,12 +537,12 @@ export async function resolveSessionRef(
 // Shared option defaults
 // ---------------------------------------------------------------------------
 
-/** `--project-id` default chain: flag > PENGUIN_PROJECT_ID > default_project. */
+/** `--project-id` default chain: flag > WAFH_PROJECT_ID > default_project. */
 export function resolveProjectId(flag: string | undefined): string {
-  return flag?.trim() || process.env.PENGUIN_PROJECT_ID?.trim() || "default_project";
+  return flag?.trim() || process.env.WAFH_PROJECT_ID?.trim() || "default_project";
 }
 
-/** `--agent-id` default chain: flag > PENGUIN_AGENT_ID > default_agent. */
+/** `--agent-id` default chain: flag > WAFH_AGENT_ID > default_agent. */
 export function resolveAgentId(flag: string | undefined): string {
-  return flag?.trim() || process.env.PENGUIN_AGENT_ID?.trim() || "default_agent";
+  return flag?.trim() || process.env.WAFH_AGENT_ID?.trim() || "default_agent";
 }

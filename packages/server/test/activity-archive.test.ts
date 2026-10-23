@@ -6,7 +6,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { projectDir } from "@prismshadow/penguin-core";
+import { projectDir } from "@waterford/waf-harness-core";
 import type { ActivityDetail } from "../src/activities/domain.js";
 import { refFilesDir } from "./activity-fixtures.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
@@ -50,7 +50,7 @@ describe("DELETE /:activityId", () => {
     const { t, client, base, create, listed } = await setup();
     const one = await create("words", 1);
     const draftDir = refFilesDir(t.root, "words", 1);
-    await fs.access(path.join(draftDir, "penguin.json"));
+    await fs.access(path.join(draftDir, "wafh.json"));
 
     const response = await client.delete(`${base}/${one.id}`);
     expect(response.status).toBe(204);
@@ -61,7 +61,7 @@ describe("DELETE /:activityId", () => {
     expect(t.deps.db.prepare("SELECT archived FROM activities WHERE id = ?").get(one.id)).toEqual({
       archived: 1,
     });
-    await fs.access(path.join(draftDir, "penguin.json"));
+    await fs.access(path.join(draftDir, "wafh.json"));
     await fs.access(path.join(draftDir, "activity_description.txt"));
   });
 

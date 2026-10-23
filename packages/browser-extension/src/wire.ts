@@ -1,14 +1,14 @@
 /**
- * The browser link's wire as the extension speaks it to a PenguinHarness server: the desktop
+ * The browser link's wire as the extension speaks it to a WAF Harness server: the desktop
  * shell's `desktop-browser-command | reply | event` envelopes, carried as JSON text frames on the
  * WebSocket `/api/builtin-browser/extension/ws`, plus the pairing route's request and answer.
  *
  * The server sends commands and the extension answers each with one reply carrying the same id;
  * the extension pushes events. `hello` opens every connection and `ping` keeps it (and the MV3
- * worker) alive. The token rides in `Sec-WebSocket-Protocol` (`penguin-browser.1`,
+ * worker) alive. The token rides in `Sec-WebSocket-Protocol` (`wafh-browser.1`,
  * `token.<token>`), never in a URL.
  *
- * The types are the server's own (`@prismshadow/penguin-server/api`, type-only); this module adds
+ * The types are the server's own (`@waterford/waf-harness-server/api`, type-only); this module adds
  * the guards that validate a frame before anything reads it, and the wire's constants.
  *
  * This file must stay erasable TypeScript (no enums, namespaces or parameter properties): the
@@ -26,7 +26,7 @@ import type {
   DesktopBrowserEvent,
   DesktopBrowserEventMessage,
   DesktopBrowserReplyMessage,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 export type {
   BrowserBackend,
@@ -52,7 +52,7 @@ export type ExtensionPairResponse = BrowserExtensionPairResponse;
 
 export const PROTOCOL_VERSION = 1;
 /** The subprotocol the server selects; the second one the extension offers carries the token. */
-export const SUBPROTOCOL = "penguin-browser.1";
+export const SUBPROTOCOL = "wafh-browser.1";
 export const TOKEN_PROTOCOL_PREFIX = "token.";
 export const EXTENSION_WS_PATH = "/api/builtin-browser/extension/ws";
 export const EXTENSION_PAIR_PATH = "/api/builtin-browser/extension/pair";

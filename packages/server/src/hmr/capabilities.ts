@@ -21,19 +21,19 @@
  * registry.
  */
 import type { DatabaseSync } from "node:sqlite";
-import type { Resources, Opaque, ModuleClass } from "@prismshadow/penguin-core/kernel";
+import type { Resources, Opaque, ModuleClass } from "@waterford/waf-harness-core/kernel";
 import type { ServerConfig } from "../config.js";
 import type { AuthRuntimeState } from "../auth/runtime-state.js";
 import { newAuthRuntimeState } from "../auth/runtime-state.js";
 import type { ChannelHub, Channel } from "../runtime/channel.js";
 import type { ProxySettings } from "../net/proxy.js";
-import type { HmrHost, Hmr as HmrControlOf } from "@prismshadow/penguin-hmr";
+import type { HmrHost, Hmr as HmrControlOf } from "@waterford/waf-harness-hmr";
 import type { PlatformApi } from "./platform.js";
 
 /** The control object the entry built (hmrMain): `current()` and `upgrade()`. */
 export type HmrControlApi = HmrControlOf<PlatformApi>;
 import type { DesktopService } from "../services/desktop-service.js";
-import { Interface, Component, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
+import { Interface, Component, Module, Provide, Use } from "@waterford/waf-harness-core/kernel";
 
 /**
  * What one side of the seam speaks: a family, and a Go-style structural interface per
@@ -51,11 +51,11 @@ import { Interface, Component, Module, Provide, Use } from "@prismshadow/penguin
  *
  * `family` names whose vocabulary these interface names belong to. Two descriptors of
  * different families share nothing — the same name means something else over there — so a
- * platform that does not want to inherit penguin's interfaces changes its family and
+ * platform that does not want to inherit wafh's interfaces changes its family and
  * inherits none of them, rather than having to disagree with each entry one by one.
  */
 export interface Interfaces {
-  /** Whose vocabulary the names below belong to; {@link PENGUIN_FAMILY} for this build. */
+  /** Whose vocabulary the names below belong to; {@link WAFH_FAMILY} for this build. */
   family: string;
   /** The members a consumer of that interface depends on. */
   [name: string]: string | readonly string[];
@@ -75,7 +75,7 @@ export interface Interfaces {
 export type MembersOf<T> = readonly (keyof T & string)[];
 
 /** The family the interfaces this repo defines belong to. */
-export const PENGUIN_FAMILY = "penguin";
+export const WAFH_FAMILY = "wafh";
 
 /**
  * The interfaces the HMR LAYER publishes for a platform to claim: per `runtime:*`
@@ -97,11 +97,11 @@ interface HmrInterfaces extends Interfaces {
 }
 
 export const HMR_INTERFACES: HmrInterfaces = {
-  family: PENGUIN_FAMILY,
+  family: WAFH_FAMILY,
   // A config member added after runtimes shipped does NOT go in this list: naming it here
   // refuses every installed runtime that predates it, and a push can never replace the
   // runtime — only a reinstall can. Such a member is optional on ServerConfig and its
-  // consumer defaults it when the runtime does not publish it: cliEntry, penguinGoOrigin,
+  // consumer defaults it when the runtime does not publish it: cliEntry, wafHarnessGoOrigin,
   // modelscopeBridgeUrl.
   config: [
     "root",

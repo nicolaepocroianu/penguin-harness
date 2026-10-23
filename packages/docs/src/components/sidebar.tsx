@@ -8,8 +8,8 @@ import {
   currentSearchShortcutLabel,
   SiteSidebarNav,
   useSiteLocale,
-} from "@prismshadow/penguin-ui/site";
-import type { SiteLinkProps, SiteSidebarItem } from "@prismshadow/penguin-ui/site";
+} from "@waterford/waf-harness-ui/site";
+import type { SiteLinkProps, SiteSidebarItem } from "@waterford/waf-harness-ui/site";
 import { S } from "../lib/strings";
 import { DOCS_NAV, HOME_SLUG } from "../lib/nav";
 import { docTitle } from "../lib/docs";

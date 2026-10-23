@@ -14,7 +14,7 @@
  * tree sample indents its rows the way a host does — by the inset and the indent tokens — so the
  * three themes' guides land on the same columns as in the modules.
  */
-import { Dot, HOOKS, Spinner, StreamingCaret } from "@prismshadow/penguin-ui";
+import { Dot, HOOKS, Spinner, StreamingCaret } from "@waterford/waf-harness-ui";
 import type { CSSProperties, ReactNode } from "react";
 import { useGallery } from "../state";
 import { Glyph, NAV_GLYPHS, SAMPLE_GLYPHS, ShellSpecimen } from "./shared";

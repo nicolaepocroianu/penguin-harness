@@ -9,7 +9,7 @@
  * Nothing about a package is rewritten. Its `package.json`, its `exports`, its `dist/` and its
  * `README.md` reach the target as the package's own build produced them; a dependency it
  * declares is installed beside it the way npm installs it anywhere. The SDK's runtime is not
- * among those dependencies — a plugin compiles against `@prismshadow/penguin-core`'s types
+ * among those dependencies — a plugin compiles against `@waterford/waf-harness-core`'s types
  * (a devDependency) and shares the host's copy at run time.
  *
  * A builtin plugin bundles what it runs. Every file in the prefix is a blob a push carries
@@ -27,7 +27,7 @@
  *
  * Cached by content: the hash over every plugin's `src/`, `package.json`, `README.md` and
  * `tsup.config.ts`, and over the lockfile entries the prefix is pinned to, names a directory
- * under `node_modules/.cache/penguin-plugins/`, and an unchanged set is not built, packed or
+ * under `node_modules/.cache/wafh-plugins/`, and an unchanged set is not built, packed or
  * installed again — a push of an unrelated change costs nothing here. Installing needs the registry (for the dependencies) the first time only.
  *
  * Usage (a library for deploy.mjs / desktop build-assets.mjs, and a CLI):
@@ -51,12 +51,12 @@ import { readVendoredPackages, thirdPartyNotices } from "./lib/third-party-notic
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PLUGINS_SRC = path.join(ROOT, "plugins");
-const CACHE = path.join(ROOT, "node_modules", ".cache", "penguin-plugins");
+const CACHE = path.join(ROOT, "node_modules", ".cache", "wafh-plugins");
 const COMPLETE = ".complete";
 /** Folded into the cache key: bump when what this script WRITES changes, not only what it reads. */
 const PACK_FORMAT = 14;
 /** The prefix's own manifest: npm needs one above `node_modules`, and it is ours, never a package's. */
-const PREFIX_MANIFEST = { name: "penguin-builtin-plugins", private: true, version: "0.0.0" };
+const PREFIX_MANIFEST = { name: "wafh-builtin-plugins", private: true, version: "0.0.0" };
 /**
  * The runtime dependencies a builtin plugin may declare: native modules only, each with a
  * reason. Everything else is compiled into the plugin's `dist/` by its own build.
@@ -142,7 +142,7 @@ function run(name, args, cwd) {
 }
 
 /**
- * What a plugin's pack depends on: its sources, its manifest (`package.json`, whose `penguin`
+ * What a plugin's pack depends on: its sources, its manifest (`package.json`, whose `wafh`
  * block its card on the Plugins page reads, with `icon.svg`), its README, its build config —
  * and every other directory the package SHIPS.
  *
@@ -240,7 +240,7 @@ export async function buildBuiltinPlugins({ log = () => {} } = {}) {
   } else {
     await fsp.rm(out, { recursive: true, force: true });
     await fsp.mkdir(out, { recursive: true });
-    const packed = await fsp.mkdtemp(path.join(os.tmpdir(), "penguin-plugins-pack-"));
+    const packed = await fsp.mkdtemp(path.join(os.tmpdir(), "wafh-plugins-pack-"));
     try {
       const tarballs = [];
       for (const plugin of plugins) {

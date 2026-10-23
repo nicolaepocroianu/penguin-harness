@@ -3,7 +3,7 @@
  * outside an `ExternalLinkScope` is an ordinary new-tab link.
  */
 import type { ReactNode } from "react";
-import { SiteExternalLink, SiteExternalLinkScope } from "@prismshadow/penguin-ui/site";
+import { SiteExternalLink, SiteExternalLinkScope } from "@waterford/waf-harness-ui/site";
 import { S } from "../lib/strings";
 
 export const ExternalLink = SiteExternalLink;

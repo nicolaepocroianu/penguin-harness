@@ -15,8 +15,8 @@ import {
   PagedDialog,
   Sheet,
   ZoomableImage,
-} from "@prismshadow/penguin-ui";
-import type { PagedDialogGroup, PaletteAction, SheetSnap } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { PagedDialogGroup, PaletteAction, SheetSnap } from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { BASE } from "../../lib/location";
 import { useGallery } from "../../state";
@@ -148,11 +148,7 @@ export function DialogsBoard() {
       </BoardGroup>
       <BoardGroup title={t.lightbox} aside={t.lightboxHint}>
         <div className="lib-row">
-          <ZoomableImage
-            src={`${BASE}/penguin-logo.svg`}
-            alt={t.lightboxAlt}
-            className="h-16 w-16"
-          />
+          <ZoomableImage src={`${BASE}/wafh-logo.svg`} alt={t.lightboxAlt} className="h-16 w-16" />
         </div>
       </BoardGroup>
       <BoardGroup title={t.palette} aside={t.paletteAside}>

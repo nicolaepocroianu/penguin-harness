@@ -15,7 +15,7 @@ import type {
   TimelineTransition,
   VideoTimeline,
   VideoTimelineView,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Badge,
   Button,
@@ -24,7 +24,7 @@ import {
   Input,
   Select,
   Switch,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {

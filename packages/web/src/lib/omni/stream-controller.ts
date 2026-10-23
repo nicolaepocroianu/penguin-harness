@@ -29,8 +29,8 @@
  *   the buffer replays on top — so the in-progress message survives a refresh
  *   with its streamed prefix intact and keeps streaming.
  */
-import { isEventMessage, isPartialPayload } from "@prismshadow/penguin-core/omnimessage";
-import type { OmniMessage, ToolCallPayload } from "@prismshadow/penguin-core/omnimessage";
+import { isEventMessage, isPartialPayload } from "@waterford/waf-harness-core/omnimessage";
+import type { OmniMessage, ToolCallPayload } from "@waterford/waf-harness-core/omnimessage";
 import type {
   GoalServerEvent,
   MessagesLiveTail,
@@ -40,7 +40,7 @@ import type {
   PendingSteeringInfo,
   ServerEvent,
   SessionStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   approvalKey,
   buildDedupIndex,

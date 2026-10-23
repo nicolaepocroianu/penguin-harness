@@ -9,7 +9,7 @@
  * What is NOT here was never the manager's to hold: the Trace and the `sessions` rows are on
  * disk, and the database, the channel hub and the auth state belong to the process.
  */
-import { Component } from "@prismshadow/penguin-core/kernel";
+import { Component } from "@waterford/waf-harness-core/kernel";
 import type { AgentState, RunStarter } from "../mechanisms/sessions.js";
 import { LiveTailTracker } from "./live-tail.js";
 import type { LiveTail } from "./live-tail.js";

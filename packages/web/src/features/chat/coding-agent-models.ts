@@ -4,7 +4,7 @@
  * the `coding-agent` provider: one row per agent, plus one per model it advertised, with the
  * pick encoded in the row's `modelId`. Picking one and sending starts an ordinary Session.
  */
-import type { ModelRefDto } from "@prismshadow/penguin-server/api";
+import type { ModelRefDto } from "@waterford/waf-harness-server/api";
 
 export const CODING_AGENT_PROVIDER = "coding-agent";
 
@@ -25,7 +25,7 @@ export function isCodingAgentRow(row: { provider: string }): boolean {
   return row.provider === CODING_AGENT_PROVIDER;
 }
 
-/** Agents made by a model vendor Penguin has a logo for; every other agent gets a letter tile. */
+/** Agents made by a model vendor WAF Harness has a logo for; every other agent gets a letter tile. */
 const VENDOR_LOGOS: Record<string, string> = {
   claude: "anthropic",
   codex: "openai",
@@ -39,7 +39,7 @@ const VENDOR_LOGOS: Record<string, string> = {
 };
 
 /**
- * What to hand ProviderLogo for an agent: its vendor's logo where Penguin has one, otherwise
+ * What to hand ProviderLogo for an agent: its vendor's logo where WAF Harness has one, otherwise
  * its own name, which ProviderLogo draws as a letter tile coloured by that name.
  */
 export function codingAgentLogo(agentId: string, title: string): string {

@@ -1,6 +1,6 @@
 /** A file choice reveals the wallpaper controls; each gesture applies immediately. */
 import { useRef, useState } from "react";
-import { Button, Fold, PrefRow, Select } from "@prismshadow/penguin-ui";
+import { Button, Fold, PrefRow, Select } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import {
   BACKGROUND_FILE_TYPES,

@@ -1,13 +1,13 @@
 /**
  * A run's recipe: who answered, which bundled authoring files it was given, the harness and
- * Penguin's version. What the run was given is read from its workspace and matched by digest
+ * WAF Harness's version. What the run was given is read from its workspace and matched by digest
  * against the bundled library, so every kind that stages a skill, a helper or a guide is covered
  * without saying which it stages.
  */
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { libraryPlugin } from "@prismshadow/penguin-core";
+import { libraryPlugin } from "@waterford/waf-harness-core";
 import { CODING_AGENT_PROVIDER } from "../coding-agents/session-runtime.js";
 import { canonical, type ActivityRun } from "./domain.js";
 import { HARNESS_VERSION } from "./acceptance-harness.js";
@@ -173,12 +173,12 @@ export function recipeOf(
   runtime: string,
   workspace: string,
   library: readonly LibraryFile[],
-  penguin: string,
+  wafh: string,
 ): RunRecipe {
   return {
     runtime,
     library: stagedLibrary(workspace, library),
     ...(usesHarness(run) ? { harness: HARNESS_VERSION } : {}),
-    penguin,
+    wafh,
   };
 }

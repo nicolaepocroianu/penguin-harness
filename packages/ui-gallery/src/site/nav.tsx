@@ -1,5 +1,5 @@
 /** Gallery routes and drawer control rendered through the shared public-site header. */
-import { SiteGitHubLink, SiteHeader, SiteNavLinks } from "@prismshadow/penguin-ui/site";
+import { SiteGitHubLink, SiteHeader, SiteNavLinks } from "@waterford/waf-harness-ui/site";
 import { BASE } from "../lib/location";
 import { homeHref } from "../lib/routes";
 import { useGallery } from "../state";
@@ -39,7 +39,7 @@ export function SiteNav({
   return (
     <SiteHeader
       name={S.siteName}
-      logo={`${import.meta.env.BASE_URL}penguin-logo.svg`}
+      logo={`${import.meta.env.BASE_URL}wafh-logo.svg`}
       home={links[0]!}
       links={links}
       actions={

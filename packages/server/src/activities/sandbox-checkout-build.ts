@@ -5,7 +5,7 @@
  * webpack into a cache of its own, resolving dependencies from the module's
  * `node_modules` and then the framework's, and compiled `res/style.scss` beside it. This is
  * that build, ported, so a Loom-generated module previews the way it did in Loom. Its
- * output goes under Penguin's root; the checkout is only read. Its stylesheet is compiled
+ * output goes under WAF Harness's root; the checkout is only read. Its stylesheet is compiled
  * with the Sass a deploy uses (see module-builder.ts), before webpack runs.
  *
  * It runs as a child Node process rather than in the server. Webpack and the module's
@@ -30,7 +30,7 @@ import {
 export interface CheckoutBuildJob {
   /** The module folder in the checkout, read only. */
   moduleRoot: string;
-  /** Where the build writes `entry.js` and `style.css`. Penguin's, never the checkout. */
+  /** Where the build writes `entry.js` and `style.css`. WAF Harness's, never the checkout. */
   outputRoot: string;
   /** The WAF framework, whose `node_modules` the module falls back on. */
   frameworkRoot: string;
@@ -69,7 +69,7 @@ const path = require('path');
 const childProcess = require('child_process');
 const { createRequire } = require('module');
 
-const job = JSON.parse(process.env.PENGUIN_CHECKOUT_BUILD);
+const job = JSON.parse(process.env.WAFH_CHECKOUT_BUILD);
 // Resolved, because webpack 4's schema refuses a Windows path written with forward slashes.
 const moduleRoot = path.resolve(job.moduleRoot);
 const outputRoot = path.resolve(job.outputRoot);
@@ -243,7 +243,7 @@ export async function spawnCheckoutBuild(
   options: { timeoutMs?: number; compileStyle: StyleCompiler },
 ): Promise<BuildOutcome> {
   // A module that asks for another Node than the server's is still built with the server's,
-  // since Penguin installs no Node; the log says so first, so a failure is read with it.
+  // since WAF Harness installs no Node; the log says so first, so a failure is read with it.
   const nodeNote = nodeRequirementNote(job.moduleRoot, process.version);
   const notes = nodeNote ? `${nodeNote}\n` : "";
   const styleName = stylesheetName(job.moduleRoot);
@@ -267,7 +267,7 @@ export async function spawnCheckoutBuild(
     {
       cwd: job.moduleRoot,
       env: {
-        PENGUIN_CHECKOUT_BUILD: JSON.stringify({
+        WAFH_CHECKOUT_BUILD: JSON.stringify({
           ...job,
           styleName,
           styleCompiled,

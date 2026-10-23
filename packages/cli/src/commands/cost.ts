@@ -1,7 +1,7 @@
 /**
- * `penguin cost` — token/cost aggregates from GET /api/projects/:p/usage.
+ * `wafh cost` — token/cost aggregates from GET /api/projects/:p/usage.
  *
- *   penguin cost [--days <n>] [--from <d> --to <d>] [--by date|agent|model|session]
+ *   wafh cost [--days <n>] [--from <d> --to <d>] [--by date|agent|model|session]
  *                [--project-id <id>] [--agent-id <id>] [--json] [--server <url>]
  *
  * Default prints the summary card (today / last 7 days / total — the endpoint computes
@@ -9,10 +9,10 @@
  * (a pair) pin an explicit range. `--by` maps to the endpoint's groupBy and prints the
  * grouped table instead of the card. `--agent-id` filters; there is no default agent
  * here — costs are a project view unless narrowed explicitly.
- * Docs: /docs/cli § "penguin cost".
+ * Docs: /docs/cli § "wafh cost".
  */
 import type { Command } from "commander";
-import type { UsageResponse } from "@prismshadow/penguin-server/api";
+import type { UsageResponse } from "@waterford/waf-harness-server/api";
 import { humanizeTokens } from "../render.js";
 import { resolveConnection, resolveProjectId, ServerClient } from "../client.js";
 import { renderTable } from "../table.js";

@@ -1,6 +1,6 @@
 /**
  * The WAF workspace: an admin reads and changes its settings (403 for anyone else), Prepare
- * clones the shared repositories under PENGUIN_HOME/waf and installs the framework's and
+ * clones the shared repositories under WAFH_HOME/waf and installs the framework's and
  * navbar's dependencies, media arrives partial and sparse, and a product module is cloned on
  * first use — or started empty with origin set when its repository does not exist yet.
  *
@@ -267,7 +267,7 @@ describe("WAF workspace", () => {
   });
 
   it("never makes a new module's repository inside an existing checkout that is a repository", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-monorepo-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-waf-monorepo-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
     await fs.mkdir(path.join(root, "framework", "src"), { recursive: true });
     await fs.writeFile(path.join(root, "framework", "package.json"), "{}");
@@ -289,7 +289,7 @@ describe("WAF workspace", () => {
   });
 
   it("uses an existing checkout as it is, and never clones into it", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-external-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-waf-external-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
     await fs.mkdir(path.join(root, "framework", "src"), { recursive: true });
     await fs.writeFile(path.join(root, "framework", "package.json"), "{}");
@@ -307,7 +307,7 @@ describe("WAF workspace", () => {
   });
 
   it("reads product modules from a monorepo modules folder too, and clones none of them", async () => {
-    const base = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-monorepo-"));
+    const base = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-waf-monorepo-"));
     cleanups.push(() => fs.rm(base, { recursive: true, force: true }));
     const modules = path.join(base, "waf-modules", "modules");
     await fs.mkdir(path.join(modules, "waf-module-m2ab01", "generated", "m2ab01"), {

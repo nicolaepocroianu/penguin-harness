@@ -8,7 +8,7 @@ import type {
   SoundKind,
   SoundProviderId,
   SoundProviderStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { ELEVENLABS_DEFAULT_VOICE, elevenLabsDefaultLabel } from "./speech-provider";
 

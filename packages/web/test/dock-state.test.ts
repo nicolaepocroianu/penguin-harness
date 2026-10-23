@@ -308,7 +308,7 @@ describe("persistence", () => {
     // placeholder; a key that is no id at all is dropped, never the whole dock.
     const tabs = ["schedules", "acme.kanban", "Bad Key!", "acme/"];
     localStorage.setItem(
-      "penguin.dock.layout",
+      "wafh.dock.layout",
       JSON.stringify({ scopes: { s: { right: { tabs, active: "acme.kanban", open: true } } } }),
     );
     vi.resetModules();
@@ -321,7 +321,7 @@ describe("persistence", () => {
 
   it("folds a stored tab per shell into the one terminal panel tab, keeping the shown shell", async () => {
     localStorage.setItem(
-      "penguin.dock.layout",
+      "wafh.dock.layout",
       JSON.stringify({
         scopes: {
           "session-old": {
@@ -366,7 +366,7 @@ describe("persistence", () => {
 
   it("degrades a malformed stored entry to empty docks", async () => {
     localStorage.setItem(
-      "penguin.dock.layout",
+      "wafh.dock.layout",
       '{"scopes": {"s": {"right": {"tabs": [42]}}}, "bottomRatio": "x"}',
     );
     vi.resetModules();

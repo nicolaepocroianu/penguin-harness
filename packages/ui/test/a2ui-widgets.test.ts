@@ -13,7 +13,7 @@ import type {
   A2uiCountdown,
   A2uiMetric,
   A2uiWeather,
-} from "@prismshadow/penguin-core/a2ui";
+} from "@waterford/waf-harness-core/a2ui";
 import { ClockBlock } from "../src/components/content/a2ui/clock-block";
 import { CountdownBlock } from "../src/components/content/a2ui/countdown-block";
 import { MetricsBlock } from "../src/components/content/a2ui/metrics-block";

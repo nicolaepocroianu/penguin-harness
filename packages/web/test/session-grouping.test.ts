@@ -43,7 +43,7 @@ import type {
   SessionCategoryCounts,
   SessionInfo,
   SessionSource,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import type { ActivityKey, StreamPosition } from "../src/lib/session-grouping";
 import {
   SIDEBAR_PAGE_SIZE,
@@ -182,7 +182,7 @@ describe("workspaceGroupKey / workspaceLabel", () => {
   });
 
   it("labels are the last path segment; the filesystem root yields '/'", () => {
-    expect(workspaceLabel("/srv/penguin/repo")).toBe("repo");
+    expect(workspaceLabel("/srv/wafh/repo")).toBe("repo");
     expect(workspaceLabel("/srv/repo/")).toBe("repo");
     expect(workspaceLabel("/")).toBe("/");
     expect(workspaceLabel("C:\\work\\site")).toBe("site");

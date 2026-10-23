@@ -2,9 +2,9 @@
  * Saved versions of an activity: save one, list them, say which one the draft holds now,
  * compare one with the draft or another version, and restore one.
  *
- * Storage is Penguin's own (version-store.ts): a row per version and content-addressed blobs
+ * Storage is WAF Harness's own (version-store.ts): a row per version and content-addressed blobs
  * in the activity's directory, holding the version manifest and the bytes of every medium
- * Penguin owns. Checkout media is recorded by path only. A save whose content equals the
+ * WAF Harness owns. Checkout media is recorded by path only. A save whose content equals the
  * latest version's makes no new version and returns that one.
  *
  * A restore rolls forward: it keeps the draft as it was as an automatic version first, writes
@@ -20,7 +20,7 @@ import { REF_FEATURES_FILE } from "./ref-files.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { renameOver } from "../internal/rename-over.js";
-import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use, type ClassCtx } from "@waterford/waf-harness-core/kernel";
 import type { Db } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
@@ -588,7 +588,7 @@ export class ActivityVersionService implements ActivityVersions {
 
   /**
    * Where a version's parts are: `workspace` is the WAF root, which a version's media paths
-   * (`media/loom/...`) are relative to, and `activityDir` is under PENGUIN_HOME, where the
+   * (`media/loom/...`) are relative to, and `activityDir` is under WAFH_HOME, where the
    * activity's version blobs are kept (<collection>/activities/<id>, beside its drafts).
    */
   private async dirs(projectId: string, activity: ActivityDetail) {

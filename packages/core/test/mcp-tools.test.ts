@@ -105,7 +105,7 @@ describe("Environment.reconfigure with MCP Servers (a new model context's server
   let env: Environment;
 
   beforeAll(async () => {
-    dir = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-reconf-")));
+    dir = await realpath(await mkdtemp(path.join(tmpdir(), "wafh-mcp-reconf-")));
     env = new Environment({
       workspaceDir: dir,
       toolConfig: { customTools: [], mcpServers: [fixtureEntry()] },
@@ -180,7 +180,7 @@ describe("MCP servers whose entry references the Agent's vault", () => {
   let dir: string;
 
   beforeAll(async () => {
-    dir = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-vault-")));
+    dir = await realpath(await mkdtemp(path.join(tmpdir(), "wafh-mcp-vault-")));
   });
 
   afterAll(async () => {
@@ -247,7 +247,7 @@ describe("MCP servers whose failures repeat what they were sent", () => {
   let base: string;
 
   beforeAll(async () => {
-    dir = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-echo-")));
+    dir = await realpath(await mkdtemp(path.join(tmpdir(), "wafh-mcp-echo-")));
     const mcp = new McpServer({ name: "echo-fixture", version: "1.0.0" });
     mcp.registerTool(
       "add",
@@ -364,7 +364,7 @@ describe("MCP over stdio through Environment", () => {
   let env: Environment;
 
   beforeAll(async () => {
-    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-")));
+    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "wafh-mcp-")));
     env = new Environment({
       workspaceDir: tmp,
       toolConfig: { customTools: [], mcpServers: [fixtureEntry()] },
@@ -449,7 +449,7 @@ describe("MCP over stdio — under the Session's sandbox", () => {
   const RUNNER = fileURLToPath(new URL("./fixtures/mcp-runner.mjs", import.meta.url));
   let tmp: string;
   beforeAll(async () => {
-    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-sandbox-")));
+    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "wafh-mcp-sandbox-")));
   });
   afterAll(async () => {
     await rmEventually(tmp);
@@ -529,7 +529,7 @@ describe("MCP over stdio — per-server budgets and interruption", () => {
   let tmp: string;
 
   beforeAll(async () => {
-    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-b-")));
+    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "wafh-mcp-b-")));
   });
 
   afterAll(async () => {
@@ -593,20 +593,20 @@ describe("MCP over stdio — per-server budgets and interruption", () => {
   it("the host's harness variables never reach a stdio server", async () => {
     // The stdio child env is the MCP SDK's safe-inherited allowlist plus the entry's own
     // env — assembled in provider.ts, apart from the command-session strip — so the
-    // serving process's PENGUIN_HOME/PORT must be invisible here even though no strip
+    // serving process's WAFH_HOME/PORT must be invisible here even though no strip
     // runs on this path. Pinned locally because only the allowlist guarantees it: a
     // widened inherited base (say, spreading process.env) would leak silently otherwise.
     // The child env is captured when the server connects, i.e. at the first tool call of
     // this fresh Environment, so the pollution below is what that capture sees.
-    const saved = { PENGUIN_HOME: process.env.PENGUIN_HOME, PORT: process.env.PORT };
-    process.env.PENGUIN_HOME = "leak-check-root";
+    const saved = { WAFH_HOME: process.env.WAFH_HOME, PORT: process.env.PORT };
+    process.env.WAFH_HOME = "leak-check-root";
     process.env.PORT = "7364";
     const env = makeEnv({ env: { FIXTURE_SECRET: "still-arrives" } });
     try {
       const final = finalPayload(await runTool(env, "mcp__fx__probe", {}));
-      const [secret, , penguinHome, port] = (final.output ?? "").split("|");
+      const [secret, , wafHarnessHome, port] = (final.output ?? "").split("|");
       expect(secret).toBe("still-arrives");
-      expect(penguinHome).toBe("");
+      expect(wafHarnessHome).toBe("");
       expect(port).toBe("");
     } finally {
       env.dispose();
@@ -636,7 +636,7 @@ describe("MCP over stdio — per-server permission override", () => {
   let tmp: string;
 
   beforeAll(async () => {
-    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-p-")));
+    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "wafh-mcp-p-")));
   });
 
   afterAll(async () => {
@@ -704,7 +704,7 @@ describe("Session first-run bootstrap events", () => {
   let tmp: string;
 
   beforeAll(async () => {
-    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "penguin-mcp-s-")));
+    tmp = await realpath(await mkdtemp(path.join(tmpdir(), "wafh-mcp-s-")));
   });
 
   afterAll(async () => {
@@ -1023,8 +1023,8 @@ describe("MCP over Streamable HTTP", () => {
     await new Promise((resolve) => httpServer.close(resolve));
   });
 
-  it("discovers and calls tools over http, sending the configured headers — vault references filled in — and PenguinHarness's User-Agent on every request", async () => {
-    const tmp = await mkdtemp(path.join(tmpdir(), "penguin-mcp-http-"));
+  it("discovers and calls tools over http, sending the configured headers — vault references filled in — and WAF Harness's User-Agent on every request", async () => {
+    const tmp = await mkdtemp(path.join(tmpdir(), "wafh-mcp-http-"));
     const env = new Environment({
       workspaceDir: tmp,
       toolConfig: {
@@ -1032,7 +1032,7 @@ describe("MCP over Streamable HTTP", () => {
         mcpServers: [
           {
             name: "web",
-            config: { transport: "http", url, headers: { "x-penguin-test": "${WEB_HEADER}" } },
+            config: { transport: "http", url, headers: { "x-wafh-test": "${WEB_HEADER}" } },
           },
         ],
       },
@@ -1045,8 +1045,8 @@ describe("MCP over Streamable HTTP", () => {
       expect(final.stop_reason).toBe("completed");
       expect(final.output).toBe("5");
       expect(seenHeaders.length).toBeGreaterThan(0);
-      expect(seenHeaders.every((h) => h["x-penguin-test"] === "yes")).toBe(true);
-      expect(seenHeaders.every((h) => h["user-agent"] === `penguinharness/${VERSION}`)).toBe(true);
+      expect(seenHeaders.every((h) => h["x-wafh-test"] === "yes")).toBe(true);
+      expect(seenHeaders.every((h) => h["user-agent"] === `waf-harness/${VERSION}`)).toBe(true);
     } finally {
       env.dispose();
       await rmEventually(tmp);

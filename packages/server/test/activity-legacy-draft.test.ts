@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { projectDir } from "@prismshadow/penguin-core";
+import { projectDir } from "@waterford/waf-harness-core";
 import type { ActivityDetail } from "../src/activities/domain.js";
 import { activitySpec, refFilesDir, refMediaDir } from "./activity-fixtures.js";
 import { imagePng } from "./image-fixtures.js";
@@ -40,7 +40,7 @@ describe("drafts saved before activities moved into modules", () => {
     });
     expect(applied.status).toBe(200);
     const saved = (await (await client.get(endpoint)).json()) as ActivityDetail;
-    // What an earlier Penguin kept: the whole draft in draft.json under PENGUIN_HOME.
+    // What an earlier WAF Harness kept: the whole draft in draft.json under WAFH_HOME.
     const workspace = path.join(
       projectDir(t.root, PROJECT),
       "activities",
@@ -127,7 +127,7 @@ describe("drafts saved before activities moved into modules", () => {
       expect(planned.status, await planned.clone().text()).toBe(200);
       const saved = (await (await client.get(endpoint)).json()) as ActivityDetail;
 
-      // The same draft as an earlier Penguin kept it: the cat an accepted take bound under
+      // The same draft as an earlier WAF Harness kept it: the cat an accepted take bound under
       // media/generated, the dog an upload under media/uploads, and a take still waiting.
       const cat = imagePng(2, 2);
       const catRun = `run_${"a".repeat(32)}`;
@@ -189,7 +189,7 @@ describe("drafts saved before activities moved into modules", () => {
 
   it("never overwrites files already at the ref's address in the module", async () => {
     const { client, endpoint, refFolder } = await legacyRef();
-    // A Loom-authored ref at the same address: its spec, but no penguin.json.
+    // A Loom-authored ref at the same address: its spec, but no wafh.json.
     await fs.mkdir(path.join(refFolder, "spec"), { recursive: true });
     await fs.writeFile(path.join(refFolder, "spec", "activity_spec.json"), '{"loom":true}');
     const read = await client.get(endpoint);

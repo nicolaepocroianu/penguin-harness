@@ -14,7 +14,7 @@ import type {
 } from "../api/types.js";
 import { CODING_AGENT_PROVIDER, codingAgentModelId } from "./session-runtime.js";
 
-/** A coding agent's row has no endpoint, protocol or key of Penguin's: the agent brings its own. */
+/** A coding agent's row has no endpoint, protocol or key of WAF Harness's: the agent brings its own. */
 const NO_CONNECTION: ModelEffectiveConnection = {
   baseUrlSource: "none",
   clientTypeSource: "none",

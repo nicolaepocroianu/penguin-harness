@@ -54,7 +54,7 @@ describe("summarize", () => {
   });
 
   it("counts an imported module without a plan as built only once the plan exists", () => {
-    // A Loom import can play from the checkout before Penguin planned its media.
+    // A Loom import can play from the checkout before WAF Harness planned its media.
     const summary = summarize({ ...fresh, specValid: true, hasModule: true });
     expect(summary).toMatchObject({ done: 2, status: { kind: "next", milestone: "mediaPlan" } });
   });

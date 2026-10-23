@@ -341,12 +341,12 @@ describePty("terminal API", () => {
       };
 
       await api.post(`/api/terminals/${terminal.id}/keys`, {
-        keys: "echo penguin-terminal-ok",
+        keys: "echo wafh-terminal-ok",
         literal: true,
       });
       await api.post(`/api/terminals/${terminal.id}/keys`, { keys: "Enter" });
-      const lines = await waitForLine(read, /^penguin-terminal-ok$/);
-      expect(lines.some((line) => line === "penguin-terminal-ok")).toBe(true);
+      const lines = await waitForLine(read, /^wafh-terminal-ok$/);
+      expect(lines.some((line) => line === "wafh-terminal-ok")).toBe(true);
 
       const listed = await api.get("/api/terminals");
       expect(((await listed.json()) as { terminals: unknown[] }).terminals).toHaveLength(1);

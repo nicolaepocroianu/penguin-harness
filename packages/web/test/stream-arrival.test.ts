@@ -21,7 +21,7 @@
  */
 import { act, createElement as h } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AssistantText, StreamText } from "@prismshadow/penguin-ui";
+import { AssistantText, StreamText } from "@waterford/waf-harness-ui";
 import { mount, unmountAll } from "./helpers/dom";
 
 const FROST = {

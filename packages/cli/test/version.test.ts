@@ -1,5 +1,5 @@
 /**
- * `penguin version`: the two output modes, and the property that `-v` cannot drift from the
+ * `wafh version`: the two output modes, and the property that `-v` cannot drift from the
  * subcommand. Both render core's buildInfo() and add nothing, so the assertions compare
  * against that producer rather than against literals — the release workflow stamps core's
  * constants before it runs these tests, and a hardcoded version would only fail there.
@@ -9,9 +9,9 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { Command } from "commander";
-import { buildInfo } from "@prismshadow/penguin-core";
-import type { VersionReport } from "@prismshadow/penguin-core";
-import { versionReport } from "@prismshadow/penguin-server/version-report";
+import { buildInfo } from "@waterford/waf-harness-core";
+import type { VersionReport } from "@waterford/waf-harness-core";
+import { versionReport } from "@waterford/waf-harness-server/version-report";
 import { registerVersionCommand } from "../src/commands/version.js";
 import { cli } from "../src/index.js";
 import { getMessages } from "../src/i18n.js";
@@ -41,13 +41,13 @@ async function run(argv: string[]): Promise<string> {
   return out;
 }
 
-describe("penguin version", () => {
+describe("wafh version", () => {
   it("prints the one-line identity and nothing else", async () => {
     expect(await run(["version"])).toBe(`${buildInfo().describe}\n`);
   });
 
   it("prints the whole version report as JSON under --json", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "penguin-cli-version-"));
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "wafh-cli-version-"));
     try {
       const out = await run(["version", "--json", "--root", root]);
       expect(JSON.parse(out)).toEqual(await versionReport(root));
@@ -61,14 +61,14 @@ describe("penguin version", () => {
   it("reports the harness pushed to the root it was pointed at", async () => {
     // What the version line cannot carry: the store describes the ROOT, not this process,
     // so it still answers when the packaged CLI runs on a machine holding a pushed one.
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "penguin-cli-version-"));
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "wafh-cli-version-"));
     try {
       await fsp.mkdir(path.join(root, "hmr"), { recursive: true });
       await fsp.writeFile(
         path.join(root, "hmr", "harness.json"),
         JSON.stringify({
           cli: { bundle: "store/cli/abc123.mjs" },
-          source: { repo: "https://example.com/penguin.git", revision: "v0.2.3-7-gabc1234-dirty" },
+          source: { repo: "https://example.com/wafh.git", revision: "v0.2.3-7-gabc1234-dirty" },
           pushedAt: "2026-08-20T10:15:00.000Z",
         }),
       );
@@ -83,7 +83,7 @@ describe("penguin version", () => {
   });
 
   it("omits a harness for a root with nothing pushed", async () => {
-    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "penguin-cli-version-"));
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "wafh-cli-version-"));
     try {
       const report = JSON.parse(await run(["version", "--json", "--root", root])) as VersionReport;
       expect(report.harness).toBeNull();

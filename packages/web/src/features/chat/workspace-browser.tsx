@@ -89,15 +89,15 @@ import {
   useFilesLayout,
   useMarkdownReader,
   useRowContextMenu,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import type {
   EditorScroll,
   FileMenuTarget,
   PreviewView,
   TreeToggle,
   WorkspaceFileMenuLabels,
-} from "@prismshadow/penguin-ui";
-import type { WorkspaceSearchHit } from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-ui";
+import type { WorkspaceSearchHit } from "@waterford/waf-harness-server/api";
 import { ApiError } from "../../api/client";
 import { filesApi, filesScopeKey } from "../../api/workspace-files";
 import type { FilesScope } from "../../api/workspace-files";

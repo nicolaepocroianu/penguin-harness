@@ -13,7 +13,7 @@
  * and never written while none does: a conversation handle may not outlive every binding that
  * could use it.
  */
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Db } from "../../hmr/capabilities.js";
 import type { MessagingConversations } from "../../mechanisms/messaging.js";
 

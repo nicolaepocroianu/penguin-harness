@@ -39,25 +39,25 @@ check_shared_constant "the OSS switch ratio" "SPEED_PROBE_OSS_SWITCH_RATIO = 1.5
 
 # --- The launchers the release packages ship verbatim (scripts/launchers/). They are the only
 #     spelling of the payload layout, so moving where web/ or node/ sits fails here rather than
-#     shipping a package whose `penguin` cannot find its own web assets. ---
-LAUNCHER_SH="$ROOT_DIR/scripts/launchers/penguin"
-LAUNCHER_CMD="$ROOT_DIR/scripts/launchers/penguin.cmd"
-[ -x "$LAUNCHER_SH" ] || fail_test "scripts/launchers/penguin is missing or not executable"
-for marker in 'PENGUIN_WEB_DIST:-$DIR/web' '$DIR/node/bin/node' '$DIR/lib/dist/penguin.js' \
-  'PENGUIN_BUNDLED_BROWSERS:-$DIR/browsers'; do
+#     shipping a package whose `wafh` cannot find its own web assets. ---
+LAUNCHER_SH="$ROOT_DIR/scripts/launchers/wafh"
+LAUNCHER_CMD="$ROOT_DIR/scripts/launchers/wafh.cmd"
+[ -x "$LAUNCHER_SH" ] || fail_test "scripts/launchers/wafh is missing or not executable"
+for marker in 'WAFH_WEB_DIST:-$DIR/web' '$DIR/node/bin/node' '$DIR/lib/dist/wafh.js' \
+  'WAFH_BUNDLED_BROWSERS:-$DIR/browsers'; do
   grep -qF "$marker" "$LAUNCHER_SH" || fail_test "the POSIX launcher does not carry $marker"
 done
 sh -n "$LAUNCHER_SH" || fail_test "the POSIX launcher is not valid sh"
-for marker in '%DIR%\web' '%DIR%\node\node.exe' '%DIR%\lib\dist\penguin.js' \
-  'PENGUIN_BUNDLED_BROWSERS=%DIR%\browsers'; do
+for marker in '%DIR%\web' '%DIR%\node\node.exe' '%DIR%\lib\dist\wafh.js' \
+  'WAFH_BUNDLED_BROWSERS=%DIR%\browsers'; do
   grep -qF "$marker" "$LAUNCHER_CMD" || fail_test "the Windows launcher does not carry $marker"
 done
 # .gitattributes keeps this one CRLF, the only form cmd.exe is fully reliable with.
 grep -q "$(printf '\r')" "$LAUNCHER_CMD" || fail_test "the Windows launcher is not CRLF"
-# No penguin.ps1: PowerShell would prefer it on PATH, and Restricted policy would then break
-# the plain `penguin` command.
-[ ! -e "$ROOT_DIR/scripts/launchers/penguin.ps1" ] \
-  || fail_test "a penguin.ps1 launcher must not be shipped"
+# No wafh.ps1: PowerShell would prefer it on PATH, and Restricted policy would then break
+# the plain `wafh` command.
+[ ! -e "$ROOT_DIR/scripts/launchers/wafh.ps1" ] \
+  || fail_test "a wafh.ps1 launcher must not be shipped"
 
 write_sha256() {
   file="$1"
@@ -70,28 +70,28 @@ make_posix_payload() {
   behavior="${3:-success}"
   payload="$WORK_DIR/payload-src"
   rm -rf "$payload"
-  mkdir -p "$payload/penguin/bin" "$payload/penguin/lib" "$payload/penguin/web"
+  mkdir -p "$payload/wafh/bin" "$payload/wafh/lib" "$payload/wafh/web"
   if [ "$behavior" = "final-failure" ]; then
     {
       printf '%s\n' '#!/bin/sh'
       printf '%s\n' 'case "$0" in'
-      printf '%s\n' '  */.staging.*/bin/penguin) echo fixture-new; exit 0 ;;'
+      printf '%s\n' '  */.staging.*/bin/wafh) echo fixture-new; exit 0 ;;'
       printf '%s\n' '  *) echo "fixture final-path failure" >&2; exit 42 ;;'
       printf '%s\n' 'esac'
-    } > "$payload/penguin/bin/penguin"
+    } > "$payload/wafh/bin/wafh"
   else
     {
       printf '%s\n' '#!/bin/sh'
       printf 'echo %s\n' "${4:-fixture-old}"
-    } > "$payload/penguin/bin/penguin"
+    } > "$payload/wafh/bin/wafh"
   fi
-  chmod +x "$payload/penguin/bin/penguin"
-  printf '%s\n' fixture > "$payload/penguin/lib/fixture.txt"
-  mkdir -p "$payload/penguin/lib/vendor"
-  printf '%s\n' vendored > "$payload/penguin/lib/vendor/data.txt"
-  printf '%s\n' fixture > "$payload/penguin/web/index.html"
-  printf '{"schemaVersion":1,"target":"%s"}\n' "$target" > "$payload/penguin/package-manifest.json"
-  tar -czf "$output" -C "$payload" penguin
+  chmod +x "$payload/wafh/bin/wafh"
+  printf '%s\n' fixture > "$payload/wafh/lib/fixture.txt"
+  mkdir -p "$payload/wafh/lib/vendor"
+  printf '%s\n' vendored > "$payload/wafh/lib/vendor/data.txt"
+  printf '%s\n' fixture > "$payload/wafh/web/index.html"
+  printf '{"schemaVersion":1,"target":"%s"}\n' "$target" > "$payload/wafh/package-manifest.json"
+  tar -czf "$output" -C "$payload" wafh
 }
 
 command -v sha256sum >/dev/null 2>&1 || fail_test "sha256sum is required"
@@ -105,17 +105,17 @@ case "$(uname -s):$(uname -m)" in
   Darwin:arm64) HOST_TARGET="darwin-arm64" ;;
   *) fail_test "unsupported fixture platform" ;;
 esac
-HOST_ASSET="penguin-$HOST_TARGET.tar.gz"
+HOST_ASSET="wafh-$HOST_TARGET.tar.gz"
 
 # --- Build fixture payloads and package them exactly like the release workflow. ---
 for target in linux-x64 linux-arm64 darwin-x64 darwin-arm64 universal; do
   make_posix_payload "$target" "$PAYLOAD_DIR/$target.tar.gz"
 done
-windows_payload="$WORK_DIR/windows/penguin"
+windows_payload="$WORK_DIR/windows/wafh"
 mkdir -p "$windows_payload/bin"
-printf '%s\r\n' '@echo off' 'echo fixture-old' > "$windows_payload/bin/penguin.cmd"
+printf '%s\r\n' '@echo off' 'echo fixture-old' > "$windows_payload/bin/wafh.cmd"
 printf '%s\n' '{"schemaVersion":1,"target":"win32-x64"}' > "$windows_payload/package-manifest.json"
-(cd "$WORK_DIR/windows" && zip -qr "$PAYLOAD_DIR/win32-x64.zip" penguin)
+(cd "$WORK_DIR/windows" && zip -qr "$PAYLOAD_DIR/win32-x64.zip" wafh)
 
 # The test browser each platform payload gains, from a stub installer: no download. It records
 # the Playwright platform it was asked for, so a payload carrying another target's browser fails.
@@ -127,11 +127,11 @@ FAKE_BROWSER_INSTALLER="$STUB_BIN/fake-test-browser-installer"
 } > "$FAKE_BROWSER_INSTALLER"
 chmod +x "$FAKE_BROWSER_INSTALLER"
 
-PENGUIN_TEST_BROWSER_INSTALLER="$FAKE_BROWSER_INSTALLER" \
+WAFH_TEST_BROWSER_INSTALLER="$FAKE_BROWSER_INSTALLER" \
   sh "$ROOT_DIR/scripts/package-release-bundles.sh" "$PAYLOAD_DIR" "$ARTIFACT_DIR"
 
 # --- The test browser: every platform payload carries one for its own platform at
-#     penguin/browsers/, the directory the launchers name; the universal payload has none. ---
+#     wafh/browsers/, the directory the launchers name; the universal payload has none. ---
 for target_platform in linux-x64:ubuntu22.04-x64 linux-arm64:ubuntu22.04-arm64 \
   darwin-x64:mac14 darwin-arm64:mac14-arm64; do
   target="${target_platform%%:*}"
@@ -139,19 +139,19 @@ for target_platform in linux-x64:ubuntu22.04-x64 linux-arm64:ubuntu22.04-arm64 \
   browser_dir="$WORK_DIR/browser-check-$target"
   mkdir -p "$browser_dir"
   tar -xzf "$PAYLOAD_DIR/$target.tar.gz" -C "$browser_dir"
-  [ -f "$browser_dir/penguin/browsers/chromium-0000/platform" ] \
-    || fail_test "$target payload has no test browser at penguin/browsers"
-  [ "$(cat "$browser_dir/penguin/browsers/chromium-0000/platform")" = "$platform" ] \
+  [ -f "$browser_dir/wafh/browsers/chromium-0000/platform" ] \
+    || fail_test "$target payload has no test browser at wafh/browsers"
+  [ "$(cat "$browser_dir/wafh/browsers/chromium-0000/platform")" = "$platform" ] \
     || fail_test "$target payload carries a test browser for another platform"
 done
-if tar -tzf "$PAYLOAD_DIR/universal.tar.gz" | grep -q '^penguin/browsers/'; then
+if tar -tzf "$PAYLOAD_DIR/universal.tar.gz" | grep -q '^wafh/browsers/'; then
   fail_test "the universal payload must not carry a platform's test browser"
 fi
 browser_dir="$WORK_DIR/browser-check-win32-x64"
 mkdir -p "$browser_dir"
 unzip -q "$PAYLOAD_DIR/win32-x64.zip" -d "$browser_dir"
-[ "$(cat "$browser_dir/penguin/browsers/chromium-0000/platform" 2>/dev/null)" = win64 ] \
-  || fail_test "win32-x64 payload has no Windows test browser at penguin/browsers"
+[ "$(cat "$browser_dir/wafh/browsers/chromium-0000/platform" 2>/dev/null)" = win64 ] \
+  || fail_test "win32-x64 payload has no Windows test browser at wafh/browsers"
 
 # Exercise the exact release-workflow stamping block against new, legacy, and inconsistent tag
 # sources. The workflow must keep this logic inline because it checks out the requested tag, which
@@ -186,9 +186,9 @@ STAMP_SHA=0123456789abcdef0123456789abcdef01234567
 
 STAMP_NEW_DIR="$WORK_DIR/stamp-new"
 make_stamp_case "$STAMP_NEW_DIR"
-printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__PENGUIN_RELEASE_VERSION__"' \
+printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"' \
   > "$STAMP_NEW_DIR/install.sh"
-printf '%s\n' '$EmbeddedReleaseVersion = "__PENGUIN_RELEASE_VERSION__"' \
+printf '%s\n' '$EmbeddedReleaseVersion = "__WAFH_RELEASE_VERSION__"' \
   > "$STAMP_NEW_DIR/install.ps1"
 (cd "$STAMP_NEW_DIR" && TEST_RELEASE_TAG=v9.8.7 GITHUB_SHA="$STAMP_SHA" sh -e "$STAMP_SCRIPT")
 grep -Fq 'EMBEDDED_RELEASE_VERSION="v9.8.7"' "$STAMP_NEW_DIR/install.sh" \
@@ -223,9 +223,9 @@ grep -Fq "export const BUILD_COMMIT: string | null = \"$CHECKOUT_SHA\";" \
 # Without GITHUB_SHA (a replay outside Actions) the commit stays null and the rest still stamps.
 STAMP_NOSHA_DIR="$WORK_DIR/stamp-no-sha"
 make_stamp_case "$STAMP_NOSHA_DIR"
-printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__PENGUIN_RELEASE_VERSION__"' \
+printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"' \
   > "$STAMP_NOSHA_DIR/install.sh"
-printf '%s\n' '$EmbeddedReleaseVersion = "__PENGUIN_RELEASE_VERSION__"' \
+printf '%s\n' '$EmbeddedReleaseVersion = "__WAFH_RELEASE_VERSION__"' \
   > "$STAMP_NOSHA_DIR/install.ps1"
 (cd "$STAMP_NOSHA_DIR" && TEST_RELEASE_TAG=v9.8.7 GITHUB_SHA= sh -e "$STAMP_SCRIPT") \
   > "$WORK_DIR/stamp-no-sha.output"
@@ -240,9 +240,9 @@ grep -Fq 'export const VERSION = "9.8.7";' "$STAMP_NOSHA_DIR/packages/core/src/i
 # A tag predating the BUILD_COMMIT constant must still rebuild.
 STAMP_NOCONST_DIR="$WORK_DIR/stamp-no-commit-const"
 make_stamp_case "$STAMP_NOCONST_DIR" legacy
-printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__PENGUIN_RELEASE_VERSION__"' \
+printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"' \
   > "$STAMP_NOCONST_DIR/install.sh"
-printf '%s\n' '$EmbeddedReleaseVersion = "__PENGUIN_RELEASE_VERSION__"' \
+printf '%s\n' '$EmbeddedReleaseVersion = "__WAFH_RELEASE_VERSION__"' \
   > "$STAMP_NOCONST_DIR/install.ps1"
 (cd "$STAMP_NOCONST_DIR" && TEST_RELEASE_TAG=v9.8.7 GITHUB_SHA="$STAMP_SHA" sh -e "$STAMP_SCRIPT") \
   > "$WORK_DIR/stamp-no-commit-const.output"
@@ -270,10 +270,10 @@ for inconsistent_side in posix powershell; do
   printf '%s\n' 'legacy POSIX installer' > "$STAMP_INCONSISTENT_DIR/install.sh"
   printf '%s\n' 'legacy PowerShell installer' > "$STAMP_INCONSISTENT_DIR/install.ps1"
   if [ "$inconsistent_side" = posix ]; then
-    printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__PENGUIN_RELEASE_VERSION__"' \
+    printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"' \
       > "$STAMP_INCONSISTENT_DIR/install.sh"
   else
-    printf '%s\n' '$EmbeddedReleaseVersion = "__PENGUIN_RELEASE_VERSION__"' \
+    printf '%s\n' '$EmbeddedReleaseVersion = "__WAFH_RELEASE_VERSION__"' \
       > "$STAMP_INCONSISTENT_DIR/install.ps1"
   fi
   if (cd "$STAMP_INCONSISTENT_DIR" && TEST_RELEASE_TAG=v9.8.7 GITHUB_SHA="$STAMP_SHA" \
@@ -284,15 +284,15 @@ done
 
 # Model the release workflow's installer stamping without changing the source installer.
 STAMPED_INSTALLER="$WORK_DIR/install-v0.0.0-test.sh"
-grep -q 'EMBEDDED_RELEASE_VERSION="__PENGUIN_RELEASE_VERSION__"' "$ROOT_DIR/install.sh" \
+grep -q 'EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"' "$ROOT_DIR/install.sh" \
   || fail_test "POSIX installer release-version token is missing"
-sed 's/__PENGUIN_RELEASE_VERSION__/v0.0.0-test/' "$ROOT_DIR/install.sh" > "$STAMPED_INSTALLER"
+sed 's/__WAFH_RELEASE_VERSION__/v0.0.0-test/' "$ROOT_DIR/install.sh" > "$STAMPED_INSTALLER"
 chmod +x "$STAMPED_INSTALLER"
 
 # --- Canonical layout: flat bundles, exact member set, byte-identical installers, both
 #     checksum layers valid. ---
 for target in linux-x64 linux-arm64 darwin-x64 darwin-arm64 universal; do
-  bundle="$ARTIFACT_DIR/penguin-$target.tar.gz"
+  bundle="$ARTIFACT_DIR/wafh-$target.tar.gz"
   [ -f "$bundle" ] || fail_test "missing $(basename "$bundle")"
   (cd "$ARTIFACT_DIR" && sha256sum -c "$(basename "$bundle").sha256" >/dev/null) \
     || fail_test "outer checksum failed for $(basename "$bundle")"
@@ -311,13 +311,13 @@ for target in linux-x64 linux-arm64 darwin-x64 darwin-arm64 universal; do
     || fail_test "$(basename "$bundle") payload differs from its input"
 done
 
-windows_bundle="$ARTIFACT_DIR/penguin-win32-x64.zip"
-[ -f "$windows_bundle" ] || fail_test "missing penguin-win32-x64.zip"
-(cd "$ARTIFACT_DIR" && sha256sum -c penguin-win32-x64.zip.sha256 >/dev/null) \
-  || fail_test "outer checksum failed for penguin-win32-x64.zip"
+windows_bundle="$ARTIFACT_DIR/wafh-win32-x64.zip"
+[ -f "$windows_bundle" ] || fail_test "missing wafh-win32-x64.zip"
+(cd "$ARTIFACT_DIR" && sha256sum -c wafh-win32-x64.zip.sha256 >/dev/null) \
+  || fail_test "outer checksum failed for wafh-win32-x64.zip"
 members="$(unzip -Z1 "$windows_bundle" | LC_ALL=C sort)"
 expected="$(printf '%s\n' install.cmd install.ps1 payload.zip payload.zip.sha256 | LC_ALL=C sort)"
-[ "$members" = "$expected" ] || fail_test "penguin-win32-x64.zip has an unexpected layout"
+[ "$members" = "$expected" ] || fail_test "wafh-win32-x64.zip has an unexpected layout"
 extracted="$WORK_DIR/layout-win32-x64"
 mkdir -p "$extracted"
 (cd "$extracted" && unzip -q "$windows_bundle")
@@ -343,32 +343,32 @@ OFFLINE_DIR="$WORK_DIR/offline"
 OFFLINE_INSTALL="$WORK_DIR/offline-install"
 mkdir -p "$OFFLINE_DIR"
 tar -xzf "$ARTIFACT_DIR/$HOST_ASSET" -C "$OFFLINE_DIR"
-HOME="$TEST_HOME" PENGUIN_INSTALL_DIR="$OFFLINE_INSTALL" PATH="$STUB_BIN:$PATH" \
+HOME="$TEST_HOME" WAFH_INSTALL_DIR="$OFFLINE_INSTALL" PATH="$STUB_BIN:$PATH" \
   sh "$OFFLINE_DIR/install.sh" >/dev/null \
   || fail_test "offline install from the extracted bundle failed"
-[ "$("$OFFLINE_INSTALL/bin/penguin" --version)" = "fixture-old" ] \
+[ "$("$OFFLINE_INSTALL/bin/wafh" --version)" = "fixture-old" ] \
   || fail_test "offline install did not produce a working command"
 # The payload's test browser lands beside the program, where the launcher names it.
 [ -f "$OFFLINE_INSTALL/browsers/chromium-0000/platform" ] \
   || fail_test "offline install did not carry the payload's test browser into the install"
 
-# A second installation beside the first leaves `penguin` with the first: with
+# A second installation beside the first leaves `wafh` with the first: with
 # --no-modify-path the ~/.local/bin symlink is not repointed.
 SECOND_INSTALL="$WORK_DIR/offline-second-install"
-HOME="$TEST_HOME" PENGUIN_INSTALL_DIR="$SECOND_INSTALL" PATH="$STUB_BIN:$PATH" \
+HOME="$TEST_HOME" WAFH_INSTALL_DIR="$SECOND_INSTALL" PATH="$STUB_BIN:$PATH" \
   sh "$OFFLINE_DIR/install.sh" --no-modify-path >/dev/null \
   || fail_test "second install with --no-modify-path failed"
-[ "$("$SECOND_INSTALL/bin/penguin" --version)" = "fixture-old" ] \
+[ "$("$SECOND_INSTALL/bin/wafh" --version)" = "fixture-old" ] \
   || fail_test "second install did not produce a working command"
-[ "$(readlink "$TEST_HOME/.local/bin/penguin")" = "$OFFLINE_INSTALL/bin/penguin" ] \
-  || fail_test "--no-modify-path repointed the penguin symlink at the second installation"
+[ "$(readlink "$TEST_HOME/.local/bin/wafh")" = "$OFFLINE_INSTALL/bin/wafh" ] \
+  || fail_test "--no-modify-path repointed the wafh symlink at the second installation"
 # The same flag arrives through `sh -s --`, which is how a machine install passes it.
 THIRD_INSTALL="$WORK_DIR/offline-third-install"
-HOME="$TEST_HOME" PENGUIN_INSTALL_DIR="$THIRD_INSTALL" PENGUIN_ARCHIVE="$ARTIFACT_DIR/$HOST_ASSET" \
+HOME="$TEST_HOME" WAFH_INSTALL_DIR="$THIRD_INSTALL" WAFH_ARCHIVE="$ARTIFACT_DIR/$HOST_ASSET" \
   PATH="$STUB_BIN:$PATH" sh -s -- --no-modify-path < "$OFFLINE_DIR/install.sh" >/dev/null \
   || fail_test "install over stdin with --no-modify-path failed"
-[ "$(readlink "$TEST_HOME/.local/bin/penguin")" = "$OFFLINE_INSTALL/bin/penguin" ] \
-  || fail_test "--no-modify-path over stdin repointed the penguin symlink"
+[ "$(readlink "$TEST_HOME/.local/bin/wafh")" = "$OFFLINE_INSTALL/bin/wafh" ] \
+  || fail_test "--no-modify-path over stdin repointed the wafh symlink"
 
 # The stamped installer inside a released bundle must still prefer its sibling payload and
 # never resolve metadata or download an online asset.
@@ -377,7 +377,7 @@ STAMPED_OFFLINE_INSTALL="$WORK_DIR/offline-stamped-install"
 mkdir -p "$STAMPED_OFFLINE_DIR"
 cp "$STAMPED_INSTALLER" "$STAMPED_OFFLINE_DIR/install.sh"
 cp "$OFFLINE_DIR/payload.tar.gz" "$OFFLINE_DIR/payload.tar.gz.sha256" "$STAMPED_OFFLINE_DIR/"
-HOME="$TEST_HOME" PENGUIN_INSTALL_DIR="$STAMPED_OFFLINE_INSTALL" PATH="$STUB_BIN:$PATH" \
+HOME="$TEST_HOME" WAFH_INSTALL_DIR="$STAMPED_OFFLINE_INSTALL" PATH="$STUB_BIN:$PATH" \
   sh "$STAMPED_OFFLINE_DIR/install.sh" >/dev/null \
   || fail_test "stamped offline installer unexpectedly touched the network"
 
@@ -387,7 +387,7 @@ mkdir -p "$CORRUPT_DIR"
 tar -xzf "$ARTIFACT_DIR/$HOST_ASSET" -C "$CORRUPT_DIR"
 printf 'corruption' >> "$CORRUPT_DIR/payload.tar.gz"
 set +e
-HOME="$TEST_HOME" PENGUIN_INSTALL_DIR="$WORK_DIR/offline-corrupt-install" PATH="$STUB_BIN:$PATH" \
+HOME="$TEST_HOME" WAFH_INSTALL_DIR="$WORK_DIR/offline-corrupt-install" PATH="$STUB_BIN:$PATH" \
   sh "$CORRUPT_DIR/install.sh" >/dev/null 2>&1
 status=$?
 set -e
@@ -395,15 +395,15 @@ set -e
 
 # --- Local archives: the canonical bundle and a bare payload both install; a failing upgrade
 #     rolls back to the previous installation. ---
-LOCAL_INSTALL="$TEST_HOME/.penguin"
-HOME="$TEST_HOME" PENGUIN_INSTALL_DIR="$LOCAL_INSTALL" \
+LOCAL_INSTALL="$TEST_HOME/.waf-harness"
+HOME="$TEST_HOME" WAFH_INSTALL_DIR="$LOCAL_INSTALL" \
   sh "$ROOT_DIR/install.sh" --archive "$ARTIFACT_DIR/$HOST_ASSET" >/dev/null \
   || fail_test "--archive with the canonical bundle failed"
 
 payload_archive="$WORK_DIR/payload.tar.gz"
 cp "$PAYLOAD_DIR/$HOST_TARGET.tar.gz" "$payload_archive"
 write_sha256 "$payload_archive"
-HOME="$TEST_HOME" PENGUIN_INSTALL_DIR="$LOCAL_INSTALL" \
+HOME="$TEST_HOME" WAFH_INSTALL_DIR="$LOCAL_INSTALL" \
   sh "$ROOT_DIR/install.sh" --archive "$payload_archive" >/dev/null \
   || fail_test "--archive with a bare payload failed"
 
@@ -411,18 +411,18 @@ failure_archive="$WORK_DIR/final-failure.tar.gz"
 make_posix_payload "$HOST_TARGET" "$failure_archive" final-failure
 write_sha256 "$failure_archive"
 set +e
-HOME="$TEST_HOME" PENGUIN_INSTALL_DIR="$LOCAL_INSTALL" \
+HOME="$TEST_HOME" WAFH_INSTALL_DIR="$LOCAL_INSTALL" \
   sh "$ROOT_DIR/install.sh" --archive "$failure_archive" >/dev/null 2>&1
 status=$?
 set -e
 [ "$status" -ne 0 ] || fail_test "failing POSIX upgrade unexpectedly succeeded"
-[ "$("$LOCAL_INSTALL/bin/penguin" --version)" = "fixture-old" ] \
+[ "$("$LOCAL_INSTALL/bin/wafh" --version)" = "fixture-old" ] \
   || fail_test "previous POSIX installation was not restored"
 [ -f "$LOCAL_INSTALL/browsers/chromium-0000/platform" ] \
   || fail_test "rollback did not restore the previous test browser"
 
 # --- Pinned-directory upgrade: emulate a filesystem that refuses to rename in-use directories
-#     (overlayfs reports EBUSY when `penguin update` replaces the very lib/ its own process runs
+#     (overlayfs reports EBUSY when `wafh update` replaces the very lib/ its own process runs
 #     from). mv/rmdir stubs refuse directory renames that touch the installed lib, forcing
 #     relocate_dir through its per-entry and copy fallbacks and the husk-reuse path. ---
 PINNED_LIB="$LOCAL_INSTALL/lib"
@@ -454,11 +454,11 @@ chmod +x "$STUB_BIN/mv" "$STUB_BIN/rmdir"
 pinned_archive="$WORK_DIR/pinned-upgrade.tar.gz"
 make_posix_payload "$HOST_TARGET" "$pinned_archive" success fixture-upgraded
 write_sha256 "$pinned_archive"
-HOME="$TEST_HOME" PENGUIN_INSTALL_DIR="$LOCAL_INSTALL" PATH="$STUB_BIN:$PATH" \
+HOME="$TEST_HOME" WAFH_INSTALL_DIR="$LOCAL_INSTALL" PATH="$STUB_BIN:$PATH" \
   sh "$ROOT_DIR/install.sh" --archive "$pinned_archive" >/dev/null \
   || fail_test "upgrade with a pinned lib directory failed"
 rm -f "$STUB_BIN/mv" "$STUB_BIN/rmdir"
-[ "$("$LOCAL_INSTALL/bin/penguin" --version)" = "fixture-upgraded" ] \
+[ "$("$LOCAL_INSTALL/bin/wafh" --version)" = "fixture-upgraded" ] \
   || fail_test "pinned-lib upgrade did not install the new version"
 [ -f "$LOCAL_INSTALL/lib/vendor/data.txt" ] \
   || fail_test "pinned-lib upgrade lost the copied lib subdirectory"
@@ -512,7 +512,7 @@ printf '%s\n' "$url" >> "$REQUEST_LOG"
 base="${url##*/}"
 case "$MODE:$url" in
   primary-network:https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/*) exit 7 ;;
-  forced-oss-payload:https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/*/penguin-*) exit 7 ;;
+  forced-oss-payload:https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/*/wafh-*) exit 7 ;;
 esac
 case "$MODE:$base" in
   forwarder-auto-github:latest.json) exit 7 ;;
@@ -525,7 +525,7 @@ case "$MODE:$base" in
   speed-probe-missing-manifest:release-download-manifest.tsv) exit 22 ;;
   speed-probe-*:release-download-manifest.tsv)
     {
-      printf 'penguin-release-download-manifest\t1\tv0.0.0-test\n'
+      printf 'wafh-release-download-manifest\t1\tv0.0.0-test\n'
       printf 'probe\tsmall\tprobe-64k.bin\t65536\t%s\n' "$PROBE64_HASH"
       printf 'probe\tlarge\tprobe-1m.bin\t1048576\t%s\n' "$PROBE1M_HASH"
       printf 'asset\t%s\t%s\t%s\n' "$HOST_ASSET" "$SPEED_PROBE_ASSET_SIZE" "$HOST_ASSET_HASH"
@@ -534,22 +534,22 @@ case "$MODE:$base" in
   speed-probe-*:probe-64k.bin) cp "$PROBE64" "$output" ;;
   speed-probe-*:probe-1m.bin) cp "$PROBE1M" "$output" ;;
   forwarder-oss:install.sh | forced-oss-payload:install.sh | forwarder-auto-github:install.sh | forwarder-invalid-metadata:install.sh | canonical:install.sh | speed-probe-*:install.sh) cp "$ROOT_DIR/install.sh" "$output" ;;
-  404:penguin-*) exit 22 ;;
-  network:penguin-*) exit 7 ;;
-  outer-sha-mismatch:penguin-*.sha256) printf '%064d  %s\n' 0 "${base%.sha256}" > "$output" ;;
-  outer-sha-mismatch:penguin-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  inner-sha-mismatch:penguin-*.sha256) cp "$BAD_BUNDLE.sha256" "$output" ;;
-  inner-sha-mismatch:penguin-*) cp "$BAD_BUNDLE" "$output" ;;
-  speed-probe-*:penguin-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  speed-probe-*:penguin-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  primary-network:penguin-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  primary-network:penguin-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  forced-oss-payload:penguin-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  forced-oss-payload:penguin-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  legacy:penguin-*.sha256) cp "$LEGACY_ARCHIVE.sha256" "$output" ;;
-  legacy:penguin-*) cp "$LEGACY_ARCHIVE" "$output" ;;
-  canonical:penguin-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  canonical:penguin-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
+  404:wafh-*) exit 22 ;;
+  network:wafh-*) exit 7 ;;
+  outer-sha-mismatch:wafh-*.sha256) printf '%064d  %s\n' 0 "${base%.sha256}" > "$output" ;;
+  outer-sha-mismatch:wafh-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
+  inner-sha-mismatch:wafh-*.sha256) cp "$BAD_BUNDLE.sha256" "$output" ;;
+  inner-sha-mismatch:wafh-*) cp "$BAD_BUNDLE" "$output" ;;
+  speed-probe-*:wafh-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
+  speed-probe-*:wafh-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
+  primary-network:wafh-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
+  primary-network:wafh-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
+  forced-oss-payload:wafh-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
+  forced-oss-payload:wafh-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
+  legacy:wafh-*.sha256) cp "$LEGACY_ARCHIVE.sha256" "$output" ;;
+  legacy:wafh-*) cp "$LEGACY_ARCHIVE" "$output" ;;
+  canonical:wafh-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
+  canonical:wafh-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
   *) echo "unexpected fixture request: $url" >&2; exit 2 ;;
 esac
 if [ -n "$writeout" ]; then
@@ -587,19 +587,19 @@ run_online_case() {
   : > "$CASE_LOG"
   set +e
   if [ "$speed_probe" = "__unset" ]; then
-    unset PENGUIN_DOWNLOAD_SPEED_PROBE
+    unset WAFH_DOWNLOAD_SPEED_PROBE
     REQUEST_LOG="$CASE_LOG" MODE="$mode" PATH="$STUB_BIN:$PATH" \
-      HOME="$WORK_DIR/$name-home" PENGUIN_INSTALL_DIR="$CASE_INSTALL" \
-      PENGUIN_VERSION="$version" PENGUIN_DOWNLOAD_BASE_URL="$download_base_url" \
-      PENGUIN_DOWNLOAD_FALLBACK_BASE_URL="$download_fallback_base_url" \
-      PENGUIN_DOWNLOAD_SOURCE="$source_mode" \
+      HOME="$WORK_DIR/$name-home" WAFH_INSTALL_DIR="$CASE_INSTALL" \
+      WAFH_VERSION="$version" WAFH_DOWNLOAD_BASE_URL="$download_base_url" \
+      WAFH_DOWNLOAD_FALLBACK_BASE_URL="$download_fallback_base_url" \
+      WAFH_DOWNLOAD_SOURCE="$source_mode" \
       sh "$installer_path" >"$CASE_OUTPUT" 2>&1
   else
     REQUEST_LOG="$CASE_LOG" MODE="$mode" PATH="$STUB_BIN:$PATH" \
-      HOME="$WORK_DIR/$name-home" PENGUIN_INSTALL_DIR="$CASE_INSTALL" \
-      PENGUIN_VERSION="$version" PENGUIN_DOWNLOAD_BASE_URL="$download_base_url" \
-      PENGUIN_DOWNLOAD_FALLBACK_BASE_URL="$download_fallback_base_url" \
-      PENGUIN_DOWNLOAD_SOURCE="$source_mode" PENGUIN_DOWNLOAD_SPEED_PROBE="$speed_probe" \
+      HOME="$WORK_DIR/$name-home" WAFH_INSTALL_DIR="$CASE_INSTALL" \
+      WAFH_VERSION="$version" WAFH_DOWNLOAD_BASE_URL="$download_base_url" \
+      WAFH_DOWNLOAD_FALLBACK_BASE_URL="$download_fallback_base_url" \
+      WAFH_DOWNLOAD_SOURCE="$source_mode" WAFH_DOWNLOAD_SPEED_PROBE="$speed_probe" \
       sh "$installer_path" >"$CASE_OUTPUT" 2>&1
   fi
   status=$?
@@ -614,7 +614,7 @@ run_online_case() {
 }
 
 run_online_case canonical canonical "" success 3
-[ "$("$WORK_DIR/canonical-install/bin/penguin" --version)" = "fixture-old" ] \
+[ "$("$WORK_DIR/canonical-install/bin/wafh" --version)" = "fixture-old" ] \
   || fail_test "canonical online install did not produce a working command"
 grep -q "/latest.json\$" "$WORK_DIR/canonical.log" \
   || fail_test "unstamped installer did not resolve the OSS latest metadata"
@@ -713,19 +713,19 @@ run_forwarder_case() {
   fi
   set +e
   if [ "$speed_probe" = "__unset" ]; then
-    unset PENGUIN_DOWNLOAD_SPEED_PROBE
+    unset WAFH_DOWNLOAD_SPEED_PROBE
     REQUEST_LOG="$CASE_LOG" MODE="$mode" PATH="$STUB_BIN:$PATH" \
-      HOME="$WORK_DIR/$name-home" PENGUIN_INSTALL_DIR="$CASE_INSTALL" \
-      PENGUIN_ARCHIVE="$archive" PENGUIN_VERSION="$version" \
-      PENGUIN_DOWNLOAD_SOURCE="$source" PENGUIN_DOWNLOAD_BASE_URL="" \
-      PENGUIN_DOWNLOAD_FALLBACK_BASE_URL="" \
+      HOME="$WORK_DIR/$name-home" WAFH_INSTALL_DIR="$CASE_INSTALL" \
+      WAFH_ARCHIVE="$archive" WAFH_VERSION="$version" \
+      WAFH_DOWNLOAD_SOURCE="$source" WAFH_DOWNLOAD_BASE_URL="" \
+      WAFH_DOWNLOAD_FALLBACK_BASE_URL="" \
       sh "$ROOT_DIR/packages/landing/public/install.sh" >"$CASE_OUTPUT" 2>&1
   else
     REQUEST_LOG="$CASE_LOG" MODE="$mode" PATH="$STUB_BIN:$PATH" \
-      HOME="$WORK_DIR/$name-home" PENGUIN_INSTALL_DIR="$CASE_INSTALL" \
-      PENGUIN_ARCHIVE="$archive" PENGUIN_VERSION="$version" \
-      PENGUIN_DOWNLOAD_SOURCE="$source" PENGUIN_DOWNLOAD_BASE_URL="" \
-      PENGUIN_DOWNLOAD_FALLBACK_BASE_URL="" PENGUIN_DOWNLOAD_SPEED_PROBE="$speed_probe" \
+      HOME="$WORK_DIR/$name-home" WAFH_INSTALL_DIR="$CASE_INSTALL" \
+      WAFH_ARCHIVE="$archive" WAFH_VERSION="$version" \
+      WAFH_DOWNLOAD_SOURCE="$source" WAFH_DOWNLOAD_BASE_URL="" \
+      WAFH_DOWNLOAD_FALLBACK_BASE_URL="" WAFH_DOWNLOAD_SPEED_PROBE="$speed_probe" \
       sh "$ROOT_DIR/packages/landing/public/install.sh" >"$CASE_OUTPUT" 2>&1
   fi
   status=$?

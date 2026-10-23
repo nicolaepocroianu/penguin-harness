@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary, AssetManifest } from "@waterford/waf-harness-server/api";
 import { indexRuns } from "../src/features/activities/runs-index";
 import { buildSceneTree } from "../src/features/activities/scene-assets";
 import { sceneRanges } from "../src/features/activities/script-model";

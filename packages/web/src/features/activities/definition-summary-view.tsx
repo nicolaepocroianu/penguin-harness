@@ -6,10 +6,10 @@
  * same module the documents came from, so a "Found" here is a file the player would load.
  */
 import { useEffect, useState } from "react";
-import type { ModuleDocuments } from "@prismshadow/penguin-server/api";
+import type { ModuleDocuments } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
-import { Button, InfoPopover } from "@prismshadow/penguin-ui";
+import { Button, InfoPopover } from "@waterford/waf-harness-ui";
 import {
   TABLE,
   TABLE_HEAD_ROW,

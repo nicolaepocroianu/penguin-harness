@@ -11,7 +11,7 @@
  */
 import { useEffect } from "react";
 import * as api from "../../api/endpoints";
-import { registerRuntimeLanguages } from "@prismshadow/penguin-ui";
+import { registerRuntimeLanguages } from "@waterford/waf-harness-ui";
 
 export function useRuntimeLanguages(signedIn: boolean): void {
   useEffect(() => {

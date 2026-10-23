@@ -7,7 +7,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { SpawnConfiner } from "@prismshadow/penguin-core";
+import type { SpawnConfiner } from "@waterford/waf-harness-core";
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeClones } from "./fake-clones.js";
 import { MP3_OPTIMISED, MP3_STEREO, fakeFfmpeg } from "./fake-ffmpeg.js";
@@ -125,9 +125,9 @@ async function setup(
   // Unless a test says otherwise, every file is already as a deploy ships it.
   ffmpeg = fakeFfmpeg({}, { describe: MP3_OPTIMISED }),
 ) {
-  const activityData = await tempDir("penguin-qa-data-");
-  const media = await tempDir("penguin-qa-media-");
-  const mediaWork = path.join(await tempDir("penguin-qa-media-work-"), "waf-module-words");
+  const activityData = await tempDir("wafh-qa-data-");
+  const media = await tempDir("wafh-qa-media-");
+  const mediaWork = path.join(await tempDir("wafh-qa-media-work-"), "waf-module-words");
   const clones = fakeClones({ activityData, media }, cloneOptions);
   const jenkins = fakeJenkins();
   const clock = fakeClock();
@@ -148,8 +148,8 @@ async function setup(
     productCode: "words",
     module: {
       folder: "waf-module-words",
-      dir: await tempDir("penguin-qa-module-"),
-      checkDir: path.join(await tempDir("penguin-qa-checks-"), "waf-module-words"),
+      dir: await tempDir("wafh-qa-module-"),
+      checkDir: path.join(await tempDir("wafh-qa-checks-"), "waf-module-words"),
       source: null,
     },
     moduleVersion: null,
@@ -219,7 +219,7 @@ describe("QA stage sequencing", () => {
 
 describe("moduleContentHash", () => {
   it("changes with the module's content and build configuration, not with its build output", async () => {
-    const root = await tempDir("penguin-qa-hash-");
+    const root = await tempDir("wafh-qa-hash-");
     await fs.mkdir(path.join(root, "src"), { recursive: true });
     await fs.writeFile(path.join(root, "src", "index.ts"), "export {};");
     await fs.writeFile(path.join(root, "package.json"), "{}");
@@ -460,7 +460,7 @@ describe("verify_activity_data and verify_media_assets", () => {
   });
 
   it("runs FFmpeg confined, writable in a work folder outside the clone, with none of the server's environment", async () => {
-    const SECRET = "PENGUIN_DEPLOY_FFMPEG_PROBE";
+    const SECRET = "WAFH_DEPLOY_FFMPEG_PROBE";
     const saved = process.env[SECRET];
     process.env[SECRET] = "secret";
     try {

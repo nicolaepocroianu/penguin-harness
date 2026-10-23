@@ -6,8 +6,8 @@
  * and is therefore not the author's to edit.
  */
 import { useState } from "react";
-import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
-import { Button, buttonClass, HiddenFileInput, Input, Select } from "@prismshadow/penguin-ui";
+import type { AssetManifest, UploadedMedia } from "@waterford/waf-harness-server/api";
+import { Button, buttonClass, HiddenFileInput, Input, Select } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { UPLOAD_ACCEPT, isUploadPath, uploadKindFor } from "./media-library";

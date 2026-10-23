@@ -3,9 +3,9 @@
  * services/trace-index.ts for the cache rules). Pure row access — reconciliation
  * policy (mtime gates, head-reads) lives in the service.
  */
-import { normalizeSessionSource } from "@prismshadow/penguin-core";
+import { normalizeSessionSource } from "@waterford/waf-harness-core";
 import type { RecordedSource } from "../../runtime/session-sources.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Db } from "../../hmr/capabilities.js";
 import type { TraceIndexStore } from "../../mechanisms/traces.js";
 

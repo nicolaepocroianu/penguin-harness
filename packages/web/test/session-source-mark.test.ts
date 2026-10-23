@@ -11,8 +11,8 @@
  * - In English, no mark falls back to a Chinese name.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import type { SessionInfo, SessionSource } from "@prismshadow/penguin-server/api";
-import { ICONS } from "@prismshadow/penguin-ui";
+import type { SessionInfo, SessionSource } from "@waterford/waf-harness-server/api";
+import { ICONS } from "@waterford/waf-harness-ui";
 import { backgroundSourceMark } from "../src/lib/session-source-mark";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";

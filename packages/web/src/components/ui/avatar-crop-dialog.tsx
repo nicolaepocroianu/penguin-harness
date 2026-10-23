@@ -12,7 +12,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
-import { Button, Modal } from "@prismshadow/penguin-ui";
+import { Button, Modal } from "@waterford/waf-harness-ui";
 import { AVATAR_MAX_ZOOM, clampCrop, initialCrop } from "../../lib/avatar-image";
 import type { AvatarCrop } from "../../lib/avatar-image";
 import { S } from "../../lib/strings";

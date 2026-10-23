@@ -23,7 +23,7 @@ import type {
   ProjectScheduleItem,
   ScheduleItem,
   SessionInfo,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Badge,
   ConfirmModal,
@@ -40,7 +40,7 @@ import {
   Switch,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { AgentLocationContext } from "../../lib/agent-location";
 import { useAgentsOn } from "../../lib/machine-agent-lists";

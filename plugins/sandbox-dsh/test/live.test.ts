@@ -4,7 +4,7 @@
  * spawns through core's command sessions, real kernel denials.
  *
  * Host-gated the way DSH gates its own backend e2e: one real confine decides
- * usability, and a host with no usable backend skips (unless PENGUIN_MUST_RUN names it;
+ * usability, and a host with no usable backend skips (unless WAFH_MUST_RUN names it;
  * see scripts/must-run.mjs). The adaptor is driven DIRECTLY
  * (no SandboxService): what this package owes is that DSH's confinement works behind
  * our interface; routing and settings are the harness's behavior, tested there.
@@ -13,8 +13,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
-import { CommandSessionManager } from "@prismshadow/penguin-core";
-import type { SandboxProvider } from "@prismshadow/penguin-core/plugin";
+import { CommandSessionManager } from "@waterford/waf-harness-core";
+import type { SandboxProvider } from "@waterford/waf-harness-core/plugin";
 import { loadDshAdaptor } from "../src/index.js";
 import { mustRun } from "../../../scripts/must-run.mjs";
 
@@ -23,10 +23,10 @@ const win32 = process.platform === "win32";
 // Windows probes run through pwsh: the ACL runner cannot start the default bash (see
 // windows-shells.test.ts). Set before the adaptor loads: core resolves the shell once per process.
 // TODO(win32): a DSH-confined bash is not guaranteed on Windows until the runner starts an MSYS bash.
-if (win32) process.env.PENGUIN_SHELL = "pwsh";
+if (win32) process.env.WAFH_SHELL = "pwsh";
 
-const ws = mkdtempSync(path.join(tmpdir(), "penguin-dsh-live-"));
-const outsideProbe = path.join(homedir(), `penguin-dsh-live-${process.pid}.txt`);
+const ws = mkdtempSync(path.join(tmpdir(), "wafh-dsh-live-"));
+const outsideProbe = path.join(homedir(), `wafh-dsh-live-${process.pid}.txt`);
 /** What the background child writes inside the Workspace: proof it ran at all. */
 const backgroundMarker = path.join(ws, "bg-inside.txt");
 

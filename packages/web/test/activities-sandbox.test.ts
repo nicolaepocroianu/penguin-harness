@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import { playUrl } from "../src/features/activities/sandbox";
 import { playingModuleRunId } from "../src/features/activities/preview";
 import { indexRuns } from "../src/features/activities/runs-index";

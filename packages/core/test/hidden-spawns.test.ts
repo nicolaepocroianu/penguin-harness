@@ -1,9 +1,9 @@
 /**
- * Every child process Penguin starts runs out of sight on every platform, except the few
+ * Every child process WAF Harness starts runs out of sight on every platform, except the few
  * that exist to put something in front of the user.
  *
  * Windows: a process with no console of its own — the desktop app, its server, the server
- * `penguin` starts in the background — gives every console program it starts without
+ * `wafh` starts in the background — gives every console program it starts without
  * `windowsHide: true` a NEW console window. With Windows Terminal as the default terminal that
  * window also takes focus, so a version check, an update run or an ssh call pulls the user out
  * of whatever they were doing.
@@ -69,7 +69,7 @@ const SHOWS_UI: Record<string, string> = {
     "shows a file in Finder, Explorer or the file manager when the user asks",
   "packages/cli/src/commands/serve.ts": "opens the user's browser on the app",
   "packages/desktop/src/cli-install.ts":
-    "macOS administrator prompt to link `penguin` into /usr/local/bin; not asked again once declined",
+    "macOS administrator prompt to link `wafh` into /usr/local/bin; not asked again once declined",
 };
 
 const SPAWNERS = new Set([

@@ -10,7 +10,7 @@
  */
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import type { CostParts } from "@prismshadow/penguin-server/api";
+import type { CostParts } from "@waterford/waf-harness-server/api";
 import {
   CostPartsRows,
   ElapsedSplitRows,

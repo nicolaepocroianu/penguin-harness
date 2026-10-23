@@ -17,7 +17,7 @@ import {
   provisionProjectAgents,
   provisionProjectBenchmarks,
   type BuiltinBenchmark,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type { MemberInfo, ProjectRole, ProjectSummary } from "../api/types.js";
 import { HttpError } from "../http/errors.js";
 import type { ProjectRow } from "../db/repos/projects.js";
@@ -29,7 +29,7 @@ import {
   SEMANTIC_ID_PATTERN,
   SEMANTIC_ID_RULE,
 } from "./ids.js";
-import { Component, Use, Interface } from "@prismshadow/penguin-core/kernel";
+import { Component, Use, Interface } from "@waterford/waf-harness-core/kernel";
 import type { Config, Paths } from "../hmr/capabilities.js";
 import type {
   Access,

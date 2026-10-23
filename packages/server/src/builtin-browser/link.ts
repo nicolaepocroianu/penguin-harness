@@ -1,7 +1,7 @@
 /**
  * The seam under the driver: one link per backend, the same request/reply-and-events contract
  * whether the far side is the desktop shell (ShellLink, over Electron's utilityProcess port) or
- * the PenguinHarness Browser extension in the user's Chrome (ExtensionLink, over a WebSocket the
+ * the WAF Harness Browser extension in the user's Chrome (ExtensionLink, over a WebSocket the
  * extension opens). The driver, the page scripts and the actions speak only this.
  *
  * What differs between the two is declared, not discovered: `capabilities` says which commands
@@ -72,14 +72,14 @@ export function browserLabel(backend: BrowserBackend): string {
 
 const UNAVAILABLE: Record<BuiltinBrowserUnavailableReason, string> = {
   not_desktop:
-    "The built-in browser needs the PenguinHarness desktop app, and this server is not running inside it.",
+    "The built-in browser needs the WAF Harness desktop app, and this server is not running inside it.",
   shell_unsupported:
     "This installation of the desktop app is too old to host the built-in browser; update the app.",
-  no_window: "No PenguinHarness window took the tab; open the app window and try again.",
+  no_window: "No WAF Harness window took the tab; open the app window and try again.",
   extension_not_paired:
-    "No Chrome is paired for this user. Ask the user to install the PenguinHarness Browser extension and pair it (Browser panel → Connect your Chrome).",
+    "No Chrome is paired for this user. Ask the user to install the WAF Harness Browser extension and pair it (Browser panel → Connect your Chrome).",
   extension_disconnected:
-    "Chrome is not connected. Ask the user to open Chrome with the PenguinHarness Browser extension, or to pair it again in the Browser panel.",
+    "Chrome is not connected. Ask the user to open Chrome with the WAF Harness Browser extension, or to pair it again in the Browser panel.",
   extension_disabled:
     "An admin has switched off Chrome connections on this server; the user's own Chrome cannot be driven.",
 };
@@ -96,6 +96,6 @@ export function tabReleasedError(tabId: number): HttpError {
   return new HttpError(
     409,
     "tab_released",
-    `The user stopped the extension on tab ${tabId}; open a new tab (penguin browser open) or ask the user to add one. Do not retry this tab.`,
+    `The user stopped the extension on tab ${tabId}; open a new tab (wafh browser open) or ask the user to add one. Do not retry this tab.`,
   );
 }

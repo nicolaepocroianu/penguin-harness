@@ -74,8 +74,8 @@ describe("draft example tasks", () => {
       );
       expect(normalizedOptimization).toContain("`agent-optimization`");
 
-      expect(normalizedBuild).not.toContain("penguin run");
-      expect(normalizedOptimization).not.toContain("penguin run");
+      expect(normalizedBuild).not.toContain("wafh run");
+      expect(normalizedOptimization).not.toContain("wafh run");
       expect(normalizedBuild).not.toContain("run_subagent");
       expect(normalizedOptimization).not.toContain("run_subagent");
       expect(normalizedBuild).not.toContain("Scoreboard");

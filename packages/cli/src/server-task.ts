@@ -12,16 +12,16 @@
  *
  * Reconnects ride Last-Event-ID: the stream keeps the last seen frame id and reopens
  * with it on a dropped connection; `resync_required` (buffer evicted) prints a dim
- * notice — the messages endpoint still holds the full history for `penguin session log`.
+ * notice — the messages endpoint still holds the full history for `wafh session log`.
  */
 import {
   isEventMessage,
   isHookContinue,
   isHookInput,
   isModelMessage,
-} from "@prismshadow/penguin-core";
-import type { ApprovalDecision, OmniMessage, ToolCallPayload } from "@prismshadow/penguin-core";
-import type { GoalServerEvent } from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-core";
+import type { ApprovalDecision, OmniMessage, ToolCallPayload } from "@waterford/waf-harness-core";
+import type { GoalServerEvent } from "@waterford/waf-harness-server/api";
 import { ServerClient } from "./client.js";
 import type { SseFrame } from "./client.js";
 import { dim, humanizeTokens } from "./render.js";

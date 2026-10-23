@@ -11,8 +11,8 @@
  * organization's approval mode of that moment; a later change of the mode reaches them
  * through `syncApprovalMode` (reconcile.ts).
  */
-import { buildOrgTriggerMessage, userText } from "@prismshadow/penguin-core";
-import type { OrgTriggerOrigin } from "@prismshadow/penguin-core";
+import { buildOrgTriggerMessage, userText } from "@waterford/waf-harness-core";
+import type { OrgTriggerOrigin } from "@waterford/waf-harness-core";
 import type { TicketDoc } from "../../organization/files.js";
 import { serializeTicket } from "../../organization/files.js";
 import { agentPrincipal } from "../../organization/principal.js";

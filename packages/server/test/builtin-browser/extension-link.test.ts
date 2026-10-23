@@ -1,12 +1,12 @@
 /**
  * The extension's WebSocket on the wire: the real upgrade handler (extension-ws.ts) on an
- * ephemeral http.Server, the real `ws` client playing the PenguinHarness Browser extension, and
+ * ephemeral http.Server, the real `ws` client playing the WAF Harness Browser extension, and
  * — for all but the liveness case — the gate of the real platform tree, paired through its
  * routes.
  *
  * - An upgrade from a web page's or another extension's origin is refused 403, one without a
  *   known token 401.
- * - A paired extension is greeted with `hello` on the `penguin-browser.1` subprotocol; its
+ * - A paired extension is greeted with `hello` on the `wafh-browser.1` subprotocol; its
  *   answer makes the user's Chrome available, and the user's windows hear it connected.
  * - Replies are matched to requests by id, whatever order they come back in.
  * - An extension answering hello with a protocol this server does not speak is closed 4005.
@@ -32,7 +32,7 @@ import type {
   BuiltinBrowserTab,
   DesktopBrowserCommandMessage,
 } from "../../src/api/types.js";
-import { PENGUIN_EXTENSION_ID } from "../../src/builtin-browser/extension-origin.js";
+import { WAFH_EXTENSION_ID } from "../../src/builtin-browser/extension-origin.js";
 import { ExtensionPairing } from "../../src/builtin-browser/extension-pairing.js";
 import { attachExtensionWebSocket } from "../../src/builtin-browser/extension-ws.js";
 import type { ExtensionGate } from "../../src/builtin-browser/extension-ws.js";
@@ -43,7 +43,7 @@ import { userChannelKey } from "../../src/http/routes/events.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser, waitFor } from "../helpers.js";
 import type { TestApp } from "../helpers.js";
 
-const EXTENSION_ORIGIN = `chrome-extension://${PENGUIN_EXTENSION_ID}`;
+const EXTENSION_ORIGIN = `chrome-extension://${WAFH_EXTENSION_ID}`;
 
 /** The extension's side of one socket, as a test drives it. */
 interface Extension {
@@ -88,7 +88,7 @@ const wsUrl = (port: number) => `ws://127.0.0.1:${port}/api/builtin-browser/exte
 
 /** The status an upgrade was refused with. */
 function refusal(port: number, token: string, origin = EXTENSION_ORIGIN): Promise<number> {
-  const ws = new WebSocket(wsUrl(port), ["penguin-browser.1", `token.${token}`], { origin });
+  const ws = new WebSocket(wsUrl(port), ["wafh-browser.1", `token.${token}`], { origin });
   sockets.push(ws);
   ws.on("error", () => {});
   return new Promise((resolve, reject) => {
@@ -106,7 +106,7 @@ function extension(
   token: string,
   opts: { hello?: unknown; pings?: boolean } = {},
 ): Extension {
-  const ws = new WebSocket(wsUrl(port), ["penguin-browser.1", `token.${token}`], {
+  const ws = new WebSocket(wsUrl(port), ["wafh-browser.1", `token.${token}`], {
     origin: EXTENSION_ORIGIN,
   });
   sockets.push(ws);
@@ -204,7 +204,7 @@ describe("the extension socket of the real platform", () => {
       id: expect.any(String),
       command: { op: "hello" },
     });
-    expect(chrome.ws.protocol).toBe("penguin-browser.1");
+    expect(chrome.ws.protocol).toBe("wafh-browser.1");
     await waitFor(() =>
       events.some((e) => e.type === "builtin_browser_extension" && e.state === "connected"),
     );
@@ -302,7 +302,7 @@ describe("liveness", () => {
   let port: number;
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-bb-link-"));
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-bb-link-"));
     db = openDatabase(":memory:");
     db.exec(
       "INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('alice', 'h', 0, '2026-10-02T00:00:00.000Z')",
@@ -349,7 +349,7 @@ describe("liveness", () => {
   });
 
   it("closes an extension that never answers hello with 4008", async () => {
-    const ws = new WebSocket(wsUrl(port), ["penguin-browser.1", `token.${token}`], {
+    const ws = new WebSocket(wsUrl(port), ["wafh-browser.1", `token.${token}`], {
       origin: EXTENSION_ORIGIN,
     });
     sockets.push(ws);

@@ -18,7 +18,7 @@ function activity(): ActivityDetail {
         id: "intro",
         description: "Look",
         media: { images: [{ key: "cover", description: "A blue penguin" }] },
-        audio: { tracks: [{ key: "voice", description: "Say it", script: "Penguin" }] },
+        audio: { tracks: [{ key: "voice", description: "Say it", script: "WAF Harness" }] },
       },
     ],
   };
@@ -84,7 +84,7 @@ describe("activity media text candidates", () => {
       language: "en-US",
       assetKey: "voice",
       type: "audio",
-      text: "Penguin",
+      text: "WAF Harness",
     });
     const imagePrompt = mediaTextPrompt(
       mediaTextTarget(a, { language: "en-US", assetKey: "cover" }),

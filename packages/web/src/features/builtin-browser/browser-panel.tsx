@@ -18,7 +18,7 @@
  * menu does not offer it.
  */
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Button, EmptyState } from "@prismshadow/penguin-ui";
+import { Button, EmptyState } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { isBlankUrl, isWebUrl } from "./address";
 import {

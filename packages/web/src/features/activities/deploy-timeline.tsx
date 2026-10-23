@@ -1,5 +1,5 @@
-import type { DeployStage } from "@prismshadow/penguin-server/api";
-import { Button, GlyphIcon, ICON_SIZE, ICONS, Spinner } from "@prismshadow/penguin-ui";
+import type { DeployStage } from "@waterford/waf-harness-server/api";
+import { Button, GlyphIcon, ICON_SIZE, ICONS, Spinner } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneSurface } from "../../lib/tone";
 import type { DeployPhase, StageRow } from "./deploy-model";

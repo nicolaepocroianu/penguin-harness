@@ -38,8 +38,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { requestBegin, sessionMeta, subagentEvent, userText } from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import { requestBegin, sessionMeta, subagentEvent, userText } from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import type {
   ArchivedSessionGroupsResponse,
   ArchivedSessionsBatchResponse,

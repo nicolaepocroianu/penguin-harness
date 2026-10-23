@@ -21,7 +21,7 @@ import {
   type ModuleDef,
   type ModuleTree,
   type Problem,
-} from "@prismshadow/penguin-core/kernel";
+} from "@waterford/waf-harness-core/kernel";
 import type { UnsatisfiedPlugin } from "../api/types.js";
 import type { LoadedPlugin } from "./host.js";
 

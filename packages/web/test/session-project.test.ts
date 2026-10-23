@@ -14,7 +14,7 @@
  *   transcript), and the same Session unarchived is the conversation again.
  */
 import { describe, expect, it } from "vitest";
-import type { SessionInfo } from "@prismshadow/penguin-server/api";
+import type { SessionInfo } from "@waterford/waf-harness-server/api";
 import {
   resolveRoutedSession,
   routeSessionOutcome,

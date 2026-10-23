@@ -8,7 +8,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { SpawnConfiner } from "@prismshadow/penguin-core";
+import type { SpawnConfiner } from "@waterford/waf-harness-core";
 import { CloneError, CloneStopped, type CloneOptions } from "../src/activities/clone.js";
 import type { DeployGitResult } from "../src/activities/deploy-git.js";
 import type { DeployJenkins, JenkinsBuildStatus } from "../src/activities/deploy-jenkins.js";
@@ -169,7 +169,7 @@ function fakeStyles(answer: Partial<DeployProcessResult> = {}, also: Record<stri
 }
 
 async function moduleClone() {
-  const dir = await tempDir("penguin-deploy-module-");
+  const dir = await tempDir("wafh-deploy-module-");
   await fs.writeFile(
     path.join(dir, "package.json"),
     JSON.stringify({ name: "waf-module-words", version: "1.0.0" }, null, 2),
@@ -247,7 +247,7 @@ describe("deploy names and versions", () => {
 describe("verify_module", () => {
   it("copies the assembled module over the clone and runs the four npm checks in order", async () => {
     const dir = await moduleClone();
-    const source = await tempDir("penguin-deploy-source-");
+    const source = await tempDir("wafh-deploy-source-");
     await fs.mkdir(path.join(source, "src"), { recursive: true });
     await fs.writeFile(path.join(source, "src", "index.js"), "export {};");
     await fs.writeFile(path.join(source, "package.json"), '{"name":"built"}');
@@ -287,14 +287,14 @@ describe("verify_module", () => {
     expect(asked(clones, "onBranchFromOrigin")).toEqual([["main", { work: "carry" }]]);
     expect(asked(clones, "stage")).toEqual([["all", {}]]);
     expect(asked(clones, "commitStaged")).toEqual([
-      ["Penguin Harness: words as authored", { name: "Deploy Bot", email: "deploy@example.org" }],
+      ["WAF Harness: words as authored", { name: "Deploy Bot", email: "deploy@example.org" }],
     ]);
     expect(lines).toContain("Committed the authored module on main: 0123abcd.");
     expect(lines).toContain("$ npm run lint");
   });
 
   it("names the module build it verified, and none for a clone verified as it is", async () => {
-    const source = await tempDir("penguin-deploy-source-");
+    const source = await tempDir("wafh-deploy-source-");
     await fs.writeFile(path.join(source, "package.json"), '{"name":"built"}');
     const built = context({ dir: await moduleClone(), source });
     built.ctx.module.runId = "run_built";
@@ -485,7 +485,7 @@ describe("prepare_deploy", () => {
   });
 
   it("takes no stylesheet that is a link: another name of an outside file, or a symbolic one", async () => {
-    const outside = path.join(await tempDir("penguin-deploy-outside-"), "secret.txt");
+    const outside = path.join(await tempDir("wafh-deploy-outside-"), "secret.txt");
     await fs.writeFile(outside, "outside");
     const linkers: Array<(to: string) => Promise<void>> = [(to) => fs.link(outside, to)];
     // Making a symbolic link needs a privilege Windows does not give everyone.
@@ -518,7 +518,7 @@ describe("prepare_deploy", () => {
 
   it("writes the package files and the stylesheet as new files, never through a link in the clone", async () => {
     const dir = await moduleClone();
-    const outside = path.join(await tempDir("penguin-deploy-outside-"), "linked.json");
+    const outside = path.join(await tempDir("wafh-deploy-outside-"), "linked.json");
     await fs.writeFile(outside, "outside");
     // package.json in the clone is another name of a file outside it.
     await fs.rm(path.join(dir, "package.json"));
@@ -699,7 +699,7 @@ async function styledClone() {
 }
 
 describe("the module's own programs", () => {
-  const SECRET = "PENGUIN_DEPLOY_BUILD_PROBE";
+  const SECRET = "WAFH_DEPLOY_BUILD_PROBE";
   const PROXY = "HTTPS_PROXY";
   const saved = { [SECRET]: process.env[SECRET], [PROXY]: process.env[PROXY] };
   afterEach(() => {

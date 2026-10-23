@@ -122,7 +122,7 @@ export function parseHostEntries(
 
 /**
  * A remote target's stable name: the SSH identity, `<user>@<alias>`. The Linux account is
- * part of it because each account has its own `~/.penguin` — hence its own server, its own
+ * part of it because each account has its own `~/.waf-harness` — hence its own server, its own
  * accounts — so `deploy@build-box` and `root@build-box` are two machines as far as anything
  * downstream is concerned.
  * The ALIAS is used rather than the resolved hostname: it is what the user chose, it is
@@ -210,7 +210,7 @@ export function validateHostEntry(entry: SshHostEntry): SshHostProblem | null {
  */
 export function renderHostBlock(entry: SshHostEntry, at: Date): string {
   const lines = [
-    `# Added by PenguinHarness on ${at.toISOString()}`,
+    `# Added by WAF Harness on ${at.toISOString()}`,
     `Host ${entry.alias.trim()}`,
     `  HostName ${entry.hostName.trim()}`,
   ];
@@ -224,7 +224,7 @@ export function renderHostBlock(entry: SshHostEntry, at: Date): string {
 }
 
 /** The comment `renderHostBlock` leads with; a block that carries it is one this app wrote. */
-const MARKER = /^# Added by PenguinHarness on /;
+const MARKER = /^# Added by WAF Harness on /;
 const OPTION = /^(\S+)\s+(.*)$/;
 
 /** A host block found in a config: its lines (`start` to `end`, exclusive), what it says, and whether this app wrote it. */

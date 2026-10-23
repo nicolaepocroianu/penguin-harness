@@ -1,6 +1,6 @@
 /**
  * Session/agent API helpers shared by the server-backed commands (run / chat / the
- * `session` group / schedule). DTO shapes come from `@prismshadow/penguin-server/api`
+ * `session` group / schedule). DTO shapes come from `@waterford/waf-harness-server/api`
  * (type-only — nothing of the server is loaded at runtime).
  */
 import path from "node:path";
@@ -14,8 +14,8 @@ import type {
   SessionInfo,
   SessionResponse,
   SessionsResponse,
-} from "@prismshadow/penguin-server/api";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-server/api";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import { resolveSessionRef, ServerClient } from "./client.js";
 import { dim } from "./render.js";
 import type { Messages } from "./i18n.js";
@@ -34,7 +34,7 @@ export function resolveWorkspace(flag: string | undefined, fallback = process.cw
 
 /**
  * The calling session's live values, when this CLI runs inside a harness agent
- * (server-driven sessions inject PENGUIN_SESSION_ID into tool subprocesses): a session
+ * (server-driven sessions inject WAFH_SESSION_ID into tool subprocesses): a session
  * created here defaults each UNSPECIFIED field to the caller's — workspace, the model
  * pair, approval mode and thinking level — the same inheritance `run_subagent` applies
  * to spawned children, so the two surfaces read as one convention. Per field the
@@ -45,7 +45,7 @@ export async function callerSessionContext(
   client: ServerClient,
   t: Messages,
 ): Promise<SessionInfo | null> {
-  const sessionId = process.env.PENGUIN_SESSION_ID?.trim();
+  const sessionId = process.env.WAFH_SESSION_ID?.trim();
   if (!sessionId) return null;
   try {
     return await getSessionInfo(client, sessionId);
@@ -62,7 +62,7 @@ export interface CreateSessionArgs {
   modelId?: string;
   provider?: string;
   approvalMode?: string;
-  /** `cli` for a Session `penguin run` creates; absent (`penguin chat`) is a person's conversation, `user`. */
+  /** `cli` for a Session `wafh run` creates; absent (`wafh chat`) is a person's conversation, `user`. */
   source?: "cli";
 }
 
@@ -175,12 +175,12 @@ export async function listAgentSessions(
  * The session `session log` / `input` / `rename` act on: an explicit reference (full id or
  * unique fragment) resolves as everywhere else, and omitting it means the agent's most
  * recent session — the same default `chat --resume` carries, off the same newest-first
- * listing. (`rename` passes PENGUIN_SESSION_ID as the reference when it is set.)
+ * listing. (`rename` passes WAFH_SESSION_ID as the reference when it is set.)
  * The chosen id is announced on stderr as a dim `[latest]` line so the target is never
  * ambiguous and `--json` on stdout stays parseable.
  *
  * Returns null when the agent has no sessions at all, after printing one line pointing
- * at `penguin run` / `penguin chat` and setting a non-zero exit code.
+ * at `wafh run` / `wafh chat` and setting a non-zero exit code.
  */
 export async function resolveSessionTarget(
   client: ServerClient,

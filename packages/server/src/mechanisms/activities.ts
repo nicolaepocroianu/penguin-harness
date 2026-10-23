@@ -1,4 +1,4 @@
-import { Interface } from "@prismshadow/penguin-core/kernel";
+import { Interface } from "@waterford/waf-harness-core/kernel";
 import type { AudioTarget, AudioResult } from "../activities/audio.js";
 import type { GeneratedAudioFormat } from "../activities/media.js";
 import type { SoundSetup } from "../activities/sound-types.js";
@@ -68,7 +68,7 @@ export abstract class ActivityGeneration extends Interface<{
     expectedRevision: string,
     /** What the run is asked to do; its kind decides what it may need and records. */
     request: RunRequest,
-    /** Run on an external coding agent instead of the Penguin agent `agentId` names. */
+    /** Run on an external coding agent instead of the WAF Harness agent `agentId` names. */
     runtime?: { codingAgentId?: string },
   ): Promise<ActivityRun>;
   /**
@@ -129,7 +129,7 @@ export abstract class ActivityGeneration extends Interface<{
     error: string | null,
     /** What a succeeded run kept (a video run's recording), stored as its candidate. */
     candidate?: string,
-    /** Why a failed video run failed, when Penguin knows the cause; kept on its target. */
+    /** Why a failed video run failed, when WAF Harness knows the cause; kept on its target. */
     videoProblem?: VideoProblemCode,
     /** A succeeded video run's final check (see video-check.ts). */
     videoCheck?: VideoCheck,
@@ -612,7 +612,7 @@ export abstract class ActivityAuthoring extends Interface<{
     spec: unknown,
     expectedRevision?: string,
   ): Promise<ActivityDraft>;
-  /** Where the draft's uploads and generated media are kept, under PENGUIN_HOME. */
+  /** Where the draft's uploads and generated media are kept, under WAFH_HOME. */
   draftWorkspace(
     projectId: string,
     collectionId: string,

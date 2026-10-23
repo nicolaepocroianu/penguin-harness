@@ -8,7 +8,7 @@
  * each one is a request for its file. A file that cannot be read leaves the type's mark.
  */
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { GlyphIcon, ICON_SIZE } from "@prismshadow/penguin-ui";
+import { GlyphIcon, ICON_SIZE } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk, toneSurface } from "../../lib/tone";
 import type { MediaPreview } from "./media-preview";

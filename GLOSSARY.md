@@ -1,4 +1,4 @@
-# Penguin Harness
+# WAF Harness
 
 An agent harness whose activity studio authors Waterford learning activities: an author describes
 an activity, agents write and assemble it, and it is previewed and deployed as a WAF module.
@@ -134,7 +134,7 @@ Releasing a product's module and publishing its activities to QA and then PROD.
 _Avoid_: Publish, ship
 
 **WAF workspace**:
-The WAF repositories Penguin prepares and keeps for authoring, previews and deploys, or an existing
+The WAF repositories WAF Harness prepares and keeps for authoring, previews and deploys, or an existing
 checkout an admin names instead.
 _Avoid_: WAF repo, environment
 

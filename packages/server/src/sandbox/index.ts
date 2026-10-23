@@ -5,7 +5,7 @@
  *
  * The vocabulary it routes ON is not here. `SandboxPolicy`, `SandboxProvider`,
  * `ConfinedArgv` and the mode/dimension unions belong to the plugin contract in
- * `@prismshadow/penguin-core/plugin`, because a backend is written against those names
+ * `@waterford/waf-harness-core/plugin`, because a backend is written against those names
  * and nothing else. What this directory holds is the embedder's half: which policy reaches
  * which backend, the settings behind it, and the fail-closed behaviour when nothing covers
  * the request.
@@ -19,10 +19,10 @@
  * The backends shipped in this repo:
  *
  *   plugin                            platform   fs-write  network  mask-paths
- *   @penguinharness/sandbox-bwrap     Linux      yes       yes      yes
- *   @penguinharness/sandbox-seatbelt  macOS      yes       yes      yes
- *   @penguinharness/sandbox-wsl       Windows    yes       yes      yes
- *   @penguinharness/sandbox-dsh       all three  yes       —        —
+ *   @waf-harness/sandbox-bwrap     Linux      yes       yes      yes
+ *   @waf-harness/sandbox-seatbelt  macOS      yes       yes      yes
+ *   @waf-harness/sandbox-wsl       Windows    yes       yes      yes
+ *   @waf-harness/sandbox-dsh       all three  yes       —        —
  *
  * The DSH adaptor is the portable floor covering file effects only (its own chain picks
  * bwrap/Landlock, Seatbelt or the Windows ACL runner per host); the three native

@@ -29,7 +29,7 @@ import { findCheckoutRoot, git, readCheckout } from "../packages/core/src/intern
 const HERE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The identifier the bundlers replace; `build-info.ts` declares and reads the same name. */
-export const BUILD_GIT_DEFINE = "__PENGUIN_BUILD_GIT__";
+export const BUILD_GIT_DEFINE = "__WAFH_BUILD_GIT__";
 
 /**
  * The checkout this build is running from, or null when it is not one of ours — the same

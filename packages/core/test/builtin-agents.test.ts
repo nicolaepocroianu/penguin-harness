@@ -39,16 +39,16 @@ let tmpRoot: string;
 let prevHome: string | undefined;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-builtin-"));
-  process.env.PENGUIN_HOME = tmpRoot;
+  prevHome = process.env.WAFH_HOME;
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-builtin-"));
+  process.env.WAFH_HOME = tmpRoot;
 });
 
 afterEach(async () => {
   if (prevHome === undefined) {
-    delete process.env.PENGUIN_HOME;
+    delete process.env.WAFH_HOME;
   } else {
-    process.env.PENGUIN_HOME = prevHome;
+    process.env.WAFH_HOME = prevHome;
   }
   await fs.rm(tmpRoot, { recursive: true, force: true });
 });
@@ -109,8 +109,8 @@ describe("provisionProjectAgents", () => {
     const installed = await listInstalledSkills(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID);
     expect(installed.map((s) => s.name).sort()).toEqual(preinstalledSkillNames());
     // On-disk content matches the library's SKILL.md verbatim (install copies the full text).
-    const sdkMd = await fs.readFile(skillMdPath(DEFAULT_AGENT_ID, "penguin-sdk"), "utf8");
-    expect(sdkMd).toBe(librarySkill("penguin-sdk")!.skill.content);
+    const sdkMd = await fs.readFile(skillMdPath(DEFAULT_AGENT_ID, "wafh-sdk"), "utf8");
+    expect(sdkMd).toBe(librarySkill("wafh-sdk")!.skill.content);
   });
 
   it("media_agent is the Media Agent, with no Skills and its role in AGENTS.md", async () => {
@@ -178,8 +178,8 @@ describe("support Agent provisioning", () => {
     const file = path.join(base, "workbenches/support/ui/index.html");
     expect((await fs.readFile(file, "utf8")).length).toBeGreaterThan(0);
     const config = await loadAgentState({ agentId: SUPPORT_AGENT_ID });
-    expect(config.agentsMd).toContain("penguin-support");
-    expect(await fs.readFile(skillMdPath(SUPPORT_AGENT_ID, "penguin-support"), "utf8")).toContain(
+    expect(config.agentsMd).toContain("wafh-support");
+    expect(await fs.readFile(skillMdPath(SUPPORT_AGENT_ID, "wafh-support"), "utf8")).toContain(
       "https://penguin.ooo/docs/",
     );
     await fs.writeFile(file, "My support page");
@@ -195,7 +195,7 @@ describe("support Agent provisioning", () => {
 });
 
 describe("App Data Dir / Agent ID placeholders", () => {
-  it("assembleSystemPrompt injects App Data Dir and Agent ID (Skill lookup uses app-data-dir-relative paths, no .penguin dependency)", async () => {
+  it("assembleSystemPrompt injects App Data Dir and Agent ID (Skill lookup uses app-data-dir-relative paths, no .wafh dependency)", async () => {
     const state = await loadAgentState({ init: {}, agentId: "env_agent" });
     // Skill data provided (an empty list) so the {{SKILLS}} section — home of the skill
     // lookup path convention this test pins — renders.
@@ -220,8 +220,8 @@ describe("App Data Dir / Agent ID placeholders", () => {
     expect(prompt).toContain("App Data Dir: /tmp/proj");
     expect(prompt).not.toContain("{{AGENT_ID}}");
     expect(prompt).not.toContain("{{PROJECT_DIR}}");
-    // Skill execution conventions are built from app-data-dir-relative paths (no longer reference .penguin).
-    expect(prompt).not.toContain(".penguin");
+    // Skill execution conventions are built from app-data-dir-relative paths (no longer reference .wafh).
+    expect(prompt).not.toContain(".waf-harness");
     // Agent State, scratchpad and Skills are addressed under the App Data Dir's agents/ container.
     expect(prompt).toContain("<app_data_dir>/agents/<agent_id>/agent_state/");
     expect(prompt).toContain("<app_data_dir>/agents/<agent_id>/agent_state/skills/");

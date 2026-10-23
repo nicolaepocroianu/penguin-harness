@@ -25,8 +25,8 @@ import type {
   ModelsResponse,
   ModelsUpdateRequest,
   ProjectSummary,
-} from "@prismshadow/penguin-server/api";
-import { providerInfo } from "@prismshadow/penguin-server/model-catalog";
+} from "@waterford/waf-harness-server/api";
+import { providerInfo } from "@waterford/waf-harness-server/model-catalog";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { UnsavedPrompt } from "../src/lib/unsaved/unsaved-prompt";
@@ -178,7 +178,7 @@ describe("the model config dialog", () => {
   beforeAll(() => setActiveStrings(en));
   afterAll(() => setActiveStrings(en));
   beforeEach(() => {
-    localStorage.setItem("penguin.lang", "en");
+    localStorage.setItem("wafh.lang", "en");
     // What jsdom does not implement and the page reads: the pointer query, and the observer
     // an input with a unit inside it sizes its padding by.
     vi.stubGlobal("matchMedia", (query: string) => ({

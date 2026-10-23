@@ -1,7 +1,7 @@
 /**
  * The harness.json shape (`<root>/hmr/harness.json`) and pure readers over it.
  *
- * Split out of host.ts so a reader never needs a running HmrHost: `penguin` is a
+ * Split out of host.ts so a reader never needs a running HmrHost: `wafh` is a
  * separate, short-lived process per invocation (see packages/cli/src/index.ts) — it
  * has no host instance to ask, only the data root's own harness.json on disk.
  * `resolveCliBundlePath` is that reader: a plain disk read, no HTTP, no boot, no
@@ -19,7 +19,7 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import type { HarnessInfo } from "@prismshadow/penguin-core";
+import type { HarnessInfo } from "@waterford/waf-harness-core";
 
 /**
  * The committed on-disk record: a runtime restart resumes exactly this CODE (platform,
@@ -83,11 +83,11 @@ function str(value: unknown): string | null {
  * three artifact pointers. Null when nothing has ever been pushed to this root.
  *
  * Read defensively rather than cast: harness.json is written only by persistVersion, but a
- * truncated or hand-edited file must degrade a `penguin version` to missing fields, never
+ * truncated or hand-edited file must degrade a `wafh version` to missing fields, never
  * crash it. A record missing every artifact pointer counts as nothing pushed, and so does an
  * unreadable one — the only reader here that deliberately collapses the two, because its
  * caller is a report with nowhere to put a fault. The host says so at boot instead, and
- * `penguin-hmr` says so through readPushedCli.
+ * `wafh-hmr` says so through readPushedCli.
  */
 export async function readHarnessInfo(root: string): Promise<HarnessInfo | null> {
   const manifest = await readManifest(root);
@@ -150,7 +150,7 @@ export async function readManifest(root: string): Promise<Manifest | null> {
 }
 
 /**
- * What this root has for the `penguin-hmr` loader. Three answers, never two: a root that
+ * What this root has for the `wafh-hmr` loader. Three answers, never two: a root that
  * pushed no CLI and a root whose record names one it cannot produce are different
  * situations, and collapsing them tells the caller "nothing pushed" when the truth is
  * "the store lost it".

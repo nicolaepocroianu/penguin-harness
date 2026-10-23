@@ -1,8 +1,8 @@
 /**
- * Agent lifecycle: new session id format + no more `.penguin` symlink in the Workspace.
+ * Agent lifecycle: new session id format + no more `.waf-harness` symlink in the Workspace.
  *
  * - sessionId looks like `session-YYYY-MM-DD-HH-mm-ss-<8-digit hex>` (local time, zero-padded fields).
- * - createSession no longer creates any `.penguin` symlink inside the Workspace, nor touches existing
+ * - createSession no longer creates any `.waf-harness` symlink inside the Workspace, nor touches existing
  *   Workspace files; the model reaches Agent State and other absolute paths directly by combining the
  *   App Data Dir / Agent ID placeholders from the system prompt.
  */
@@ -23,17 +23,17 @@ let prevHome: string | undefined;
 let restoreKeys: () => void;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-harness-lifecycle-"));
-  process.env.PENGUIN_HOME = tmpRoot;
+  prevHome = process.env.WAFH_HOME;
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "waf-harness-lifecycle-"));
+  process.env.WAFH_HOME = tmpRoot;
   restoreKeys = stubProviderKeys();
   // The Project a host would have seeded: core itself carries no models.
   await seedProject(tmpRoot);
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.PENGUIN_HOME;
-  else process.env.PENGUIN_HOME = prevHome;
+  if (prevHome === undefined) delete process.env.WAFH_HOME;
+  else process.env.WAFH_HOME = prevHome;
   restoreKeys();
   await fs.rm(tmpRoot, { recursive: true, force: true });
 });
@@ -56,7 +56,7 @@ describe("formatSessionId", () => {
   });
 });
 
-describe("Agent.createSession session id + no .penguin symlink", () => {
+describe("Agent.createSession session id + no .wafh symlink", () => {
   it("assigns a sessionId in the new format", async () => {
     const agent = await createAgent();
     const ws = path.join(tmpRoot, "ws");
@@ -65,22 +65,22 @@ describe("Agent.createSession session id + no .penguin symlink", () => {
     expect(session.sessionId).toMatch(SESSION_ID_RE);
   });
 
-  it("does not create a .penguin entry in the workspace", async () => {
+  it("does not create a .wafh entry in the workspace", async () => {
     const agent = await createAgent();
     const ws = path.join(tmpRoot, "ws");
     await fs.mkdir(ws, { recursive: true });
     await agent.createSession({ workspaceDir: ws });
-    await expect(fs.lstat(path.join(ws, ".penguin"))).rejects.toThrow();
+    await expect(fs.lstat(path.join(ws, ".waf-harness"))).rejects.toThrow();
     // agent_state also no longer creates traces/notes symlinks.
     await expect(fs.lstat(path.join(agent.state.stateDir, "traces"))).rejects.toThrow();
     await expect(fs.lstat(path.join(agent.state.stateDir, "notes"))).rejects.toThrow();
   });
 
-  it("leaves a user's pre-existing .penguin file untouched", async () => {
+  it("leaves a user's pre-existing .wafh file untouched", async () => {
     const agent = await createAgent();
     const ws = path.join(tmpRoot, "ws");
     await fs.mkdir(ws, { recursive: true });
-    const linkPath = path.join(ws, ".penguin");
+    const linkPath = path.join(ws, ".waf-harness");
     await fs.writeFile(linkPath, "user-data", "utf8");
     await agent.createSession({ workspaceDir: ws });
     expect(await fs.readFile(linkPath, "utf8")).toBe("user-data");
@@ -109,7 +109,7 @@ describe("Agent.createSession session id + no .penguin symlink", () => {
       `App Data Dir: ${modelVisiblePath(projectDir(tmpRoot, agent.state.projectId))}`,
     );
     expect(prompt).toContain(`CWD: ${modelVisiblePath(ws)}`);
-    expect(prompt).not.toContain(".penguin");
+    expect(prompt).not.toContain(".waf-harness");
   });
 });
 

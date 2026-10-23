@@ -10,7 +10,7 @@
  * succession and the key only contains the Project/Session ID, the later user would recover the
  * previous user's text, Workspace, model selection, and handoff target — a cross-account information leak.
  */
-import type { ApprovalMode, SessionSandbox } from "@prismshadow/penguin-server/api";
+import type { ApprovalMode, SessionSandbox } from "@waterford/waf-harness-server/api";
 
 const APPROVAL_MODES: ApprovalMode[] = ["always-ask", "read-only", "allow-all", "deny-all"];
 
@@ -72,11 +72,11 @@ export interface DraftStorage {
 
 /** Cache key for a new conversation (draft page): one per "user × Project". */
 export const draftKey = (userId: string, projectId: string): string =>
-  `penguin.chatDraft.${userId}.${projectId}`;
+  `wafh.chatDraft.${userId}.${projectId}`;
 
 /** Cache key for an existing session's input area: one per "user × Session" (only stores text and the handoff target; everything else is locked to the Session). */
 export const sessionDraftKey = (userId: string, sessionId: string): string =>
-  `penguin.chatDraft.session.${userId}.${sessionId}`;
+  `wafh.chatDraft.session.${userId}.${sessionId}`;
 
 /**
  * Cache key for an activity studio's new conversation, before it has a Session: one per
@@ -84,7 +84,7 @@ export const sessionDraftKey = (userId: string, sessionId: string): string =>
  * Session's key, the slot the chat page reads too.
  */
 export const activityDraftKey = (userId: string, projectId: string, activityId: string): string =>
-  `penguin.chatDraft.activity.${userId}.${projectId}.${activityId}`;
+  `wafh.chatDraft.activity.${userId}.${projectId}.${activityId}`;
 
 /**
  * A cached model reference must be a paired `{ provider, modelId }` object; anything else — the

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityRecord, ActivitySummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRecord, ActivitySummary } from "@waterford/waf-harness-server/api";
 import {
   groupByProduct,
   lensCounts,
@@ -144,7 +144,7 @@ describe("collapsed groups", () => {
   });
   it("reads garbage as nothing collapsed", () => {
     const storage = memory();
-    storage.setItem("penguin.activities.collapsedGroups", "{not json");
+    storage.setItem("wafh.activities.collapsedGroups", "{not json");
     expect(readCollapsed("p1", storage).size).toBe(0);
   });
   it("readCollapsed with no storage argument returns empty set (node env)", () => {

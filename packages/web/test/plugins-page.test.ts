@@ -29,7 +29,7 @@ import type {
   PluginGroupItem,
   PluginIndexEntry,
   PluginItem,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   foldKey,
   groupRows,
@@ -165,13 +165,13 @@ describe("server modules per machine", () => {
       authors: [],
       license: "Apache-2.0",
     });
-    const parts = moduleParts({ ...deployment, shipped: ["@penguinharness/sandbox-dsh"] }, [
+    const parts = moduleParts({ ...deployment, shipped: ["@waf-harness/sandbox-dsh"] }, [
       entry("@acme/shared"),
-      entry("@penguinharness/sandbox-bwrap"),
+      entry("@waf-harness/sandbox-bwrap"),
     ]);
     expect(parts.filter((m) => m.state === "none").map((m) => [m.specifier, m.shipped])).toEqual([
-      ["@penguinharness/sandbox-bwrap", false],
-      ["@penguinharness/sandbox-dsh", true],
+      ["@waf-harness/sandbox-bwrap", false],
+      ["@waf-harness/sandbox-dsh", true],
     ]);
   });
 });
@@ -180,7 +180,7 @@ const plugin = (name: string, extra: Partial<PluginItem> = {}): PluginItem => ({
   name,
   description: `${name}.`,
   version: "0.2.13",
-  package: `@penguinharness/${name}`,
+  package: `@waf-harness/${name}`,
   source: "builtin",
   skills: [{ name, description: "", version: "2026.10.04.1" }],
   hooks: [],
@@ -226,7 +226,7 @@ describe("the page's rows", () => {
   it("makes one row of a library plugin and the module published as its package", () => {
     const rows = pluginRows(
       [{ id: "software-development", title: "Software Development", plugins: [plugin("both")] }],
-      [{ specifier: "@penguinharness/both", entry: undefined, state: "active", shipped: true }],
+      [{ specifier: "@waf-harness/both", entry: undefined, state: "active", shipped: true }],
     );
     expect(rows.map((r) => [r.key, r.category, r.library?.name, r.module?.state])).toEqual([
       ["library:both", "software-development", "both", "active"],
@@ -252,7 +252,7 @@ describe("the page's rows", () => {
   it("files a module under the first category of its entry the page knows, and under Other otherwise", () => {
     const rows = pluginRows(GROUPS, [
       {
-        specifier: "@penguinharness/sandbox-bwrap",
+        specifier: "@waf-harness/sandbox-bwrap",
         entry: sandbox("bwrap", ["linux", "sandbox"]),
         state: "none",
         shipped: true,
@@ -277,13 +277,13 @@ describe("the page's rows", () => {
 function pageRows(): { rows: PluginRow[]; statusOf: (row: PluginRow) => PluginStatus } {
   const rows = pluginRows(GROUPS, [
     {
-      specifier: "@penguinharness/sandbox-bwrap",
+      specifier: "@waf-harness/sandbox-bwrap",
       entry: sandbox("bwrap", ["sandbox"]),
       state: "active",
       shipped: true,
     },
     {
-      specifier: "@penguinharness/sandbox-wsl",
+      specifier: "@waf-harness/sandbox-wsl",
       entry: sandbox("wsl", ["sandbox"]),
       state: "none",
       shipped: true,
@@ -341,8 +341,8 @@ describe("grouping", () => {
     expect([...initialFoldedGroups(storage)]).toEqual(["category:sandbox"]);
 
     const garbage = memoryStorage();
-    garbage.setItem("penguin.pluginsGroupBy", "by-color");
-    garbage.setItem("penguin.pluginsGroupsFolded", "{not json");
+    garbage.setItem("wafh.pluginsGroupBy", "by-color");
+    garbage.setItem("wafh.pluginsGroupsFolded", "{not json");
     expect(initialPluginsGroupBy(garbage)).toBe("category");
     expect(initialFoldedGroups(garbage).size).toBe(0);
     const blocked = {

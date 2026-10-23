@@ -1,15 +1,15 @@
 ---
 title: Introduction
-description: What PenguinHarness is, what ships in the box, and where to start.
+description: What WAF Harness is, what ships in the box, and where to start.
 ---
 
-Welcome to the PenguinHarness documentation. PenguinHarness is the **Unified and Stable RSI Framework**, an open-source agent harness. Fully automatic optimization: any model, any algorithm, any benchmark. The model stays fixed; the harness — prompts, Skills, tools, hooks — is what evolves, and every self-evolution algorithm runs on the same Benchmarks, scoreboards and snapshots. It is built as one TypeScript stack, deploys fully locally, runs on as little as a single CPU, and reaches 1000+ online and local models through one gateway.
+Welcome to the WAF Harness documentation. WAF Harness is the **Unified and Stable RSI Framework**, an open-source agent harness. Fully automatic optimization: any model, any algorithm, any benchmark. The model stays fixed; the harness — prompts, Skills, tools, hooks — is what evolves, and every self-evolution algorithm runs on the same Benchmarks, scoreboards and snapshots. It is built as one TypeScript stack, deploys fully locally, runs on as little as a single CPU, and reaches 1000+ online and local models through one gateway.
 
 ## Get started
 
 Work through these pages in order:
 
-1. [Quickstart](/quickstart): install PenguinHarness with the desktop app, the CLI, Docker or the SDK, and run your first Task.
+1. [Quickstart](/quickstart): install WAF Harness with the desktop app, the CLI, Docker or the SDK, and run your first Task.
 2. [Key concepts](/concepts): learn the terms these docs use, such as Project, Session, Task and Workspace.
 3. [Conversations](/chat): work with an agent in a conversation and follow what it does.
 4. [Agents](/agents): create agents and configure their prompts, Skills, memory and tools.
@@ -17,24 +17,24 @@ Work through these pages in order:
 
 ## What ships in the box
 
-PenguinHarness is made of these components. They share one data root and one message protocol, so you can mix them freely.
+WAF Harness is made of these components. They share one data root and one message protocol, so you can mix them freely.
 
 | Component | Package | Description |
 | --- | --- | --- |
-| SDK | `@prismshadow/penguin-core` | The core engine: the ReAct loop, the [OmniMessage protocol](/omni-message), the LLM and Environment [interface contracts](/interfaces), Agent State and Trace. |
-| CLI | `@prismshadow/penguin-cli` | The `penguin` command: an interactive REPL, one-shot Task runs, and model and Vault configuration. |
-| Server | `@prismshadow/penguin-server` | The Web backend: the HTTP [API and SSE streaming](/server-api), multi-user auth, Project authorization and usage statistics. |
-| Web App | `@prismshadow/penguin-web` | The browser UI: multi-session chat, agent management, the plugin library, model configuration, Trace observability and the Evaluation Center. |
-| Desktop app | `@prismshadow/penguin-desktop` | The Web App as a standalone application for macOS, Windows and Linux. It embeds the server and installs the `penguin` command. |
+| SDK | `@waterford/waf-harness-core` | The core engine: the ReAct loop, the [OmniMessage protocol](/omni-message), the LLM and Environment [interface contracts](/interfaces), Agent State and Trace. |
+| CLI | `@waterford/waf-harness-cli` | The `wafh` command: an interactive REPL, one-shot Task runs, and model and Vault configuration. |
+| Server | `@waterford/waf-harness-server` | The Web backend: the HTTP [API and SSE streaming](/server-api), multi-user auth, Project authorization and usage statistics. |
+| Web App | `@waterford/waf-harness-web` | The browser UI: multi-session chat, agent management, the plugin library, model configuration, Trace observability and the Evaluation Center. |
+| Desktop app | `@waterford/waf-harness-desktop` | The Web App as a standalone application for macOS, Windows and Linux. It embeds the server and installs the `wafh` command. |
 
 ## The three pillars
 
-PenguinHarness is summed up in one line as the **Unified and Stable RSI Framework — fully automatic optimization: any model, any algorithm, any benchmark**. It is organized around three concepts: the message protocol, the SDK and the skill library. Each concept carries one pillar:
+WAF Harness is summed up in one line as the **Unified and Stable RSI Framework — fully automatic optimization: any model, any algorithm, any benchmark**. It is organized around three concepts: the message protocol, the SDK and the skill library. Each concept carries one pillar:
 
 | Pillar | Meaning |
 | --- | --- |
 | **Simplest Is the Best** | A deliberately minimal toolset over clean low-level interfaces: fewer tool calls, fewer Tokens, and complex tasks done efficiently. |
-| **Harness for Building Agents** | With the PenguinHarness SDK, an agent builds complete agent applications for you, autonomously and from scratch. |
+| **Harness for Building Agents** | With the WAF Harness SDK, an agent builds complete agent applications for you, autonomously and from scratch. |
 | **Harness for Recursive Self-Improvement** | With the RSI toolkits — the Default loop, OPRO, APE, ACE and AWM — an agent evaluates and optimizes itself, improving recursively over time; see [Self-Improvement](/self-improvement). |
 
 ## Design tenets
@@ -50,7 +50,7 @@ These principles run through every component, and the design pages keep coming b
 
 ## A note on naming
 
-The unified message protocol is called **OmniMessage** in technical writing, and marketing materials also call it Penguin Message. This documentation uses OmniMessage throughout.
+The unified message protocol is called **OmniMessage** in technical writing, and marketing materials also call it WAF Harness Message. This documentation uses OmniMessage throughout.
 
 ## Learn how it works
 

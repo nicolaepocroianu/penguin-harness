@@ -3,7 +3,7 @@
  * /api/admin/waf-workspace reads its state, POST .../prepare starts cloning what is missing,
  * GET and PUT .../settings read and change the remotes, branches and any existing checkout.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import { HttpError } from "../http/errors.js";

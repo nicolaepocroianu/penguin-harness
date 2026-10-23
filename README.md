@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="packages/landing/public/penguin-logo.svg" alt="PenguinHarness logo" width="88" />
+  <img src="packages/landing/public/wafh-logo.svg" alt="WAF Harness logo" width="88" />
 </p>
 
-<h1 align="center">PenguinHarness</h1>
+<h1 align="center">WAF Harness</h1>
 
 <p align="center"><strong>Unified and Stable RSI Framework</strong><br />Fully automatic optimization: <strong>any model, any algorithm, any benchmark</strong></p>
 
@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@prismshadow/penguin-core"><img src="https://img.shields.io/npm/v/@prismshadow/penguin-core" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/@waterford/waf-harness-core"><img src="https://img.shields.io/npm/v/@waterford/waf-harness-core" alt="npm version" /></a>
   <a href="https://github.com/Prism-Shadow/penguin-harness/actions/workflows/ci.yml"><img src="https://github.com/Prism-Shadow/penguin-harness/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/Prism-Shadow/penguin-harness/actions/workflows/pages.yml"><img src="https://github.com/Prism-Shadow/penguin-harness/actions/workflows/pages.yml/badge.svg" alt="Deploy Site" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0" /></a>
@@ -36,17 +36,17 @@
 </p>
 
 <p align="center">
-  <a href="https://www.producthunt.com/products/penguinharness?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-penguinharness" target="_blank" rel="noopener noreferrer"><img alt="PenguinHarness - Let Agents Autonomously Build Better Agents for $0.02 | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1202577&amp;theme=light&amp;t=1784804711946" /></a>
+  <a href="https://www.producthunt.com/products/waf-harness?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-waf-harness" target="_blank" rel="noopener noreferrer"><img alt="WAF Harness - Let Agents Autonomously Build Better Agents for $0.02 | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1202577&amp;theme=light&amp;t=1784804711946" /></a>
 </p>
 
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Prism-Shadow/penguin-harness-community/main/blog-assets/penguinharness-0-2-14-start-page-en.png" alt="The PenguinHarness start page: agents, RSI algorithms and Benchmarks, and the examples" width="900" />
+  <img src="https://raw.githubusercontent.com/Prism-Shadow/penguin-harness-community/main/blog-assets/penguinharness-0-2-14-start-page-en.png" alt="The WAF Harness start page: agents, RSI algorithms and Benchmarks, and the examples" width="900" />
 </p>
 
-## Why PenguinHarness
+## Why WAF Harness
 
-PenguinHarness is an open-source framework for agent self-evolution (recursive self-improvement, RSI). The model stays fixed; the harness evolves: prompts, Skills, tools and hooks. It runs on your computer or server as a desktop app, a Web App, a CLI and an SDK.
+WAF Harness is an open-source framework for agent self-evolution (recursive self-improvement, RSI). The model stays fixed; the harness evolves: prompts, Skills, tools and hooks. It runs on your computer or server as a desktop app, a Web App, a CLI and an SDK.
 
 - **Every RSI algorithm in one framework.** Default, OPRO, APE, ACE and AWM ship as plugins and run on the same built-in Benchmarks, scoreboard and snapshots.
 - **One sentence builds an agent app.** Describe what you need, and an agent writes the app, its page and its run instructions.
@@ -64,7 +64,7 @@ Pick an algorithm, pick a Benchmark, and an agent improves another agent round b
 | `ace-rsi-toolkit` | [ACE](https://arxiv.org/abs/2510.04618): lessons from Traces curated into a playbook |
 | `awm-rsi-toolkit` | [AWM](https://arxiv.org/abs/2409.07429): workflows induced from successful runs |
 
-Every new Project includes seven Benchmarks, run as Harbor tasks in Docker: PenguinHarness Benchmark Sec A to Sec E (from rag-bench-essential, DeepSWE, AutomationBench, Terminal-Bench-Science and Terminal-Bench) and GDPevo Train and Test. More are in [penguin-harness-benchmark](https://github.com/Prism-Shadow/penguin-harness-benchmark).
+Every new Project includes seven Benchmarks, run as Harbor tasks in Docker: WAF Harness Benchmark Sec A to Sec E (from rag-bench-essential, DeepSWE, AutomationBench, Terminal-Bench-Science and Terminal-Bench) and GDPevo Train and Test. More are in [waf-harness-benchmark](https://github.com/Prism-Shadow/penguin-harness-benchmark).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Prism-Shadow/penguin-harness-community/main/blog-assets/penguinharness-0-2-14-benchmark-detail-en.png" alt="A Benchmark's score chart: three agents climbing across versions" width="820" />
@@ -90,8 +90,8 @@ https://github.com/user-attachments/assets/28c0ef95-1dfa-47be-bad0-7326ccdf4e7c
   <tr>
     <td width="50%" valign="top">
       <b>Browser automation</b><br />
-      Agents drive your own Chrome through the PenguinHarness Browser extension, or the desktop app's built-in browser. They read pages as text and act through short scripts, so a step costs few tokens. <a href="https://penguin.ooo/blog/let-agents-use-the-browser">Tutorial</a><br /><br />
-      <img src="https://raw.githubusercontent.com/Prism-Shadow/penguin-harness-community/main/blog-assets/penguinharness-0-2-14-browser-en.png" alt="An agent reads the PenguinHarness blog in the Browser panel" />
+      Agents drive your own Chrome through the WAF Harness Browser extension, or the desktop app's built-in browser. They read pages as text and act through short scripts, so a step costs few tokens. <a href="https://penguin.ooo/blog/let-agents-use-the-browser">Tutorial</a><br /><br />
+      <img src="https://raw.githubusercontent.com/Prism-Shadow/penguin-harness-community/main/blog-assets/penguinharness-0-2-14-browser-en.png" alt="An agent reads the WAF Harness blog in the Browser panel" />
     </td>
     <td width="50%" valign="top">
       <b>Workbenches</b><br />
@@ -122,7 +122,7 @@ Each harness on the model it is usually paired with, on the same tasks:
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/readme/benchmark-dark.svg" />
-    <img src="assets/readme/benchmark-light.svg" alt="Benchmark: PenguinHarness leads the data-analysis suite and ties OpenAI Codex on coding, at a small fraction of both rivals' cost" width="920" />
+    <img src="assets/readme/benchmark-light.svg" alt="Benchmark: WAF Harness leads the data-analysis suite and ties OpenAI Codex on coding, at a small fraction of both rivals' cost" width="920" />
   </picture>
 </p>
 
@@ -133,7 +133,7 @@ Agents can also write and optimize their own Skills ([docs](https://penguin.ooo/
 | Category             | Plugins                                                                       |
 | -------------------- | ----------------------------------------------------------------------------- |
 | Agent Self-Evolution | `default-rsi-toolkit`, `opro-rsi-toolkit`, `ape-rsi-toolkit`, `ace-rsi-toolkit`, `awm-rsi-toolkit` |
-| Office Productivity  | `a2ui`, `data-analysis`, `use-firecrawl`, `browser-automation`, `use-bento-slides`, `humanizer`, `goal`, `continual-learning`, `agent-company`, `penguin-support` |
+| Office Productivity  | `a2ui`, `data-analysis`, `use-firecrawl`, `browser-automation`, `use-bento-slides`, `humanizer`, `goal`, `continual-learning`, `agent-company`, `wafh-support` |
 | Software Development | `software-development`, `use-claude-code`, `use-codex`, `waf-authoring` |
 | AI App Development   | `agent-development`, `agent-evaluation`, `model-development`, `skill-porting` |
 
@@ -177,15 +177,15 @@ Download the installer from [penguin.ooo/download](https://penguin.ooo/download)
 | --- | --- |
 | Linux / macOS | `curl -fsSL https://penguin.ooo/install.sh \| sh` |
 | Windows (PowerShell) | `irm https://penguin.ooo/install.ps1 \| iex` |
-| npm (Node >= 24) | `npm install -g @prismshadow/penguin-cli` |
+| npm (Node >= 24) | `npm install -g @waterford/waf-harness-cli` |
 
-Then run `penguin web`. It serves the Web App at `http://127.0.0.1:7364` and prints a first-login link until a password is set; models are configured on the **Models** page. The desktop app and the CLI share `~/.penguin/data`.
+Then run `wafh web`. It serves the Web App at `http://127.0.0.1:7364` and prints a first-login link until a password is set; models are configured on the **Models** page. The desktop app and the CLI share `~/.waf-harness/data`.
 
 ### Docker
 
 ```bash
-docker run -d --name penguin -p 127.0.0.1:7364:7364 -v penguin-data:/data hiyouga/penguinharness:0.2.16
-docker logs penguin       # the first-login link, openable as it stands on this machine
+docker run -d --name wafh -p 127.0.0.1:7364:7364 -v wafh-data:/data hiyouga/penguinharness:0.2.16
+docker logs wafh       # the first-login link, openable as it stands on this machine
 ```
 
 The image serves on port 7364 with its data on the `/data` volume, for `linux/amd64` and `linux/arm64`; `latest` follows changes to the image's runtime or build inputs on `main`, and each release is also tagged with its version. The example listens on loopback only. For a network-facing deployment, Compose and upgrades, see the [Docker quickstart](https://penguin.ooo/docs/quickstart-docker).
@@ -195,27 +195,27 @@ The image serves on port 7364 with its data on the `/data` volume, for `linux/am
 
 Every <a href="https://github.com/Prism-Shadow/penguin-harness/releases">GitHub Release</a> attaches exactly one package per target — Linux and macOS in x64 / arm64, Windows in x64, plus a runtime-less universal package. The same file serves online and offline installation. Each package seals the program payload, its SHA256 checksum and the platform's installer. Download the one file on a networked machine, copy it to the target, extract once and run the bundled installer — no network, no separate checksum file to carry (the sealed SHA256 is always verified).
 
-**Linux (on arm64, use `penguin-linux-arm64.tar.gz`):**
+**Linux (on arm64, use `wafh-linux-arm64.tar.gz`):**
 
 ```bash
-mkdir penguin-install
-tar -xzf penguin-linux-x64.tar.gz -C penguin-install
-./penguin-install/install.sh
+mkdir wafh-install
+tar -xzf wafh-linux-x64.tar.gz -C wafh-install
+./wafh-install/install.sh
 ```
 
-**macOS (Apple silicon shown; on Intel, use `penguin-darwin-x64.tar.gz`):**
+**macOS (Apple silicon shown; on Intel, use `wafh-darwin-x64.tar.gz`):**
 
 ```bash
-mkdir penguin-install
-tar -xzf penguin-darwin-arm64.tar.gz -C penguin-install
-./penguin-install/install.sh
+mkdir wafh-install
+tar -xzf wafh-darwin-arm64.tar.gz -C wafh-install
+./wafh-install/install.sh
 ```
 
 **Windows (unzip, then double-click `install.cmd` — or run it in PowerShell):**
 
 ```powershell
-Expand-Archive penguin-win32-x64.zip -DestinationPath penguin-install
-cd penguin-install
+Expand-Archive wafh-win32-x64.zip -DestinationPath wafh-install
+cd wafh-install
 .\install.cmd
 ```
 
@@ -223,21 +223,21 @@ cd penguin-install
 
 ### Chrome extension (optional)
 
-[PenguinHarness Browser](https://chromewebstore.google.com/detail/penguinharness-browser/dodgfhpcbmkjfcbgnoidablfgjjhhmgp) lets agents drive the tabs you hand them in your own Chrome.
+[WAF Harness Browser](https://chromewebstore.google.com/detail/waf-harness-browser/dodgfhpcbmkjfcbgnoidablfgjjhhmgp) lets agents drive the tabs you hand them in your own Chrome.
 
 ## CLI and SDK
 
 The same engine, scriptable, and made to be driven by agents:
 
 ```bash
-penguin config model add --provider deepseek --model-id deepseek-flash --api-key sk-... --set-default
-penguin run -m "Create hello.txt containing Hello, Penguin"   # one-shot task
-penguin chat       # interactive REPL (/compact, /clear, /exit, Ctrl-C to interrupt)
-penguin server     # headless service (same API the Web App uses)
+wafh config model add --provider deepseek --model-id deepseek-flash --api-key sk-... --set-default
+wafh run -m "Create hello.txt containing Hello, WAF Harness"   # one-shot task
+wafh chat       # interactive REPL (/compact, /clear, /exit, Ctrl-C to interrupt)
+wafh server     # headless service (same API the Web App uses)
 ```
 
 ```ts
-import { createAgent, isCompleteModelMessage, userText } from "@prismshadow/penguin-core";
+import { createAgent, isCompleteModelMessage, userText } from "@waterford/waf-harness-core";
 
 const agent = await createAgent({ agentId: "default_agent" });
 const session = await agent.createSession({ workspaceDir: process.cwd() });
@@ -268,26 +268,26 @@ pnpm install && pnpm build   # build first: core's exports point at dist/
 pnpm dev                     # backend + web app together (prefixed logs, deps built once)
 ```
 
-Working on this repository with a coding agent: its development Skills are in `.agents/skills/` (`penguin-harness-dev`, `penguin-harness-frontend`, `penguin-harness-manual-test`). Claude Code loads them with no install, through the `.claude` → `.agents` symlink; for another agent, link or copy `.agents/skills/*` into the directory it reads Skills from.
+Working on this repository with a coding agent: its development Skills are in `.agents/skills/` (`waf-harness-dev`, `waf-harness-frontend`, `waf-harness-manual-test`). Claude Code loads them with no install, through the `.claude` → `.agents` symlink; for another agent, link or copy `.agents/skills/*` into the directory it reads Skills from.
 
 See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the full workspace guide: dev commands, quality gates, repo layout, and the changelog rule.
 
 ## Contributors
 
-Thanks to everyone who has contributed to PenguinHarness!
+Thanks to everyone who has contributed to WAF Harness!
 
 <p align="center">
-  <a href="https://github.com/Prism-Shadow/penguin-harness/graphs/contributors"><img src="https://contrib.rocks/image?repo=Prism-Shadow/penguin-harness" alt="PenguinHarness contributors" /></a>
+  <a href="https://github.com/Prism-Shadow/penguin-harness/graphs/contributors"><img src="https://contrib.rocks/image?repo=Prism-Shadow/penguin-harness" alt="WAF Harness contributors" /></a>
 </p>
 
 ## Citation
 
-If you use PenguinHarness in your research, please cite:
+If you use WAF Harness in your research, please cite:
 
 ```bibtex
-@software{penguinharness2026,
+@software{waf-harness2026,
   author  = {{PrismShadow Team}},
-  title   = {PenguinHarness: Efficient Self-Improving Harness for Everyone},
+  title   = {WAF Harness: Efficient Self-Improving Harness for Everyone},
   year    = {2026},
   url     = {https://github.com/Prism-Shadow/penguin-harness},
   license = {Apache-2.0}

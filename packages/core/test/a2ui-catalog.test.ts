@@ -47,7 +47,7 @@ const steps = {
   type: "steps",
   title: "Rotate",
   steps: [
-    { text: "Stop the service.", code: "penguin stop", lang: "sh" },
+    { text: "Stop the service.", code: "wafh stop", lang: "sh" },
     { warning: "Back up first.", text: "Delete the directory.", note: "Takes a minute." },
   ],
 };

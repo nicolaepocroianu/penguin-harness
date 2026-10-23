@@ -39,7 +39,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   ReactNode,
 } from "react";
-import type { DesktopPrivacyPane, DirListResponse } from "@prismshadow/penguin-server/api";
+import type { DesktopPrivacyPane, DirListResponse } from "@waterford/waf-harness-server/api";
 import {
   Button,
   ChevronDown,
@@ -63,7 +63,7 @@ import {
   toastError,
   toastSuccess,
   useRowContextMenu,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { writeClipboard } from "../../lib/clipboard";

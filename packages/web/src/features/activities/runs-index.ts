@@ -7,7 +7,7 @@
  * page puts in front of the list as it starts carries the server's `createdAt` like any other,
  * so where it sits in the array never decides which run is newest.
  */
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
 
 type Run = ActivityRunSummary;
 export type RunKind = Run["kind"];

@@ -35,7 +35,7 @@ import type {
   ArchivedSessionGroup,
   ServerEvent,
   SessionInfo,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   ARCHIVE_GROUP_PAGE,
   ARCHIVE_REFRESH_DELAY_MS,

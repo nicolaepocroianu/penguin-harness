@@ -13,7 +13,7 @@
  * packages/landing/src/lib/links.ts).
  *
  * Two panels per suite (accuracy, cost), horizontal bars scaled linearly from zero — the
- * cost spread is ~70x, so the PenguinHarness bar is by far the shortest. That is the
+ * cost spread is ~70x, so the WAF Harness bar is by far the shortest. That is the
  * result, not a defect; a zoomed baseline would flatter everyone else. Bars are floored at
  * MIN_BAR, though: at true scale the cost bar comes out ~2.5px, which reads as "no bar" and
  * loses the series entirely. The floor keeps it visible and unmistakably smallest, and the
@@ -161,13 +161,13 @@ function suite(t, yTop, title, rows) {
 function render(theme, { DATA_BENCH, CODE_BENCH }) {
   const t = THEMES[theme];
   const alt =
-    "Benchmark: PenguinHarness vs Claude Code vs OpenAI Codex on two suites — comparable accuracy at a small fraction of the cost";
+    "Benchmark: WAF Harness vs Claude Code vs OpenAI Codex on two suites — comparable accuracy at a small fraction of the cost";
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(alt)}">
 ${text(148, 36, "Accuracy · suite total · higher is better", { fill: t.muted })}
 ${text(596, 36, "Total cost (USD) · lower is better", { fill: t.muted })}
 ${suite(t, 68, "Data analysis — 15 tasks, single run", DATA_BENCH)}
 ${suite(t, 210, "Coding — 40 tasks × 2 runs", CODE_BENCH)}
-${text(24, 338, "Each harness runs the model it is normally paired with: PenguinHarness on DeepSeek V4 Pro, Claude Code on Claude Opus 4.8,", { fill: t.muted })}
+${text(24, 338, "Each harness runs the model it is normally paired with: WAF Harness on DeepSeek V4 Pro, Claude Code on Claude Opus 4.8,", { fill: t.muted })}
 ${text(24, 356, "OpenAI Codex on GPT-5.5. Accuracy, Tokens and cost are suite totals at official pricing.", { fill: t.muted })}
 </svg>
 `;

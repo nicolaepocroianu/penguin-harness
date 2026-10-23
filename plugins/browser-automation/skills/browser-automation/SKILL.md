@@ -1,37 +1,37 @@
 ---
 name: browser-automation
-description: Drive the PenguinHarness agent browser — the desktop app's built-in browser or the user's own Chrome — from the shell with `penguin browser`: open pages, read them as simplified HTML or text, act with JavaScript and trusted clicks and typing, and pull structured data out of them (orders, search results, tables), signed in with the user's own accounts. Use it for any task on a website that needs a real browser or the user's sign-in, such as finding an Amazon order.
-version: 2026.10.15.1
+description: Drive the WAF Harness agent browser — the desktop app's built-in browser or the user's own Chrome — from the shell with `wafh browser`: open pages, read them as simplified HTML or text, act with JavaScript and trusted clicks and typing, and pull structured data out of them (orders, search results, tables), signed in with the user's own accounts. Use it for any task on a website that needs a real browser or the user's sign-in, such as finding an Amazon order.
+version: 2026.10.23.1
 ---
 
 # Browser automation
 
-`penguin browser` drives the agent browser from your shell: the desktop app's built-in browser (the **Browser** tab of the dock), or the user's own Chrome through the PenguinHarness Browser extension — whichever the user chose. The commands are the same on both. Its tabs are shared by every conversation and keep the sign-ins made in them, so a page you open is one the user can watch and take over. Every command acts on the active tab unless `--tab <id>` names another.
+`wafh browser` drives the agent browser from your shell: the desktop app's built-in browser (the **Browser** tab of the dock), or the user's own Chrome through the WAF Harness Browser extension — whichever the user chose. The commands are the same on both. Its tabs are shared by every conversation and keep the sign-ins made in them, so a page you open is one the user can watch and take over. Every command acts on the active tab unless `--tab <id>` names another.
 
-You do not choose the browser, and must not try to (through `/api/me/prefs` or any other route): `penguin browser status` says which one is in use, `backend: builtin` or `backend: chrome`. In the user's Chrome you reach only the tabs in its **Penguin** tab group, which are the ones you open, and tabs the user hands over with the extension's icon; the user can take a tab back at any time.
+You do not choose the browser, and must not try to (through `/api/me/prefs` or any other route): `wafh browser status` says which one is in use, `backend: builtin` or `backend: chrome`. In the user's Chrome you reach only the tabs in its **WAF Harness** tab group, which are the ones you open, and tabs the user hands over with the extension's icon; the user can take a tab back at any time.
 
 ## Before you start
 
 If the user's message only names this skill without a task, ask what they want done on the web. Then check the browser:
 
 ```bash
-penguin browser status
+wafh browser status
 ```
 
 `status: available · backend: …` is followed by the open tabs. `status: unavailable (<reason>)` (exit code 1) is followed by a `note:` saying what to tell the user. Tell them, and stop there — never answer from guessed page content:
 
-- `not_desktop`, `shell_unsupported`, `no_window`: the built-in browser needs the PenguinHarness desktop app, up to date and open.
-- `extension_not_paired`: no Chrome is paired. Ask the user to install the PenguinHarness Browser extension and pair it: **Browser** panel → **Connect your Chrome…**.
+- `not_desktop`, `shell_unsupported`, `no_window`: the built-in browser needs the WAF Harness desktop app, up to date and open.
+- `extension_not_paired`: no Chrome is paired. Ask the user to install the WAF Harness Browser extension and pair it: **Browser** panel → **Connect your Chrome…**.
 - `extension_disconnected`: their Chrome is paired but not connected. Ask them to open Chrome with the extension enabled, or to pair it again in the **Browser** panel.
 - `extension_disabled`: an admin turned Chrome connections off on this server; the user's Chrome cannot be used here.
 
-A `warning:` line under `memory:` means the browser is using too much memory or holds too many tabs. Close the tabs you opened and no longer need (`penguin browser close <tab-id>`) before opening more, and reuse a tab (`open` without `--new-tab`) where you can.
+A `warning:` line under `memory:` means the browser is using too much memory or holds too many tabs. Close the tabs you opened and no longer need (`wafh browser close <tab-id>`) before opening more, and reuse a tab (`open` without `--new-tab`) where you can.
 
 ## The loop
 
-1. **Go**: `penguin browser open <url>` navigates the active tab (and opens one when there is none); `--new-tab` opens another. It waits for the load and prints `tab <id> · <title> · <url>`.
-2. **Look**: `penguin browser scan --text` first — plain text, cheap. `penguin browser scan` returns simplified HTML when you need selectors. Both print the tab header, the tab list (`tabs: *12 Your Orders | 15 Google`, the active tab starred), a `---` rule, then the page.
-3. **Act**: `penguin browser exec` runs JavaScript in the page. Put the script in a quoted heredoc and `return` exactly what you need, as compact JSON for anything structured.
+1. **Go**: `wafh browser open <url>` navigates the active tab (and opens one when there is none); `--new-tab` opens another. It waits for the load and prints `tab <id> · <title> · <url>`.
+2. **Look**: `wafh browser scan --text` first — plain text, cheap. `wafh browser scan` returns simplified HTML when you need selectors. Both print the tab header, the tab list (`tabs: *12 Your Orders | 15 Google`, the active tab starred), a `---` rule, then the page.
+3. **Act**: `wafh browser exec` runs JavaScript in the page. Put the script in a quoted heredoc and `return` exactly what you need, as compact JSON for anything structured.
 4. **Check**: exec prints labelled lines — `status:` and `tab:`, `return:`, `diff:` (how many elements changed, the largest change indented beneath), `transients:` (messages that appeared and may be gone again, such as "Added to cart"), `new tabs:`, and a `note:`. When they do not settle whether it worked, scan again.
 
 Prefer one precise exec over repeated scans: a scan costs thousands of tokens, a targeted exec a few dozen.
@@ -39,7 +39,7 @@ Prefer one precise exec over repeated scans: a scan costs thousands of tokens, a
 ## exec
 
 ```bash
-penguin browser exec <<'EOF'
+wafh browser exec <<'EOF'
 const cards = [...document.querySelectorAll('.result')].slice(0, 10);
 return JSON.stringify(cards.map((c) => ({
   title: c.querySelector('h2')?.innerText.trim(),
@@ -48,7 +48,7 @@ return JSON.stringify(cards.map((c) => ({
 EOF
 ```
 
-- The value is the script's explicit `return`, or else its last expression: `penguin browser exec 'document.title'` prints the title. Top-level `await` works. **Put an explicit `return` on its own last line**: it is the one form that means the same in every script. A last line that is a statement (`el.click();`) gives `return: undefined`.
+- The value is the script's explicit `return`, or else its last expression: `wafh browser exec 'document.title'` prints the title. Top-level `await` works. **Put an explicit `return` on its own last line**: it is the one form that means the same in every script. A last line that is a statement (`el.click();`) gives `return: undefined`.
 - Quote the heredoc delimiter (`<<'EOF'`) so the shell leaves `$`, backticks and quotes alone. `--file script.js` works too, and so does a one-liner argument.
 - `return:` is cut at 8000 characters. For more, add `--save out.json`: the whole value goes to the file (a string as-is, anything else as JSON) and only its start is printed. Then read the file.
 - `--no-monitor` skips change tracking: faster, for scripts that only read.
@@ -63,29 +63,29 @@ EOF
 - Scan shortens long lists to three items plus `[FAKE ELEMENT] N more items hidden, selector: "…"`. Query that selector in an exec for the rest.
 - Scan leaves out hidden, floating and covered elements (sidebars, overlays, closed menus). If something you expect is missing, look for it with exec (`document.body.innerText`, `querySelectorAll`).
 - A scan that is empty or incomplete may be a page still rendering: wait a moment and scan again before concluding anything.
-- **Trusted input.** An `el.click()` from JavaScript is an untrusted event that some sites ignore: buttons that open popups, custom dropdowns, file pickers. Use `penguin browser click '<selector>'` (`--index n` for the n-th match) or `click --at x,y` — a real mouse move, press and release. `penguin browser type '<text>' --selector '<css>' --submit` types for real and presses Enter.
+- **Trusted input.** An `el.click()` from JavaScript is an untrusted event that some sites ignore: buttons that open popups, custom dropdowns, file pickers. Use `wafh browser click '<selector>'` (`--index n` for the n-th match) or `click --at x,y` — a real mouse move, press and release. `wafh browser type '<text>' --selector '<css>' --submit` types for real and presses Enter.
 - Setting a field from JavaScript needs the native value setter and an `input` event, or React and Vue will not notice (recipe in [reference/page-recipes.md](reference/page-recipes.md)).
 - Check `disabled` before clicking a button; a disabled button's click does nothing.
-- Popups and `target=_blank` links open as new tabs: exec and click list them under `new tabs:`. Continue there with `--tab <id>` or `penguin browser switch <id>`.
+- Popups and `target=_blank` links open as new tabs: exec and click list them under `new tabs:`. Continue there with `--tab <id>` or `wafh browser switch <id>`.
 - **Dialogs** are answered for you during exec, click and type: an alert is accepted; a confirm, a prompt or a leave-page dialog is dismissed and printed as `dialog: confirm "…" → dismissed (rerun with --accept-dialogs to accept)`. Rerun with `--accept-dialogs` only when accepting is what the task asks for, never to confirm a purchase, a payment or a deletion the user has not approved.
-- File uploads, cross-origin iframes and closed shadow roots: see [reference/page-recipes.md](reference/page-recipes.md) (`DataTransfer`, and raw DevTools Protocol commands through `penguin browser cdp`).
-- When layout matters or text is drawn in a canvas or an image, `penguin browser screenshot -o shot.png` (`--full-page` for the whole page), then look at the file.
+- File uploads, cross-origin iframes and closed shadow roots: see [reference/page-recipes.md](reference/page-recipes.md) (`DataTransfer`, and raw DevTools Protocol commands through `wafh browser cdp`).
+- When layout matters or text is drawn in a canvas or an image, `wafh browser screenshot -o shot.png` (`--full-page` for the whole page), then look at the file.
 - Verify figures on the detail page rather than a summary or a list: a list's total can differ from the order's.
-- `error: tab_crashed` means the tab's page crashed (often from running out of memory). Retrying in that tab will not work: close it (`penguin browser close <tab-id>`) and open the page again with `penguin browser open <url> --new-tab`.
-- `error: tab_released` (Chrome) means the user took that tab back from you in their Chrome. Never retry it: open a new tab (`penguin browser open <url> --new-tab`), or ask the user to hand the tab over again with the extension's toolbar icon.
+- `error: tab_crashed` means the tab's page crashed (often from running out of memory). Retrying in that tab will not work: close it (`wafh browser close <tab-id>`) and open the page again with `wafh browser open <url> --new-tab`.
+- `error: tab_released` (Chrome) means the user took that tab back from you in their Chrome. Never retry it: open a new tab (`wafh browser open <url> --new-tab`), or ask the user to hand the tab over again with the extension's toolbar icon.
 
 ## Sign-in walls
 
 A redirect to a sign-in page (`/signin`, `/ap/signin`, `accounts.google.com`, a login form in the scan) means the browser is not signed in to that site.
 
 - **Never type the user's passwords, one-time codes or payment details**, and never ask for them in the conversation.
-- **Chrome** (`backend: chrome`): the user's own sign-ins usually already apply. When they do not, ask the user to sign in in the Penguin tab in their Chrome, then continue. `import` belongs to the built-in browser and answers `not_supported` here.
+- **Chrome** (`backend: chrome`): the user's own sign-ins usually already apply. When they do not, ask the user to sign in in the WAF Harness tab in their Chrome, then continue. `import` belongs to the built-in browser and answers `not_supported` here.
 - **Built-in**: ask the user to sign in in the **Browser** panel of the desktop app, then continue from where you stopped.
 - Or, on the built-in browser and with the user's go-ahead, import their sign-in from the browser they normally use:
 
   ```bash
-  penguin browser import --list
-  penguin browser import --from chrome --cookies --domain amazon.com
+  wafh browser import --list
+  wafh browser import --from chrome --cookies --domain amazon.com
   ```
 
   `--from` takes a browser (its Default profile) or a source id from `--list`; `--domain` limits the import to the sites the task needs, subdomains included. On macOS the system may ask the user to allow Keychain access. On Windows, Chrome 127 and later keep most cookies under app-bound encryption that no other program can read; the result says so in a `warning:` line, and the user signs in in the panel instead.
@@ -98,7 +98,7 @@ A redirect to a sign-in page (`/signin`, `/ap/signin`, `accounts.google.com`, a 
 
 ## Cleanup
 
-When the task is done, close the tabs you opened (`penguin browser close <tab-id>`), above all in the user's own Chrome. Never close a tab the user added for you: hand it back by leaving it open.
+When the task is done, close the tabs you opened (`wafh browser close <tab-id>`), above all in the user's own Chrome. Never close a tab the user added for you: hand it back by leaving it open.
 
 ## Worked example
 
@@ -108,10 +108,10 @@ Finding and listing Amazon orders — the sign-in check, searching, extracting r
 
 | Command | Use |
 | --- | --- |
-| `penguin browser tabs` | The open tabs (`*` marks the active one) |
-| `penguin browser switch <id>` / `close [<id>]` | Change or close tabs |
-| `penguin browser cdp <Domain.method> --params '<json>'` | A raw Chrome DevTools Protocol command |
-| `penguin browser history [<query>] [-n 20]` | Pages visited in the built-in browser, and imported history (built-in only) |
+| `wafh browser tabs` | The open tabs (`*` marks the active one) |
+| `wafh browser switch <id>` / `close [<id>]` | Change or close tabs |
+| `wafh browser cdp <Domain.method> --params '<json>'` | A raw Chrome DevTools Protocol command |
+| `wafh browser history [<query>] [-n 20]` | Pages visited in the built-in browser, and imported history (built-in only) |
 | `--json` on any command | The raw response |
 
 An error is one line, `error: <code>: <message>`, with exit code 1. The codes: `browser_unavailable` (see Before you start; also when the user paused the extension in Chrome — ask them to resume it), `no_tab` (open a page first), `no_such_tab`, `tab_crashed`, `tab_released` (see Rules), `keyboard_focus_failed` (the built-in browser could not give the tab keyboard focus, so nothing was typed; retry once), `cdp_refused` (a raw command outside the tab; the user's Chrome also refuses its cookies, storage and file paths), `not_supported` (import and history on the user's Chrome), `timeout`, `invalid_url`, `script_error`, `source_not_found`, `import_failed`, and `invalid_argument` for a command typed wrong.

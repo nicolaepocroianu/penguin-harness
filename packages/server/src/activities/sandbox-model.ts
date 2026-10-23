@@ -2,7 +2,7 @@
  * The dev sandbox's decisions, as pure functions.
  *
  * Loom's sandbox is a separate Express server on its own port, reverse-proxied by the
- * backend. Penguin's is Hono routes inside the server it already runs, spawning the
+ * backend. WAF Harness's is Hono routes inside the server it already runs, spawning the
  * module's own webpack build as a managed child — no second HTTP server, no proxy layer,
  * and the auth, session and preview-token machinery already in place stays in place.
  *

@@ -53,7 +53,7 @@ export function readPlayback(asset: Record<string, unknown>): AudioPlayback | nu
 
 /**
  * Loom's playback for an imported asset, with its defaults filling what an older manifest
- * left out; null when it names no kind Penguin knows.
+ * left out; null when it names no kind WAF Harness knows.
  */
 export function importedPlayback(asset: Record<string, unknown>): AudioPlayback | null {
   if (!AUDIO_KINDS.includes(asset.kind as AudioKind)) return null;

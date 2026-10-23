@@ -1,29 +1,29 @@
 /**
- * `penguin server` / `penguin web` — starts the Web service.
+ * `wafh server` / `wafh web` — starts the Web service.
  *
- *   penguin server [--port <port>] [--host <host>]
- *   penguin server reset-admin-password        (subcommand, see reset-password.ts)
- *   penguin web [--port <port>] [--host <host>] [--no-open] [--app <project>/<agent>/<workbench>[/<tab>]]
+ *   wafh server [--port <port>] [--host <host>]
+ *   wafh server reset-admin-password        (subcommand, see reset-password.ts)
+ *   wafh web [--port <port>] [--host <host>] [--no-open] [--app <project>/<agent>/<workbench>[/<tab>]]
  *
  * Both are entry points into the same service process: after setting PORT / HOST, it
- * dynamically imports `@prismshadow/penguin-server` (whose entry point handles dotenv
+ * dynamically imports `@waterford/waf-harness-server` (whose entry point handles dotenv
  * loading and graceful shutdown on its own), so the two never listen on separate ports
  * in parallel. Port/host priority: command-line option > existing environment variable
- * (including .env) > default 7364 / 127.0.0.1. `penguin web` additionally polls until the
+ * (including .env) > default 7364 / 127.0.0.1. `wafh web` additionally polls until the
  * service is ready, prints the URL, and opens a browser per-platform (`--no-open`
- * disables this). Before the import, PENGUIN_CLI_ENTRY is exported (when node can re-run
- * this entry) so the server's admin self-update endpoint can invoke `penguin update`.
+ * disables this). Before the import, WAFH_CLI_ENTRY is exported (when node can re-run
+ * this entry) so the server's admin self-update endpoint can invoke `wafh update`.
  *
  * Supervision: when plain node can re-run this entry, the service runs as a CHILD process
- * (`node <entry> server …`, marked PENGUIN_SERVE_CHILD=1) and this process stays behind
+ * (`node <entry> server …`, marked WAFH_SERVE_CHILD=1) and this process stays behind
  * as its supervisor — it forwards the terminal's signals, exits with the child's code, and
  * relaunches the child when it exits with core's SERVER_RESTART_EXIT_CODE. That exit is
- * what the Web App's "restart to update" asks for once `penguin update` has replaced the
+ * what the Web App's "restart to update" asks for once `wafh update` has replaced the
  * install: the relaunch re-resolves the same entry path, which now holds the new release.
- * The child is told a supervisor is there (PENGUIN_SUPERVISED=1); a dev run through tsx
+ * The child is told a supervisor is there (WAFH_SUPERVISED=1); a dev run through tsx
  * cannot be re-spawned by node and runs in-process as before, where the server reports
  * that a restart must be done by hand.
- * Docs: /docs/cli § "penguin server / penguin web".
+ * Docs: /docs/cli § "wafh server / wafh web".
  */
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
@@ -32,8 +32,8 @@ import {
   DEFAULT_SERVER_PORT,
   SERVER_RESTART_EXIT_CODE,
   resolveRoot,
-} from "@prismshadow/penguin-core";
-import { liveServerLock } from "@prismshadow/penguin-server/lock";
+} from "@waterford/waf-harness-core";
+import { liveServerLock } from "@waterford/waf-harness-server/lock";
 import type { Command } from "commander";
 import type { Messages, WebProbeFailureKind } from "../i18n.js";
 import { registerResetPasswordCommand } from "./reset-password.js";
@@ -123,19 +123,19 @@ export function cliEntryFor(argv1: string | undefined): string | null {
  */
 /**
  * Pre-start lock check: the App URL of a live server already owning the data root this
- * process would use (same resolution as the server: PENGUIN_HOME or the default root),
+ * process would use (same resolution as the server: WAFH_HOME or the default root),
  * or null. The server itself re-checks on startup (the in-process backstop); checking
- * here keeps the friendly path — `penguin server` refuses with the URL, `penguin web`
+ * here keeps the friendly path — `wafh server` refuses with the URL, `wafh web`
  * simply opens the existing instance. Locks live per data root, so a second server on a
- * DIFFERENT root is untouched. See @prismshadow/penguin-server/lock.
+ * DIFFERENT root is untouched. See @waterford/waf-harness-server/lock.
  */
 async function existingInstanceUrl(): Promise<string | null> {
   const lock = await liveServerLock(resolveRoot());
   return lock === null ? null : `http://localhost:${lock.port}/`;
 }
 
-/** Marks the service child a supervising `penguin server|web` spawned: it runs the server in-process. */
-export const SERVE_CHILD_ENV = "PENGUIN_SERVE_CHILD";
+/** Marks the service child a supervising `wafh server|web` spawned: it runs the server in-process. */
+export const SERVE_CHILD_ENV = "WAFH_SERVE_CHILD";
 
 /** What the supervisor does when its child exits (pure; exported for unit tests). */
 export function supervisorDecision(
@@ -160,7 +160,7 @@ function supervise(cliEntry: string, host: string, port: number, t: Messages): v
   const spawnChild = (): void => {
     child = spawn(process.execPath, [cliEntry, "server", "--port", String(port), "--host", host], {
       stdio: "inherit",
-      env: { ...process.env, [SERVE_CHILD_ENV]: "1", PENGUIN_SUPERVISED: "1" },
+      env: { ...process.env, [SERVE_CHILD_ENV]: "1", WAFH_SUPERVISED: "1" },
       windowsHide: true,
     });
     child.on("exit", (code, signal) => {
@@ -203,7 +203,7 @@ async function startServer(
   // run) the variable stays unset and the endpoint reports "unsupported".
   const cliEntry = cliEntryFor(process.argv[1]);
   if (cliEntry !== null) {
-    process.env.PENGUIN_CLI_ENTRY = cliEntry;
+    process.env.WAFH_CLI_ENTRY = cliEntry;
   }
   // The same re-runnable entry is what makes supervision possible: the child is exactly
   // this command again, marked as the child so it does not supervise in turn.
@@ -211,7 +211,7 @@ async function startServer(
     supervise(cliEntry, host, port, t);
     return { host, port };
   }
-  await import("@prismshadow/penguin-server");
+  await import("@waterford/waf-harness-server");
   return { host, port };
 }
 
@@ -361,7 +361,7 @@ export function registerServeCommands(program: Command, t: Messages): void {
       }
       await startServer(opts, t);
     });
-  // Bare `penguin server` still starts the service (commander runs the action when no
+  // Bare `wafh server` still starts the service (commander runs the action when no
   // subcommand is named); the subcommand only dispatches on an exact name match.
   registerResetPasswordCommand(server, t);
   registerStatusCommand(server, t);

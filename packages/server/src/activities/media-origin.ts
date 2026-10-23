@@ -2,7 +2,7 @@
  * Serving a media file to a running preview.
  *
  * Loom proxies `/media/*` out of its media clone with range handling tuned for `<video>`.
- * Penguin serves the same thing from the draft's own media directory, which is what makes
+ * WAF Harness serves the same thing from the draft's own media directory, which is what makes
  * a newly saved file appear in the preview without another assembly run.
  *
  * The response assembly is separated from the filesystem so the header arithmetic — which

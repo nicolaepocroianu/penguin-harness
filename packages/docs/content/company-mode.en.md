@@ -44,12 +44,12 @@ An organization lives inside a Project, at `<project>/organizations/<org_id>/`, 
 ### From the CLI
 
 ```text
-penguin org create --org-id <id> --mission <s> [--name <s>] [--language <zh|en>] [--workspace <path>] [--ceo-budget <usd>] [--model-id <id> --provider <p>]
+wafh org create --org-id <id> --mission <s> [--name <s>] [--language <zh|en>] [--workspace <path>] [--ceo-budget <usd>] [--model-id <id> --provider <p>]
 ```
 
 ### From an agent
 
-Ask an agent that has the `agent-company` plugin to set up a company. Its `company-setup` Skill takes over: it asks one question at a time (id, name, mission, shared workspace, model, CEO budget), shows a summary for you to confirm, and runs the same `penguin org create` command. It stops there. Hiring, scheduling and tickets are the CEO's job, after the board answers.
+Ask an agent that has the `agent-company` plugin to set up a company. Its `company-setup` Skill takes over: it asks one question at a time (id, name, mission, shared workspace, model, CEO budget), shows a summary for you to confirm, and runs the same `wafh org create` command. It stops there. Hiring, scheduling and tickets are the CEO's job, after the board answers.
 
 The plugin is not preinstalled, so an agent that has never been part of a company needs it first. Install it in the **Plugins** field of the create-agent dialog, or on the **Skills** tab of an agent already in the Project. A CEO and its employees carry it from the day they are hired.
 
@@ -88,10 +88,10 @@ Each employee gets one standing desk session the moment it is hired. Calendar ev
 
 **An employee's model is the model its desk session runs on.** The `model` of its entry in `org_chart.yaml` only says which model a desk is opened on, at hire or when the desk is renewed. There are two ways to change it:
 
-- Switch the model inside the desk conversation, with the model picker in the composer's toolbar or `/switch-model` in `penguin chat` (see [Switch the model](/chat#switch-the-model)). The desk keeps its conversation, the server writes the new model to the chart entry, and a desk renewed later opens on it.
+- Switch the model inside the desk conversation, with the model picker in the composer's toolbar or `/switch-model` in `wafh chat` (see [Switch the model](/chat#switch-the-model)). The desk keeps its conversation, the server writes the new model to the chart entry, and a desk renewed later opens on it.
 - Use `/model` in the desk conversation. It writes the chart entry first and then opens a new desk on that model.
 
-Ticket sessions open on the model the employee's desk runs on at that moment. Editing the chart entry alone (`penguin org employee set --model-id <id> --provider <p>`) leaves the open desk and its ticket sessions where they are; it takes effect when the desk is renewed.
+Ticket sessions open on the model the employee's desk runs on at that moment. Editing the chart entry alone (`wafh org employee set --model-id <id> --provider <p>`) leaves the open desk and its ticket sessions where they are; it takes effect when the desk is renewed.
 
 **An employee's thinking level is its agent's.** A desk reads `model.thinking_level` from its agent's config at every new model context, and a ticket session opens on it. **Set thinking level** in the employee's org chart menu writes that config, the same setting the agent has in development mode. A level picked inside the desk conversation pins that Session only, and the dialog says so when the current desk is pinned.
 
@@ -115,7 +115,7 @@ The root of `workspace/` holds the shared inputs and is nobody's desk. The CEO w
 
 The handbook loads progressively. Every trigger points at `handbook/README.md`, the index every work run reads first. The index describes the layout, the protocols and the role conventions, and lists every other document with one line saying when it matters, so a run reads a document only when that line applies.
 
-Board decisions go in `handbook/decisions/<yyyy-mm-dd>-<slug>.md`, with conventions and how-tos next to them. The **Handbook** page browses, edits and creates documents, and `penguin org handbook list | show | write | rm` does the same from a Session. The index cannot be deleted.
+Board decisions go in `handbook/decisions/<yyyy-mm-dd>-<slug>.md`, with conventions and how-tos next to them. The **Handbook** page browses, edits and creates documents, and `wafh org handbook list | show | write | rm` does the same from a Session. The index cannot be deleted.
 
 ### The board
 
@@ -129,13 +129,13 @@ People and employees are named the same way everywhere: `user:<user_id>` and `ag
 
    **A ticket change never starts a run.** An owner assigned, a ticket blocked, a blocker closed, a ticket done or rejected: each change is recorded and listed in the employee's next calendar sweep, under `## Since your last sweep`, one line per change with the ticket, its title, what happened, and the reason or blocker it carries.
 
-2. **The desk schedules.** Following the `company-employee` Skill, the desk reads the handbook, looks at the board, and opens a **ticket session** for each ticket it should push (`penguin org ticket start <id>`). A ticket session is a separate, ordinary Session of the same agent in the desk's Workspace. The desk never edits a ticket's files itself; when it would, it starts a ticket session and lets that session do it.
+2. **The desk schedules.** Following the `company-employee` Skill, the desk reads the handbook, looks at the board, and opens a **ticket session** for each ticket it should push (`wafh org ticket start <id>`). A ticket session is a separate, ordinary Session of the same agent in the desk's Workspace. The desk never edits a ticket's files itself; when it would, it starts a ticket session and lets that session do it.
 
-   **A ticket's sessions are started by its owner's desk, or by a person.** An employee that starts a session on someone else's ticket gets `403 not_ticket_owner`. To hand work to another employee, reassign the ticket (`penguin org ticket assign <id> --owner agent:<employee>`); the new owner's desk picks it up at its next sweep. To pull a colleague onto a ticket, the owner starts a session with `--agent-id <colleague>`. Several sessions, from several employees, can contribute to one ticket, and each is recorded in the ticket's `sessions` list.
+   **A ticket's sessions are started by its owner's desk, or by a person.** An employee that starts a session on someone else's ticket gets `403 not_ticket_owner`. To hand work to another employee, reassign the ticket (`wafh org ticket assign <id> --owner agent:<employee>`); the new owner's desk picks it up at its next sweep. To pull a colleague onto a ticket, the owner starts a session with `--agent-id <colleague>`. Several sessions, from several employees, can contribute to one ticket, and each is recorded in the ticket's `sessions` list.
 
-3. **The ticket session works and writes back.** It opens with its situation: its Workspace, the rule that every reference and deliverable is named by its full path, and the ticket as filed. Before it ends, it appends progress (`penguin org ticket progress`) in a plain sentence saying what was done and where, with no ids and no names, because the server records who and when in `history`. Then it moves the ticket (`penguin org ticket move`).
+3. **The ticket session works and writes back.** It opens with its situation: its Workspace, the rule that every reference and deliverable is named by its full path, and the ticket as filed. Before it ends, it appends progress (`wafh org ticket progress`) in a plain sentence saying what was done and where, with no ids and no names, because the server records who and when in `history`. Then it moves the ticket (`wafh org ticket move`).
 
-   A write that claims work (a progress line, an edit of the body, a move into review) books that session as one of the ticket's contributing sessions, so its cost is split onto the ticket. Accepting, closing, blocking and unblocking book nothing. When the session is stuck, waiting for a decision, another ticket or a missing key, it blocks the ticket with a reason and who can unblock it (`penguin org ticket block`) and stops. Every sweep skips a blocked ticket until it is unblocked.
+   A write that claims work (a progress line, an edit of the body, a move into review) books that session as one of the ticket's contributing sessions, so its cost is split onto the ticket. Accepting, closing, blocking and unblocking book nothing. When the session is stuck, waiting for a decision, another ticket or a missing key, it blocks the ticket with a reason and who can unblock it (`wafh org ticket block`) and stops. Every sweep skips a blocked ticket until it is unblocked.
 
 4. **Closing a ticket notifies.** When a ticket reaches done or rejected, its `notify` list hears about it, and so does its owner if an employee owns it, each in its own next sweep. A ticket that was waiting on the closed one tells its owner that the blocker closed. **Ticket changes are never posted in a channel**: channels hold what people and employees say to each other, and a board narrating itself would bury the conversation. You see closed tickets on the board, and in the overview's **Inbox**, which lists the tickets closed this period.
 
@@ -149,13 +149,13 @@ People and employees are named the same way everywhere: `user:<user_id>` and `ag
 
 Talk is partitioned like the Workspace. Every organization is created with one **all-hands channel**, `default_channel`. Every employee and every Project member is in it implicitly. Proposals, budget alerts, hires and milestones go there, and it is where the board reads. Anyone can open further channels for a stream of work or a big ticket, so that one thread does not drown the all-hands channel.
 
-- **Create**: any person or employee can create a channel, with `penguin org channel create ch_<id>` or the **+** (**New channel**) beside the channel list. A new channel holds only its creator. Its id follows the organization id rules, with `ch_` by convention; `default_channel` is reserved.
+- **Create**: any person or employee can create a channel, with `wafh org channel create ch_<id>` or the **+** (**New channel**) beside the channel list. A new channel holds only its creator. Its id follows the organization id rules, with `ch_` by convention; `default_channel` is reserved.
 - **Join**: an employee enters a channel only when a member invites it. A person can join any channel and read every channel, since the board sees everything. Only members can post.
 - **Mentions**: `@agent:<id>` wakes that employee's desk only if the employee is a member of the channel, and `@all` means the channel's members minus the sender. The trigger names the channel it came from, and the employee answers there. A message that mentions a non-member is refused (`mention_not_member`) rather than written and silently not delivered.
 - **Chain limit**: a message that reaches the organization's mention chain limit is recorded but delivers nothing, so two employees cannot mention each other back and forth forever. A person's message starts a fresh chain.
 - **Lifecycle**: any member can rename a channel or change its purpose. People archive and unarchive channels; an archived channel is read-only and folded away. The all-hands channel cannot be archived or left, and its membership cannot be edited: everyone is in it by definition, and the Web App always shows it as **All hands**.
 
-The `system` lines in a channel (hires and departures; a channel created, joined, left or archived; budget warnings and pauses) appear in the reader's language and with display names, both in the Web App and in `penguin org channel tail`. Message bodies render as Markdown in the Web App.
+The `system` lines in a channel (hires and departures; a channel created, joined, left or archived; budget warnings and pauses) appear in the reader's language and with display names, both in the Web App and in `wafh org channel tail`. Message bodies render as Markdown in the Web App.
 
 Unread counts and each person's read position are kept per channel. Keeping the channel membership of new hires and departing employees straight is HR's job.
 
@@ -179,7 +179,7 @@ A budget pause is narrower than it may sound:
 
 After you raise or clear a budget, the next check lifts the pause. There are no Token budgets and no per-ticket budgets; ticket cost is only reported.
 
-Budgets are stored in `org_chart.yaml`. Set them in the create dialog (**CEO budget**) or with `--ceo-budget`, with `penguin org hire --budget` or `penguin org employee set --budget`, or from the **Org Chart** and **Finance** pages. The 80% and 100% thresholds are `budget_warn_ratio` and `budget_pause_ratio` in `org_config.toml`; the Web App has no field for them.
+Budgets are stored in `org_chart.yaml`. Set them in the create dialog (**CEO budget**) or with `--ceo-budget`, with `wafh org hire --budget` or `wafh org employee set --budget`, or from the **Org Chart** and **Finance** pages. The 80% and 100% thresholds are `budget_warn_ratio` and `budget_pause_ratio` in `org_config.toml`; the Web App has no field for them.
 
 ## What the server enforces
 
@@ -247,7 +247,7 @@ Such a mission puts the CEO on the `company-mirror` Skill instead of the standar
 
 - **The roster comes from you.** The CEO's initialization run asks the board for the real org chart: each person's name, title, reporting line, and which bot will be theirs. When you answer, the CEO proposes a roster. Only after you confirm it does the CEO hire one twin per person, with `--reports-to` mirroring the real reporting line, and write each twin's brief. Nothing imports a directory or an HR system.
 - **Nothing recurring drives it.** There are no calendar events, no tickets and no per-stream channels. A twin runs only when its own person writes to it through the bound bot, or when another twin mentions it.
-- **Binding is the last setup step, and a person does it.** Bind each twin's desk session to that colleague's bot in the desk session's **Remote control** panel (Feishu, Telegram, QQ or WeChat; see [Remote control](/remote-control)). `penguin org desk show <agent_id>` prints the desk session id. An unbound twin can neither hear its person nor answer them.
+- **Binding is the last setup step, and a person does it.** Bind each twin's desk session to that colleague's bot in the desk session's **Remote control** panel (Feishu, Telegram, QQ or WeChat; see [Remote control](/remote-control)). `wafh org desk show <agent_id>` prints the desk session id. An unbound twin can neither hear its person nor answer them.
 - **Relay, then write it down.** A twin answers from the handbook when it can. Otherwise it relays the question to the right colleague's twin, which asks its own person and passes the answer back. Everything that comes back is written into the handbook (`people/<name>.md`, `faq.md`), so the next time the same question is answered without a relay.
 
 Know the limits before you rely on a mirror organization:
@@ -260,21 +260,21 @@ Know the limits before you rely on a mirror organization:
 
 ## Commands
 
-Inside a desk or ticket session, the `penguin org` commands already know the organization, Project, agent and Session from the environment (`PENGUIN_ORG_ID` joins the other control variables). From a shell, pass `--org-id`. The essentials are below; see [the CLI reference](/cli#penguin-org) for every subcommand.
+Inside a desk or ticket session, the `wafh org` commands already know the organization, Project, agent and Session from the environment (`WAFH_ORG_ID` joins the other control variables). From a shell, pass `--org-id`. The essentials are below; see [the CLI reference](/cli#wafh-org) for every subcommand.
 
 ```text
-penguin org show                                  # employees, board counts, spend vs budget
-penguin org hire --new-agent <id> --title <s> --reports-to <agent_id> [--workspace <sub>] [--budget <usd>]
-penguin org calendar add <name> --prompt <s> --start-at 2026-09-03T09:00:00+08:00 --period 1d   # a rota: own hour, role cadence
-penguin org ticket create --title <s> --goal <s> [--owner agent:<id>] [--parent <ticket_id>] [--slug <words>]
-penguin org ticket start <ticket_id> [-m <note>] [--agent-id <employee>]   # a ticket session on a ticket you own, printed as its id
-penguin org ticket progress <ticket_id> -m <text>
-penguin org ticket move <ticket_id> --to review|done|rejected [--reason <s>]
-penguin org channel create ch_site --name "Site" --purpose "Shipping the marketplace site"
-penguin org channel invite ch_site agent:<employee>   # an employee reaches a channel only by invitation
-penguin org channel tail [--channel <id>] [-n <count>]
-penguin org channel send -m "@<employee> …" [--channel <id>]   # default: default_channel
-penguin org finance                               # spend per employee (cumulative) and per ticket
+wafh org show                                  # employees, board counts, spend vs budget
+wafh org hire --new-agent <id> --title <s> --reports-to <agent_id> [--workspace <sub>] [--budget <usd>]
+wafh org calendar add <name> --prompt <s> --start-at 2026-09-03T09:00:00+08:00 --period 1d   # a rota: own hour, role cadence
+wafh org ticket create --title <s> --goal <s> [--owner agent:<id>] [--parent <ticket_id>] [--slug <words>]
+wafh org ticket start <ticket_id> [-m <note>] [--agent-id <employee>]   # a ticket session on a ticket you own, printed as its id
+wafh org ticket progress <ticket_id> -m <text>
+wafh org ticket move <ticket_id> --to review|done|rejected [--reason <s>]
+wafh org channel create ch_site --name "Site" --purpose "Shipping the marketplace site"
+wafh org channel invite ch_site agent:<employee>   # an employee reaches a channel only by invitation
+wafh org channel tail [--channel <id>] [-n <count>]
+wafh org channel send -m "@<employee> …" [--channel <id>]   # default: default_channel
+wafh org finance                               # spend per employee (cumulative) and per ticket
 ```
 
 ## Organization pages
@@ -320,4 +320,4 @@ The server keeps each employee's company Skills current. On every pass it compar
 
 ### Structured system lines
 
-The `system` lines a channel carries store a structured notice beside their English text. That is what lets the Web App and `penguin org channel tail` show them in the reader's language and with display names.
+The `system` lines a channel carries store a structured notice beside their English text. That is what lets the Web App and `wafh org channel tail` show them in the reader's language and with display names.

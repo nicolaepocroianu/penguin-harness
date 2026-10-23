@@ -61,7 +61,7 @@ import {
   normalizeSessionSource,
   parseBackgroundTaskDoneMessage,
   parseUserSteeringText,
-} from "@prismshadow/penguin-core/omnimessage";
+} from "@waterford/waf-harness-core/omnimessage";
 import type {
   ApprovalDecision,
   CompactionMode,
@@ -74,8 +74,8 @@ import type {
   SessionSource,
   StopReason,
   TokenUsagePayload,
-} from "@prismshadow/penguin-core/omnimessage";
-import type { TracePosition } from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-core/omnimessage";
+import type { TracePosition } from "@waterford/waf-harness-server/api";
 import {
   addLlmDuration,
   addToolExecution,

@@ -5,7 +5,7 @@
  * server stays the authority) — and the prompt that hands anything else to an Agent. A link to a
  * folder or a file inside a GitHub repository is not a source the server installs (npm installs
  * a whole repository or nothing), so it goes to the Agent too. The Agent reviews the source and
- * installs it with `penguin plugin install`; what is not a PenguinHarness package yet (a
+ * installs it with `wafh plugin install`; what is not a WAF Harness package yet (a
  * repository folder, a Codex or Claude Code plugin) it first ports into one with the
  * `plugin-porting` skill.
  */

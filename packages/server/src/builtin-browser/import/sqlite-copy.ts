@@ -20,7 +20,7 @@ export async function readDatabaseCopy<T>(
   env: ImportEnv,
   read: (db: DatabaseSync) => T,
 ): Promise<T> {
-  const dir = await fs.mkdtemp(path.join(env.tmpdir, "penguin-browser-import-"));
+  const dir = await fs.mkdtemp(path.join(env.tmpdir, "wafh-browser-import-"));
   try {
     const copy = path.join(dir, path.basename(file));
     await fs.copyFile(file, copy);

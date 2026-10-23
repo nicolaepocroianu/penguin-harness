@@ -47,8 +47,8 @@ describe("prependPathEnv", () => {
 describe("pathPrependPrefix", () => {
   it("Bourne-family shells get an `export`, with the directory quoted", () => {
     for (const shell of ["bash", "sh", "zsh", "dash", "ksh", "ash", "mksh", "ksh93"]) {
-      expect(pathPrependPrefix(shell, ["/opt/penguin/bin"]), shell).toBe(
-        `export PATH='/opt/penguin/bin':"$PATH"; `,
+      expect(pathPrependPrefix(shell, ["/opt/wafh/bin"]), shell).toBe(
+        `export PATH='/opt/wafh/bin':"$PATH"; `,
       );
     }
   });
@@ -80,7 +80,7 @@ describe("pathPrependPrefix", () => {
   });
 
   it("a shell whose PATH syntax is not one of those gets nothing at all", () => {
-    // fish has no `export`; an unrecognized PENGUIN_SHELL basename is anyone's guess. A
+    // fish has no `export`; an unrecognized WAFH_SHELL basename is anyone's guess. A
     // prefix in the wrong dialect would fail every command, so neither gets one — the
     // child-environment prepend still applies to both.
     expect(pathPrependPrefix("fish", ["/a"])).toBe("");
@@ -97,7 +97,7 @@ describe("pathPrependPrefix", () => {
 describe.skipIf(process.platform === "win32")(
   "the Bourne prefix decides which executable a command resolves",
   () => {
-    const tmp = mkdtempSync(path.join(tmpdir(), "penguin-path-prepend-"));
+    const tmp = mkdtempSync(path.join(tmpdir(), "wafh-path-prepend-"));
     const shimDir = path.join(tmp, "shim");
     const globalDir = path.join(tmp, "global");
 
@@ -106,7 +106,7 @@ describe.skipIf(process.platform === "win32")(
       [globalDir, "global"],
     ] as const) {
       mkdirSync(dir, { recursive: true });
-      const script = path.join(dir, "penguin");
+      const script = path.join(dir, "wafh");
       writeFileSync(script, `#!/bin/sh\necho ${word}\nexit 7\n`);
       chmodSync(script, 0o755);
     }
@@ -127,15 +127,15 @@ describe.skipIf(process.platform === "win32")(
       // child environment carried — on a Debian-family box /etc/profile replaces it
       // outright, so the shim directory is not merely demoted, it is gone. Whatever the
       // profile did, what a bare command resolves is not the harness's copy.
-      expect(run("penguin", []).stdout.trim()).not.toBe("shim");
+      expect(run("wafh", []).stdout.trim()).not.toBe("shim");
     });
 
     it("with the prefix the prepended directory wins, however the profile left PATH", () => {
-      expect(run("penguin", [shimDir]).stdout.trim()).toBe("shim");
+      expect(run("wafh", [shimDir]).stdout.trim()).toBe("shim");
     });
 
     it("the command's own stdout and exit status pass through untouched", () => {
-      const res = run("penguin", [shimDir]);
+      const res = run("wafh", [shimDir]);
       expect(res.stdout.trim()).toBe("shim");
       // The prefix is a statement, not a wrapper: the command is still last, so the shell
       // reports ITS status.

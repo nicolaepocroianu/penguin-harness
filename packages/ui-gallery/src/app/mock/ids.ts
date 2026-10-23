@@ -29,7 +29,7 @@ export const IDS = {
     schedule: "s-nightly-sync",
     subagent: "s-sub-linkcheck",
     benchmark: "s-eval-run",
-    /** A `penguin run` Session the user unarchived: listed among the conversations, with its glyph. */
+    /** A `wafh run` Session the user unarchived: listed among the conversations, with its glyph. */
     kept: "s-kept-run",
     /** Every row the harness writes into a conversation; the oldest in the list. */
     harness: "s-harness-rows",
@@ -41,14 +41,14 @@ export const IDS = {
     optimize: "s-optimize-docs",
     /** The round's four evaluator subagents, one per case, in case order; never listed. */
     evaluators: ["s-eval-hooks", "s-eval-mcp", "s-eval-memory", "s-eval-citations"],
-    /** The Test Sessions the evaluators ran the docs Agent in (`penguin run`): archived until kept. */
+    /** The Test Sessions the evaluators ran the docs Agent in (`wafh run`): archived until kept. */
     tests: ["s-test-hooks", "s-test-mcp", "s-test-memory", "s-test-citations"],
   },
   /** A Benchmark the docs agent wrote, one still being built, and a built-in one. */
   benchmarks: {
     docs: "docs-qa-v1",
     draft: "release-notes-draft",
-    builtin: "penguinharness-benchmark-sec-e",
+    builtin: "waf-harness-benchmark-sec-e",
   },
   plugins: {
     /** A library plugin one demo Agent is behind on, so its card shows an update. */

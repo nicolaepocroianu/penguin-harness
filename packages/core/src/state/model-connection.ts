@@ -14,7 +14,7 @@
  * never decides who may use one.
  *
  * Its one runtime import is client-type.ts, which imports nothing, so the Web App bundles it
- * through the `@prismshadow/penguin-core/model-connection` subpath.
+ * through the `@waterford/waf-harness-core/model-connection` subpath.
  */
 import { canonicalClientType } from "./client-type.js";
 import type { ModelEntry, ProviderConnection } from "./project-config.js";

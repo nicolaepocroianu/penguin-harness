@@ -2,7 +2,7 @@
  * One paired server's link: a WebSocket to `<origin>/api/builtin-browser/extension/ws` that
  * answers the server's commands and carries the extension's events.
  *
- * The token is offered as the subprotocol `token.<token>` beside `penguin-browser.1`, which the
+ * The token is offered as the subprotocol `token.<token>` beside `wafh-browser.1`, which the
  * server selects; it never appears in a URL. The server opens with `hello` and pings every 20 s;
  * the pings are also what keeps the MV3 worker alive (Chrome 116+ counts WebSocket traffic).
  *
@@ -180,7 +180,7 @@ export class ServerConnection {
     socket.onopen = () => {
       if (socket !== this.socket) return;
       if (socket.protocol !== SUBPROTOCOL) {
-        // Not a PenguinHarness link (or a proxy that dropped the header): do not talk to it.
+        // Not a WAF Harness link (or a proxy that dropped the header): do not talk to it.
         this.drop(CLOSE_PROTOCOL_MISMATCH, "protocol_mismatch");
         this.closed(CLOSE_PROTOCOL_MISMATCH, "protocol_mismatch");
         return;

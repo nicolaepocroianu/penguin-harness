@@ -5,8 +5,8 @@
  * and which backend packages this OS defaults to. A code contribution, so it must not require
  * plugin configuration itself.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
-import type { SandboxDimension } from "@prismshadow/penguin-core/plugin";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
+import type { SandboxDimension } from "@waterford/waf-harness-core/plugin";
 import type { PluginConfigNotice } from "../api/types.js";
 import type { PluginConfigUnavailable, SettingsGroupStatus } from "../plugin/config-page.js";
 import { Sandbox, SandboxModule } from "./service.js";
@@ -28,9 +28,9 @@ import {
  * implementing more).
  */
 const DEFAULT_BACKENDS: Partial<Record<NodeJS.Platform, readonly string[]>> = {
-  linux: ["@penguinharness/sandbox-bwrap", "@penguinharness/sandbox-dsh"],
-  darwin: ["@penguinharness/sandbox-seatbelt"],
-  win32: ["@penguinharness/sandbox-wsl"],
+  linux: ["@waf-harness/sandbox-bwrap", "@waf-harness/sandbox-dsh"],
+  darwin: ["@waf-harness/sandbox-seatbelt"],
+  win32: ["@waf-harness/sandbox-wsl"],
 };
 
 /** Each dimension as the card names it. */

@@ -6,7 +6,7 @@
  * to expose itself or loosen the approvals its API conversations run with) and never in the
  * Project file (synchronized across machines in company mode, while exposure is one server's).
  */
-import { Interface } from "@prismshadow/penguin-core/kernel";
+import { Interface } from "@waterford/waf-harness-core/kernel";
 import type { AgentApiSettings, AgentApiUpdateRequest } from "../api/types.js";
 
 /** The default for API admission, preserved for Agents configured before this setting existed. */
@@ -24,7 +24,7 @@ export interface AgentApiKeyRow {
   keyId: string;
   projectId: string;
   agentId: string;
-  /** The key's first 16 characters (`penguin_` + 8). */
+  /** The key's first 16 characters (`wafh_` + 8). */
   prefix: string;
   name: string;
   /** user_id of whoever created it. */

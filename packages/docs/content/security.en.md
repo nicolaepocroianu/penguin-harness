@@ -1,9 +1,9 @@
 ---
 title: Security Model
-description: How access to PenguinHarness works, from claiming a fresh server to revoking sessions, plus the mechanics underneath.
+description: How access to WAF Harness works, from claiming a fresh server to revoking sessions, plus the mechanics underneath.
 ---
 
-PenguinHarness runs agents with real credentials on real machines, so it is worth knowing exactly who can do what, and on what proof. This page follows the scenarios in the order you meet them, and collects the mechanics (session tokens, what is on disk, the network surface) at the end.
+WAF Harness runs agents with real credentials on real machines, so it is worth knowing exactly who can do what, and on what proof. This page follows the scenarios in the order you meet them, and collects the mechanics (session tokens, what is on disk, the network surface) at the end.
 
 - **First start of a new server?** See [Claim a fresh server](#claim-a-fresh-server).
 - **Need to set, change, or recover a password?** See [Manage passwords](#manage-passwords).
@@ -13,30 +13,30 @@ PenguinHarness runs agents with real credentials on real machines, so it is wort
 
 One principle runs through every scenario:
 
-> **Reading the data root is ownership.** The data root (`~/.penguin/data` by default) holds every model credential and every conversation. A secret stored beside them could not protect them from someone who can already read them, so the model never pretends otherwise. Instead, it makes that ownership safe to use: short-lived, revocable, and never requiring a password to be stored or sent.
+> **Reading the data root is ownership.** The data root (`~/.waf-harness/data` by default) holds every model credential and every conversation. A secret stored beside them could not protect them from someone who can already read them, so the model never pretends otherwise. Instead, it makes that ownership safe to use: short-lived, revocable, and never requiring a password to be stored or sent.
 
 ## What you get
 
 | Capability | Where |
 | --- | --- |
 | Claim a fresh server through a printed sign-in link; no password exists yet, and none is shown | The startup notice |
-| Sign in with a password, stored as an scrypt hash, with attempts throttled | Web login page, `penguin auth login` |
+| Sign in with a password, stored as an scrypt hash, with attempts throttled | Web login page, `wafh auth login` |
 | The desktop app signs its own window in, silently | A one-shot token when the window opens |
-| Mint a session from local ownership, with no password involved | `penguin auth token` |
-| Exchange local ownership for a one-hour Penguin Remote browser session | `POST /api/remote/session` |
+| Mint a session from local ownership, with no password involved | `wafh auth token` |
+| Exchange local ownership for a one-hour WAF Harness Remote browser session | `POST /api/remote/session` |
 | Manage machines over ssh with no password on the wire | The **Machines** page |
 | Sessions are server-side rows: revocable one by one and surviving a restart; ordinary login sessions renew while in use (30 days), while short sessions keep their issued expiry | Everywhere |
 | Every session records how it was established | Its `via` value (see below) |
 | Revoke one session, or every session a user holds | **Sign out**, admin password reset |
-| Recover a lost admin password from the machine itself | `penguin server reset-admin-password` |
+| Recover a lost admin password from the machine itself | `wafh server reset-admin-password` |
 
 Each authentication source has a `via` value recording how it was established:
 
 - `password`: a typed password; the public API also reports CLI-minted sessions this way
 - `desktop`: the desktop app's own window
 - `setup`: the sign-in link on a fresh server
-- `cli`: the internal source stored for a session minted by `penguin auth token`
-- `remote`: a one-hour browser session issued to Penguin Remote from the local API token
+- `cli`: the internal source stored for a session minted by `wafh auth token`
+- `remote`: a one-hour browser session issued to WAF Harness Remote from the local API token
 - `token`: the local API token’s authority, presented as a Bearer header or an exchanged Remote cookie
 
 ## Claim a fresh server
@@ -69,7 +69,7 @@ The link is not one-shot, because a mail client may fetch it before you do and a
 > [!NOTE]
 > In a container, the notice goes to the container's log (`docker logs`). The `localhost` in the link is the server's own view of itself. With the documented loopback port mapping, that is your view too, so open the link as printed on the machine running Docker. If the container is published to a network, replace `localhost` with the host you reach it on. Keep the token as it is either way.
 
-`PENGUIN_SEED_ADMIN_PASSWORD` pins the password instead, but only on the first start with an empty data root.
+`WAFH_SEED_ADMIN_PASSWORD` pins the password instead, but only on the first start with an empty data root.
 
 The session the link grants carries `via: setup`. It has exactly one special allowance, setting a password without entering an old one (none exists), and nothing else; in particular, it gets none of the desktop-only routes.
 
@@ -99,7 +99,7 @@ An admin sets a new initial password for another account with **Reset password**
 
 - Access to the server's machine, with the server stopped. Local filesystem access is the authorization.
 
-1. Run `penguin server reset-admin-password`.
+1. Run `wafh server reset-admin-password`.
 2. Start the server. It prints a fresh sign-in link.
 3. Open the link and set a password, as in [Claim a fresh server](#claim-a-fresh-server).
 
@@ -115,31 +115,31 @@ Scripts and the CLI never need a password, because local ownership already outra
 
 When a CLI command runs against a server on this machine, it authenticates with the local API token, which the server writes to `<root>/api-token` at every start. See [CLI Reference](/cli#server-connection).
 
-The local API token cannot change an agent's exposure: turning an agent's API on, keyless access, its approval mode, its keys and the server-wide Agent API switch take a person's sign-in, because every agent's commands carry that token. The server refuses the token on them with `403` `human_required`, and outside a Session the CLI then sends the request once more with your stored sign-in, if you have one; `penguin auth token`, below, gives the CLI that sign-in. This keeps an agent from exposing itself through the credential the harness hands it; it is not a boundary, since a process running as the data root's OS account can mint a session too. The sandbox is what bounds an agent.
+The local API token cannot change an agent's exposure: turning an agent's API on, keyless access, its approval mode, its keys and the server-wide Agent API switch take a person's sign-in, because every agent's commands carry that token. The server refuses the token on them with `403` `human_required`, and outside a Session the CLI then sends the request once more with your stored sign-in, if you have one; `wafh auth token`, below, gives the CLI that sign-in. This keeps an agent from exposing itself through the credential the harness hands it; it is not a boundary, since a process running as the data root's OS account can mint a session too. The sandbox is what bounds an agent.
 
-Penguin Remote may exchange that local ownership for a browser session by sending `POST /api/remote/session` with `Authorization: Bearer <local API token>`, `Content-Type: application/json`, and an empty JSON object. This is the only accepted credential: password, desktop, setup, and Remote cookies are refused even when they belong to the administrator. Refused cookie requests do not renew the session or set a Cookie.
+WAF Harness Remote may exchange that local ownership for a browser session by sending `POST /api/remote/session` with `Authorization: Bearer <local API token>`, `Content-Type: application/json`, and an empty JSON object. This is the only accepted credential: password, desktop, setup, and Remote cookies are refused even when they belong to the administrator. Refused cookie requests do not renew the session or set a Cookie.
 
-The response contains a new raw `penguin_session` token for the built-in administrator, with a fixed one-hour expiry and an internal `via: remote` marker. It is returned with `Cache-Control: no-store`; the Harness response does not set a Cookie. Penguin Remote's local proxy must set the Cookie on its public-domain response and must treat the returned token as a credential: do not log, cache, or expose it elsewhere. The endpoint does not enable CORS.
+The response contains a new raw `wafh_session` token for the built-in administrator, with a fixed one-hour expiry and an internal `via: remote` marker. It is returned with `Cache-Control: no-store`; the Harness response does not set a Cookie. WAF Harness Remote's local proxy must set the Cookie on its public-domain response and must treat the returned token as a credential: do not log, cache, or expose it elsewhere. The endpoint does not enable CORS.
 
 The public API reports this session as `token`: exchanging a token preserves its restrictions on human-only writes and its Agent identity rules. To change an Agent’s exposure, browser backend, or browser pairing, sign out and sign in with a password. The Remote proxy must preserve that password login instead of replacing it with another exchanged session.
 
 A script that needs a session of its own mints one. A session is a row in the data root's `web.db`, so the CLI writes one:
 
 ```bash
-penguin auth token          # no password, no prompt: inserts a session row
+wafh auth token          # no password, no prompt: inserts a session row
 ```
 
 Being able to read and write the data root is the whole authorization, and it grants nothing new: the root already holds every credential the token could reach. Minting works whether or not a server is running, and safely alongside one, on any root a server has started at least once: the account it mints for lives in that root's `web.db`.
 
 The minted token lives one hour by default and acts as an ordinary password session, never the desktop kind. Pass `--ttl-seconds` to set another lifetime (at most 30 days), or `--user-id` to mint for an account other than `admin`.
 
-On a multi-user machine, that scoping is the point. The data root belongs to the OS account running the server, so only that account can mint. Everyone else signs in with a password: `penguin auth login --server <url>`.
+On a multi-user machine, that scoping is the point. The data root belongs to the OS account running the server, so only that account can mint. Everyone else signs in with a password: `wafh auth login --server <url>`.
 
 ## Manage remote machines over ssh
 
 The **Machines** page manages other machines over ssh, and everything runs under the ssh account's identity.
 
-To act on a machine's API, the controller runs `penguin auth token` on that machine, over ssh. The machine's own CLI writes a session row into the machine's own database. The only thing that crosses the wire is a one-hour session token.
+To act on a machine's API, the controller runs `wafh auth token` on that machine, over ssh. The machine's own CLI writes a session row into the machine's own database. The only thing that crosses the wire is a one-hour session token.
 
 No password crosses the wire, ever. A machine's admin password stays on that machine, because ssh has already proven everything a password would.
 
@@ -154,9 +154,9 @@ A session is a row on the server, so deleting the row revokes the session at onc
 
 | To revoke | Do this | Takes effect |
 | --- | --- | --- |
-| One session | `penguin auth logout`, or **Sign out** in the Web App | Immediately: the row is deleted |
+| One session | `wafh auth logout`, or **Sign out** in the Web App | Immediately: the row is deleted |
 | One user's sessions | An admin resets that user's password | Immediately: every row for that account is deleted |
-| The admin's own sessions | `penguin server reset-admin-password` (server stopped) | At the next start, which prints a fresh first-login link |
+| The admin's own sessions | `wafh server reset-admin-password` (server stopped) | At the next start, which prints a fresh first-login link |
 | The local API token | Restart the server | At the next start, which writes a fresh token |
 | A model API key | Rotate it with the provider, then update the Project config | At the provider |
 
@@ -170,7 +170,7 @@ The one usable credential a backup can hold is the local API token of the server
 
 Windows updates keep electron-updater's SHA-512 check against the update feed and require a valid Authenticode signature. The client pins no signer name, certificate fingerprint or certificate authority, so a certificate rotation at the signing service does not block an update. A cached installer is verified before it is offered and again right before installation; a failed or unavailable check refuses the update, discards the installer and offers a retry. Updates never install on exit.
 
-Trust therefore rests on the GitHub and OSS publishing channels and the accounts that control them. PenguinHarness does not sign the update metadata, so someone able to replace both the metadata and the installer can ship a different, validly signed executable with a matching hash. Clients installed from 0.2.16 or earlier still check the old publisher name and need one manual installation of a newer release.
+Trust therefore rests on the GitHub and OSS publishing channels and the accounts that control them. WAF Harness does not sign the update metadata, so someone able to replace both the metadata and the installer can ship a different, validly signed executable with a matching hash. Clients installed from 0.2.16 or earlier still check the old publisher name and need one manual installation of a newer release.
 
 ## How it works
 
@@ -180,7 +180,7 @@ Each cookie carries a 32-byte random token. The session is the `auth_sessions` r
 
 A browser session lasts 30 days. Using it a day or more after it was issued or last renewed renews it **in place** for another 30 days: the row's expiry moves, and the cookie value stays the same. The 30 days therefore act as an idle timeout: a session in regular use never expires, and there is never a second copy to chase. Only a session whose own lifetime reaches the renewal window slides, so a one-hour minted token expires after its hour.
 
-Cookies are HttpOnly and SameSite=Lax. They are also Secure when the request really is https, or when a **trusted** proxy says so (`PENGUIN_TRUST_PROXY=1`); by default the `x-forwarded-proto` header is ignored.
+Cookies are HttpOnly and SameSite=Lax. They are also Secure when the request really is https, or when a **trusted** proxy says so (`WAFH_TRUST_PROXY=1`); by default the `x-forwarded-proto` header is ignored.
 
 ### What is on disk
 

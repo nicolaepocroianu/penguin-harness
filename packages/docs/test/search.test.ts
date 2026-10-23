@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { DocPage } from "../src/lib/docs";
-import { parseFrontmatter } from "@prismshadow/penguin-ui/site";
+import { parseFrontmatter } from "@waterford/waf-harness-ui/site";
 import { DOC_SLUGS } from "../src/lib/nav";
 import {
   buildSearchRecords,
@@ -20,7 +20,7 @@ const docs: DocPage[] = [
     title: "产品介绍",
     description: "",
     body: [
-      "PenguinHarness 是一个开源的 AI Agent Harness。",
+      "WAF Harness 是一个开源的 AI Agent Harness。",
       "",
       "## 产品组成",
       "",
@@ -87,7 +87,7 @@ describe("docs search", () => {
 
   it("preserves identifiers and angle-bracket placeholders inside code", () => {
     const markdown = [
-      "Use `event_msg`, `PENGUIN_HOME`, and `agent_state/skills/<name>/`.",
+      "Use `event_msg`, `WAFH_HOME`, and `agent_state/skills/<name>/`.",
       "",
       "```ts",
       "listTools(): Promise<ToolDefinition[]>;",
@@ -96,7 +96,7 @@ describe("docs search", () => {
     ].join("\n");
 
     expect(markdownToSearchText(markdown)).toBe(
-      'Use event_msg, PENGUIN_HOME, and agent_state/skills/<name>/. listTools(): Promise<ToolDefinition[]>; const type = "partial_tool_call_output";',
+      'Use event_msg, WAFH_HOME, and agent_state/skills/<name>/. listTools(): Promise<ToolDefinition[]>; const type = "partial_tool_call_output";',
     );
   });
 
@@ -107,12 +107,12 @@ describe("docs search", () => {
       "> Grant it once and the app starts normally:",
       ">",
       "> ```bash",
-      "> chmod +x penguin-desktop-linux-x86_64.AppImage",
+      "> chmod +x wafh-desktop-linux-x86_64.AppImage",
       "> ```",
     ].join("\n");
 
     expect(markdownToSearchText(markdown)).toBe(
-      "The system blocked the first launch? Grant it once and the app starts normally: chmod +x penguin-desktop-linux-x86_64.AppImage",
+      "The system blocked the first launch? Grant it once and the app starts normally: chmod +x wafh-desktop-linux-x86_64.AppImage",
     );
   });
 
@@ -125,10 +125,10 @@ describe("docs search", () => {
   it("removes paired formatting without changing literal identifier punctuation", () => {
     expect(
       markdownToSearchText(
-        "**Bold** __strong__ _italic_ ~~old~~ context_engine foo__bar__baz partial_* model.* ~/.penguin <name> <https://example.com>",
+        "**Bold** __strong__ _italic_ ~~old~~ context_engine foo__bar__baz partial_* model.* ~/.waf-harness <name> <https://example.com>",
       ),
     ).toBe(
-      "Bold strong italic old context_engine foo__bar__baz partial_* model.* ~/.penguin <name> https://example.com",
+      "Bold strong italic old context_engine foo__bar__baz partial_* model.* ~/.waf-harness <name> https://example.com",
     );
   });
 

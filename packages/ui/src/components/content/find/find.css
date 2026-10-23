@@ -6,11 +6,11 @@
    the info tone's emphasis, deliberately translucent so the text under it keeps its own weight;
    `color: inherit` is spelled out because a highlight otherwise inherits the highlight pseudo's
    own (user-agent) colour. */
-::highlight(penguin-find) {
+::highlight(wafh-find) {
   background-color: color-mix(in srgb, var(--ui-tone-info-emphasis) 32%, transparent);
   color: inherit;
 }
-::highlight(penguin-find-current) {
+::highlight(wafh-find-current) {
   background-color: color-mix(in srgb, var(--ui-tone-info-emphasis) 70%, transparent);
   color: inherit;
 }

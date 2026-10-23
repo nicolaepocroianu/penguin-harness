@@ -1,19 +1,19 @@
 ---
 name: waf-scene-composition
-description: Use when composing an animated scene for a WAF activity's video or animation asset (Penguin's scene composition, an HTML page driven by one paused GSAP timeline). Covers planning the frames, laying out the stage, text and motion for young learners, timing against the storyboard, and checking the result before finishing.
-version: 2026.10.10.1
+description: Use when composing an animated scene for a WAF activity's video or animation asset (WAF Harness's scene composition, an HTML page driven by one paused GSAP timeline). Covers planning the frames, laying out the stage, text and motion for young learners, timing against the storyboard, and checking the result before finishing.
+version: 2026.10.23.1
 ---
 
 # WAF Scene Composition
 
 Use this skill when you write `composition.html` and `frames.json` for a scene video. The page
-is recorded frame by frame: Penguin pauses the timeline, seeks it to each frame's time,
+is recorded frame by frame: WAF Harness pauses the timeline, seeks it to each frame's time,
 screenshots the stage and encodes the frames to an MP4. The page must be deterministic and look
 right at every moment, not only while it plays.
 
 The process follows the "director" skills of OpenMontage's explainer pipeline (plan, make,
 check, score, submit). The layout, text, motion and self-check rules follow HeyGen HyperFrames'
-authoring skills. Both are adapted here as ideas for young learners and Penguin's composition
+authoring skills. Both are adapted here as ideas for young learners and WAF Harness's composition
 bridge; no code comes from either.
 
 ## Before you start
@@ -39,7 +39,7 @@ A scene with no images is drawn entirely with HTML, CSS and inline SVG.
    Scenery (ground, island, sea, sky, background) is not a main object, and objects stand on it.
 3. **Build it.** Position with `left` and `top`, never a mix of `right` and `bottom`. Mark each
    main object with `data-focal`, and an element meant to sit over another (a glow behind its
-   chest) with `data-allow-overlap`. Penguin measures the marked objects while it records.
+   chest) with `data-allow-overlap`. WAF Harness measures the marked objects while it records.
 4. **Animate it.** Use one timeline created paused, assigned to `window.__composition.timeline`,
    and drive every change from it.
 5. **Time it.** Make the timeline exactly as long as the frames add up to. When the motion ends
@@ -115,7 +115,7 @@ understand better than a clear still picture, and can make them remember less. S
 - Pair every important change with something that stays: a label, an arrow, or the narration
   naming it. Movement alone is easy to miss.
 - Never flash. Nothing brightens and dims more than three times in any second (WCAG 2.3.1);
-  Penguin checks every recording for it and will not pass one that flashes.
+  WAF Harness checks every recording for it and will not pass one that flashes.
   Sparkles and glows rise and settle once rather than pulsing.
 - Celebrations (stars, confetti, a glow on the answer) play once and come to rest; nothing loops
   for the whole scene.

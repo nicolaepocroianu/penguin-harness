@@ -10,7 +10,7 @@ import * as audio from "../src/activities/audio.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
 
 describe("the speech voice catalogue", () => {
-  it("describes exactly the voices Penguin speaks with, in order", () => {
+  it("describes exactly the voices WAF Harness speaks with, in order", () => {
     expect(SPEECH_CATALOGUE.map((option) => option.id)).toEqual([...SPEECH_VOICES]);
     expect(audio.SPEECH_VOICES).toBe(SPEECH_VOICES);
     expect(audio.SPEECH_MODEL).toBe(SPEECH_MODEL);

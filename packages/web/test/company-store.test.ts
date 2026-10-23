@@ -16,7 +16,7 @@ import type {
   OrgChannelMessage,
   OrgSessionsResponse,
   OrganizationSummary,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   createCompanyStore,
   isCompanyEvent,

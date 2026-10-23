@@ -12,7 +12,7 @@ import type {
   DeployConnectionTest,
   DeploySettingsView,
   DeployTarget,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
@@ -28,7 +28,7 @@ import {
   SettingsSection,
   useSaving,
   useUnsavedChanges,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { SETTINGS_SCOPE } from "../../lib/unsaved/scopes";
 import {
   DEPLOY_GROUPS,

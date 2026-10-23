@@ -5,7 +5,7 @@
  * and an author reaches it through the scene they are working on.
  */
 import { useState } from "react";
-import { Chevron, GlyphIcon, ICON_GAP, ICON_SIZE } from "@prismshadow/penguin-ui";
+import { Chevron, GlyphIcon, ICON_GAP, ICON_SIZE } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";
 import { SCENE_ASSET_ICON } from "./scene-asset-icons";

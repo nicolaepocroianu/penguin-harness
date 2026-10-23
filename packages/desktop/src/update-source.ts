@@ -58,13 +58,13 @@ export interface ReleaseDownloadManifest {
 /** The update asset electron-updater replaces on this platform (dmg is manual-only). */
 export function desktopUpdateAssetName(platform: NodeJS.Platform, arch: string): string | null {
   if (platform === "darwin") {
-    return arch === "arm64" || arch === "x64" ? `penguin-desktop-darwin-${arch}.zip` : null;
+    return arch === "arm64" || arch === "x64" ? `wafh-desktop-darwin-${arch}.zip` : null;
   }
   if (platform === "win32") {
-    return arch === "x64" ? "penguin-desktop-win32-x64.exe" : null;
+    return arch === "x64" ? "wafh-desktop-win32-x64.exe" : null;
   }
   if (platform === "linux") {
-    return arch === "x64" ? "penguin-desktop-linux-x86_64.AppImage" : null;
+    return arch === "x64" ? "wafh-desktop-linux-x86_64.AppImage" : null;
   }
   return null;
 }
@@ -160,7 +160,7 @@ export async function loadReleaseDownloadManifest(opts: {
   const lines = text.split(/\r?\n/);
   if (lines.at(-1) === "") lines.pop();
   if (lines.length < 4) return null;
-  if (lines[0] !== `penguin-release-download-manifest\t1\t${tag}`) return null;
+  if (lines[0] !== `wafh-release-download-manifest\t1\t${tag}`) return null;
 
   let smallProbe: ReleaseProbe | null = null;
   let largeProbe: ReleaseProbe | null = null;

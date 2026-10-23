@@ -26,7 +26,7 @@ import {
   projectConfigPath,
   saveProjectConfig,
   scheduleDir,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { openDatabase } from "../src/db/database.js";
 import { ProjectsRepo } from "../src/db/repos/projects.js";
 import { SchedulesRepo } from "../src/db/repos/schedules.js";
@@ -34,12 +34,12 @@ import { SessionsRepo } from "../src/db/repos/sessions.js";
 import { UsersRepo } from "../src/db/repos/users.js";
 import type { ErrorRecordArgs } from "../src/runtime/error-recorder.js";
 import type { ScheduleSessionCreator, ScheduleTaskRunner } from "../src/runtime/scheduler.js";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import { Scheduler } from "../src/runtime/scheduler.js";
 import { ProjectConfigService } from "../src/services/project-config-service.js";
 import type { ScheduleServerEvent } from "../src/api/types.js";
 import { makeTempRoot } from "./helpers.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 
 const P = "p1";
 const A = "agent_x";

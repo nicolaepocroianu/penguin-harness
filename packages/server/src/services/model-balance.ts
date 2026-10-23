@@ -22,7 +22,7 @@
  *   relayed — only its HTTP status.
  */
 import { createHash } from "node:crypto";
-import { userAgent } from "@prismshadow/penguin-core";
+import { userAgent } from "@waterford/waf-harness-core";
 import { providerInfo } from "../model-catalog/catalog.js";
 import type { ModelProviderBalance } from "../model-catalog/catalog.js";
 import type {
@@ -111,7 +111,7 @@ function readDeepSeek(body: unknown): BalanceFigures | undefined {
 }
 
 /** The ledger stays in CNY even when Penguin Go's display amount has been converted to USD. */
-function readPenguinGo(body: unknown): BalanceFigures | undefined {
+function readWafHarnessGo(body: unknown): BalanceFigures | undefined {
   const wallet = isRecord(body) ? body.balance : undefined;
   if (
     !isRecord(wallet) ||
@@ -139,7 +139,7 @@ const READERS: Record<
 > = {
   tokendance: readTokenDance,
   deepseek: readDeepSeek,
-  "penguin-go": readPenguinGo,
+  "penguin-go": readWafHarnessGo,
 };
 
 /** Reads one vendor reply; undefined when it carries no balance the reader can vouch for. */
@@ -161,7 +161,7 @@ export interface ModelBalanceDeps {
   /** The group's own key, or its permitted environment fallback; never a model's own key. */
   groupKey(projectId: string, provider: string): Promise<string | undefined>;
   /** The same trusted origin used by Penguin Go authorization, resolved by the route owner. */
-  penguinGoOrigin?: string;
+  wafHarnessGoOrigin?: string;
   /** Replaced in tests; defaults to the global fetch at call time, which carries the proxy settings. */
   fetchImpl?: typeof fetch;
   now?: () => number;
@@ -184,7 +184,7 @@ export class ModelBalances {
       published.format === "penguin-go"
         ? {
             ...published,
-            url: new URL("/api/me/by-key", this.deps.penguinGoOrigin ?? published.url).href,
+            url: new URL("/api/me/by-key", this.deps.wafHarnessGoOrigin ?? published.url).href,
           }
         : published;
     const key = await this.deps.groupKey(projectId, provider);

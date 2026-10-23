@@ -14,7 +14,7 @@
  * the ordering algebra, and the catalog's own membership is model-catalog.test.ts's.
  */
 import { describe, expect, it } from "vitest";
-import { MODEL_PROVIDERS } from "@prismshadow/penguin-server/model-catalog";
+import { MODEL_PROVIDERS } from "@waterford/waf-harness-server/model-catalog";
 
 import {
   commitModelGroupOrder,
@@ -56,15 +56,15 @@ const rows: ModelRowLike[] = [
 describe("model group order storage", () => {
   it("one array per Project, under the models page's key namespace", () => {
     const s = memStorage();
-    expect(modelGroupOrderKey("p1")).toBe("penguin.modelsGroupOrder.p1");
+    expect(modelGroupOrderKey("p1")).toBe("wafh.modelsGroupOrder.p1");
     saveModelGroupOrder("p1", ["minimax", "anthropic"], s);
     saveModelGroupOrder("p2", ["moonshot"], s);
     expect(loadModelGroupOrder("p1", s)).toEqual(["minimax", "anthropic"]);
     expect(loadModelGroupOrder("p2", s)).toEqual(["moonshot"]);
     // A Project switch cannot leak one arrangement into another.
     expect([...s.map.keys()].sort()).toEqual([
-      "penguin.modelsGroupOrder.p1",
-      "penguin.modelsGroupOrder.p2",
+      "wafh.modelsGroupOrder.p1",
+      "wafh.modelsGroupOrder.p2",
     ]);
   });
 

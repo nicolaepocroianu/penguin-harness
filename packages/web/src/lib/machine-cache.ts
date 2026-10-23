@@ -21,10 +21,10 @@
  * the same as having nothing — in every one of those cases the page degrades to exactly what
  * it did before there was a cache.
  */
-import type { AgentSummary, SessionInfo } from "@prismshadow/penguin-server/api";
+import type { AgentSummary, SessionInfo } from "@waterford/waf-harness-server/api";
 
-const SESSIONS_PREFIX = "penguin.machineSessions.";
-const AGENTS_PREFIX = "penguin.machineAgents.";
+const SESSIONS_PREFIX = "wafh.machineSessions.";
+const AGENTS_PREFIX = "wafh.machineAgents.";
 
 /**
  * Rows kept per machine. Comfortably more than the sidebar's first page, and far short of

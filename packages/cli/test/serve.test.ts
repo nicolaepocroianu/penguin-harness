@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import path from "node:path";
 import { Command } from "commander";
-import { DEFAULT_SERVER_PORT } from "@prismshadow/penguin-core";
+import { DEFAULT_SERVER_PORT } from "@waterford/waf-harness-core";
 import {
   DEFAULT_HOST,
   DEFAULT_PORT,
@@ -85,8 +85,8 @@ describe("cliEntryFor (the entry advertised for the web self-update)", () => {
   it("advertises only entries plain node can re-run (.js/.mjs/.cjs), resolved absolute", () => {
     // Expectations go through path.resolve too: on win32 an absolute POSIX-style input
     // gains a drive prefix and backslashes, and the contract is "resolved", not a literal.
-    expect(cliEntryFor("/opt/penguin/lib/dist/index.js")).toBe(
-      path.resolve("/opt/penguin/lib/dist/index.js"),
+    expect(cliEntryFor("/opt/wafh/lib/dist/index.js")).toBe(
+      path.resolve("/opt/wafh/lib/dist/index.js"),
     );
     expect(cliEntryFor("/x/cli.MJS")).toBe(path.resolve("/x/cli.MJS"));
     expect(cliEntryFor("/x/cli.cjs")).toBe(path.resolve("/x/cli.cjs"));

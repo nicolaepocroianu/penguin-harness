@@ -316,7 +316,7 @@ describe("in-session model switch", () => {
   const sessions: Session[] = [];
 
   beforeEach(async () => {
-    traces = await mkdtemp(join(tmpdir(), "penguin-model-switch-"));
+    traces = await mkdtemp(join(tmpdir(), "wafh-model-switch-"));
   });
 
   afterEach(async () => {

@@ -8,7 +8,7 @@ describe("agent env helpers", () => {
     expect(envKeyProblem("")).toBe(S.common.requiredField);
     expect(envKeyProblem("1BAD")).toBe(S.models.cliEnvKeyInvalid);
     expect(envKeyProblem("path")).toBe(S.models.cliEnvKeyReserved);
-    expect(envKeyProblem("PENGUIN_X")).toBe(S.models.cliEnvKeyReserved);
+    expect(envKeyProblem("WAFH_X")).toBe(S.models.cliEnvKeyReserved);
     expect(envKeyProblem("NO_BROWSER")).toBe(S.models.cliEnvKeyReserved);
   });
 

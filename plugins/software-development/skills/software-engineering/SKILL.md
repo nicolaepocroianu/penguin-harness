@@ -1,12 +1,12 @@
 ---
 name: software-engineering
 description: Complete software-engineering tasks — investigate and review code, implement bug fixes, features and refactors with minimal scope, validate changes, and report verified outcomes.
-version: 2026.10.04.1
+version: 2026.10.23.1
 ---
 
 # Software Engineering
 
-This skill guides PenguinHarness through general software-engineering work, including code investigation, reviews, bug fixes, features, refactors, and verified handoff.
+This skill guides WAF Harness through general software-engineering work, including code investigation, reviews, bug fixes, features, refactors, and verified handoff.
 
 ## Before you start
 

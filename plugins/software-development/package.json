@@ -1,10 +1,10 @@
 {
-  "name": "@penguinharness/software-development",
+  "name": "@waf-harness/software-development",
   "version": "0.2.16",
-  "description": "Software development end to end — disciplined software-engineering practice for real tasks, plus the Penguin visual language for every generated web page and app UI.",
+  "description": "Software development end to end — disciplined software-engineering practice for real tasks, plus the WAF Harness visual language for every generated web page and app UI.",
   "keywords": [
-    "penguin-plugin",
-    "penguinharness",
+    "wafh-plugin",
+    "waf-harness",
     "skills"
   ],
   "license": "Apache-2.0",
@@ -22,7 +22,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "penguin": {
+  "wafh": {
     "short_description": "Engineering practice and web UI defaults in one plugin.",
     "category": "software-development",
     "icon": "icon.svg",

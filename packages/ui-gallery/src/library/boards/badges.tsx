@@ -20,8 +20,8 @@ import {
   TONES,
   UpdateDot,
   UpdatePill,
-} from "@prismshadow/penguin-ui";
-import type { ActivityIconState, BadgeVariant, RunState } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { ActivityIconState, BadgeVariant, RunState } from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 

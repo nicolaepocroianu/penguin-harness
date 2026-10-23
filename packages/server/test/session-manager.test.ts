@@ -64,7 +64,7 @@ import {
   userSteeringText,
   userText,
   withOrigin,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   ApproveFn,
   GenerativeModelParameters,
@@ -72,7 +72,7 @@ import type {
   LLMOutcome,
   OmniMessage,
   TextPayload,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type { ServerEvent } from "../src/api/types.js";
 import { openDatabase } from "../src/db/database.js";
 import { HttpError } from "../src/http/errors.js";
@@ -88,7 +88,7 @@ import type { TitleRequest } from "../src/runtime/title-generator.js";
 import type { UsageContext } from "../src/runtime/usage-recorder.js";
 import { fakeSession } from "./fixtures/session.js";
 import { waitFor } from "./helpers.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 
 const ROW: SessionRow = {
   sessionId: "session-1",
@@ -483,7 +483,7 @@ describe("session-manager", () => {
     // what registers the notice listener). Only the LLM is scripted. This is the frontend's
     // exact feed: the channel events asserted on are what SSE relays byte-for-byte.
     sessions.updateApprovalMode("session-1", "allow-all");
-    const dir = await mkdtemp(path.join(tmpdir(), "penguin-bge2e-"));
+    const dir = await mkdtemp(path.join(tmpdir(), "wafh-bge2e-"));
     const environment = new Environment({
       workspaceDir: dir,
       toolConfig: {

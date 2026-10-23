@@ -19,7 +19,7 @@ import {
   MessageBubble,
   MessageMeta,
   MessageRow,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 

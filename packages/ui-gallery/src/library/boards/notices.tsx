@@ -5,8 +5,8 @@
  * in the notice's own ink that closes it here, the banner's at its far edge), and the page to-do.
  */
 import { useState } from "react";
-import { Button, Dot, ICONS, Notice, NoticeStrip, TodoNotice } from "@prismshadow/penguin-ui";
-import type { NoticeStripTone } from "@prismshadow/penguin-ui";
+import { Button, Dot, ICONS, Notice, NoticeStrip, TodoNotice } from "@waterford/waf-harness-ui";
+import type { NoticeStripTone } from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 

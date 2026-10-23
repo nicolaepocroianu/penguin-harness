@@ -1,5 +1,5 @@
 /**
- * `penguin org` wiring, driven through `cli()` in-process against the fake server's
+ * `wafh org` wiring, driven through `cli()` in-process against the fake server's
  * organization routes: list / overview / chart rendering, creation, hiring (both forms
  * and the exclusivity rule), the calendar writer, the ticket writes (their bodies, and
  * the caller identity taken from the control environment), the channel family with its
@@ -16,10 +16,10 @@ import { FakeServer } from "./fake-server.js";
 const t = getMessages("en");
 
 /** The control environment a desk or ticket session carries: every test starts without it and restores what was there. */
-const ENV_KEYS = ["PENGUIN_ORG_ID", "PENGUIN_AGENT_ID", "PENGUIN_SESSION_ID", "PENGUIN_PROJECT_ID"];
+const ENV_KEYS = ["WAFH_ORG_ID", "WAFH_AGENT_ID", "WAFH_SESSION_ID", "WAFH_PROJECT_ID"];
 const saved = new Map<string, string | undefined>();
 
-/** The desk session the CLI is assumed to run inside when PENGUIN_SESSION_ID is set below. */
+/** The desk session the CLI is assumed to run inside when WAFH_SESSION_ID is set below. */
 const DESK_SESSION = "session-2026-09-02-10-00-00-de5c0001";
 
 let server: FakeServer;
@@ -37,7 +37,7 @@ beforeEach(() => {
   server = new FakeServer();
   uninstall = server.install();
   server.addOrg({ orgId: "acme", name: "Acme", mission: "Ship the site" });
-  process.env.PENGUIN_ORG_ID = "acme";
+  process.env.WAFH_ORG_ID = "acme";
   stdout = [];
   stderr = [];
   outSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
@@ -66,7 +66,7 @@ const lastRequest = (method: string, suffix: string) =>
   server.requests.findLast((r) => r.method === method && r.path.endsWith(suffix));
 const org = () => server.orgs.get("acme")!;
 
-describe("penguin org ls / show / chart", () => {
+describe("wafh org ls / show / chart", () => {
   it("ls lists organizations with counts and spend; --json prints the response", async () => {
     server.addEmployee("acme", {
       agentId: "dev1",
@@ -165,7 +165,7 @@ describe("penguin org ls / show / chart", () => {
   });
 });
 
-describe("penguin org create", () => {
+describe("wafh org create", () => {
   it("posts the definition and prints the org id with the CEO's desk session id", async () => {
     expect(
       await cli([
@@ -230,14 +230,14 @@ describe("penguin org create", () => {
     expect(server.orgs.has("delta")).toBe(false);
   });
 
-  it("create's --org-id names the organization to create; PENGUIN_ORG_ID never fills it in", async () => {
+  it("create's --org-id names the organization to create; WAFH_ORG_ID never fills it in", async () => {
     expect(await cli(["org", "create", "--mission", "m"])).toBe(1);
     expect(err()).toContain("--org-id");
     expect(server.requests.some((r) => r.method === "POST")).toBe(false);
   });
 });
 
-describe("penguin org hire / employee set / leave", () => {
+describe("wafh org hire / employee set / leave", () => {
   it("hire --agent-id employs an existing Agent; the body carries title, manager, workspace, budget and duties", async () => {
     server.agents.push({
       agentId: "dev1",
@@ -348,9 +348,9 @@ describe("penguin org hire / employee set / leave", () => {
     expect(err()).toContain(t.org.nothingToSet());
   });
 
-  it("employee avatar PUTs a file as a data URL, defaults to PENGUIN_AGENT_ID, and --clear sends null", async () => {
+  it("employee avatar PUTs a file as a data URL, defaults to WAFH_AGENT_ID, and --clear sends null", async () => {
     server.addEmployee("acme", { agentId: "dev1" });
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-avatar-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-avatar-"));
     try {
       const png = Buffer.concat([
         Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
@@ -359,7 +359,7 @@ describe("penguin org hire / employee set / leave", () => {
       const file = path.join(dir, "me.png");
       fs.writeFileSync(file, png);
       // Inside a desk session the employee is the caller: an Agent setting its own picture.
-      process.env.PENGUIN_AGENT_ID = "dev1";
+      process.env.WAFH_AGENT_ID = "dev1";
       expect(await cli(["org", "employee", "avatar", "--file", file])).toBe(0);
       expect(lastRequest("PUT", "/employees/dev1/avatar")?.body).toEqual({
         avatar: `data:image/png;base64,${png.toString("base64")}`,
@@ -385,7 +385,7 @@ describe("penguin org hire / employee set / leave", () => {
       expect(await cli(["org", "employee", "avatar", "--file", file, "--clear"])).toBe(1);
       expect(await cli(["org", "employee", "avatar"])).toBe(1);
       expect(err()).toContain(t.org.avatarNeedsOne());
-      delete process.env.PENGUIN_AGENT_ID;
+      delete process.env.WAFH_AGENT_ID;
       expect(await cli(["org", "employee", "avatar", "--clear"])).toBe(1);
       expect(err()).toContain(t.org.avatarNoAgent());
       expect(puts()).toBe(before);
@@ -405,10 +405,10 @@ describe("penguin org hire / employee set / leave", () => {
   });
 });
 
-describe("penguin org desk", () => {
-  it("show defaults the employee to PENGUIN_AGENT_ID and opens the desk when there is none; renew POSTs a fresh one", async () => {
+describe("wafh org desk", () => {
+  it("show defaults the employee to WAFH_AGENT_ID and opens the desk when there is none; renew POSTs a fresh one", async () => {
     server.addEmployee("acme", { agentId: "dev1" });
-    process.env.PENGUIN_AGENT_ID = "dev1";
+    process.env.WAFH_AGENT_ID = "dev1";
     expect(await cli(["org", "desk", "show"])).toBe(0);
     expect(lastRequest("GET", "/employees/dev1/desk")).toBeDefined();
     const first = String(org().desks.get("dev1")!.sessionId);
@@ -423,10 +423,10 @@ describe("penguin org desk", () => {
   });
 });
 
-describe("penguin org calendar", () => {
+describe("wafh org calendar", () => {
   beforeEach(() => {
     server.addEmployee("acme", { agentId: "dev1" });
-    process.env.PENGUIN_AGENT_ID = "dev1";
+    process.env.WAFH_AGENT_ID = "dev1";
   });
 
   it("add posts the event under the calling employee, enabled, with --start-at now resolved to the current instant", async () => {
@@ -566,13 +566,13 @@ describe("penguin org calendar", () => {
   });
 });
 
-describe("penguin org ticket (writes carry the calling session)", () => {
+describe("wafh org ticket (writes carry the calling session)", () => {
   beforeEach(() => {
     server.addEmployee("acme", { agentId: "dev1", title: "Developer" });
     // The CLI runs inside dev1's desk session: the control environment names it.
     server.addSession({ sessionId: DESK_SESSION, agentId: "dev1" });
-    process.env.PENGUIN_SESSION_ID = DESK_SESSION;
-    process.env.PENGUIN_AGENT_ID = "dev1";
+    process.env.WAFH_SESSION_ID = DESK_SESSION;
+    process.env.WAFH_AGENT_ID = "dev1";
   });
 
   it("create posts goal, criteria, owner, parent, notify list, priority and due, attributed to the session", async () => {
@@ -642,7 +642,7 @@ describe("penguin org ticket (writes carry the calling session)", () => {
   });
 
   it("create takes the whole body from --body-file; --goal with it, --criteria without it and a bad priority are refused", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-org-test-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-org-test-"));
     const file = path.join(dir, "ticket.md");
     fs.writeFileSync(file, "## Goal\nFrom a file\n");
     try {
@@ -740,8 +740,8 @@ describe("penguin org ticket (writes carry the calling session)", () => {
   });
 
   it("outside a session and outside an Agent the writes carry no identity", async () => {
-    delete process.env.PENGUIN_SESSION_ID;
-    delete process.env.PENGUIN_AGENT_ID;
+    delete process.env.WAFH_SESSION_ID;
+    delete process.env.WAFH_AGENT_ID;
     server.addTicket("acme", { ticketId: "2026-09-02-site", title: "Site" });
     expect(await cli(["org", "ticket", "progress", "2026-09-02-site", "-m", "note"])).toBe(0);
     expect(lastRequest("POST", "/tickets/2026-09-02-site/progress")?.body).toEqual({
@@ -751,7 +751,7 @@ describe("penguin org ticket (writes carry the calling session)", () => {
     expect(lastRequest("POST", "/tickets/2026-09-02-site/unblock")?.body).toEqual({});
   });
 
-  it("start runs the ticket session as PENGUIN_AGENT_ID, carries the calling session, and prints the bare session id (--json: {sessionId})", async () => {
+  it("start runs the ticket session as WAFH_AGENT_ID, carries the calling session, and prints the bare session id (--json: {sessionId})", async () => {
     server.addTicket("acme", { ticketId: "2026-09-02-site", title: "Site", owner: "agent:ceo" });
     expect(
       await cli([
@@ -787,8 +787,8 @@ describe("penguin org ticket (writes carry the calling session)", () => {
     });
 
     // Outside a session the body names neither employee nor session: the server picks the owner.
-    delete process.env.PENGUIN_AGENT_ID;
-    delete process.env.PENGUIN_SESSION_ID;
+    delete process.env.WAFH_AGENT_ID;
+    delete process.env.WAFH_SESSION_ID;
     stdout.length = 0;
     expect(await cli(["org", "ticket", "start", "2026-09-02-site", "--json"])).toBe(0);
     expect(lastRequest("POST", "/tickets/2026-09-02-site/start")?.body).toEqual({});
@@ -820,7 +820,7 @@ describe("penguin org ticket (writes carry the calling session)", () => {
       "session-2026-09-02-10-00-00-abcd0002",
     ]);
 
-    delete process.env.PENGUIN_SESSION_ID;
+    delete process.env.WAFH_SESSION_ID;
     expect(await cli(["org", "ticket", "attach", "2026-09-02-site"])).toBe(1);
     expect(err()).toContain("--session");
   });
@@ -892,7 +892,7 @@ describe("penguin org ticket (writes carry the calling session)", () => {
   });
 });
 
-describe("penguin org handbook", () => {
+describe("wafh org handbook", () => {
   it("list prints the files with the index first; show prints the index or a document", async () => {
     org().handbook.set("decisions/2026-09-02-hire-plan.md", "# Hire plan\n");
     expect(await cli(["org", "handbook", "list"])).toBe(0);
@@ -927,7 +927,7 @@ describe("penguin org handbook", () => {
       content: "# Conventions",
     });
 
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-handbook-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-handbook-"));
     const file = path.join(dir, "guide.md");
     fs.writeFileSync(file, "# Guide\n");
     stdout.length = 0;
@@ -969,14 +969,14 @@ describe("penguin org handbook", () => {
   });
 });
 
-describe("penguin org channel", () => {
+describe("wafh org channel", () => {
   /** The all-hands channel, created with every organization and the default of `--channel`. */
   const DEFAULT = "default_channel";
   /** The desk session's employee, set up by the tests that run inside a session. */
   const employeeInSession = (agentId: string) => {
     server.addEmployee("acme", { agentId });
     server.addSession({ sessionId: DESK_SESSION, agentId });
-    process.env.PENGUIN_SESSION_ID = DESK_SESSION;
+    process.env.WAFH_SESSION_ID = DESK_SESSION;
   };
 
   it("ls lists the channels — the all-hands label, member counts, unread and @me; --json passes the response", async () => {
@@ -1016,7 +1016,7 @@ describe("penguin org channel", () => {
     // answer the employee as the signed-in person and list every channel.
     expect(lastRequest("GET", "/channels")?.search).toBe(`?sessionId=${DESK_SESSION}`);
 
-    delete process.env.PENGUIN_SESSION_ID;
+    delete process.env.WAFH_SESSION_ID;
     stdout.length = 0;
     expect(await cli(["org", "channel", "ls", "--json"])).toBe(0);
     const asPerson = JSON.parse(out()) as { channels: Array<{ channelId: string }> };
@@ -1142,7 +1142,7 @@ describe("penguin org channel", () => {
     expect(org().channels.get("site")!.members).toEqual(["user:admin"]);
     expect(out()).toBe(`${t.org.channelLeft("site")}\n`);
 
-    delete process.env.PENGUIN_SESSION_ID;
+    delete process.env.WAFH_SESSION_ID;
     stdout.length = 0;
     expect(await cli(["org", "channel", "leave", "site"])).toBe(0);
     expect(lastRequest("DELETE", `/members/${encodeURIComponent("user:admin")}`)?.search).toBe("");
@@ -1162,7 +1162,7 @@ describe("penguin org channel", () => {
     expect(org().channels.get("site")!.members).toEqual(["user:admin"]);
 
     server.addChannel("acme", "marketing", { members: ["user:admin", "agent:dev1"] });
-    process.env.PENGUIN_SESSION_ID = DESK_SESSION;
+    process.env.WAFH_SESSION_ID = DESK_SESSION;
     expect(await cli(["org", "channel", "remove", "marketing", "user:admin"])).toBe(1);
     expect(err()).toContain("An employee removes only itself from a channel.");
     expect(org().channels.get("marketing")!.members).toEqual(["user:admin", "agent:dev1"]);
@@ -1328,7 +1328,7 @@ describe("penguin org channel", () => {
     expect(org().channels.get("site")!.messages).toHaveLength(1);
     expect(org().channels.get(DEFAULT)!.messages).toHaveLength(1);
 
-    delete process.env.PENGUIN_SESSION_ID;
+    delete process.env.WAFH_SESSION_ID;
     expect(await cli(["org", "channel", "send", "-m", "plain"])).toBe(0);
     expect(lastRequest("POST", `/channels/${DEFAULT}/messages`)?.body).toEqual({ text: "plain" });
   });
@@ -1346,14 +1346,14 @@ describe("penguin org channel", () => {
     expect(org().channels.get("site")!.messages).toEqual([]);
 
     // An employee reads and posts only in the channels it belongs to.
-    process.env.PENGUIN_SESSION_ID = DESK_SESSION;
+    process.env.WAFH_SESSION_ID = DESK_SESSION;
     expect(await cli(["org", "channel", "tail", "--channel", "site"])).toBe(1);
     expect(err()).toContain("not_a_member");
     expect(await cli(["org", "channel", "show", "site"])).toBe(1);
     expect(err()).toContain("not_a_member");
     expect(await cli(["org", "channel", "send", "--channel", "site", "-m", "hi"])).toBe(1);
     expect(err()).toContain("not_a_member");
-    delete process.env.PENGUIN_SESSION_ID;
+    delete process.env.WAFH_SESSION_ID;
 
     // An unknown channel is a 404, and so is an id no channel could carry.
     expect(await cli(["org", "channel", "show", "nope"])).toBe(1);
@@ -1367,7 +1367,7 @@ describe("penguin org channel", () => {
   });
 });
 
-describe("penguin org finance", () => {
+describe("wafh org finance", () => {
   it("renders employees along the tree, tickets and the total; unpriced usage is noted on stderr", async () => {
     org().employees[0]!.spend = { own: 1, cumulative: 6 };
     server.addEmployee("acme", {
@@ -1405,10 +1405,10 @@ describe("penguin org finance", () => {
 });
 
 describe("--org-id resolution", () => {
-  it("defaults to PENGUIN_ORG_ID; with neither, the command fails before any request", async () => {
-    delete process.env.PENGUIN_ORG_ID;
+  it("defaults to WAFH_ORG_ID; with neither, the command fails before any request", async () => {
+    delete process.env.WAFH_ORG_ID;
     expect(await cli(["org", "show"])).toBe(1);
-    expect(err()).toContain("PENGUIN_ORG_ID");
+    expect(err()).toContain("WAFH_ORG_ID");
     expect(server.requests).toHaveLength(0);
 
     expect(await cli(["org", "show", "--org-id", "acme"])).toBe(0);

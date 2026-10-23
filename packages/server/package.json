@@ -1,8 +1,8 @@
 {
-  "name": "@prismshadow/penguin-server",
+  "name": "@waterford/waf-harness-server",
   "version": "0.2.16",
   "type": "module",
-  "description": "PenguinHarness web server: multi-user authentication and authorization, Session execution with SSE streaming, and usage accounting, built on @prismshadow/penguin-core.",
+  "description": "WAF Harness web server: multi-user authentication and authorization, Session execution with SSE streaming, and usage accounting, built on @waterford/waf-harness-core.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -65,7 +65,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "node ../../scripts/dev-prebuild.mjs && node ../../scripts/run-with-env.mjs --unset=PENGUIN_CLI_ENTRY PENGUIN_HOME=~/.penguin/dev-data PENGUIN_PROFILE=dev PORT=7368 -- node ../../scripts/dev-server.mjs src/index.ts",
+    "dev": "node ../../scripts/dev-prebuild.mjs && node ../../scripts/run-with-env.mjs --unset=WAFH_CLI_ENTRY WAFH_HOME=~/.waf-harness/dev-data WAFH_PROFILE=dev PORT=7368 -- node ../../scripts/dev-server.mjs src/index.ts",
     "start": "node --disable-warning=ExperimentalWarning dist/index.js",
     "typecheck": "pnpm gen:ifaces && tsc --noEmit -p tsconfig.json",
     "gen:ifaces": "node ../../scripts/gen-ifaces.mjs --project tsconfig.json --out src/ifaces.json",
@@ -75,10 +75,10 @@
   "dependencies": {
     "@hono/node-server": "^2.0.5",
     "@larksuiteoapi/node-sdk": "^1.73.0",
-    "@prismshadow/amsp": "workspace:*",
-    "@prismshadow/penguin-coding-agents": "workspace:*",
+    "@waterford/waf-harness-amsp": "workspace:*",
+    "@waterford/waf-harness-coding-agents": "workspace:*",
     "@prismshadow/mmsp": "^0.5.4",
-    "@prismshadow/penguin-core": "workspace:*",
+    "@waterford/waf-harness-core": "workspace:*",
     "@xterm/headless": "^5.5.0",
     "axe-core": "^4.13.0",
     "dotenv": "^17.0.0",
@@ -100,7 +100,7 @@
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "1.4.0",
-    "@prismshadow/penguin-hmr": "workspace:*",
+    "@waterford/waf-harness-hmr": "workspace:*",
     "@types/mdast": "^4.0.4",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.18.1",

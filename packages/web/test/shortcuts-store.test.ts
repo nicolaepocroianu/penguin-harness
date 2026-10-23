@@ -197,7 +197,7 @@ describe("external changes and the keyboard layout", () => {
     expect(bindingOf("editor.save")).toEqual(parseChord("Mod+KeyS"));
     storage.map.set(KEYBINDINGS_KEY, JSON.stringify({ v: 1, linux: { "editor.save": null } }));
     expect(bindingOf("editor.save")).toEqual(parseChord("Mod+KeyS")); // still cached
-    noteExternalChange("penguin.theme");
+    noteExternalChange("wafh.theme");
     expect(bindingOf("editor.save")).toEqual(parseChord("Mod+KeyS"));
     noteExternalChange(KEYBINDINGS_KEY);
     expect(bindingOf("editor.save")).toBeNull();

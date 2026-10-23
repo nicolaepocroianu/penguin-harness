@@ -13,8 +13,8 @@
  * serve and build time. The app's highlighting worker needs ES-format workers, as in the app's config,
  * and React is deduplicated so the app and the gallery never load two copies.
  *
- * `@prismshadow/penguin-ui` resolves to the live `packages/ui/src` through the workspace link;
- * `penguinUi()` emits the bundled fonts' licence texts beside a build. Port 7372 is fixed and
+ * `@waterford/waf-harness-ui` resolves to the live `packages/ui/src` through the workspace link;
+ * `wafHarnessUi()` emits the bundled fonts' licence texts beside a build. Port 7372 is fixed and
  * strict: screenshot runs and quoted feedback links name it. BASE_PATH lets a static build be
  * served under a subpath, and `pageShells()` copies the document to every page's address, so a
  * static host serves each page. The vitest config stays separate (vitest's embedded vite types
@@ -29,7 +29,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import type { Plugin } from "vite";
 import { BOOT_SCRIPT } from "../ui/src/boot";
-import { penguinUi } from "../ui/src/vite-plugin";
+import { wafHarnessUi } from "../ui/src/vite-plugin";
 import { dropNonWoff2FontSources } from "../web/vite.config";
 import { storageSeedScript } from "./src/app/frame";
 import { mockWebNetwork } from "./src/app/mock/vite-plugin";
@@ -45,7 +45,7 @@ function watchPackageSources(): Plugin {
     at("./src/library/library.css"),
   ];
   return {
-    name: "penguin:gallery-watch-sources",
+    name: "wafh:gallery-watch-sources",
     configureServer(server) {
       for (const root of roots) server.watcher.add(root);
       // Tailwind rescans a stylesheet's sources only when that stylesheet is transformed again,
@@ -70,7 +70,7 @@ const FRAME_DOCUMENTS = ["app.html", "lib.html"];
 function frameDocument(): Plugin {
   const scripts = `${storageSeedScript()};${BOOT_SCRIPT}`;
   return {
-    name: "penguin:gallery-frame-document",
+    name: "wafh:gallery-frame-document",
     transformIndexHtml: {
       order: "pre",
       handler(_html, ctx) {
@@ -88,7 +88,7 @@ function frameDocument(): Plugin {
  */
 function pageShells(): Plugin {
   return {
-    name: "penguin:gallery-page-shells",
+    name: "wafh:gallery-page-shells",
     apply: "build",
     // After Vite's own HTML plugin, which emits the processed documents in this same hook.
     enforce: "post",
@@ -106,7 +106,7 @@ function pageShells(): Plugin {
 /** KaTeX's woff and truetype fallbacks stay out of the bundle, as in the app's own build. */
 function katexWoff2Only(): Plugin {
   return {
-    name: "penguin:katex-woff2-only",
+    name: "wafh:katex-woff2-only",
     enforce: "pre",
     transform(code, id) {
       if (!id.includes("/katex/dist/") || !id.includes(".css")) return null;
@@ -122,7 +122,7 @@ export default defineConfig({
     mockWebNetwork(),
     react(),
     tailwindcss(),
-    penguinUi(),
+    wafHarnessUi(),
     katexWoff2Only(),
     frameDocument(),
     pageShells(),
@@ -138,7 +138,7 @@ export default defineConfig({
     },
   },
   worker: { format: "es" },
-  // Fixed PenguinHarness dev port; the allocation table lives in core's internal/ports.ts.
+  // Fixed WAF Harness dev port; the allocation table lives in core's internal/ports.ts.
   server: { port: 7372, strictPort: true },
   preview: { port: 7372, strictPort: true },
 });

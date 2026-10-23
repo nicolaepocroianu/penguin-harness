@@ -1,5 +1,5 @@
 ---
-title: Install PenguinHarness from nothing, at a given release, tag or revision
+title: Install WAF Harness from nothing, at a given release, tag or revision
 starts_from: scratch
 inputs:
   ref: a release tag (for example v0.2.13), a git tag without a release, or a commit revision
@@ -9,7 +9,7 @@ platforms: [linux, macos, windows]
 
 ## Goal
 
-Starting from a machine with no PenguinHarness on it, install the product at `ref` the way a user
+Starting from a machine with no WAF Harness on it, install the product at `ref` the way a user
 would, and start its server. The task establishes whether the install works and leaves a running,
 signed-in product for the tasks that start from it.
 
@@ -19,15 +19,15 @@ Every file the product writes must land inside one scratch directory `<SCRATCH>`
 run. Use these names throughout:
 
 - `<DL>` = `<SCRATCH>/dl`: downloaded files, kept unmodified as evidence.
-- `<PROD>` = `<SCRATCH>/product`: the install directory (`PENGUIN_INSTALL_DIR`).
+- `<PROD>` = `<SCRATCH>/product`: the install directory (`WAFH_INSTALL_DIR`).
 - `<H>` = `<SCRATCH>/home`: the `HOME` of every product process. `install.sh` always links the CLI
-  into `$HOME/.local/bin` and the data root defaults to `$HOME/.penguin/data`, so only a separate
+  into `$HOME/.local/bin` and the data root defaults to `$HOME/.waf-harness/data`, so only a separate
   `HOME` keeps both inside the scratch directory. On Windows set `USERPROFILE` instead.
 
-1. **Clean state.** Record the OS and version, free disk space, and whether `~/.penguin`,
-   `~/.local/bin/penguin` and a `penguin` on `PATH` already exist. Create `<SCRATCH>`, `<DL>`,
+1. **Clean state.** Record the OS and version, free disk space, and whether `~/.waf-harness`,
+   `~/.local/bin/wafh` and a `wafh` on `PATH` already exist. Create `<SCRATCH>`, `<DL>`,
    `<PROD>` and `<H>`.
-   - Observe: nothing of PenguinHarness exists yet, or what exists is named and left untouched.
+   - Observe: nothing of WAF Harness exists yet, or what exists is named and left untouched.
    - Screenshot: `s01-01-clean-state.png`.
    - Counter-example: an earlier data root is in use without being recorded; then no later "first
      start" observation counts.
@@ -42,31 +42,31 @@ run. Use these names throughout:
      manifest and its checksum against the sums files.
    - **A tag without a release, or a revision.** Clone the repository into `<SCRATCH>/src`, check
      out `ref`, then `pnpm install --frozen-lockfile` and `pnpm -r build` (Node >= 24). The CLI is
-     `packages/cli/dist/penguin.js`. Desktop packages are out of scope for this channel; say so in
+     `packages/cli/dist/wafh.js`. Desktop packages are out of scope for this channel; say so in
      the report.
    - Observe: the size and checksum result for each file, quoted; or the commit the build ran on.
    - Screenshot: `s02-01-fetched.png`.
    - Counter-example: a size or checksum differs. Stop there and record it as a problem.
 
 3. **Install.** For a release, install offline from the downloaded archive:
-   `HOME=<H> PENGUIN_INSTALL_DIR=<PROD> PENGUIN_ARCHIVE=<DL>/<cli archive> sh <DL>/install.sh`
+   `HOME=<H> WAFH_INSTALL_DIR=<PROD> WAFH_ARCHIVE=<DL>/<cli archive> sh <DL>/install.sh`
    (on Windows, the same variables with `install.ps1`). For a source build there is no install
    step; the built CLI is the product.
    - Observe: the installer's lines on version, install path and `PATH`, quoted;
-     `<PROD>/bin/penguin --version`.
+     `<PROD>/bin/wafh --version`.
    - Screenshot: `s03-01-install-output.png`.
    - Counter-example: the installer downloads the archive again instead of using the local one, or
      the version is not `ref`.
 
-4. **CLI surface.** Run `penguin --help`, `penguin --version` and `penguin org --help`.
+4. **CLI surface.** Run `wafh --help`, `wafh --version` and `wafh org --help`.
    - Observe: each listed subcommand, present or absent.
    - Screenshot: `s04-01-cli-help.png`.
 
 5. **Start the server.** Start it in the background, with `HOME=<H>`, a free port chosen
-   explicitly, and no browser: `penguin web --no-open --port <PORT>`, output to
+   explicitly, and no browser: `wafh web --no-open --port <PORT>`, output to
    `<SCRATCH>/server.log`.
    - Observe: the log's listen address and `Data root:` line, quoted. The data root must be under
-     `<H>`. An authenticated `GET /api/version` (bearer token from `<H>/.penguin/data/api-token`)
+     `<H>`. An authenticated `GET /api/version` (bearer token from `<H>/.waf-harness/data/api-token`)
      answers the expected version.
    - Screenshot: `s05-01-server-start.png`.
    - Counter-example: the port is taken or the server exits. Quote the error, try one other free

@@ -12,7 +12,7 @@
  *
  * This is presentation only: the full output still reaches the model, the Trace, and the
  * Web App unchanged. The chat REPL turns it off with `--verbose` / the `/verbose` toggle;
- * `penguin run` keeps full output (piped runs — e.g. a nested CLI driven through
+ * `wafh run` keeps full output (piped runs — e.g. a nested CLI driven through
  * `exec_command` — must not lose lines).
  */
 

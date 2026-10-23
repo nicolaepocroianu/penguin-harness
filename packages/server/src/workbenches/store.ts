@@ -1,7 +1,7 @@
 /**
  * Where an Agent's workbenches live and how their versions are kept.
  *
- *   <agentDir>/workbenches/<id>/package.json   `penguin.modules` manifests (a plugin package)
+ *   <agentDir>/workbenches/<id>/package.json   `wafh.modules` manifests (a plugin package)
  *   <agentDir>/workbenches/<id>/index.ts       default export `{ modules: { <Name>: { create } } }`
  *   <agentDir>/workbenches/<id>/ui/            the pages its contributed tabs name
  *   <agentDir>/workbenches/<id>/state.json     the workbench's own document (WorkbenchHost.getState)
@@ -18,7 +18,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { agentDir } from "@prismshadow/penguin-core";
+import { agentDir } from "@waterford/waf-harness-core";
 import type { WorkbenchVersion } from "../mechanisms/workbenches.js";
 
 export const STATE_FILE = "state.json";
@@ -150,7 +150,7 @@ export async function readState(dir: string): Promise<unknown> {
  * the hash it was supposed to be outside of. The random middle keeps two concurrent writes
  * from truncating each other's staging file and renaming a half-written document into place.
  */
-export const TMP_SUFFIX = ".penguin-tmp";
+export const TMP_SUFFIX = ".waf-harness-tmp";
 export const isTempName = (name: string): boolean => name.includes(TMP_SUFFIX);
 const tempPath = (file: string) => `${file}${TMP_SUFFIX}${randomBytes(6).toString("hex")}`;
 

@@ -7,7 +7,7 @@
  * assist run with a Session is the conversation to resume, and "New conversation" just
  * stops following it until the next message starts another.
  */
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { activityDraftKey, sessionDraftKey } from "../chat/draft-cache";
 import type { RunsIndex } from "./runs-index";

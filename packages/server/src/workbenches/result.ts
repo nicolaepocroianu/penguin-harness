@@ -1,5 +1,5 @@
 /** A workbench reads the latest task's answer, never an earlier answer or a child's output. */
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import type { WorkbenchResult } from "../mechanisms/workbenches.js";
 
 export function workbenchResult(status: string, messages: readonly OmniMessage[]): WorkbenchResult {

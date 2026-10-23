@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type {
   MessagingBindingInfo,
   MessagingUnreachableMachine,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   accountIdOf,
   bindingLocation,

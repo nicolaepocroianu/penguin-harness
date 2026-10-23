@@ -9,7 +9,7 @@
  * - A storage that refuses is not an error: the answer is merely not remembered.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import type { AgentSummary, SessionInfo } from "@prismshadow/penguin-server/api";
+import type { AgentSummary, SessionInfo } from "@waterford/waf-harness-server/api";
 import {
   CACHED_ROWS_PER_MACHINE,
   cachedMachineAgents,
@@ -59,10 +59,10 @@ describe("machine cache", () => {
   });
 
   it("junk in storage reads as nothing remembered, and rows without an id are dropped", () => {
-    localStorage.setItem("penguin.machineSessions.p:M1", "not json");
+    localStorage.setItem("wafh.machineSessions.p:M1", "not json");
     expect(cachedMachineSessions("p", "M1")).toEqual([]);
     localStorage.setItem(
-      "penguin.machineAgents.p:M1",
+      "wafh.machineAgents.p:M1",
       JSON.stringify([{ name: "x" }, { agentId: "a" }]),
     );
     expect(cachedMachineAgents("p", "M1").map((a) => a.agentId)).toEqual(["a"]);

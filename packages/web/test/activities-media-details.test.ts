@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AssetManifest, MediaStat, UploadedMedia } from "@prismshadow/penguin-server/api";
+import type { AssetManifest, MediaStat, UploadedMedia } from "@waterford/waf-harness-server/api";
 import {
   bitrateKbps,
   detailsFor,
@@ -49,7 +49,7 @@ describe("formatLength", () => {
 });
 
 describe("formatName", () => {
-  it("names the formats Penguin serves", () => {
+  it("names the formats WAF Harness serves", () => {
     expect(formatName("audio/wav")).toBe("wav");
     expect(formatName("audio/x-wav")).toBe("wav");
     expect(formatName("audio/mpeg")).toBe("mp3");

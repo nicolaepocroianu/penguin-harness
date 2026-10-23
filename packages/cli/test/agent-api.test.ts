@@ -1,5 +1,5 @@
 /**
- * `penguin agent api …`, driven through `cli()` in-process against the fake server's agent API
+ * `wafh agent api …`, driven through `cli()` in-process against the fake server's agent API
  * and admin settings routes.
  *
  * - `keys create` prints the key bare on stdout and everything else on stderr; listing the keys
@@ -17,7 +17,7 @@
  * - The token file goes as Bearer on every request, a stored sign-in notwithstanding, wherever
  *   the server takes the token.
  * - A write the server refuses for the token (403 `human_required`) is retried once as the
- *   person's stored sign-in (`penguin auth login`), alone as the session cookie, and goes through.
+ *   person's stored sign-in (`wafh auth login`), alone as the session cookie, and goes through.
  * - With no stored sign-in, each such write prints the sign-in hint, exits 1 and changes nothing.
  * - Inside a Session, or for a sign-in to another server, the stored sign-in is never sent: the
  *   write prints the hint and exits 1.
@@ -70,7 +70,7 @@ const writes = () =>
     .filter((r) => r.method !== "GET")
     .map((r) => [r.method, r.path, r.body ?? null] as const);
 
-describe("penguin agent api keys", () => {
+describe("wafh agent api keys", () => {
   it("create prints the key bare on stdout and the rest on stderr", async () => {
     expect(
       await cli(["agent", "api", "keys", "create", "--agent-id", "default_agent", "--name", "ci"]),
@@ -109,7 +109,7 @@ describe("penguin agent api keys", () => {
   });
 });
 
-describe("penguin agent api enable / disable / set", () => {
+describe("wafh agent api enable / disable / set", () => {
   it("enable --open --approve read-only sends one PUT and prints the status it left", async () => {
     expect(
       await cli([
@@ -177,7 +177,7 @@ describe("penguin agent api enable / disable / set", () => {
   });
 });
 
-describe("penguin agent api status / server", () => {
+describe("wafh agent api status / server", () => {
   it("status shows the server switch to a member who is not an admin, without asking the admin settings", async () => {
     server.adminSettings = { ...server.adminSettings, agentApiEnabled: false };
     server.adminForbidden = true;
@@ -213,17 +213,17 @@ describe("penguin agent api status / server", () => {
   });
 });
 
-describe("penguin agent api: the credential a request carries", () => {
+describe("wafh agent api: the credential a request carries", () => {
   const BOOT_TOKEN = "boot-token-1";
   const LOGIN = "login-token-1";
-  const asCookie = { cookie: `penguin_session=${LOGIN}` };
+  const asCookie = { cookie: `wafh_session=${LOGIN}` };
   const asBearer = { authorization: `Bearer ${BOOT_TOKEN}` };
   /** The token file the server writes at every boot, in the data root the fake pins. */
   const writeTokenFile = () =>
-    fs.writeFileSync(path.join(process.env.PENGUIN_HOME!, "api-token"), `${BOOT_TOKEN}\n`);
-  /** `penguin auth login` against `target`: the stored sign-in, which the fake accepts. */
+    fs.writeFileSync(path.join(process.env.WAFH_HOME!, "api-token"), `${BOOT_TOKEN}\n`);
+  /** `wafh auth login` against `target`: the stored sign-in, which the fake accepts. */
   const signIn = (target = "http://localhost:7399") => {
-    writeSession(process.env.PENGUIN_HOME!, { server: target, userId: "admin", token: LOGIN });
+    writeSession(process.env.WAFH_HOME!, { server: target, userId: "admin", token: LOGIN });
     server.logins.add(LOGIN);
   };
   const credentials = () => server.requests.map((r) => r.credential);
@@ -283,11 +283,11 @@ describe("penguin agent api: the credential a request carries", () => {
     [
       "inside a Session",
       () => {
-        process.env.PENGUIN_SESSION_ID = "session-2026-10-09-10-00-00-5e55a001";
+        process.env.WAFH_SESSION_ID = "session-2026-10-09-10-00-00-5e55a001";
         signIn();
       },
     ],
-    ["for a sign-in to another server", () => signIn("https://penguin.example")],
+    ["for a sign-in to another server", () => signIn("https://wafh.example")],
   ])(
     "%s, the stored sign-in is never sent: the write prints the hint and exits 1",
     async (_case, arrange) => {

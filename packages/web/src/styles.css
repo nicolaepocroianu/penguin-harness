@@ -3,7 +3,7 @@
  * Shared themes define the visual tone and optional shell wallpaper. The login page has its own
  * circuit-trace animation (.login-trace, see login-circuit.tsx). Dark mode uses the html.dark class.
  *
- * Theming comes from the shared UI package (@prismshadow/penguin-ui): `theme.css` declares the
+ * Theming comes from the shared UI package (@waterford/waf-harness-ui): `theme.css` declares the
  * `dark` variant, the cascade layers, the token → utility bridge and the base rules that read
  * tokens (body colours and fonts, focus ring, selection, scrollbars); each `themes/*.css` holds
  * one theme's values, including the gray bridge the palette classes below resolve through. This
@@ -14,11 +14,11 @@
  * create a stacking context; dropdown/user menus use z-40; modal and drawer overlays use z-50.
  */
 @import "tailwindcss";
-@import "@prismshadow/penguin-ui/theme.css";
-@import "@prismshadow/penguin-ui/themes/github.css";
-@import "@prismshadow/penguin-ui/themes/modern.css";
-@import "@prismshadow/penguin-ui/themes/geek.css";
-@import "@prismshadow/penguin-ui/fonts.css";
+@import "@waterford/waf-harness-ui/theme.css";
+@import "@waterford/waf-harness-ui/themes/github.css";
+@import "@waterford/waf-harness-ui/themes/modern.css";
+@import "@waterford/waf-harness-ui/themes/geek.css";
+@import "@waterford/waf-harness-ui/fonts.css";
 
 /* Tailwind scans the Vite root only: the package's components carry class strings too. The test
    helpers are excluded, so the class patterns they spell never enter the app's sheet. */

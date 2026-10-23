@@ -64,7 +64,7 @@ test.beforeAll(async ({ browser }) => {
 
 /** Opens the conversation in a theme, then its work group and the second tool call's output. */
 async function openOutput(page, theme) {
-  await page.addInitScript((id) => localStorage.setItem("penguin.themeId", id), theme);
+  await page.addInitScript((id) => localStorage.setItem("wafh.themeId", id), theme);
   await login(page.request, USER, PASSWORD);
   await page.goto(`/chat/${sessionId}`);
   const head = page.locator("[data-group-header]");
@@ -226,10 +226,10 @@ for (const [theme, name] of Object.entries(THEMES)) {
           }
         }
         ctx.putImageData(image, 0, 0);
-        localStorage.setItem("penguin.theme", mode);
-        localStorage.setItem("penguin.background.image", canvas.toDataURL("image/png"));
+        localStorage.setItem("wafh.theme", mode);
+        localStorage.setItem("wafh.background.image", canvas.toDataURL("image/png"));
         localStorage.setItem(
-          "penguin.background.settings",
+          "wafh.background.settings",
           JSON.stringify({ transparency: 0, mode: "tile", position: "left top" }),
         );
       }, mode);

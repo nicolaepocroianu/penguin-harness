@@ -12,7 +12,7 @@
  */
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import type { BenchmarkCaseScore, BenchmarkEvaluation } from "@prismshadow/penguin-server/api";
+import type { BenchmarkCaseScore, BenchmarkEvaluation } from "@waterford/waf-harness-server/api";
 import {
   AgentAvatar,
   Button,
@@ -24,7 +24,7 @@ import {
   ICON_SIZE,
   Modal,
   toastError,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";

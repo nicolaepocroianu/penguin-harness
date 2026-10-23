@@ -10,7 +10,7 @@ import type {
   OutcomeFact,
   OutcomeTally,
   RunRecipe,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 export type OutcomeKind = ActivityRun["kind"];
 
@@ -104,7 +104,7 @@ export function outcomeRow(tally: OutcomeTally): OutcomeRowValues {
 export interface RecipeParts {
   /** Who answered: `agent:<provider>/<model>`, `coding:<id>`, `helper:…`, `server`, … */
   runtime: string;
-  penguin: string;
+  wafh: string;
   /** Each bundled plugin the runs were given, as `<plugin> <version>`. */
   libraries: string[];
   /** The acceptance harness version a module or test run was given. */
@@ -114,7 +114,7 @@ export interface RecipeParts {
 export function recipeParts(recipe: RunRecipe): RecipeParts {
   return {
     runtime: recipe.runtime,
-    penguin: recipe.penguin,
+    wafh: recipe.wafh,
     libraries: recipe.library.map((library) => `${library.plugin} ${library.version}`),
     harness: recipe.harness ?? null,
   };

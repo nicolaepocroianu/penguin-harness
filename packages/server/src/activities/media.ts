@@ -120,7 +120,7 @@ export interface MediaAsset {
   generatedVideo?: { runId: string; sha256: string; format?: VideoFormat };
   /**
    * How a video or animation's finished video is put together from recordings, narration,
-   * music, effects and captions (experimental; see video-timeline.ts). Penguin's own: the
+   * music, effects and captions (experimental; see video-timeline.ts). WAF Harness's own: the
    * module never sees it.
    */
   timeline?: VideoTimeline;
@@ -156,7 +156,7 @@ export function generatedMediaPath(
 }
 
 /**
- * The extension of Loom's placeholder for each media type Penguin does not generate yet:
+ * The extension of Loom's placeholder for each media type WAF Harness does not generate yet:
  * `empty.mp4` for videos, `empty.json` (a Lottie) for animations.
  */
 export const PLACEHOLDER_EXTENSIONS = { video: "mp4", animation: "json" } as const;
@@ -735,7 +735,7 @@ export function planMedia(activity: ActivityDetail): MediaPlan {
       // label freshly copied English scripts as translated speech.
       return language === "en-US" ? [{ ...asset }] : [];
     });
-    // Penguin does not generate videos or animations yet, so, as in Loom, one nothing else
+    // WAF Harness does not generate videos or animations yet, so, as in Loom, one nothing else
     // binds uses the placeholder until a recording or an upload replaces it.
     for (const asset of assets[language]!)
       if (hasPlaceholder(asset.type) && !asset.path)
@@ -813,7 +813,7 @@ export function mediaConfiguration(manifest: AssetManifest): Record<string, unkn
 }
 
 /**
- * Storage provenance belongs to Penguin, not Loom's runtime asset schema; so do a word's
+ * Storage provenance belongs to WAF Harness, not Loom's runtime asset schema; so do a word's
  * authored-script mark and its sound timings, which reach the module through the book
  * configuration instead.
  */

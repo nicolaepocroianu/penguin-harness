@@ -9,14 +9,14 @@
  *
  * The user's toggles persist per Project in localStorage (#224 follow-up: one group open
  * is the first-visit default, not a per-visit reset), mirroring the sidebar's persisted
- * group-collapse sets — a `penguin.…` key namespaced by projectId holding a JSON array
+ * group-collapse sets — a `wafh.…` key namespaced by projectId holding a JSON array
  * of ids. Unlike the sidebar sets, whose default IS the empty set, the default here is
  * non-empty, so "nothing stored / invalid" (fall back to the default) is distinguished
  * from a stored empty array (the user collapsed everything; honored as-is). Storage is
  * injectable (draft-cache.ts convention: vitest runs in Node, no localStorage); search
  * force-open below stays derived and never writes storage.
  */
-import { MODEL_PROVIDERS } from "@prismshadow/penguin-server/model-catalog";
+import { MODEL_PROVIDERS } from "@waterford/waf-harness-server/model-catalog";
 
 /**
  * Provider ids expanded on first visit (nothing persisted yet): the leading group of
@@ -65,11 +65,11 @@ export interface ExpansionStorage {
 
 /**
  * Storage key of one Project's expanded-group set (sidebar key-naming convention,
- * `penguin.sidebarCollapsedGroups.<projectId>` &c.). Provider ids — including
+ * `wafh.sidebarCollapsedGroups.<projectId>` &c.). Provider ids — including
  * user-defined group names — are Project-scoped, hence one key per Project.
  */
 export const expandedGroupsKey = (projectId: string): string =>
-  `penguin.modelsExpandedGroups.${projectId}`;
+  `wafh.modelsExpandedGroups.${projectId}`;
 
 /** Serialized form of an expanded set: a JSON array of provider ids. */
 export function serializeExpandedProviders(expanded: ReadonlySet<string>): string {

@@ -96,9 +96,9 @@ test("agent create: pick library plugins (select all / none, filtered) -> they a
     await page.request.get(`${BASE}/api/projects/${projectId}/agents/seeded_agent/skills`)
   ).json();
   expect(installed.skills.map((s) => s.name).sort()).toEqual([
-    "penguin-config",
-    "penguin-orchestration",
-    "penguin-sdk",
+    "wafh-config",
+    "wafh-orchestration",
+    "wafh-sdk",
     "software-engineering",
     "unified-llm-api",
     "web-design",
@@ -106,7 +106,7 @@ test("agent create: pick library plugins (select all / none, filtered) -> they a
 
   // The Skills tab shows the same two.
   await page.goto(`${BASE}/agents/seeded_agent?tab=skills`);
-  await expect(page.getByText("penguin-sdk", { exact: true })).toBeVisible();
+  await expect(page.getByText("wafh-sdk", { exact: true })).toBeVisible();
   await expect(page.getByText("web-design", { exact: true })).toBeVisible();
 
   // —— Creating without picking anything leaves a plain Agent ——

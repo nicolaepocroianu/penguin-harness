@@ -1,15 +1,15 @@
 /**
- * What a terminal says about its `penguin` on its first line, and whether its shell keeps the
+ * What a terminal says about its `wafh` on its first line, and whether its shell keeps the
  * server's data root (src/terminal/cli-notice.ts).
  *
  * - An installation's terminal says nothing.
  * - A development instance's terminal names the CLI — the checkout and whether it runs from
- *   source or a build, or the PENGUIN_CLI_ENTRY it was given — and the data root it targets,
- *   and carries the line its shell shows instead when the user's own files aim penguin
+ *   source or a build, or the WAFH_CLI_ENTRY it was given — and the data root it targets,
+ *   and carries the line its shell shows instead when the user's own files aim wafh
  *   elsewhere (the shells themselves are tried in terminal-path-first.test.ts).
  * - A checkout whose CLI cannot run is a warning that carries the reason; so is a shim that
  *   should be there and is not, on any instance.
- * - The shell keeps PENGUIN_HOME only where no shim names the data root: no shim, a missing
+ * - The shell keeps WAFH_HOME only where no shim names the data root: no shim, a missing
  *   one, or a runtime older than the shim's root default.
  */
 import { afterEach, describe, expect, it } from "vitest";
@@ -27,14 +27,14 @@ afterEach(async () => {
 
 type Facts = Pick<ServerConfig, "root" | "cliEntry" | "cliLaunch">;
 
-/** A data root whose shim directory holds a `penguin` (unless `shim` is false). */
+/** A data root whose shim directory holds a `wafh` (unless `shim` is false). */
 async function rootWith(shim = true): Promise<{ root: string; dirs: string[] }> {
   const root = await makeTempRoot();
   roots.push(root);
   const dir = cliShimDir(root);
   if (shim) {
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, "penguin"), "#!/bin/sh\n");
+    fs.writeFileSync(path.join(dir, "wafh"), "#!/bin/sh\n");
   }
   return { root, dirs: [dir] };
 }
@@ -47,7 +47,7 @@ describe("a terminal's first line", () => {
     const { root, dirs } = await rootWith();
     const config: Facts = {
       root,
-      cliEntry: "/opt/penguin/dist/penguin.js",
+      cliEntry: "/opt/wafh/dist/wafh.js",
       cliLaunch: { execArgs: [], checkout: null, origin: "env", unavailable: null },
     };
     expect(terminalCliNotice(config, dirs, HOME)).toBeNull();
@@ -55,37 +55,37 @@ describe("a terminal's first line", () => {
 
   it("names a dev instance's CLI and data root, for each origin", async () => {
     const { root, dirs } = await rootWith();
-    const checkout = path.join(HOME, "work", "penguin-harness");
-    const shown = path.join("~", "work", "penguin-harness");
+    const checkout = path.join(HOME, "work", "waf-harness");
+    const shown = path.join("~", "work", "waf-harness");
     const notice = (origin: "source" | "build" | "env", cliEntry: string) =>
       terminalCliNotice(
         { root, cliEntry, cliLaunch: { execArgs: [], checkout, origin, unavailable: null } },
         dirs,
         HOME,
       );
-    const source = notice("source", path.join(checkout, "packages", "cli", "src", "penguin.ts"));
+    const source = notice("source", path.join(checkout, "packages", "cli", "src", "wafh.ts"));
     expect(source?.tone).toBe("info");
     expect(source?.text).toContain(`the CLI of ${shown} (source)`);
     expect(source?.text).toContain(`on data root ${root}`);
-    // And what the shell says in its place when its own files aim penguin elsewhere.
+    // And what the shell says in its place when its own files aim wafh elsewhere.
     expect(source?.target).toEqual({
       root,
       elsewhere: [
         "Your shell sets ",
-        `, so penguin here talks to that server, not this instance (data root ${root}).`,
+        `, so wafh here talks to that server, not this instance (data root ${root}).`,
       ],
     });
     expect(
-      notice("build", path.join(checkout, "packages", "cli", "dist", "penguin.js"))?.text,
+      notice("build", path.join(checkout, "packages", "cli", "dist", "wafh.js"))?.text,
     ).toContain(`${shown} (built)`);
-    expect(notice("env", "/opt/other/penguin.js")?.text).toContain(
-      "/opt/other/penguin.js (PENGUIN_CLI_ENTRY)",
+    expect(notice("env", "/opt/other/wafh.js")?.text).toContain(
+      "/opt/other/wafh.js (WAFH_CLI_ENTRY)",
     );
   });
 
   it("warns, with the reason, when the checkout's CLI cannot run", async () => {
     const { root, dirs } = await rootWith();
-    const unavailable = "packages/cli/dist/penguin.js is not built in /work/x.";
+    const unavailable = "packages/cli/dist/wafh.js is not built in /work/x.";
     const notice = terminalCliNotice(
       {
         root,
@@ -104,18 +104,18 @@ describe("a terminal's first line", () => {
     const notice = terminalCliNotice(
       {
         root,
-        cliEntry: "/opt/penguin/dist/penguin.js",
+        cliEntry: "/opt/wafh/dist/wafh.js",
         cliLaunch: { execArgs: [], checkout: null, origin: "env", unavailable: null },
       },
       dirs,
       HOME,
     );
     expect(notice?.tone).toBe("warning");
-    expect(notice?.text).toContain(path.join(dirs[0]!, "penguin"));
+    expect(notice?.text).toContain(path.join(dirs[0]!, "wafh"));
   });
 });
 
-describe("whether a shim names the data root (else the shell keeps PENGUIN_HOME)", () => {
+describe("whether a shim names the data root (else the shell keeps WAFH_HOME)", () => {
   const launch: Facts["cliLaunch"] = {
     execArgs: [],
     checkout: null,

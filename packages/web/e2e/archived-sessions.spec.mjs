@@ -1,12 +1,12 @@
 /**
  * Archived chats: the sidebar lists the user's active conversations only, and the Settings
  * dialog's archive page lists the rest — the conversations archived by hand, and the Sessions a
- * program opened (`penguin run`, here) that nobody kept.
+ * program opened (`wafh run`, here) that nobody kept.
  *
- * Seeded through the API: three conversations of the user and three `penguin run` Sessions,
+ * Seeded through the API: three conversations of the user and three `wafh run` Sessions,
  * every one titled.
  *
- * - The `penguin run` Sessions never reach the sidebar; the conversations do.
+ * - The `wafh run` Sessions never reach the sidebar; the conversations do.
  * - Archiving a conversation from its row takes it out of the sidebar; archiving the one on
  *   screen lands on New chat, not on its stub.
  * - The archive page lists the archived conversations and the program's Sessions, each program's
@@ -70,12 +70,12 @@ test("archived chats live on the Settings page, and an archived URL shows its st
   await create("Index rebuild", { source: "cli" });
   const digest = await create("Weekly digest", { source: "cli" });
 
-  await page.addInitScript(() => localStorage.setItem("penguin.lang", "zh"));
+  await page.addInitScript(() => localStorage.setItem("wafh.lang", "zh"));
   await page.goto(`${BASE}/chat`);
   const sidebar = page.getByRole("complementary");
   await expect(sidebar.getByText("Quarterly report")).toBeVisible();
   await expect(sidebar.getByText("Release checklist")).toBeVisible();
-  // What `penguin run` opened is archived until kept: never in the sidebar.
+  // What `wafh run` opened is archived until kept: never in the sidebar.
   for (const title of ["Nightly batch", "Index rebuild", "Weekly digest"]) {
     await expect(sidebar.getByText(title)).toHaveCount(0);
   }

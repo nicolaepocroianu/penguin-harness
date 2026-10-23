@@ -33,14 +33,14 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
-import type { OmniMessage } from "@prismshadow/penguin-core/omnimessage";
+import type { OmniMessage } from "@waterford/waf-harness-core/omnimessage";
 import type {
   TraceAnalysisResponse,
   TraceModelSegment,
   TraceOtherSpan,
   TraceTaskStats,
   TraceToolSpan,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Pill,
   Card,
@@ -52,7 +52,7 @@ import {
   Skeleton,
   StatChip,
   TokenDonut,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { CostPartsRows, ElapsedSplitRows, StatHint } from "../../components/ui/stat-hint";
 import { S } from "../../lib/strings";

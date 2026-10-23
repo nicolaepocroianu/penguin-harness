@@ -7,7 +7,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { projectDir } from "@prismshadow/penguin-core";
+import { projectDir } from "@waterford/waf-harness-core";
 import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
 import { activitySpec, refFilesDir, refMediaDir } from "./activity-fixtures.js";

@@ -19,7 +19,7 @@ let priorLang: string | undefined;
 beforeEach(() => {
   stdout = [];
   stderr = [];
-  priorLang = process.env.PENGUIN_LANG;
+  priorLang = process.env.WAFH_LANG;
   outSpy = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
     stdout.push(String(chunk));
     return true;
@@ -32,8 +32,8 @@ beforeEach(() => {
 afterEach(() => {
   outSpy.mockRestore();
   errSpy.mockRestore();
-  if (priorLang === undefined) delete process.env.PENGUIN_LANG;
-  else process.env.PENGUIN_LANG = priorLang;
+  if (priorLang === undefined) delete process.env.WAFH_LANG;
+  else process.env.WAFH_LANG = priorLang;
 });
 
 const err = () => stderr.join("");
@@ -41,13 +41,13 @@ const err = () => stderr.join("");
 describe("missing positional argument", () => {
   it("names the argument and the command's usage, in each language", async () => {
     for (const lang of ["en"] as const) {
-      process.env.PENGUIN_LANG = lang;
+      process.env.WAFH_LANG = lang;
       stderr.length = 0;
       const t = getMessages(lang);
       const code = await cli(["schedule", "rm"]);
       expect(code).toBe(1);
       expect(err()).toContain(t.usage.missingArgument("name"));
-      expect(err()).toContain("penguin schedule rm");
+      expect(err()).toContain("wafh schedule rm");
       // Commander's own English wording never reaches the terminal.
       expect(err()).not.toContain("missing required argument 'name'");
     }
@@ -55,43 +55,43 @@ describe("missing positional argument", () => {
 });
 
 describe("missing required option", () => {
-  it("PENGUIN_LANG=zh falls back to English for missing options", async () => {
-    process.env.PENGUIN_LANG = "zh";
+  it("WAFH_LANG=zh falls back to English for missing options", async () => {
+    process.env.WAFH_LANG = "zh";
     const t = getMessages("en");
     const code = await cli(["schedule", "add", "daily"]);
     expect(code).toBe(1);
     expect(err()).toContain(t.usage.missingOption("--prompt <text>"));
     // The usage line quotes the failing subcommand, not the program.
-    expect(err()).toContain("penguin schedule add");
+    expect(err()).toContain("wafh schedule add");
     expect(err()).toContain("--help");
     expect(err()).toContain("required option");
   });
 
   it("says the same thing in English", async () => {
-    process.env.PENGUIN_LANG = "en";
+    process.env.WAFH_LANG = "en";
     const t = getMessages("en");
     const code = await cli(["schedule", "add", "daily"]);
     expect(code).toBe(1);
     expect(err()).toContain(t.usage.missingOption("--prompt <text>"));
-    expect(err()).toContain("penguin schedule add");
+    expect(err()).toContain("wafh schedule add");
   });
 });
 
 describe("unknown option and unknown command", () => {
   it("both are localized and carry a usage line", async () => {
     for (const lang of ["en"] as const) {
-      process.env.PENGUIN_LANG = lang;
+      process.env.WAFH_LANG = lang;
       const t = getMessages(lang);
 
       stderr.length = 0;
       expect(await cli(["session", "ls", "--nope"])).toBe(1);
       expect(err()).toContain(t.usage.unknownOption("--nope"));
-      expect(err()).toContain("penguin session ls");
+      expect(err()).toContain("wafh session ls");
 
       stderr.length = 0;
       expect(await cli(["nosuchthing"])).toBe(1);
       expect(err()).toContain(t.usage.unknownCommand("nosuchthing"));
-      expect(err()).toContain("penguin");
+      expect(err()).toContain("wafh");
     }
   });
 });
@@ -99,7 +99,7 @@ describe("unknown option and unknown command", () => {
 describe("what must not change", () => {
   it("--help and --version print their own output and exit 0", async () => {
     expect(await cli(["--help"])).toBe(0);
-    expect(stdout.join("")).toContain("penguin");
+    expect(stdout.join("")).toContain("wafh");
     expect(err()).toBe("");
     stdout.length = 0;
     expect(await cli(["--version"])).toBe(0);
@@ -107,7 +107,7 @@ describe("what must not change", () => {
     expect(err()).toBe("");
   });
 
-  it("bare `penguin` still prints help, not an error", async () => {
+  it("bare `wafh` still prints help, not an error", async () => {
     expect(await cli([])).toBe(0);
     expect(stdout.join("")).toContain("Usage:");
     expect(err()).toBe("");
@@ -115,7 +115,7 @@ describe("what must not change", () => {
 });
 
 describe("commandForArgv", () => {
-  const program = new Command().name("penguin");
+  const program = new Command().name("wafh");
   const schedule = program.command("schedule");
   const add = schedule.command("add <name>");
   const ls = program.command("ls");

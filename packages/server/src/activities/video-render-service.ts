@@ -15,7 +15,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use, type ClassCtx } from "@waterford/waf-harness-core/kernel";
 import type { Config, Log } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
@@ -105,7 +105,7 @@ export abstract class VideoRenderPorts extends Interface<{
   pollMs?: number;
 }>() {}
 
-/** The code a failed recording is worded by, for the causes Penguin knows; null otherwise. */
+/** The code a failed recording is worded by, for the causes WAF Harness knows; null otherwise. */
 function problemOf(error: unknown): VideoProblemCode | null {
   if (error instanceof RenderError || error instanceof VideoFileError) return error.code;
   if (error instanceof HttpError && error.code === "video_invalid") return "video_invalid";

@@ -7,12 +7,12 @@
  * terminals-only there), with fake ptys standing in for delivered resources.
  */
 import { describe, expect, it, vi } from "vitest";
-import { boot, initialDoc, upgrade } from "@prismshadow/penguin-core/kernel";
-import { HotResources } from "@prismshadow/penguin-hmr";
+import { boot, initialDoc, upgrade } from "@waterford/waf-harness-core/kernel";
+import { HotResources } from "@waterford/waf-harness-hmr";
 import { packagedPlatform } from "../src/hmr/platform.js";
 import type { PlatformApi } from "../src/hmr/platform.js";
-import type { Instance } from "@prismshadow/penguin-core/kernel";
-import { PENGUIN_FAMILY, HMR_INTERFACES_RESOURCE_ID } from "../src/hmr/capabilities.js";
+import type { Instance } from "@waterford/waf-harness-core/kernel";
+import { WAFH_FAMILY, HMR_INTERFACES_RESOURCE_ID } from "../src/hmr/capabilities.js";
 import { TerminalManager } from "../src/terminal/manager.js";
 import type { TerminalSession } from "../src/terminal/session.js";
 import { waitFor } from "./helpers.js";
@@ -48,7 +48,7 @@ function bareKernel(): HotResources {
   const r = new HotResources();
   // The bare-kernel declaration IS an interface descriptor: right family, no
   // capabilities offered — "there is no business runtime behind me".
-  r.register(HMR_INTERFACES_RESOURCE_ID, { family: PENGUIN_FAMILY });
+  r.register(HMR_INTERFACES_RESOURCE_ID, { family: WAFH_FAMILY });
   return r;
 }
 

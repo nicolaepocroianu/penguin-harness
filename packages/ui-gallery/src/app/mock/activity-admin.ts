@@ -20,7 +20,7 @@ import type {
   TestBrowserStatus,
   WafWorkspaceSettings,
   WafWorkspaceStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { IDS } from "./ids";
 
 type ModelOptions = CodingAgentDiscoveryResponse["agentModels"][string];
@@ -113,12 +113,12 @@ export function buildActivityAdmin(now: number): ActivityAdminFixtures {
       recipe: {
         runtime: "agent:deepseek/deepseek-flash",
         library,
-        penguin: "0.42.0",
+        wafh: "0.42.0",
       } satisfies RunRecipe,
     },
     {
       id: "r-81c2",
-      recipe: { runtime: "coding:claude-code", library, penguin: "0.42.0" } satisfies RunRecipe,
+      recipe: { runtime: "coding:claude-code", library, wafh: "0.42.0" } satisfies RunRecipe,
     },
   ];
   const runs: OutcomeRun[] = [
@@ -186,14 +186,14 @@ export function buildActivityAdmin(now: number): ActivityAdminFixtures {
       available: true,
       installed: true,
       version: "149.0.7827.55",
-      path: "/var/lib/penguin/test-browser/chromium-1194",
+      path: "/var/lib/wafh/test-browser/chromium-1194",
       installing: false,
       error: null,
       log: null,
     },
     wafWorkspace: {
       managed: true,
-      root: "/var/lib/penguin/waf",
+      root: "/var/lib/wafh/waf",
       modulesRoot: null,
       modulesRootPresent: null,
       ready: true,
@@ -206,7 +206,7 @@ export function buildActivityAdmin(now: number): ActivityAdminFixtures {
         ] as const
       ).map(([id, folder, branch, installed]) => ({
         id,
-        path: `/var/lib/penguin/waf/${folder}`,
+        path: `/var/lib/wafh/waf/${folder}`,
         present: true,
         remote: `git@github.com:waterford/${folder}.git`,
         remoteMatches: true,
@@ -254,7 +254,7 @@ export function buildActivityAdmin(now: number): ActivityAdminFixtures {
       },
       jobs: { moduleBuild: "Build WAF Modules", activityDeploy: "WAF Activity Deploy" },
       repos: { mediaPublicBase: "/media/" },
-      git: { userName: "Penguin Deploy", userEmail: "deploy@example.com" },
+      git: { userName: "WAF Harness Deploy", userEmail: "deploy@example.com" },
       timeouts: { buildMinutes: 30, deployMinutes: 30 },
     },
     codingAgents: [

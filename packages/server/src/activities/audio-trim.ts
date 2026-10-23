@@ -3,7 +3,7 @@
  * the audio either side joined, and the result kept as MP3 (libmp3lame, VBR quality 2, no
  * metadata), the format Loom writes. Everything here runs FFmpeg through ffmpeg.ts.
  *
- * A trim is previewed before it is saved. Previews live in Penguin's own data root, never in
+ * A trim is previewed before it is saved. Previews live in WAF Harness's own data root, never in
  * the media repository, and only the newest of each card is kept, as Loom keeps one preview
  * per clip. Saving one either replaces the bound clip in place or attaches it as an upload.
  */
@@ -158,7 +158,7 @@ export function trimArguments(range: TrimRange, output: string): string[] {
 
 /** The clip with `range` cut out, as MP3; empty when FFmpeg wrote nothing. */
 export async function cutAudio(bytes: Uint8Array, range: TrimRange): Promise<Buffer> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-trim-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-trim-"));
   const output = path.join(dir, "trimmed.mp3");
   try {
     await runFfmpeg(trimArguments(range, output), {
@@ -181,7 +181,7 @@ export function trimFailed(cause: string): HttpError {
  * The sidecar a trimmed clip keeps, as Loom's `_trimmed_metadata` writes it: the clip's own
  * sidecar, when it had one, with its file name and script brought up to date and the word
  * timings dropped, since they described the untrimmed recording (Loom aligns the words again;
- * Penguin has no aligner). Everything else stays, `generationFingerprint` included: a trim
+ * WAF Harness has no aligner). Everything else stays, `generationFingerprint` included: a trim
  * keeps the voice and script, so Loom must not speak the line again over it. Without a
  * sidecar it is Loom's sidecar of an upload. The length is the trimmed clip's, as measured.
  */
@@ -294,7 +294,7 @@ function previewMissing(): HttpError {
   );
 }
 
-/** One activity's trim previews, in Penguin's data root. */
+/** One activity's trim previews, in WAF Harness's data root. */
 export class TrimPreviews {
   constructor(readonly dir: string) {}
 

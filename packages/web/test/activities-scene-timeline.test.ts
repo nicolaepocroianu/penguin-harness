@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AssetManifest, VideoTimeline } from "@prismshadow/penguin-server/api";
+import type { AssetManifest, VideoTimeline } from "@waterford/waf-harness-server/api";
 import {
   blocksRender,
   effectChoices,

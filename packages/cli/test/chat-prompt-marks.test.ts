@@ -43,7 +43,7 @@ interface Ends {
 const TERMINAL: Ends = { stdin: true, stdout: true };
 
 /**
- * Runs `penguin chat` with the given input lines and returns what it printed. A terminal
+ * Runs `wafh chat` with the given input lines and returns what it printed. A terminal
  * stdin runs in raw mode and gets keys; a piped one gets lines. Each line goes in once the
  * REPL has printed its next `> ` prompt.
  */
@@ -79,7 +79,7 @@ async function runChat(lines: string[], ends: Ends): Promise<string> {
     const program = new Command();
     program.exitOverride();
     registerChatCommand(program, getMessages("en"));
-    const done = program.parseAsync(["node", "penguin", "chat"]);
+    const done = program.parseAsync(["node", "wafh", "chat"]);
     for (let i = 0; i < lines.length; i++) {
       await Promise.race([readyFor(i + 1), done]);
       stdin.write(`${lines[i]}${ends.stdin ? ENTER : "\n"}`);

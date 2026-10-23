@@ -19,8 +19,8 @@ import {
   SiteToc,
   useActiveTocEntry,
   useSiteLocale,
-} from "@prismshadow/penguin-ui/site";
-import type { SiteMarkdownComponents } from "@prismshadow/penguin-ui/site";
+} from "@waterford/waf-harness-ui/site";
+import type { SiteMarkdownComponents } from "@waterford/waf-harness-ui/site";
 import { S } from "../lib/strings";
 import { docMarkdown, docTitle, getDoc } from "../lib/docs";
 import { HOME_SLUG, pagerFor, sectionOf } from "../lib/nav";

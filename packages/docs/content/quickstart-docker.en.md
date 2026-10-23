@@ -1,13 +1,13 @@
 ---
 title: Docker
-description: Run the official PenguinHarness image, with one container and one volume serving the full Web App on port 7364.
+description: Run the official WAF Harness image, with one container and one volume serving the full Web App on port 7364.
 ---
 
-The official image runs the same server that `penguin server` starts, with the Web App inside it. One container and one volume are the whole deployment, which makes Docker the shortest route onto a machine that is not your laptop.
+The official image runs the same server that `wafh server` starts, with the Web App inside it. One container and one volume are the whole deployment, which makes Docker the shortest route onto a machine that is not your laptop.
 
 ## Before you begin
 
-- Docker on the machine that will run PenguinHarness. The examples below cover both Docker Compose and `docker run`.
+- Docker on the machine that will run WAF Harness. The examples below cover both Docker Compose and `docker run`.
 - An API key for one model provider.
 
 ## Start the container
@@ -16,24 +16,24 @@ Use either tab: save the compose file, or run the commands.
 
 ```yaml tab="compose.yaml"
 services:
-  penguin:
+  wafh:
     image: hiyouga/penguinharness:latest
     restart: unless-stopped
     ports:
       - "127.0.0.1:7364:7364"
     volumes:
-      - penguin-data:/data
+      - wafh-data:/data
     stop_grace_period: 30s
 
 volumes:
-  penguin-data:
+  wafh-data:
 ```
 
 ```bash tab="docker run"
-docker volume create penguin-data
-docker run -d --name penguin \
+docker volume create wafh-data
+docker run -d --name wafh \
   -p 127.0.0.1:7364:7364 \
-  -v penguin-data:/data \
+  -v wafh-data:/data \
   --restart unless-stopped \
   hiyouga/penguinharness:latest
 ```
@@ -53,7 +53,7 @@ Inside its own network namespace, the container always listens on `0.0.0.0`, whi
 A fresh data root has no password. Until one is set, the server prints a sign-in link in a framed notice every time it starts. Read it from the container's log:
 
 ```bash
-docker compose logs penguin        # or: docker logs penguin
+docker compose logs wafh        # or: docker logs wafh
 ```
 
 The notice looks like this:
@@ -78,27 +78,27 @@ If reading a link from a log does not suit your setup, pin the password instead.
 
 ```yaml
 environment:
-  PENGUIN_SEED_ADMIN_PASSWORD: "choose-something-long"
+  WAFH_SEED_ADMIN_PASSWORD: "choose-something-long"
 ```
 
 The server then creates the built-in `admin` with that password (at least 8 characters) and prints no notice. The variable applies only while no user exists, which means the first boot of an empty data root. Adding it to a data root that has already been claimed changes nothing, and neither does changing it later.
 
 ## Configure a model
 
-PenguinHarness ships with no model credentials. Add a model on the **Models** page of the Web App, or with the CLI inside the container:
+WAF Harness ships with no model credentials. Add a model on the **Models** page of the Web App, or with the CLI inside the container:
 
 ```bash
-docker compose exec -u penguin penguin \
-  penguin config model add --provider deepseek --model-id deepseek-flash --api-key sk-... --set-default
+docker compose exec -u wafh wafh \
+  wafh config model add --provider deepseek --model-id deepseek-flash --api-key sk-... --set-default
 ```
 
-Keep `-u penguin` in the command. `docker exec` runs as root by default, so files it writes into `/data` would belong to root, while the server runs as uid 1000.
+Keep `-u wafh` in the command. `docker exec` runs as root by default, so files it writes into `/data` would belong to root, while the server runs as uid 1000.
 
 See [Models & Providers](/models) for the built-in groups.
 
 ## Run your first Task
 
-In the Web App's sidebar, click **New chat**, then send a first message, such as "Create hello.txt containing Hello, Penguin". The agent's commands run inside the container; [What the agent can reach](#what-the-agent-can-reach) explains how to give it a directory from the host. [Conversations](/chat) covers the chat page in full.
+In the Web App's sidebar, click **New chat**, then send a first message, such as "Create hello.txt containing Hello, WAF Harness". The agent's commands run inside the container; [What the agent can reach](#what-the-agent-can-reach) explains how to give it a directory from the host. [Conversations](/chat) covers the chat page in full.
 
 ## Choose an image tag
 
@@ -120,9 +120,9 @@ There is no `main-<sha>`, `X.Y` or `stable` tag, so nothing moves under a second
 | Item | Details |
 | --- | --- |
 | Base | Ubuntu 24.04 with the official Node.js runtime, at the version the release tarballs bundle |
-| Command | `penguin server`, on `0.0.0.0:7364` |
+| Command | `wafh server`, on `0.0.0.0:7364` |
 | Data root | `/data`, declared as a volume. It holds model configuration, Sessions, Traces and the SQLite database |
-| Process user | `penguin`, uid/gid 1000. The entrypoint starts as root only to take ownership of the data root, then drops to that user |
+| Process user | `wafh`, uid/gid 1000. The entrypoint starts as root only to take ownership of the data root, then drops to that user |
 | Healthcheck | `GET /api/install` every 30s |
 | Tools | `git`, `curl` and the standard Ubuntu userland, for the commands an agent runs |
 
@@ -141,7 +141,7 @@ FROM hiyouga/penguinharness:latest
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends python3 ripgrep \
     && rm -rf /var/lib/apt/lists/*
-USER penguin
+USER wafh
 ```
 
 The runtime image deliberately has no C/C++ toolchain: the toolchain lives in a build stage that is thrown away.
@@ -152,21 +152,21 @@ These are the variables a container deployment touches. The full list is in the 
 
 | Variable | In this image |
 | --- | --- |
-| `PENGUIN_HOME` | `/data`. Change it only if you also move the volume |
+| `WAFH_HOME` | `/data`. Change it only if you also move the volume |
 | `HOST` | `0.0.0.0`, inside the container's own network namespace. `-p` decides the host side, and the examples keep it on loopback |
 | `PORT` | `7364`. Changing it moves the healthcheck with it |
-| `PENGUIN_SEED_ADMIN_PASSWORD` | Pins the initial admin password, on the first boot only. See [Set the password in advance](#set-the-password-in-advance) |
-| `PENGUIN_TRUST_PROXY` | Set to `1` behind a reverse proxy that terminates TLS, so session cookies are marked `Secure` |
-| `PENGUIN_PREVIEW_ORIGIN` | A second hostname routed to the same container, for Workspace HTML previews |
-| `PENGUIN_UPDATE_CHECK` | `off` turns off the automatic release check. Model requests, remote-control connections, key authorization and the proxy test still go out |
+| `WAFH_SEED_ADMIN_PASSWORD` | Pins the initial admin password, on the first boot only. See [Set the password in advance](#set-the-password-in-advance) |
+| `WAFH_TRUST_PROXY` | Set to `1` behind a reverse proxy that terminates TLS, so session cookies are marked `Secure` |
+| `WAFH_PREVIEW_ORIGIN` | A second hostname routed to the same container, for Workspace HTML previews |
+| `WAFH_UPDATE_CHECK` | `off` turns off the automatic release check. Model requests, remote-control connections, key authorization and the proxy test still go out |
 
 ### Run behind a reverse proxy
 
-Publish the container on loopback, terminate TLS in front of it, and set `PENGUIN_TRUST_PROXY=1`. The proxy must set or strip `x-forwarded-proto` itself. That header comes from the caller, which is exactly why the server ignores it until you tell it otherwise. If you leave `PENGUIN_TRUST_PROXY` unset on an HTTPS deployment, session cookies are issued without the `Secure` flag.
+Publish the container on loopback, terminate TLS in front of it, and set `WAFH_TRUST_PROXY=1`. The proxy must set or strip `x-forwarded-proto` itself. That header comes from the caller, which is exactly why the server ignores it until you tell it otherwise. If you leave `WAFH_TRUST_PROXY` unset on an HTTPS deployment, session cookies are issued without the `Secure` flag.
 
 ### Serve Workspace previews
 
-Previews of the HTML a Task produces are served from a separate origin when there is one. On a non-loopback bind there is no loopback counterpart to derive, so previews fall back to a same-origin sandbox, where cookies, `localStorage` and third-party embeds do not work. To get the isolated previews back, point `PENGUIN_PREVIEW_ORIGIN` at a second hostname routed to the same container. It must differ by hostname, not just by port.
+Previews of the HTML a Task produces are served from a separate origin when there is one. On a non-loopback bind there is no loopback counterpart to derive, so previews fall back to a same-origin sandbox, where cookies, `localStorage` and third-party embeds do not work. To get the isolated previews back, point `WAFH_PREVIEW_ORIGIN` at a second hostname routed to the same container. It must differ by hostname, not just by port.
 
 ## Upgrade the container
 
@@ -177,7 +177,7 @@ docker compose pull && docker compose up -d
 ```
 
 > [!WARNING]
-> Do not update from inside the container. The About dialog's **Software Update** section reports that this install cannot update itself, and anything `penguin update` installs there is lost when the container is recreated.
+> Do not update from inside the container. The About dialog's **Software Update** section reports that this install cannot update itself, and anything `wafh update` installs there is lost when the container is recreated.
 
 Stopping is graceful. On `SIGTERM` the server interrupts running Tasks, waits for them to wrap up, then closes the database. An idle server stops in well under a second, and a busy one can take several seconds, which is why the compose example raises Docker's 10-second grace period.
 
@@ -186,16 +186,16 @@ Stopping is graceful. On `SIGTERM` the server interrupts running Tasks, waits fo
 Stop the server first, because a data root only ever has one writer. Then reset the password and start the server again:
 
 ```bash
-docker compose stop penguin
-docker compose run --rm penguin penguin server reset-admin-password
-docker compose start penguin
+docker compose stop wafh
+docker compose run --rm wafh wafh server reset-admin-password
+docker compose start wafh
 ```
 
 The reset needs no other authorization: the data root is the authorization, and anyone who can run this command already has the database. The `admin` account returns to the unclaimed state and its login sessions are revoked. Sign in again with the first-login link from the log, as in [Sign in for the first time](#sign-in-for-the-first-time).
 
 ## Next steps
 
-- [Web App](/web-app): use PenguinHarness from the browser.
-- [Update PenguinHarness](/updates): check your version and upgrade.
+- [Web App](/web-app): use WAF Harness from the browser.
+- [Update WAF Harness](/updates): check your version and upgrade.
 - [Security Model](/security): who can do what, and on the strength of which proof.
 - [Configuration Reference](/configuration): every environment variable and config field.

@@ -212,7 +212,7 @@ describe("the examples block keeps its height", () => {
 describe("the caps the server enforces", () => {
   it("matches the Web App's copy of them", () => {
     // Two copies on purpose: the server owns enforcement (ui_prefs is a free-form JSON column),
-    // this package owns the counters, and penguin-server is a type-only dependency here.
+    // this package owns the counters, and wafh-server is a type-only dependency here.
     const source = read("../../server/src/services/draft-shortcuts.ts");
     const capOf = (name: string): number => {
       const m = new RegExp(`export const ${name} = (\\d+);`).exec(source);

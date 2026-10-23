@@ -6,7 +6,7 @@ Git with sparse checkout, and Git LFS. No npm dependencies are needed to run it.
 
 ## Run the local demonstration
 
-From the PenguinHarness checkout:
+From the WAF Harness checkout:
 
 ```sh
 node packages/server/prototypes/media-workspaces/demo.mts
@@ -46,7 +46,7 @@ directory. The prototype does not automatically attach it to a production sessio
 
 ## Storage and lifecycle
 
-Default scratch storage is `~/.penguin/PROTOTYPE-media-workspaces`. Supply
+Default scratch storage is `~/.waf-harness/PROTOTYPE-media-workspaces`. Supply
 `--root <directory>` on every command to use another location. Choose a new, empty
 directory. An existing development checkout must not be used as the prototype root.
 

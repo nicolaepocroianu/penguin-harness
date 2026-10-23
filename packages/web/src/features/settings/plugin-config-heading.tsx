@@ -7,8 +7,8 @@
  * discloses why an installed backend is not in use). While the group's switch is off (as
  * drafted), only the title is drawn: the actions and notices concern the group in use.
  */
-import type { PluginConfigEntry } from "@prismshadow/penguin-server/api";
-import { Button, HelpFold, InfoPopover, NoticeStrip, Spinner } from "@prismshadow/penguin-ui";
+import type { PluginConfigEntry } from "@waterford/waf-harness-server/api";
+import { Button, HelpFold, InfoPopover, NoticeStrip, Spinner } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import type { Locale } from "../../state/locale";

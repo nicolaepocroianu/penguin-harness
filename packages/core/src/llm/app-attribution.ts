@@ -1,5 +1,5 @@
 /**
- * App attribution: the headers that name PenguinHarness to the gateways that read one, keyed on
+ * App attribution: the headers that name WAF Harness to the gateways that read one, keyed on
  * the endpoint host. GenerativeModel attaches them to every request, and the server's provider
  * OAuth flow reuses APP_URL.
  *
@@ -12,14 +12,14 @@
 
 /**
  * App attribution: how the harness identifies itself to gateways that rank or report the apps
- * calling them. Both values describe PenguinHarness itself, never a model or an account.
+ * calling them. Both values describe WAF Harness itself, never a model or an account.
  *
  * `APP_URL` is also the `app_url` a provider OAuth flow stamps onto the key it mints, which is
  * why it is exported: a stable app URL is required there, and a second copy would let the two
  * attributions drift apart.
  */
 export const APP_URL = "https://penguin.ooo/";
-const APP_TITLE = "PenguinHarness";
+const APP_TITLE = "WAF Harness";
 /**
  * OpenRouter marketplace categories, comma-separated. OpenRouter accepts at most **two per
  * request** from a fixed slug list and silently drops anything else, so this string is
@@ -53,7 +53,7 @@ function hostMatches(host: string, domain: string): boolean {
  *
  * Keyed on the endpoint host rather than on a provider group, because the group is a display
  * bucket while the headers are a property of the server being called: a `custom` entry pointed
- * at OpenRouter is still PenguinHarness talking to OpenRouter and is attributed identically. The
+ * at OpenRouter is still WAF Harness talking to OpenRouter and is attributed identically. The
  * flip side is that an entry carrying no `base_url` of its own gets no headers even when
  * `OPENAI_BASE_URL` sends it to a gateway — that variable is read inside MMSP and never reaches
  * this side.

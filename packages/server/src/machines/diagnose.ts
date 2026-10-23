@@ -83,7 +83,7 @@ export function releaseReachCommand(version: string): string {
     `case "$(uname -m)" in x86_64|amd64) a=x64;; aarch64|arm64) a=arm64;; *) a=;; esac`,
     `if ! command -v curl >/dev/null 2>&1; then echo "@@nocurl"; ` +
       `elif [ -n "$o" ] && [ -n "$a" ]; then ` +
-      `f="penguin-$o-$a.tar.gz.sha256"; ` +
+      `f="wafh-$o-$a.tar.gz.sha256"; ` +
       `c=$(${curl(`${RELEASE_SOURCES.oss}/v${v}/$f`)}); echo "@@oss $c $?"; ` +
       `c=$(${curl(`${RELEASE_SOURCES.github}/v${v}/$f`)}); echo "@@github $c $?"; fi`,
   ].join("; ");
@@ -261,7 +261,7 @@ export function parseDiagnosis(
     // status, an empty reply, a reset — is something holding the port.
     const [, exit] = port.split(/\s+/);
     const ours = first("lock") === String(opts.port);
-    const holder = exit === "7" ? "free" : ours ? "penguin" : "other";
+    const holder = exit === "7" ? "free" : ours ? "wafh" : "other";
     checks.push({
       id: "port",
       state: holder === "other" ? "fail" : "pass",

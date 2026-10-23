@@ -1,6 +1,6 @@
 /**
  * Version-string helpers shared by everything that talks about releases: the CLI's
- * `penguin update` command and the server's update-check endpoint (the web UI's update
+ * `wafh update` command and the server's update-check endpoint (the web UI's update
  * reminder). Moved here from the CLI so the server does not need a dependency on the CLI
  * package; the barrel re-exports both functions.
  */

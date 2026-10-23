@@ -11,9 +11,9 @@ import type {
   DeployProblem,
   DeployProductionState,
   DeployRun,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { ApiError } from "../../api/client";
-import { Button, ConfirmModal, InfoPopover, Input } from "@prismshadow/penguin-ui";
+import { Button, ConfirmModal, InfoPopover, Input } from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";
 import { S } from "../../lib/strings";

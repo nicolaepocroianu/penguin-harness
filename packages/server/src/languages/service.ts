@@ -14,8 +14,8 @@ import {
   Provide,
   type ClassCtx,
   type Slot,
-} from "@prismshadow/penguin-core/kernel";
-import type { LanguageContribution, LanguageGrammar } from "@prismshadow/penguin-core/plugin";
+} from "@waterford/waf-harness-core/kernel";
+import type { LanguageContribution, LanguageGrammar } from "@waterford/waf-harness-core/plugin";
 import type { LanguageSummary } from "../api/types.js";
 
 export interface LanguagesSlots {

@@ -4,8 +4,8 @@
  * A test run's workspace holds, beside the activity's own inputs:
  *   acceptance-input.json   what to test and where: the signed play link, the viewport, the
  *                           criteria, the test browser's executable, the scene ids, and for a
- *                           confined run the browser server Penguin started for it
- *   activity-harness.mjs    Penguin's harness API over `playwright-core`, the only thing the
+ *                           confined run the browser server WAF Harness started for it
+ *   activity-harness.mjs    WAF Harness's harness API over `playwright-core`, the only thing the
  *                           agent's tests may use to drive the player
  *   run-acceptance.mjs      starts the test browser (or connects to that server), runs the
  *                           agent's `acceptance.test.mjs`
@@ -76,7 +76,7 @@ export async function checkFilesChanged(
   return CHECK_FILES.some((name) => now[name] !== staged[name]);
 }
 
-export const activityHarnessSource = `// Penguin's acceptance harness: drive the played activity in the test browser.
+export const activityHarnessSource = `// WAF Harness's acceptance harness: drive the played activity in the test browser.
 // Tests import only from this file. Do not edit it.
 import { AsyncLocalStorage } from "node:async_hooks";
 import fs from "node:fs";

@@ -1,5 +1,5 @@
 /**
- * `penguin auth login`'s moving parts (src/auth-session.ts).
+ * `wafh auth login`'s moving parts (src/auth-session.ts).
  *
  * The command itself is thin; what is easy to get wrong lives here, and each of these has a
  * failure that only shows up on somebody's machine:
@@ -59,19 +59,19 @@ describe("tokenFromSetCookie", () => {
   it("takes the session cookie and not its neighbours", () => {
     expect(
       tokenFromSetCookie(
-        ["other=1; Path=/", "penguin_session=abc.def; Path=/; HttpOnly", "last=2"],
-        "penguin_session",
+        ["other=1; Path=/", "wafh_session=abc.def; Path=/; HttpOnly", "last=2"],
+        "wafh_session",
       ),
     ).toBe("abc.def");
-    expect(tokenFromSetCookie(["other=1"], "penguin_session")).toBeNull();
-    expect(tokenFromSetCookie(undefined, "penguin_session")).toBeNull();
+    expect(tokenFromSetCookie(["other=1"], "wafh_session")).toBeNull();
+    expect(tokenFromSetCookie(undefined, "wafh_session")).toBeNull();
   });
 });
 
 describe("the session file", () => {
   let root: string;
   beforeEach(() => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-cli-auth-"));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-cli-auth-"));
   });
   afterEach(() => {
     fs.rmSync(root, { recursive: true, force: true });
@@ -131,7 +131,7 @@ describe("the session file", () => {
       req.on("data", (c: Buffer) => chunks.push(c));
       req.on("end", () => {
         seen.body = Buffer.concat(chunks).toString("utf8");
-        res.setHeader("set-cookie", "penguin_session=tok; Path=/; HttpOnly");
+        res.setHeader("set-cookie", "wafh_session=tok; Path=/; HttpOnly");
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ user: { userId: "admin" } }));
       });
@@ -148,7 +148,7 @@ describe("the session file", () => {
       expect(seen.host).toBe(`localhost:${port}`);
       expect(seen.body).toBe(JSON.stringify({ userId: "admin", password: "pw" }));
       const setCookie = answer.headers["set-cookie"];
-      expect(tokenFromSetCookie(setCookie as string[], "penguin_session")).toBe("tok");
+      expect(tokenFromSetCookie(setCookie as string[], "wafh_session")).toBe("tok");
     } finally {
       server.close();
     }

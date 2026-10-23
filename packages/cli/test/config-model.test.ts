@@ -1,12 +1,12 @@
 /**
- * Integration tests for `penguin config model add|default|vision|list|remove` (run through
+ * Integration tests for `wafh config model add|default|vision|list|remove` (run through
  * commander's parseAsync for the full command path): --model-id always takes the
  * upstream id, paired with --provider to form a (provider, model_id) reference
  * (--provider is required on every subcommand that names an entry — the group is never
  * inferred — and default / vision / remove report an error when the reference isn't found in
  * models; no string concatenation is ever performed); remove also clears the default /
  * vision pointers that named the removed entry; --root
- * specifies the data root directory (takes priority over PENGUIN_HOME); persisted to a
+ * specifies the data root directory (takes priority over WAFH_HOME); persisted to a
  * single hidden .project_config.toml (mode 0600, credentials inline, provider and
  * model_id as separate columns); list displays provider and model_id as separate
  * columns.
@@ -17,7 +17,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 import { parse as parseToml } from "smol-toml";
-import { DEFAULT_PROJECT_ID, projectConfigPath } from "@prismshadow/penguin-core";
+import { DEFAULT_PROJECT_ID, projectConfigPath } from "@waterford/waf-harness-core";
 import { registerConfigCommand } from "../src/commands/config.js";
 import { getMessages } from "../src/i18n.js";
 import { seedProject } from "./seeded-project.js";
@@ -27,17 +27,17 @@ let tmpRoot: string;
 let prevHome: string | undefined;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-cli-home-"));
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-cli-root-"));
+  prevHome = process.env.WAFH_HOME;
+  tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-cli-home-"));
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-cli-root-"));
   // A Project as the server seeds one: core's own default carries no models.
   await seedProject(tmpRoot);
-  process.env.PENGUIN_HOME = tmpHome;
+  process.env.WAFH_HOME = tmpHome;
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.PENGUIN_HOME;
-  else process.env.PENGUIN_HOME = prevHome;
+  if (prevHome === undefined) delete process.env.WAFH_HOME;
+  else process.env.WAFH_HOME = prevHome;
   await fs.rm(tmpHome, { recursive: true, force: true });
   await fs.rm(tmpRoot, { recursive: true, force: true });
 });
@@ -48,7 +48,7 @@ interface TomlModelRef {
 }
 
 /**
- * Runs a `penguin config model …` command, capturing stdout / stderr and the exit code
+ * Runs a `wafh config model …` command, capturing stdout / stderr and the exit code
  * (without actually exiting the process; under exitOverride, commander usage errors —
  * such as a missing required option — are thrown as a CommanderError, which is
  * converted to a non-zero exit code).
@@ -70,7 +70,7 @@ async function runModel(args: string[]): Promise<{ out: string; err: string; cod
   const prevExitCode = process.exitCode;
   process.exitCode = undefined;
   try {
-    await program.parseAsync(["node", "penguin", "config", "model", ...args]);
+    await program.parseAsync(["node", "wafh", "config", "model", ...args]);
     return { out: out.join(""), err: err.join(""), code: Number(process.exitCode ?? 0) };
   } catch (e) {
     const exitCode = (e as { exitCode?: number }).exitCode;
@@ -82,8 +82,8 @@ async function runModel(args: string[]): Promise<{ out: string; err: string; cod
   }
 }
 
-describe("penguin config model add/list (--root plus provider / model_id stored as separate fields)", () => {
-  it("--root beats PENGUIN_HOME: written to the hidden .project_config.toml under the given root (0600)", async () => {
+describe("wafh config model add/list (--root plus provider / model_id stored as separate fields)", () => {
+  it("--root beats WAFH_HOME: written to the hidden .project_config.toml under the given root (0600)", async () => {
     const add = await runModel([
       "add",
       "--model-id",
@@ -115,7 +115,7 @@ describe("penguin config model add/list (--root plus provider / model_id stored 
     expect(entry?.api_key).toBe("sk-root-secret-1");
     // Concatenated storage id and request_model_id have been removed.
     expect(entry?.request_model_id).toBeUndefined();
-    // The root directory pointed to by PENGUIN_HOME is unaffected.
+    // The root directory pointed to by WAFH_HOME is unaffected.
     await expect(fs.access(projectConfigPath(tmpHome, DEFAULT_PROJECT_ID))).rejects.toThrow();
 
     // list also reads --root: provider and model_id as separate columns + masked api_key (the request column has been removed).
@@ -745,7 +745,7 @@ describe("model add/default/vision: --provider is required, (provider, model_id)
     ]);
     expect(bad.code).toBe(1);
     expect(bad.err).toContain("(provider=custom, model_id=no-such-model)");
-    expect(bad.err).toContain("penguin config model list");
+    expect(bad.err).toContain("wafh config model list");
     // The upstream id matches a pre-existing entry but --provider names the wrong group: also not found (exact pair, no fuzzy matching).
     const wrongGroup = await runModel([
       "vision",
@@ -758,7 +758,7 @@ describe("model add/default/vision: --provider is required, (provider, model_id)
     ]);
     expect(wrongGroup.code).toBe(1);
     expect(wrongGroup.err).toContain("(provider=openai, model_id=claude-sonnet-4-6)");
-    expect(wrongGroup.err).toContain("penguin config model list");
+    expect(wrongGroup.err).toContain("wafh config model list");
   });
 
   it("model vision pair reference hit: sets the vision model (written as an inline table)", async () => {
@@ -785,7 +785,7 @@ describe("model add/default/vision: --provider is required, (provider, model_id)
   });
 });
 
-describe("penguin config model remove", () => {
+describe("wafh config model remove", () => {
   /** Reads back the persisted config, whose pointers are the point of most assertions below. */
   async function readConfig(): Promise<{
     models: Array<Record<string, unknown>>;

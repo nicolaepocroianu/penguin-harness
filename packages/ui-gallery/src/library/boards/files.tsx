@@ -19,13 +19,13 @@ import {
   WorkspaceFileEditor,
   WorkspaceFileMenuRows,
   menuPanelClass,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import type {
   FileBrowserPreview,
   FileTreeRow,
   PreviewView,
   TreeToggle,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 import { DEMO_OPEN_DIRS, DEMO_TREE, demoSize, flattenTree } from "../demo-tree";

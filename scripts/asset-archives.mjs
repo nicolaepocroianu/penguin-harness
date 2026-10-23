@@ -25,7 +25,7 @@ const tar = createRequire(path.join(ROOT, "packages", "server", "package.json"))
  * relative to the directory it unpacks into) — returned as bytes.
  */
 export async function packArchive(entries) {
-  const stage = await fsp.mkdtemp(path.join(os.tmpdir(), "penguin-archive-"));
+  const stage = await fsp.mkdtemp(path.join(os.tmpdir(), "wafh-archive-"));
   try {
     const rels = [...entries].sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
     for (const { rel, abs, exec } of rels) {

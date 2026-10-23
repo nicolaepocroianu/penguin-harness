@@ -23,7 +23,7 @@ import type {
   ScheduleItem,
   SchedulesResponse,
   ScheduleStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Badge,
   Button,
@@ -39,8 +39,8 @@ import {
   TableRow,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
-import type { BadgeStyle } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { BadgeStyle } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";

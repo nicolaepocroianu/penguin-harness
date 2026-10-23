@@ -13,8 +13,8 @@
  * laid out, and until then it simply shows.
  */
 import { useLayoutEffect, useRef } from "react";
-import { formatTemp } from "@prismshadow/penguin-core/a2ui";
-import type { A2uiLang, A2uiWeatherHour } from "@prismshadow/penguin-core/a2ui";
+import { formatTemp } from "@waterford/waf-harness-core/a2ui";
+import type { A2uiLang, A2uiWeatherHour } from "@waterford/waf-harness-core/a2ui";
 import { useChartWidth } from "../../charts/chart-frame/chart-frame";
 import { roundCoord } from "../../charts/marks/geom";
 import { ChartArea, ChartAxis, ChartLine, ChartPoint } from "../../charts/marks/marks";

@@ -19,7 +19,7 @@ import {
   PasswordInput,
   useFormDraft,
   useGuardedClose,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 
 /** Vault key naming rule (consistent with core/server): shell environment variable name. */

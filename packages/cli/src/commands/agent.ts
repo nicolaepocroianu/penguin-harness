@@ -1,17 +1,17 @@
 /**
- * `penguin agent` — list and create agents through the server, and manage an agent's public API.
+ * `wafh agent` — list and create agents through the server, and manage an agent's public API.
  *
- *   penguin agent ls [--project-id <id>] [--json] [--server <url>]
- *   penguin agent create --agent-id <id> [--name <s>] [--description <s>]
+ *   wafh agent ls [--project-id <id>] [--json] [--server <url>]
+ *   wafh agent create --agent-id <id> [--name <s>] [--description <s>]
  *                        [--plugins <a,b>] [--project-id <id>] [--json] [--server <url>]
- *   penguin agent api status  --agent-id <id> [--project-id <id>] [--json] [--server <url>]
- *   penguin agent api enable  --agent-id <id> [--open | --no-open] [--approve <mode>] …
- *   penguin agent api disable --agent-id <id> …
- *   penguin agent api set     --agent-id <id> [--open | --no-open] [--approve <mode>] …
- *   penguin agent api keys ls     --agent-id <id> …
- *   penguin agent api keys create --agent-id <id> --name <s> …
- *   penguin agent api keys rm <keyId> --agent-id <id> …
- *   penguin agent api server on|off [--json] [--server <url>]
+ *   wafh agent api status  --agent-id <id> [--project-id <id>] [--json] [--server <url>]
+ *   wafh agent api enable  --agent-id <id> [--open | --no-open] [--approve <mode>] …
+ *   wafh agent api disable --agent-id <id> …
+ *   wafh agent api set     --agent-id <id> [--open | --no-open] [--approve <mode>] …
+ *   wafh agent api keys ls     --agent-id <id> …
+ *   wafh agent api keys create --agent-id <id> --name <s> …
+ *   wafh agent api keys rm <keyId> --agent-id <id> …
+ *   wafh agent api server on|off [--json] [--server <url>]
  *
  * `create` mirrors the Web dialog's fields: id (required), display name, description,
  * and library plugins to seed (comma-separated names; unknown names are rejected by the
@@ -25,14 +25,14 @@
  * server-wide switch, which the settings read reports to any member and which `server on|off`
  * (admins only) writes. `keys
  * create` prints the key bare on stdout — the only time it exists anywhere — and everything else
- * on stderr, so `KEY=$(penguin agent api keys create …)` captures exactly the key.
+ * on stderr, so `KEY=$(wafh agent api keys create …)` captures exactly the key.
  *
  * The writes (`enable`, `disable`, `set`, `keys create`, `keys rm`, `server`) take a person's
  * sign-in: the server refuses the local API token on them with 403 `human_required`, so that
  * an Agent cannot expose itself from its own shell. Outside a Session the client then retries
- * once as the stored `penguin auth login` (client.ts); when that is missing or refused too, the
+ * once as the stored `wafh auth login` (client.ts); when that is missing or refused too, the
  * write prints what to run instead.
- * Docs: /docs/cli § "penguin agent".
+ * Docs: /docs/cli § "wafh agent".
  */
 import type { Command } from "commander";
 import type {
@@ -43,7 +43,7 @@ import type {
   AgentCreateResponse,
   AgentSummary,
   ServerSettingsResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { resolveApprovalMode } from "../approval.js";
 import { ApiError, resolveConnection, resolveProjectId, ServerClient } from "../client.js";
 import { listAgents } from "../server-session.js";

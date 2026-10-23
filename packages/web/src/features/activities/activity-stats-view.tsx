@@ -2,8 +2,8 @@
  * Activity Stats: the media plan counted and weighed, by asset type and by
  * language, in the app's own table style.
  */
-import type { MediaStat } from "@prismshadow/penguin-server/api";
-import { Button, EmptyState, SkeletonList } from "@prismshadow/penguin-ui";
+import type { MediaStat } from "@waterford/waf-harness-server/api";
+import { Button, EmptyState, SkeletonList } from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";

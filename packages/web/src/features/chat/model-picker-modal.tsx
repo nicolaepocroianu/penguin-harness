@@ -35,7 +35,7 @@
  */
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import type { ModelInfo, ModelRefDto } from "@prismshadow/penguin-server/api";
+import type { ModelInfo, ModelRefDto } from "@waterford/waf-harness-server/api";
 import {
   Pill,
   ChoiceCheck,
@@ -48,7 +48,7 @@ import {
   ProviderLogo,
   SearchInput,
   navRowClass,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { hasConfiguredKey, sameModelRef } from "../models/model-grouping";
 import { loadModelGroupOrder } from "../models/model-group-order";

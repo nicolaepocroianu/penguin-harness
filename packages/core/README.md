@@ -1,11 +1,11 @@
-# @prismshadow/penguin-core
+# @waterford/waf-harness-core
 
-The PenguinHarness SDK and execution engine: the ReAct loop (`context_engine`), the OmniMessage protocol, the LLM / Environment interface contracts, Agent State and append-only Traces.
+The WAF Harness SDK and execution engine: the ReAct loop (`context_engine`), the OmniMessage protocol, the LLM / Environment interface contracts, Agent State and append-only Traces.
 
 The engine speaks only OmniMessage and delegates everything else through two swappable interfaces — `LLMInterface` (models, via the [`@prismshadow/mmsp`](https://www.npmjs.com/package/@prismshadow/mmsp) gateway) and `EnvironmentInterface` (tool execution). The SDK caller is the Human boundary: one entry point, `session.run`, streams the whole loop.
 
 ```ts
-import { createAgent, isCompleteModelMessage, userText } from "@prismshadow/penguin-core";
+import { createAgent, isCompleteModelMessage, userText } from "@waterford/waf-harness-core";
 
 const agent = await createAgent({ agentId: "default_agent" });
 const session = await agent.createSession({ workspaceDir: process.cwd() });
@@ -19,7 +19,7 @@ for await (const output of session.run([userText("Create hello.txt containing hi
 }
 ```
 
-A single `run` drives a complete Task: streaming output, per-call approvals, concurrent tool execution, interrupt carry-over, automatic reconnect and context compaction. State lives under `~/.penguin/data` (`PENGUIN_HOME`); every Session restores fully from its Trace.
+A single `run` drives a complete Task: streaming output, per-call approvals, concurrent tool execution, interrupt carry-over, automatic reconnect and context compaction. State lives under `~/.waf-harness/data` (`WAFH_HOME`); every Session restores fully from its Trace.
 
 ## Documentation
 
@@ -32,10 +32,10 @@ A single `run` drives a complete Task: streaming output, per-call approvals, con
 ## Development
 
 ```bash
-pnpm --filter @prismshadow/penguin-core build       # tsup → dist/ (exports point at dist)
-pnpm --filter @prismshadow/penguin-core typecheck
-pnpm --filter @prismshadow/penguin-core test
+pnpm --filter @waterford/waf-harness-core build       # tsup → dist/ (exports point at dist)
+pnpm --filter @waterford/waf-harness-core typecheck
+pnpm --filter @waterford/waf-harness-core test
 pnpm test:e2e                                       # live-model e2e (needs DEEPSEEK_API_KEY)
 ```
 
-Part of [PenguinHarness](https://github.com/Prism-Shadow/penguin-harness) · Apache-2.0
+Part of [WAF Harness](https://github.com/Prism-Shadow/penguin-harness) · Apache-2.0

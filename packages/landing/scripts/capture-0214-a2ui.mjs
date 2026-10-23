@@ -3,8 +3,8 @@
  * Mermaid flow, a steps procedure and a choice) and one carrying the four widgets (weather,
  * clock, countdown, metrics). Each is shot in English, with the conversation in English too:
  *
- *   penguinharness-0-2-14-a2ui-blocks-en.png
- *   penguinharness-0-2-14-a2ui-widgets-en.png
+ *   waf-harness-0-2-14-a2ui-blocks-en.png
+ *   waf-harness-0-2-14-a2ui-widgets-en.png
  *
  * Same machinery as capture-blog-013-shots.mjs: a scripted mock LLM speaking OpenAI
  * chat-completions SSE, the built server on a scratch data root, Playwright Chromium. The mock
@@ -36,8 +36,8 @@ const ROOT = path.resolve(HERE, "../../..");
 const OUT_DIR = path.resolve(HERE, "../.blog-assets");
 const SRV_PORT = Number(process.env.SHOT_SRV_PORT ?? 19115);
 const MOCK_PORT = Number(process.env.SHOT_MOCK_PORT ?? 19116);
-const SEED_PASSWORD = "penguin-2026";
-const ADMIN_PASSWORD = "penguin-shots-0214";
+const SEED_PASSWORD = "wafh-2026";
+const ADMIN_PASSWORD = "wafh-shots-0214";
 // The App is served on `localhost`; 127.0.0.1 is the Workspace-preview host and answers 401.
 const BASE = `http://localhost:${SRV_PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
@@ -355,12 +355,12 @@ console.log(`[a2ui] mock LLM on ${MOCK}`);
 const srv = spawn("node", [path.join(ROOT, "packages/server/dist/index.js")], {
   env: {
     ...process.env,
-    PENGUIN_HOME: path.join(dataRoot, "home"),
-    PENGUIN_WEB_DB: path.join(dataRoot, "home", "web.db"),
-    PENGUIN_WEB_DIST: path.join(ROOT, "packages/web/dist"),
+    WAFH_HOME: path.join(dataRoot, "home"),
+    WAFH_WEB_DB: path.join(dataRoot, "home", "web.db"),
+    WAFH_WEB_DIST: path.join(ROOT, "packages/web/dist"),
     PORT: String(SRV_PORT),
     HOST: "127.0.0.1",
-    PENGUIN_SEED_ADMIN_PASSWORD: SEED_PASSWORD,
+    WAFH_SEED_ADMIN_PASSWORD: SEED_PASSWORD,
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -438,10 +438,10 @@ try {
       });
       await context.addInitScript(
         ([l, p]) => {
-          localStorage.setItem("penguin.lang", l);
-          localStorage.setItem("penguin.themeId", "modern");
-          localStorage.setItem("penguin.theme", "light");
-          localStorage.setItem("penguin.lastProjectId", p);
+          localStorage.setItem("wafh.lang", l);
+          localStorage.setItem("wafh.themeId", "modern");
+          localStorage.setItem("wafh.theme", "light");
+          localStorage.setItem("wafh.lastProjectId", p);
         },
         [lang, projectId],
       );
@@ -508,7 +508,7 @@ try {
         width: right - Math.max(0, left),
         height: bottom + 28 - Math.max(0, top),
       };
-      const file = `penguinharness-0-2-14-a2ui-${key}-${lang}.png`;
+      const file = `waf-harness-0-2-14-a2ui-${key}-${lang}.png`;
       await page.screenshot({ path: path.join(OUT_DIR, file), clip });
       console.log(`[a2ui] ${file} ${JSON.stringify(clip)}`);
       await context.close();

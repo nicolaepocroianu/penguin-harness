@@ -6,7 +6,7 @@
  * runs, not ones the first request answers. The server builds one program from the entry
  * (and whatever it imports), under options the HOST fixes — `strict`, NodeNext; a
  * `tsconfig.json` in the folder is not consulted, so a workbench cannot switch strictness
- * off for itself. `@prismshadow/penguin-server/plugin` resolves to the types the harness
+ * off for itself. `@waterford/waf-harness-server/plugin` resolves to the types the harness
  * wrote into the folder (./harness-types.ts), never to a package: what the workbench was
  * written against. Whether that still fits this platform is ../plugin/iface-check.ts.
  *
@@ -27,7 +27,7 @@ import { harnessTypesFile } from "./harness-types.js";
 export const ENTRY = "index.ts";
 export const BUILD_DIR = ".build";
 /** The module a workbench imports its types from. */
-export const TYPES_MODULE = "@prismshadow/penguin-server/plugin";
+export const TYPES_MODULE = "@waterford/waf-harness-server/plugin";
 const CHECK_FILE = "__workbench_check__.ts";
 const CHECK_SOURCE = `import type { WorkbenchPackage } from ${JSON.stringify(TYPES_MODULE)};
 import pkg from "./index.js";

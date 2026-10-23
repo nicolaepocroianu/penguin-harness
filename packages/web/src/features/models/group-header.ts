@@ -17,9 +17,9 @@ import {
   MODEL_PROVIDERS,
   PENGUIN_GO_PROVIDER_ID,
   isAddableGroup,
-} from "@prismshadow/penguin-server/model-catalog";
-import type { ModelProviderInfo } from "@prismshadow/penguin-server/model-catalog";
-import type { ProviderConnectionDto } from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/model-catalog";
+import type { ModelProviderInfo } from "@waterford/waf-harness-server/model-catalog";
+import type { ProviderConnectionDto } from "@waterford/waf-harness-server/api";
 
 /**
  * One box for everything on the header's right side, so its items share one height, one inset

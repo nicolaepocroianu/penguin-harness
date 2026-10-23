@@ -9,7 +9,7 @@
  * line that matches nothing says nothing, rather than guessing; a line that matches says
  * exactly what the plan holds.
  */
-import type { AssetManifest } from "@prismshadow/penguin-server/api";
+import type { AssetManifest } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { NO_PLACEHOLDERS, bindingOf, type PlaceholderPaths } from "./placeholder-media";
 import { boundSource } from "./ref-plan";

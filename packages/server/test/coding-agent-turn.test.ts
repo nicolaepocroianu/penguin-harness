@@ -1,11 +1,11 @@
 /**
- * The translation from an ACP turn's events to the OmniMessages every Penguin Session emits:
+ * The translation from an ACP turn's events to the OmniMessages every WAF Harness Session emits:
  * streamed text and thinking as partials closed by a complete message, tool calls once with
  * their output once, and a turn's end as the request's end.
  */
 import { describe, expect, it } from "vitest";
-import type { AgentSessionEvent, AgentToolCall } from "@prismshadow/penguin-coding-agents";
-import { tokenUsage, userText } from "@prismshadow/penguin-core";
+import type { AgentSessionEvent, AgentToolCall } from "@waterford/waf-harness-coding-agents";
+import { tokenUsage, userText } from "@waterford/waf-harness-core";
 import {
   AcpTurnTranslator,
   UsageLedger,

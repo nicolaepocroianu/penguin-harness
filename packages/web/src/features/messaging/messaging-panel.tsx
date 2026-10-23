@@ -23,7 +23,7 @@
  * conversation. Hiding the dock takes nothing away and asks nothing.
  */
 import { useEffect } from "react";
-import { Button, Skeleton, guardLeave, useUnsavedChanges } from "@prismshadow/penguin-ui";
+import { Button, Skeleton, guardLeave, useUnsavedChanges } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { setCloseGuard } from "../dock/close-guard";
 import { tabKey } from "../dock/dock-state";

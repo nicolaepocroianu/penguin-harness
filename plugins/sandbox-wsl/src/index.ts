@@ -1,11 +1,11 @@
 /**
- * @penguinharness/sandbox-wsl — a Windows sandbox backend that confines in a Linux
+ * @waf-harness/sandbox-wsl — a Windows sandbox backend that confines in a Linux
  * distro: each agent command runs in a dedicated WSL2 distro, as an unprivileged account, under
  * bubblewrap.
  *
  * A PLUGIN PACKAGE, not part of the platform: a Project asks for it on the Plugins page and the
  * harness resolves it from the installation. It compiles against the
- * `@prismshadow/penguin-core/plugin` surface and has no runtime dependency on the harness.
+ * `@waterford/waf-harness-core/plugin` surface and has no runtime dependency on the harness.
  *
  *   fs-write    → bwrap binds the Workspace (read-write or read-only) at its /mnt path; the
  *                 distro is read-only and every other Windows drive is hidden
@@ -29,14 +29,14 @@
  * the card while it runs.
  */
 import { fileURLToPath } from "node:url";
-import { Bind, Component, Interface, Use } from "@prismshadow/penguin-core/plugin";
+import { Bind, Component, Interface, Use } from "@waterford/waf-harness-core/plugin";
 import type {
   ConfinedArgv,
   Plugin,
   SandboxPolicy,
   SandboxProvider,
   SandboxProviderSource,
-} from "@prismshadow/penguin-core/plugin";
+} from "@waterford/waf-harness-core/plugin";
 import { readHost, readState } from "./host.js";
 import {
   BASE_TITLES,
@@ -123,7 +123,7 @@ export function createWslProvider(
     confine(argv, policy: SandboxPolicy): ConfinedArgv {
       const state = readState();
       if (state === null) {
-        throw new Error("penguin-wsl cannot confine: the sandbox distro is not initialized");
+        throw new Error("wafh-wsl cannot confine: the sandbox distro is not initialized");
       }
       const job = launchJob(argv, policy, settings(), state);
       return {
@@ -132,7 +132,7 @@ export function createWslProvider(
         env: { ELECTRON_RUN_AS_NODE: "1" },
         enforcement: "full",
         denialSignatures: ["read-only file system", "permission denied", "operation not permitted"],
-        runnerFailureRules: [{ fatalSignatures: ["penguin-wsl:", "bwrap: ", "Wsl/"] }],
+        runnerFailureRules: [{ fatalSignatures: ["wafh-wsl:", "bwrap: ", "Wsl/"] }],
       };
     },
   };
@@ -396,7 +396,7 @@ export class SandboxWslStatus {
     "SandboxModule.providers": [
       {
         id: "sandbox-wsl.provider",
-        name: "penguin-wsl",
+        name: "wafh-wsl",
         dimensions: ["fs-write", "network", "mask-paths", "closed-temp"],
       },
     ],
@@ -468,7 +468,7 @@ export class SandboxWslStatus {
             titleZh: "发行版名称",
             description: "The WSL distro this backend creates and runs commands in.",
             descriptionZh: "本后端创建并在其中执行命令的 WSL 发行版。",
-            default: "penguin-sandbox",
+            default: "wafh-sandbox",
             pattern: "^[A-Za-z0-9][A-Za-z0-9._-]*$",
             patternErrorMessage: "may use letters, digits, dot, dash and underscore",
           },

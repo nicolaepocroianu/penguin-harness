@@ -1,11 +1,11 @@
 // Builds the extension into dist/ (what "Load unpacked" takes) and zips it beside:
 //
 //   dist/background.js, dist/pages/{pair,popup}.{html,js}, dist/pages/pages.css
-//   dist/icons/icon{,-grey}-{16,32,48,128}.png   (sized and greyed from icons/penguin-128.png)
-//   dist/icons/penguin-logo.svg                  (the site's logo, in the pages' headers)
+//   dist/icons/icon{,-grey}-{16,32,48,128}.png   (sized and greyed from icons/wafh-128.png)
+//   dist/icons/wafh-logo.svg                  (the site's logo, in the pages' headers)
 //   dist/_locales/en/messages.json             (the manifest's name and description)
 //   dist/manifest.json                           (manifest.json + the package version)
-//   dist/penguin-browser-extension-<version>.zip (everything above, manifest at the zip root)
+//   dist/wafh-browser-extension-<version>.zip (everything above, manifest at the zip root)
 //
 // The manifest's version is the repo version, which release prep bumps in every package.json;
 // a pre-release suffix ("0.3.0-rc.1") goes to `version_name`, since Chrome takes digits only.
@@ -59,9 +59,9 @@ for (const file of ["pair.html", "popup.html", "pages.css"]) {
 }
 cpSync(path.join(root, "_locales"), path.join(dist, "_locales"), { recursive: true });
 
-cpSync(path.join(root, "icons", "penguin-logo.svg"), path.join(dist, "icons", "penguin-logo.svg"));
+cpSync(path.join(root, "icons", "wafh-logo.svg"), path.join(dist, "icons", "wafh-logo.svg"));
 
-const source = decodePng(readFileSync(path.join(root, "icons", "penguin-128.png")));
+const source = decodePng(readFileSync(path.join(root, "icons", "wafh-128.png")));
 for (const size of [16, 32, 48, 128]) {
   const icon = size === source.width ? source : resize(source, size);
   writeFileSync(path.join(dist, "icons", `icon-${size}.png`), encodePng(size, size, icon.rgba));
@@ -81,6 +81,6 @@ function listFiles(dir, prefix = "") {
   });
 }
 
-const archive = `penguin-browser-extension-${version}.zip`;
+const archive = `wafh-browser-extension-${version}.zip`;
 writeFileSync(path.join(dist, archive), zip(listFiles(dist)));
 console.log(`browser-extension: dist/ and dist/${archive} (version ${version})`);

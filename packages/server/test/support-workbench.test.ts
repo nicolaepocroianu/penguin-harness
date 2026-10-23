@@ -11,10 +11,10 @@
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import { apiClient, createTestApp, loginAdmin, writeTraceFile, type TestApp } from "./helpers.js";
 import { adoptSession, fakeSession, uniqueSessionId } from "./fixtures/session.js";
-const BASE = "/api/projects/default_project/agents/penguin_support/workbenches/support";
+const BASE = "/api/projects/default_project/agents/wafh_support/workbenches/support";
 const message = (role: string, text: string): OmniMessage =>
   ({
     timestamp: "2026-10-14T00:00:00Z",
@@ -34,7 +34,7 @@ describe("built-in support workbench", { timeout: 30000 }, () => {
   beforeAll(async () => {
     t = await createTestApp({
       beforeSeed: async (root) => {
-        const dir = path.join(root, "default_project/agents/penguin_support/workbenches/support");
+        const dir = path.join(root, "default_project/agents/wafh_support/workbenches/support");
         await fs.mkdir(dir, { recursive: true });
         await fs.writeFile(
           path.join(dir, "state.json"),
@@ -58,13 +58,13 @@ describe("built-in support workbench", { timeout: 30000 }, () => {
     for (let i = 0; i < ids.length; i++)
       adoptSession(t.deps, fakeSession(ids[i]!), {
         projectId: i === 2 ? "foreign" : "default_project",
-        agentId: "penguin_support",
+        agentId: "wafh_support",
       });
-    await writeTraceFile(t.root, "default_project", "penguin_support", "2026-09-01", ids[0]!, 1, [
+    await writeTraceFile(t.root, "default_project", "wafh_support", "2026-09-01", ids[0]!, 1, [
       message("user", "How?"),
       message("assistant", "Read [the docs](https://penguin.ooo/docs/)."),
     ]);
-    await writeTraceFile(t.root, "default_project", "penguin_support", "2026-09-01", ids[1]!, 1, [
+    await writeTraceFile(t.root, "default_project", "wafh_support", "2026-09-01", ids[1]!, 1, [
       message("user", "old"),
       message("assistant", "old answer"),
       message("user", "new question"),
@@ -86,9 +86,9 @@ describe("built-in support workbench", { timeout: 30000 }, () => {
     expect(body.workbenches[0]?.error).toBeNull();
     expect(body.workbenches[0]?.tabs.map((t) => t.key)).toEqual(["support"]);
     expect((await admin.get(`${BASE}/ui/index.html`)).status).toBe(200);
-    expect(
-      (await admin.delete("/api/projects/default_project/agents/penguin_support")).status,
-    ).toBe(409);
+    expect((await admin.delete("/api/projects/default_project/agents/wafh_support")).status).toBe(
+      409,
+    );
   });
   it("recovers persisted jobs once and keeps failures isolated across reloads", async () => {
     const first = await tickets();
@@ -145,14 +145,14 @@ describe("built-in support workbench", { timeout: 30000 }, () => {
       (await admin.post("/api/projects/default_project/agents", { agentId: "plugin_support" }))
         .status,
     ).toBe(201);
-    const install = await admin.post(`${agent}/plugins`, { names: ["penguin-support"] });
+    const install = await admin.post(`${agent}/plugins`, { names: ["wafh-support"] });
     expect(install.status).toBe(201);
     expect(await install.json()).toMatchObject({
-      workbenches: [{ name: "support", plugin: "penguin-support" }],
-      skills: [{ name: "penguin-support" }],
+      workbenches: [{ name: "support", plugin: "wafh-support" }],
+      skills: [{ name: "wafh-support" }],
     });
     expect(await (await admin.get(`${agent}/plugins`)).json()).toMatchObject({
-      workbenches: [{ name: "support", plugin: "penguin-support" }],
+      workbenches: [{ name: "support", plugin: "wafh-support" }],
     });
     const list = await admin.get(`${agent}/workbenches`);
     expect(await list.json()).toMatchObject({
@@ -170,7 +170,7 @@ describe("built-in support workbench", { timeout: 30000 }, () => {
       (await fs.readFile(authored, "utf8")).replace(/^.*sessionTitle\(.*\n/gm, ""),
     );
     await fs.writeFile(path.join(disk, "ui/app.js"), "local edit");
-    expect((await admin.post(`${agent}/plugins`, { names: ["penguin-support"] })).status).toBe(201);
+    expect((await admin.post(`${agent}/plugins`, { names: ["wafh-support"] })).status).toBe(201);
     expect(await (await admin.get(`${agent}/workbenches`)).json()).toMatchObject({
       workbenches: [{ error: null }],
     });
@@ -185,7 +185,7 @@ describe("built-in support workbench", { timeout: 30000 }, () => {
     const dir = path.join(t.root, "default_project/agents/conflict_support/workbenches/support");
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, "package.json"), "{}");
-    expect((await admin.post(`${agent}/plugins`, { names: ["penguin-support"] })).status).toBe(409);
+    expect((await admin.post(`${agent}/plugins`, { names: ["wafh-support"] })).status).toBe(409);
     expect(await (await admin.get(`${agent}/skills`)).json()).toMatchObject({ skills: [] });
   });
 });

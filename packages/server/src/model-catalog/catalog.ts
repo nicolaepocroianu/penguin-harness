@@ -3,10 +3,10 @@
  * that MMSP can auto-route, the provider groups, pricing and off-peak rules, and the UI helpers
  * — the server's, which seeds a new Project's config from it (seed.ts), and the Web App's, the
  * CLI's and the component gallery's, which display it through the browser-safe subpath
- * `@prismshadow/penguin-server/model-catalog` (index.ts).
+ * `@waterford/waf-harness-server/model-catalog` (index.ts).
  *
  * Core knows none of this (PRN-021): it holds MMSP's client table and the connection rules
- * (`@prismshadow/penguin-core/model-connection`), and the catalog reaches it only through the
+ * (`@waterford/waf-harness-core/model-connection`), and the catalog reaches it only through the
  * Project config this module seeds.
  * Data verified as of 2026-07-10 (Qwen Token Plan entries: 2026-07-20; MiniMax: 2026-08-03;
  * DeepSeek, GLM-5.3 and the whole OpenAI line-up (direct + OpenRouter):
@@ -95,7 +95,7 @@
  * OpenAI Responses endpoint, and the explicit pin keeps a Qwen or DeepSeek id from auto-routing
  * to a vendor client with a different request shape.
  *
- * App attribution (the headers that name PenguinHarness to the gateways that read one) is not
+ * App attribution (the headers that name WAF Harness to the gateways that read one) is not
  * here: it is keyed on the endpoint host, not on a provider group, and is a module of core's
  * own (`llm/app-attribution.ts`), whose headers GenerativeModel attaches to every request.
  *
@@ -108,8 +108,8 @@ import {
   OFFICIAL_CLIENT_TYPES,
   routedClientType,
 } from "@prismshadow/mmsp/credentials";
-import type { ModelPricing } from "@prismshadow/penguin-core";
-import { sameClientType } from "@prismshadow/penguin-core/model-connection";
+import type { ModelPricing } from "@waterford/waf-harness-core";
+import { sameClientType } from "@waterford/waf-harness-core/model-connection";
 
 /** Model provider info (used for web grouping/logo and the "API key blank falls back to env var" hint). */
 /**
@@ -369,7 +369,7 @@ export function fixedClientType(providerId: string): string | undefined {
  *
  * The fixed protocol is always accepted, and so is `stored` written back unchanged: a row a user
  * pointed at their own proxy on another protocol before the protocol was fixed (left alone by
- * migratePenguinGoRoutes) keeps it, and a whole-table save carrying it is not refused. A row
+ * migrateWafHarnessGoRoutes) keeps it, and a whole-table save carrying it is not refused. A row
  * with no protocol of its own follows its group, so clearing a row's is accepted; clearing the
  * group's would leave its rows routed by model id, and is refused.
  */
@@ -432,7 +432,7 @@ export const MODEL_PROVIDERS: ModelProviderInfo[] = [
     oauth: {
       authorizeUrl: "https://tokendance.space/auth",
       exchangeUrl: "https://tokendance.space/portal/api/v1/auth/keys",
-      keyName: "PenguinHarness",
+      keyName: "WAF Harness",
     },
     // https://tokendance.space/docs/open-api (the account's wallet, in micro-yuan)
     balance: {

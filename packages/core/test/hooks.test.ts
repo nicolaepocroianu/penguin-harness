@@ -133,7 +133,7 @@ describe("runStopHooks", () => {
 describe("script hooks", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-script-hook-"));
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-script-hook-"));
   });
   afterEach(async () => {
     await rmEventually(dir);
@@ -166,12 +166,12 @@ describe("script hooks", () => {
   it("pathPrepend puts the host's directories at the front of the script's PATH", async () => {
     // A hook is spawned as `node <script>` — no shell, so nothing re-orders PATH after
     // this. It is the same directory commands get (the harness's own CLI shim), so a hook
-    // that shells out to `penguin` reaches the harness running it.
+    // that shells out to `wafh` reaches the harness running it.
     const readPath = await write("path.mjs", answering("{ path: process.env.PATH }"));
-    const out = (await runHookScript(readPath, {}, { pathPrepend: ["/opt/penguin/bin"] })) as {
+    const out = (await runHookScript(readPath, {}, { pathPrepend: ["/opt/wafh/bin"] })) as {
       path: string;
     };
-    expect(out.path.startsWith(`/opt/penguin/bin${path.delimiter}`)).toBe(true);
+    expect(out.path.startsWith(`/opt/wafh/bin${path.delimiter}`)).toBe(true);
     expect(out.path).toContain(process.env.PATH ?? "");
   });
 
@@ -227,7 +227,7 @@ describe("script hooks", () => {
 describe("script hooks under the sandbox", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-hooks-sandbox-"));
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-hooks-sandbox-"));
   });
   afterEach(async () => {
     await rmEventually(dir);
@@ -314,7 +314,7 @@ describe("script hooks under the sandbox", () => {
 describe("script pre-tool-use hooks", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-tool-script-"));
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-tool-script-"));
   });
   afterEach(async () => {
     await rmEventually(dir);
@@ -358,7 +358,7 @@ describe("script pre-tool-use hooks", () => {
 describe("Session user-prompt hook", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-prompt-hook-"));
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-prompt-hook-"));
   });
   afterEach(async () => {
     await rmEventually(dir);
@@ -415,7 +415,7 @@ describe("Session user-prompt hook", () => {
 describe("Session stop hooks", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-hooks-"));
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-hooks-"));
   });
   afterEach(async () => {
     await rmEventually(dir);
@@ -631,7 +631,7 @@ describe("runPreToolUseHooks", () => {
 describe("Session pre-tool-use hooks", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-tool-hooks-"));
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-tool-hooks-"));
   });
   afterEach(async () => {
     await rmEventually(dir);

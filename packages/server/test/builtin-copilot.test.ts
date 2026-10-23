@@ -40,13 +40,13 @@ describe("built-in copilot", () => {
 
   beforeEach(async () => {
     registry = await fakeRegistry({ packageName, version: COPILOT_VERSION });
-    process.env.PENGUIN_NPM_REGISTRY = registry.url;
+    process.env.WAFH_NPM_REGISTRY = registry.url;
     t = await createTestApp();
     admin = apiClient(t.app, (await loginAdmin(t.app)).cookie);
     member = apiClient(t.app, (await provisionUser(t.app, "member_b")).cookie);
   });
   afterEach(async () => {
-    delete process.env.PENGUIN_NPM_REGISTRY;
+    delete process.env.WAFH_NPM_REGISTRY;
     await t.cleanup();
     await registry.close();
   });
@@ -123,7 +123,7 @@ describe("built-in copilot", () => {
   it("reports a failed download and keeps no half install", async () => {
     await registry.close();
     registry = await fakeRegistry({ packageName, version: COPILOT_VERSION, corrupt: true });
-    process.env.PENGUIN_NPM_REGISTRY = registry.url;
+    process.env.WAFH_NPM_REGISTRY = registry.url;
     await admin.post("/api/coding-agents/builtin/copilot/setup", { token: PAT });
     const failed = await until(state, (s) => s.status !== "downloading");
     expect(failed.status).toBe("failed");
@@ -143,7 +143,7 @@ describe("built-in copilot", () => {
     let release!: () => void;
     const hold = new Promise<void>((r) => (release = r));
     registry = await fakeRegistry({ packageName, version: COPILOT_VERSION, hold });
-    process.env.PENGUIN_NPM_REGISTRY = registry.url;
+    process.env.WAFH_NPM_REGISTRY = registry.url;
     const started = await admin.post("/api/coding-agents/builtin/copilot/setup", { token: PAT });
     expect(((await started.json()) as { agent: { status: string } }).agent.status).toBe(
       "downloading",
@@ -162,7 +162,7 @@ describe("built-in copilot", () => {
     let release!: () => void;
     const hold = new Promise<void>((r) => (release = r));
     registry = await fakeRegistry({ packageName, version: COPILOT_VERSION, hold });
-    process.env.PENGUIN_NPM_REGISTRY = registry.url;
+    process.env.WAFH_NPM_REGISTRY = registry.url;
     await admin.post("/api/coding-agents/builtin/copilot/setup", { token: PAT });
     const removed = admin.delete("/api/coding-agents/builtin/copilot");
     release();
@@ -225,7 +225,7 @@ describe("built-in copilot across a restart", () => {
   it("restores the install and sweeps leftovers", async () => {
     const packageName = copilotPackageName(process.platform, process.arch, isMuslLinux())!;
     const registry = await fakeRegistry({ packageName, version: COPILOT_VERSION });
-    process.env.PENGUIN_NPM_REGISTRY = registry.url;
+    process.env.WAFH_NPM_REGISTRY = registry.url;
     const root = await makeTempRoot();
     const config = { root, dbPath: path.join(root, "web.db") };
     let second: TestApp | undefined;
@@ -259,7 +259,7 @@ describe("built-in copilot across a restart", () => {
       });
       expect((await fs.readdir(runtimes)).sort()).toEqual([COPILOT_VERSION]);
     } finally {
-      delete process.env.PENGUIN_NPM_REGISTRY;
+      delete process.env.WAFH_NPM_REGISTRY;
       if (second !== undefined) await second.cleanup();
       else await fs.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       await registry.close();
@@ -269,7 +269,7 @@ describe("built-in copilot across a restart", () => {
   it("reports a missing program as failed, keeps the token, and downloads it again", async () => {
     const packageName = copilotPackageName(process.platform, process.arch, isMuslLinux())!;
     const registry = await fakeRegistry({ packageName, version: COPILOT_VERSION });
-    process.env.PENGUIN_NPM_REGISTRY = registry.url;
+    process.env.WAFH_NPM_REGISTRY = registry.url;
     const root = await makeTempRoot();
     const config = { root, dbPath: path.join(root, "web.db") };
     let second: TestApp | undefined;
@@ -312,7 +312,7 @@ describe("built-in copilot across a restart", () => {
         message: null,
       });
     } finally {
-      delete process.env.PENGUIN_NPM_REGISTRY;
+      delete process.env.WAFH_NPM_REGISTRY;
       if (second !== undefined) await second.cleanup();
       else await fs.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       await registry.close();

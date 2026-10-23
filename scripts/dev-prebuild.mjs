@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
  * Serialized dev prestep: ensure dependencies are installed, then build what the dev
- * servers consume: packages/core, and what the `penguin` a dev server hands the Agents it runs
- * and puts first in its terminals needs. That shim (`<root>/bin/penguin`) runs the CLI's
+ * servers consume: packages/core, and what the `wafh` a dev server hands the Agents it runs
+ * and puts first in its terminals needs. That shim (`<root>/bin/wafh`) runs the CLI's
  * SOURCE through tsx while the server runs from source, so CLI edits show up without a
  * restart; but the CLI imports modules of packages/server at runtime (the lock, the token
  * minting, the version report…) from the server's dist, which the dev server itself, running
  * its source under tsx, never builds — so the prestep builds the server too, JavaScript only
- * (PENGUIN_BUILD_JS_ONLY, see packages/server/tsup.config.ts). Before it comes packages/hmr,
+ * (WAFH_BUILD_JS_ONLY, see packages/server/tsup.config.ts). Before it comes packages/hmr,
  * which that build inlines and the dev server imports; the server's build script also
  * regenerates the interface table (src/ifaces.json) the dev server reads. packages/cli is
  * built as well: its dist is what the shim falls back to when the source cannot run (no tsx).
@@ -59,13 +59,13 @@ const INSTALL_ONLY = process.argv.includes("--install-only");
 // Lock and stamps live in the OS temp dir keyed by the repo path (NOT under node_modules:
 // they must exist before the first install, and per-checkout isolation comes from the key).
 const KEY = createHash("sha1").update(ROOT).digest("hex").slice(0, 12);
-const LOCK_DIR = path.join(os.tmpdir(), `penguin-dev-${KEY}.lock`);
+const LOCK_DIR = path.join(os.tmpdir(), `wafh-dev-${KEY}.lock`);
 const PID_FILE = path.join(LOCK_DIR, "pid");
-const INSTALL_STAMP = path.join(os.tmpdir(), `penguin-dev-${KEY}.install-stamp`);
-const BUILD_STAMP = path.join(os.tmpdir(), `penguin-dev-${KEY}.build-stamp`);
+const INSTALL_STAMP = path.join(os.tmpdir(), `wafh-dev-${KEY}.install-stamp`);
+const BUILD_STAMP = path.join(os.tmpdir(), `wafh-dev-${KEY}.build-stamp`);
 const STALE_LOCK_MS = 10 * 60 * 1000; // no install+build takes 10 minutes; older locks are leftovers
 const SKIP_WINDOW_MS = 5_000;
-const VITE_STAMP = path.join(os.tmpdir(), `penguin-dev-${KEY}.vite-stamp`);
+const VITE_STAMP = path.join(os.tmpdir(), `wafh-dev-${KEY}.vite-stamp`);
 const WEB_VITE_CACHE = path.join(ROOT, "packages", "web", "node_modules", ".vite");
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -233,7 +233,7 @@ try {
         [
           ...["core", "hmr", "server", "cli"].flatMap((pkg) => [
             "--filter",
-            `@prismshadow/penguin-${pkg}`,
+            `@waterford/waf-harness-${pkg}`,
           ]),
           "build",
         ],
@@ -244,7 +244,7 @@ try {
           shell: process.platform === "win32",
           // The server's declarations take most of its build and nothing at runtime reads
           // them; the other packages' configs ignore this.
-          env: { ...process.env, PENGUIN_BUILD_JS_ONLY: "1" },
+          env: { ...process.env, WAFH_BUILD_JS_ONLY: "1" },
         },
       );
       if (res.status === 0) {

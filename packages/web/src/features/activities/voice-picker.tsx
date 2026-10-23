@@ -6,7 +6,7 @@
  */
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { VoiceOption } from "@prismshadow/penguin-server/api";
+import type { VoiceOption } from "@waterford/waf-harness-server/api";
 import {
   Button,
   Field,
@@ -17,7 +17,7 @@ import {
   sizeClass,
   Select,
   usePortalPanel,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import {
   NO_VOICE_FILTERS,

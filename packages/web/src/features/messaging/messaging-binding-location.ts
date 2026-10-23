@@ -17,7 +17,7 @@ import type {
   MessagingAccountHolder,
   MessagingBindingInfo,
   MessagingUnreachableMachine,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import type { MachineLink } from "../../lib/machine-link";
 import { formatDateTime } from "../../lib/format";
 import { machineForSession } from "../../lib/session-machines";

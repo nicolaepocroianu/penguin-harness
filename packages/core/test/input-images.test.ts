@@ -43,7 +43,7 @@ const DATA_URL = `data:image/png;base64,${PNG_1X1.toString("base64")}`;
 let tmp: string;
 
 beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), "penguin-inputimg-"));
+  tmp = await mkdtemp(path.join(tmpdir(), "wafh-inputimg-"));
 });
 
 afterEach(async () => {

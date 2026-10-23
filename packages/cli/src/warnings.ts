@@ -2,17 +2,17 @@
  * Drops one Node warning, and only that one.
  *
  * `commands/serve.ts` pulls in `commands/reset-password.ts`, which imports
- * `@prismshadow/penguin-server/reset-admin-password` — that reaches `node:sqlite` while
+ * `@waterford/waf-harness-server/reset-admin-password` — that reaches `node:sqlite` while
  * the module graph loads, so on a Node that still flags the builtin experimental every
- * `penguin` invocation prints
+ * `wafh` invocation prints
  * `ExperimentalWarning: SQLite is an experimental feature ...`, including the ones whose
  * whole output is a usage error. Nothing in the CLI's own behavior depends on the
  * builtin's stability, and the user has no action to take.
  *
  * The filter lives in the entry module rather than in a launcher flag because both ways
- * of starting the CLI reach it: the release tarball's `bin/penguin` execs
- * `node lib/dist/penguin.js` with no flags, and the dev script runs
- * `tsx packages/cli/src/penguin.ts`. `--disable-warning=ExperimentalWarning` (what the
+ * of starting the CLI reach it: the release tarball's `bin/wafh` execs
+ * `node lib/dist/wafh.js` with no flags, and the dev script runs
+ * `tsx packages/cli/src/wafh.ts`. `--disable-warning=ExperimentalWarning` (what the
  * server's `start` script uses) would have to be added to both, and would hide every
  * future experimental warning instead of this one.
  *

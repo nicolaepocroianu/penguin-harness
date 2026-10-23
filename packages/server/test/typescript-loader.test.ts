@@ -18,7 +18,7 @@ describe("the compiler the server takes", () => {
   let root: string;
 
   beforeEach(() => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-compiler-"));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-compiler-"));
   });
 
   afterEach(() => {

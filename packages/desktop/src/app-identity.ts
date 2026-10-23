@@ -58,31 +58,31 @@ export function resolveProfile(opts: { argv: readonly string[]; isPackaged: bool
 /** The identity for this profile: release, or dev-suffixed so both can run side by side. */
 export function appIdentity(profile: Profile): AppIdentity {
   return profile === "release"
-    ? { name: "PenguinHarness", appUserModelId: "com.prismshadow.penguinharness" }
-    : { name: "PenguinHarness-Dev", appUserModelId: "com.prismshadow.penguinharness.dev" };
+    ? { name: "WAF Harness", appUserModelId: "com.waterford.wafharness" }
+    : { name: "WAF Harness Dev", appUserModelId: "com.waterford.wafharness.dev" };
 }
 
 /**
- * The dev default data root, `~/.penguin/dev-data` — the same convention as the repo's
+ * The dev default data root, `~/.waf-harness/dev-data` — the same convention as the repo's
  * other dev entry points (CONTRIBUTING.md), kept apart from the release/CLI
- * `~/.penguin/data`. Without this split a dev shell launched bare (no PENGUIN_HOME)
+ * `~/.waf-harness/data`. Without this split a dev shell launched bare (no WAFH_HOME)
  * would find the release install's server.lock on the shared root and attach to the
  * running RELEASE instance — or, with the release idle, spawn its own server over the
  * release's data.
  */
 export function devDataRoot(homedir: string): string {
-  return path.join(homedir, ".penguin", "dev-data");
+  return path.join(homedir, ".waf-harness", "dev-data");
 }
 
 /**
- * This form's data root, i.e. the precedence rule itself: an explicit `PENGUIN_HOME`
+ * This form's data root, i.e. the precedence rule itself: an explicit `WAFH_HOME`
  * always wins; without one the release profile shares the CLI's root by design, so a
  * desktop install and the CLI see the same Agents, Sessions and usage, while the dev
  * profile takes the repo's dev root instead of attaching to — or writing into — the
  * release install's data.
  *
  * `releaseRoot` stays a thunk (core's `resolveRoot`) so core remains the single
- * definition point of `~/.penguin/data`; it is only called when there is no explicit
+ * definition point of `~/.waf-harness/data`; it is only called when there is no explicit
  * value, which is exactly the case where `resolveRoot()` yields that default. Pure, so
  * the rule is unit-tested — it cannot be, inline in main.ts, which imports Electron.
  */

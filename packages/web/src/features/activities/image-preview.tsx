@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, ZoomableImage } from "@prismshadow/penguin-ui";
+import { Button, ZoomableImage } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 

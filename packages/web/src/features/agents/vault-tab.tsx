@@ -14,7 +14,7 @@
  * vault.prompt section, mirroring the Memory tab — owner-only, like the table edits.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { VaultEntryInfo, VaultUpdateRequest } from "@prismshadow/penguin-server/api";
+import type { VaultEntryInfo, VaultUpdateRequest } from "@waterford/waf-harness-server/api";
 import {
   Button,
   ConfirmModal,
@@ -24,7 +24,7 @@ import {
   SkeletonList,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";

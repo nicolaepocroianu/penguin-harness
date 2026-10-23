@@ -45,7 +45,7 @@ function bookActivity(): ActivityDetail {
     displayName: null,
     stable: false,
     refNum: 1,
-    title: "Penguin book",
+    title: "WAF Harness book",
     activityType: "book",
     archived: false,
     tags: [],

@@ -9,13 +9,13 @@
  * - events: every session gets a Channel (`coding-agent:<id>`); kernel events publish
  *   there as `coding_agent` SSE events, so replay/resync come for free from the hub.
  *
- * Two ways in. A Penguin Session whose model is a coding agent (chats, activity stages) goes
+ * Two ways in. A WAF Harness Session whose model is a coding agent (chats, activity stages) goes
  * through `openSessionRuntime`/`loadSessionRuntime`: an AcpRuntimeSession the session manager
  * drives, with a Trace, approvals, usage and reopening like any Session. The bare
  * `/api/coding-agents/sessions` routes still open agent sessions directly — kept for API
  * clients, in memory for the App's lifetime, with no Trace; no screen uses them.
  */
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import {
   VERSION,
   Writer,
@@ -24,7 +24,7 @@ import {
   readTraceTolerant,
   tracesDir,
   workspacesDir,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import {
   AcpAgentError,
   CodingAgentManager,
@@ -39,7 +39,7 @@ import {
   type AgentServerDefinition,
   type AgentSessionOptions,
   type AgentSessionEvent,
-} from "@prismshadow/penguin-coding-agents";
+} from "@waterford/waf-harness-coding-agents";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
@@ -130,14 +130,14 @@ function agentHome(root: string, agentId: string): string {
 }
 
 /**
- * Where a Penguin Session records which of the agent's own sessions it is: one small file
+ * Where a WAF Harness Session records which of the agent's own sessions it is: one small file
  * per Session in the agent's home, read back when the Session is reopened after a restart.
  */
 function sessionLinkPath(root: string, codingAgentId: string, sessionId: string): string {
   return path.join(agentHome(root, codingAgentId), "sessions", `${sessionId}.json`);
 }
 
-/** A Session id in the shape every Penguin Session has (core's formatSessionId). */
+/** A Session id in the shape every WAF Harness Session has (core's formatSessionId). */
 function newSessionId(date = new Date()): string {
   const pad = (n: number) => n.toString().padStart(2, "0");
   const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -221,7 +221,7 @@ export class CodingAgentService implements CodingAgents {
   private getManager(): CodingAgentManager {
     if (this.manager === null) {
       this.manager = new CodingAgentManager({
-        clientInfo: { name: "penguin", version: VERSION },
+        clientInfo: { name: "wafh", version: VERSION },
         envFor: (definition) => this.envFor(definition),
         onTurnEnd: (agentId, outcome) => {
           if (outcome.signInFailed) this.setSignInFailure(agentId, Date.now());
@@ -864,7 +864,7 @@ export class CodingAgentService implements CodingAgents {
   }): Promise<{ sessionId: string; workspace: string; runtime: RuntimeSession }> {
     const { agentId: codingAgentId, model } = parseCodingAgentModel(args.modelId);
     const workspace =
-      args.workspace?.trim() || (await this.penguinTempWorkspace(args.projectId, args.agentId));
+      args.workspace?.trim() || (await this.wafHarnessTempWorkspace(args.projectId, args.agentId));
     const view = await this.createSession(
       codingAgentId,
       workspace,
@@ -977,8 +977,8 @@ export class CodingAgentService implements CodingAgents {
     });
   }
 
-  /** A temporary workspace laid out exactly like core's, under the owning Penguin Agent. */
-  private async penguinTempWorkspace(projectId: string, agentId: string): Promise<string> {
+  /** A temporary workspace laid out exactly like core's, under the owning WAF Harness Agent. */
+  private async wafHarnessTempWorkspace(projectId: string, agentId: string): Promise<string> {
     const base = workspacesDir(this.config.root, projectId, agentId);
     await fs.mkdir(base, { recursive: true });
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -1030,7 +1030,7 @@ export class CodingAgentService implements CodingAgents {
         command: definition.command,
         args: definition.args ?? [],
         env: this.envFor(definition),
-        clientInfo: { name: "penguin", version: VERSION },
+        clientInfo: { name: "wafh", version: VERSION },
         ...(probeTimeoutMs !== undefined ? { timeoutMs: probeTimeoutMs } : {}),
       });
       return { models };
@@ -1149,7 +1149,7 @@ export class CodingAgentService implements CodingAgents {
   private envFor(definition: AgentServerDefinition): Record<string, string> {
     const extra: Record<string, string> = {
       ...definition.env,
-      PENGUIN_CODING_AGENT_HOME: agentHome(this.config.root, definition.id),
+      WAFH_CODING_AGENT_HOME: agentHome(this.config.root, definition.id),
       // Login flows open on the host, not in a browser the agent can spawn.
       NO_BROWSER: "1",
     };

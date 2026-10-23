@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Writes the built-in Benchmarks, PenguinHarness Benchmark Sec A to Sec E, GDPevo Train and
+ * Writes the built-in Benchmarks, WAF Harness Benchmark Sec A to Sec E, GDPevo Train and
  * GDPevo Test, as packages: for each, `<out>/<id>/` holding its manifest, benchmark_config.toml,
  * and every case's statement and rubric. That is what a new Project is seeded with, minus the
  * scoreboard, which is a copy's own record of its evaluations and never part of a package. The
@@ -12,8 +12,8 @@
  * Each `<out>/<id>/` is replaced whole; anything else under `<out>`, such as its README, is left
  * alone. The writer is core's, so build core first:
  *
- *   pnpm --filter @prismshadow/penguin-core build
- *   node scripts/benchmark-packages.mjs --out ../penguin-harness-benchmark/packages
+ *   pnpm --filter @waterford/waf-harness-core build
+ *   node scripts/benchmark-packages.mjs --out ../waf-harness-benchmark/packages
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -29,11 +29,11 @@ const out = path.resolve(values.out);
 
 let core;
 try {
-  core = await import("@prismshadow/penguin-core");
+  core = await import("@waterford/waf-harness-core");
 } catch (error) {
   console.error(
-    `benchmark-packages: cannot load @prismshadow/penguin-core (${error.message}). ` +
-      "Build it first: pnpm --filter @prismshadow/penguin-core build",
+    `benchmark-packages: cannot load @waterford/waf-harness-core (${error.message}). ` +
+      "Build it first: pnpm --filter @waterford/waf-harness-core build",
   );
   process.exit(1);
 }

@@ -10,7 +10,7 @@
  * test/library-plugins.test.ts holds the toolkits, and every plugin's Skills, to the plugins
  * directory and core's category manifest.
  */
-import type { PluginItem, SkillMetadataItem } from "@prismshadow/penguin-server/api";
+import type { PluginItem, SkillMetadataItem } from "@waterford/waf-harness-server/api";
 import aceIcon from "../../../../../plugins/ace-rsi-toolkit/icon.svg?raw";
 import acePkg from "../../../../../plugins/ace-rsi-toolkit/package.json";
 import evaluationIcon from "../../../../../plugins/agent-evaluation/icon.svg?raw";
@@ -30,7 +30,7 @@ interface Manifest {
   version: string;
   description: string;
   license?: string;
-  penguin: {
+  wafh: {
     title?: string;
     short_description?: string;
     quick_start?: { prompt: string; skills?: string[]; goal?: boolean };
@@ -39,7 +39,7 @@ interface Manifest {
 
 /** A library plugin as GET /api/plugins lists one this build ships. */
 function libraryPlugin(manifest: Manifest, icon: string, skills: SkillMetadataItem[]): PluginItem {
-  const p = manifest.penguin;
+  const p = manifest.wafh;
   const quick = p.quick_start;
   return {
     name: manifest.name.replace(/^@[^/]+\//, ""),
@@ -68,7 +68,7 @@ function libraryPlugin(manifest: Manifest, icon: string, skills: SkillMetadataIt
 }
 
 /** Default frontmatter version for the demo's unchanged Skills. */
-const SKILL_VERSION = "2026.10.12.1";
+const SKILL_VERSION = "2026.10.23.1";
 
 const skill = (name: string, description: string, version = SKILL_VERSION): SkillMetadataItem => ({
   name,
@@ -122,7 +122,7 @@ export function agentEvaluationPlugin(): PluginItem {
     skill(
       "benchmark-design",
       "Design and calibrate a multi-Case capability Benchmark and establish a traceable Formal Baseline, or import a published Benchmark package.",
-      "2026.10.14.1",
+      "2026.10.23.1",
     ),
   ]);
 }

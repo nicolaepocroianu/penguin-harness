@@ -1,4 +1,4 @@
-# @prismshadow/penguin-hmr — the HMR layer's mechanism, and nothing else
+# @waterford/waf-harness-hmr — the HMR layer's mechanism, and nothing else
 
 This package is the hot-update **mechanism**: the version store, the atomic `harness.json`
 commit, the resource registry live objects ride across a swap in, and the park → boot → swap
@@ -79,7 +79,7 @@ inherit it. Before touching the layer, ask whether a platform `boot()` could do 
 Worked examples, all from review: a preload bridge added to the Electron shell so the page could
 open DevTools (rejected — the shell already ships Ctrl+Shift+I, and the bridge cost the window's
 zero-preload posture); `PATH` injected where the shell forks the server so the agent could find
-the `penguin` CLI (rejected — what environment the agent sees is policy, and `boot()` reaches
+the `wafh` CLI (rejected — what environment the agent sees is policy, and `boot()` reaches
 deployed machines by push); a route added to the shell per new business API (the anti-pattern
 the seam exists to prevent). What does justify a layer change: transport and security
 mechanism, kernel evolution, and one-time primitives the hot layers build on.

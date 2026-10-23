@@ -7,7 +7,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { projectDir } from "@prismshadow/penguin-core";
+import { projectDir } from "@waterford/waf-harness-core";
 import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
 import { activitySpec, refFilesDir, refMediaDir } from "./activity-fixtures.js";
@@ -168,7 +168,7 @@ describe("POST /:activityId/ref-number", () => {
       await authoring().storeImage("renumberer-work", one.id, runId, imagePng(2, 2)),
       planned.contentRevision,
     );
-    const names = ["asset_manifest.json", "penguin.json"];
+    const names = ["asset_manifest.json", "wafh.json"];
     const before = await Promise.all(
       names.map((name) => fs.readFile(path.join(refFilesDir(t.root, "words", 12), name), "utf8")),
     );
@@ -304,7 +304,7 @@ describe("POST /:activityId/ref-number", () => {
     const moved = await renumber(one.id, 2, one.draft.contentRevision);
     expect(moved.status, await moved.clone().text()).toBe(200);
     expect(numbers(one.id).refNum).toBe(2);
-    await fs.access(path.join(refFilesDir(t.root, "words", 2), "penguin.json"));
+    await fs.access(path.join(refFilesDir(t.root, "words", 2), "wafh.json"));
     await expect(fs.access(refFilesDir(t.root, "words", 1))).rejects.toThrow();
     expect(await fs.readFile(path.join(module, "assessments", "words-2.json"), "utf8")).toBe(
       '{"items":[]}',
@@ -324,7 +324,7 @@ describe("POST /:activityId/ref-number", () => {
     expect(refused.status).toBe(409);
     expect(await refused.json()).toMatchObject({ error: { code: "activity_exists" } });
     expect(numbers(one.id).refNum).toBe(1);
-    await fs.access(path.join(refFilesDir(t.root, "words", 1), "penguin.json"));
+    await fs.access(path.join(refFilesDir(t.root, "words", 1), "wafh.json"));
   });
 
   it("is for owners only", async () => {

@@ -1,16 +1,16 @@
-# @prismshadow/amsp
+# @waterford/waf-harness-amsp
 
-The client of a PenguinHarness agent's API, and the types of AMSP (Agent Message Stream Protocol), the event stream that API serves. No runtime dependencies; runs in Node 24 and in current browsers on `fetch`, `ReadableStream`, `TextDecoder` and `AbortController`.
+The client of a WAF Harness agent's API, and the types of AMSP (Agent Message Stream Protocol), the event stream that API serves. No runtime dependencies; runs in Node 24 and in current browsers on `fetch`, `ReadableStream`, `TextDecoder` and `AbortController`.
 
-A Project owner turns an agent's API on in the PenguinHarness Web App (the agent's **API** tab) and mints a key there. A program then runs the agent, reads the run as it happens, and continues the conversation by its Session id:
+A Project owner turns an agent's API on in the WAF Harness Web App (the agent's **API** tab) and mints a key there. A program then runs the agent, reads the run as it happens, and continues the conversation by its Session id:
 
 ```ts
-import { AgentClient } from "@prismshadow/amsp";
+import { AgentClient } from "@waterford/waf-harness-amsp";
 
 const client = new AgentClient({
   baseUrl: "http://localhost:7364/api/amsp/v1",
   agent: "demo/coder", // <projectId>/<agentId>
-  apiKey: process.env.PENGUIN_AGENT_KEY,
+  apiKey: process.env.WAFH_AGENT_KEY,
 });
 
 const run = client.stream({ input: "Summarize README.md" });
@@ -38,8 +38,8 @@ console.log(second.text, second.usage.total);
 A program that sends the request itself — its own `fetch`, its own credentials or URL — reads the body with `readSse` and folds the events with `RunCollector`, which `AgentClient` uses for `result()`:
 
 ```ts
-import { readSse, RunCollector } from "@prismshadow/amsp";
-import type { AmspEvent } from "@prismshadow/amsp";
+import { readSse, RunCollector } from "@waterford/waf-harness-amsp";
+import type { AmspEvent } from "@waterford/waf-harness-amsp";
 
 const collector = new RunCollector();
 for await (const data of readSse(response.body!)) {
@@ -57,9 +57,9 @@ const result = collector.result(); // throws AmspStreamError when the stream end
 ## Development
 
 ```bash
-pnpm --filter @prismshadow/amsp build       # tsup → dist/ (exports point at dist)
-pnpm --filter @prismshadow/amsp typecheck
-pnpm --filter @prismshadow/amsp test
+pnpm --filter @waterford/waf-harness-amsp build       # tsup → dist/ (exports point at dist)
+pnpm --filter @waterford/waf-harness-amsp typecheck
+pnpm --filter @waterford/waf-harness-amsp test
 ```
 
-Part of [PenguinHarness](https://github.com/Prism-Shadow/penguin-harness) · Apache-2.0
+Part of [WAF Harness](https://github.com/Prism-Shadow/penguin-harness) · Apache-2.0

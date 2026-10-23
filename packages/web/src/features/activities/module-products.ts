@@ -1,5 +1,5 @@
 /** Pure helpers behind the Open from modules dialog. */
-import type { ModuleProduct } from "@prismshadow/penguin-server/api";
+import type { ModuleProduct } from "@waterford/waf-harness-server/api";
 
 /** The products matching a search over title, product code and module folder, in order. */
 export function filterModuleProducts(

@@ -5,7 +5,7 @@
  * while one is already running. The install reaches the network on the server's behalf,
  * which is why only an admin may start it and nothing starts it on its own.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import { HttpError } from "../http/errors.js";

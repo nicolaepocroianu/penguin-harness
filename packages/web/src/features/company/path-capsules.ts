@@ -15,7 +15,7 @@
  *   own routes share that stretch (`/api/projects/<projectId>/organizations/…`), so a path that
  *   starts at `/api/` is a route too.
  * - **Separators.** `/` or `\`, mixed as they come: a server on Windows hands its employees
- *   workspaces like `C:\Users\ada\.penguin\data\<projectId>\organizations\…`. Every rule here
+ *   workspaces like `C:\Users\ada\.waf-harness\data\<projectId>\organizations\…`. Every rule here
  *   reads a `\` as a `/`, and a capsule still copies the path as written.
  * - **What it is made of, in prose.** Segments of ASCII letters, digits and `._~+=@%-`, plus
  *   whole `<placeholder>` segments, separated by `/`. The path stops at anything else, so the
@@ -28,7 +28,7 @@
  *   letters after it counts as a segment when it goes on to a `/` or a file extension;
  *   otherwise it is the sentence resuming (`…/handbook/里有说明`), and the path keeps its capsule.
  *   The same holds at the other end: a bare `/` root right after a non-ASCII segment
- *   (`C:\Users\张三\.penguin\…`) is the middle of a longer path, and stays text rather than
+ *   (`C:\Users\张三\.waf-harness\…`) is the middle of a longer path, and stays text rather than
  *   becoming a capsule that copies only its tail.
  * - **In code.** An inline code span that holds one path and nothing else is one path, taken
  *   verbatim — the backticks already say where it ends, so any non-space character may appear
@@ -147,7 +147,7 @@ const sourceChar = (c: string) => (ESCAPABLE.test(c) ? String.raw`\\?` : "") + e
 /**
  * Pieces split from the text of a Markdown node, with each path that holds a `\` spelled the
  * way the node's `source` writes it. Markdown reads a backslash before punctuation as an escape
- * and drops it, so `C:\Users\ada\.penguin\…` reaches the text as `C:\Users\ada.penguin\…` —
+ * and drops it, so `C:\Users\ada\.waf-harness\…` reaches the text as `C:\Users\ada.waf-harness\…` —
  * but in a path written with `\` that backslash was a separator, and the source has the path as
  * written. A path without a `\` keeps the text's spelling: there a backslash in the source can
  * only have been an escape (`co\_lab`). A path whose spelling the source does not hold (an

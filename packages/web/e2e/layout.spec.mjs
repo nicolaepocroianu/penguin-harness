@@ -36,7 +36,7 @@
  *   `title` (two tooltips would stack); "last conversation" targets the most recently active
  *   non-archived session and is disabled while none exists; expanding from the rail restores
  *   the pinned sidebar;
- * - login page: a single brand penguin logo above the form (part of the form area; the
+ * - login page: a single brand wafh logo above the form (part of the form area; the
  *   background still only has the trace animation), the trace animation grows in after a
  *   delayed blank first paint, no two trace segments cross or touch (except where a fork shares
  *   an endpoint with its parent line), the language / theme controls work, and English sits
@@ -91,7 +91,7 @@ const textOverlapCount = (page) =>
 
 test("layout: en draft + context gauge + mobile models", async ({ page }) => {
   // English copy is longer, making it the worst case for layout wrapping.
-  await page.addInitScript(() => localStorage.setItem("penguin.lang", "en"));
+  await page.addInitScript(() => localStorage.setItem("wafh.lang", "en"));
   await provisionAndLogin(page.request, U, P);
   const projects = await (await page.request.get(`${BASE}/api/projects`)).json();
   const projectId = projects.projects[0].projectId;
@@ -305,7 +305,7 @@ test("layout: start page version line sits under the slogan at every width", asy
 
   for (const lang of ["zh", "en"]) {
     await page.goto(`${BASE}/chat/new`);
-    await page.evaluate((l) => localStorage.setItem("penguin.lang", l), lang);
+    await page.evaluate((l) => localStorage.setItem("wafh.lang", l), lang);
     for (const width of [360, 640, 900, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`${BASE}/chat/new`);
@@ -340,7 +340,7 @@ test("layout: start page version line sits under the slogan at every width", asy
 });
 
 test("models: group header actions collapse to icons instead of disappearing", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("penguin.lang", "zh"));
+  await page.addInitScript(() => localStorage.setItem("wafh.lang", "zh"));
   await provisionAndLogin(page.request, "modelwidthuser", P);
   await page.setViewportSize({ width: 900, height: 900 });
   await page.goto(`${BASE}/models`);
@@ -482,7 +482,7 @@ test("models: group header actions collapse to icons instead of disappearing", a
 });
 
 test("layout: collapsed rail — order, bilingual tooltips, last conversation", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("penguin.lang", "en"));
+  await page.addInitScript(() => localStorage.setItem("wafh.lang", "en"));
   await provisionAndLogin(page.request, "railuser", P);
   const projects = await (await page.request.get(`${BASE}/api/projects`)).json();
   const projectId = projects.projects[0].projectId;
@@ -583,7 +583,7 @@ test("layout: collapsed rail — order, bilingual tooltips, last conversation", 
   await expect(rail.getByRole("link", { name: "Plugins" })).toHaveClass(ACTIVE_FILL);
 
   // --- zh: tooltips follow the product-specified wording ---
-  await page.addInitScript(() => localStorage.setItem("penguin.lang", "zh"));
+  await page.addInitScript(() => localStorage.setItem("wafh.lang", "zh"));
   await page.reload();
   await expect(entries).toHaveCount(7);
   const ZH = ["最近一次对话", "新建对话", "智能体", "模型库", "插件市场", "成本中心", "评估中心"];
@@ -600,7 +600,7 @@ test("layout: collapsed rail — order, bilingual tooltips, last conversation", 
 });
 
 test("layout: mobile chat dropdowns stay inside the viewport", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("penguin.lang", "en"));
+  await page.addInitScript(() => localStorage.setItem("wafh.lang", "en"));
   await provisionAndLogin(page.request, "layoutdropdowns", P);
   const projects = await (await page.request.get(`${BASE}/api/projects`)).json();
   const projectId = projects.projects[0].projectId;
@@ -994,12 +994,12 @@ test("layout: no page grows the document (absolute descendants stay in their scr
 
 test("layout: login — blank start, non-crossing traces, lang/theme controls", async ({ page }) => {
   await page.goto(`${BASE}/login`);
-  await page.getByRole("heading", { name: "PenguinHarness" }).waitFor();
+  await page.getByRole("heading", { name: "WAF Harness" }).waitFor();
 
-  // The only graphic asset is the brand penguin logo above the form; the
+  // The only graphic asset is the brand wafh logo above the form; the
   // background still has only the trace animation, and the page must have no other img elements.
   await expect(page.locator("img")).toHaveCount(1);
-  await expect(page.locator('img[src*="penguin-logo"]')).toBeVisible();
+  await expect(page.locator('img[src*="wafh-logo"]')).toBeVisible();
 
   // Asserting the mechanism behind the blank first paint: every trace's delay is non-negative
   // (no line is mid-animation on the first frame), and the base state (style before the

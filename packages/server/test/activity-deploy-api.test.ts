@@ -49,14 +49,14 @@ describe("activity deploy routes", () => {
   /**
    * An existing WAF checkout, the workspace's root. Its activity-data and media repositories
    * are clones of the remotes the workspace names (unless `shared` is false), and so is the
-   * product's module (unless `module` is false): its owner cloned it, and Penguin writes the
+   * product's module (unless `module` is false): its owner cloned it, and WAF Harness writes the
    * product's files into it.
    */
   async function checkout(
     clones: FakeClones,
     options: { shared?: boolean; module?: boolean } = {},
   ) {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-deploy-waf-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-deploy-waf-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
     await fs.mkdir(path.join(root, "framework", "src"), { recursive: true });
     await fs.writeFile(path.join(root, "framework", "package.json"), "{}");
@@ -260,7 +260,7 @@ describe("activity deploy routes", () => {
   });
 
   it("lists what a deploy still needs, in codes", async () => {
-    // A checkout with no shared clones and no module: Penguin starts the new product's module
+    // A checkout with no shared clones and no module: WAF Harness starts the new product's module
     // as a repository with origin set, as Loom did, so only the shared clones are missing.
     const { context } = await setupWords({ checkout: { shared: false, module: false } });
     const found = await context();
@@ -303,9 +303,7 @@ describe("activity deploy routes", () => {
     const module = path.join(t.root, "waf", "modules", "waf-module-words");
     const clones = git.calls.filter((call) => call.op === "cloneFrom");
     expect(clones.map((call) => [call.dir, call.args[0]])).toEqual([[module, MODULE_REMOTE]]);
-    await fs.stat(
-      path.join(module, "generated", "words", "refs", "words-1", "spec", "penguin.json"),
-    );
+    await fs.stat(path.join(module, "generated", "words", "refs", "words-1", "spec", "wafh.json"));
     // Prepare clones adds only the product's media folder to the sparse set.
     const prepared = await client.post(`${endpoint}/deploy/clones`);
     expect(prepared.status).toBe(200);
@@ -395,7 +393,7 @@ describe("activity deploy routes", () => {
   });
 
   it("refuses to deploy a module in a monorepo modules folder, and runs no git there", async () => {
-    const monorepo = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-deploy-monorepo-"));
+    const monorepo = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-deploy-monorepo-"));
     cleanups.push(() => fs.rm(monorepo, { recursive: true, force: true }));
     const modules = path.join(monorepo, "modules");
     await fs.mkdir(path.join(modules, "waf-module-words"), { recursive: true });

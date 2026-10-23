@@ -39,8 +39,8 @@ describe("normalizeAddress", () => {
     expect(normalizeAddress("www.example.co.uk:8443/a?b=1#c")).toBe(
       "https://www.example.co.uk:8443/a?b=1#c",
     );
-    expect(normalizeAddress("wikipedia.org?search=penguin")).toBe(
-      "https://wikipedia.org/?search=penguin",
+    expect(normalizeAddress("wikipedia.org?search=wafh")).toBe(
+      "https://wikipedia.org/?search=wafh",
     );
   });
 
@@ -57,7 +57,7 @@ describe("normalizeAddress", () => {
   });
 
   it("searches for anything that is not an address", () => {
-    expect(normalizeAddress("penguin")).toBe(search("penguin"));
+    expect(normalizeAddress("wafh")).toBe(search("wafh"));
     expect(normalizeAddress("how to use amazon.com")).toBe(search("how to use amazon.com"));
     expect(normalizeAddress("1.5")).toBe(search("1.5"));
     expect(normalizeAddress("企鹅 浏览器")).toBe(search("企鹅 浏览器"));
@@ -92,7 +92,7 @@ describe("homepageFromInput", () => {
     expect(homepageFromInput("example.com")).toBe("https://example.com/");
     expect(homepageFromInput(" https://example.com/start ")).toBe("https://example.com/start");
     expect(homepageFromInput("localhost:3000")).toBe("http://localhost:3000/");
-    expect(homepageFromInput("penguin news")).toBe(search("penguin news"));
+    expect(homepageFromInput("wafh news")).toBe(search("wafh news"));
   });
 
   it("saves no homepage for an empty entry or the blank page", () => {

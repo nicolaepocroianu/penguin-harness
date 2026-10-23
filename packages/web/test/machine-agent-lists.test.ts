@@ -9,7 +9,7 @@
  * - Asked for live machines only, a machine that cannot be asked contributes nothing.
  */
 import { describe, expect, it } from "vitest";
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
 import { mixAgents } from "../src/lib/machine-agent-lists";
 import type { MachineAgents } from "../src/lib/machine-agent-lists";
 

@@ -1,7 +1,7 @@
 /**
- * What Penguin downloads to run GitHub Copilot itself: the Copilot CLI's platform package from
+ * What WAF Harness downloads to run GitHub Copilot itself: the Copilot CLI's platform package from
  * npm (the same program the Local CLI recipe runs with --acp), at a version pinned here and
- * raised deliberately with a Penguin release.
+ * raised deliberately with a WAF Harness release.
  */
 export const COPILOT_VERSION = "1.0.88";
 

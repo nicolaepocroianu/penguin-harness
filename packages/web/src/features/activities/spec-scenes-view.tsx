@@ -9,7 +9,7 @@
  * is edited in JSON.
  */
 import { useMemo, useState } from "react";
-import { Button, Chevron, InfoPopover, ICON_SIZE } from "@prismshadow/penguin-ui";
+import { Button, Chevron, InfoPopover, ICON_SIZE } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip, type Tone } from "../../lib/tone";
 import type { Binding } from "./placeholder-media";
@@ -28,7 +28,7 @@ import {
 
 export type SpecView = "scenes" | "json";
 
-const VIEW_KEY = "penguin.activitySpec.view";
+const VIEW_KEY = "wafh.activitySpec.view";
 
 /** The view this viewer last chose, or null before a choice. */
 export function readSpecView(): SpecView | null {

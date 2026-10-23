@@ -32,8 +32,8 @@ import {
   toolCallOutput,
   userText,
   withOrigin,
-} from "@prismshadow/penguin-core/omnimessage";
-import type { OmniMessage, TokenCounts } from "@prismshadow/penguin-core/omnimessage";
+} from "@waterford/waf-harness-core/omnimessage";
+import type { OmniMessage, TokenCounts } from "@waterford/waf-harness-core/omnimessage";
 import type {
   MessagesLiveTail,
   MessagesPageInfo,
@@ -41,7 +41,7 @@ import type {
   PendingSteeringInfo,
   ServerEvent,
   SessionStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { OLDER_UNITS, TAIL_UNITS, createStreamController } from "../src/lib/omni/stream-controller";
 import type { MessagesPageQuery, StreamController } from "../src/lib/omni/stream-controller";
 import { approvalKey, findToolCard } from "../src/lib/omni/stream-model";

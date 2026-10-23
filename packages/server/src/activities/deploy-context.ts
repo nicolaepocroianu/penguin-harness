@@ -34,7 +34,7 @@ import { mediaSparsePath, WafLayout } from "./waf-layout.js";
 export const DEPLOY_LAYOUT = "mainOnly";
 
 export interface DeployContextInput {
-  /** PENGUIN_HOME: git is run from it. */
+  /** WAFH_HOME: git is run from it. */
   home: string;
   /** The WAF workspace's root, where the clones are; null when it is not prepared. */
   wafRoot: string | null;

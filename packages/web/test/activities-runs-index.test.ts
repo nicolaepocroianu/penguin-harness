@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import { indexRuns } from "../src/features/activities/runs-index";
 
 const run = (extra: Partial<ActivityRunSummary>): ActivityRunSummary =>

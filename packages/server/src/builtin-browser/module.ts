@@ -2,7 +2,7 @@
  * The agent browser's place in the platform tree: one group, two nodes.
  *
  * - `ProcessShellPort` answers which port reaches the desktop shell — Electron's
- *   `process.parentPort`, absent under a plain `penguin server|web` — and is the node a test
+ *   `process.parentPort`, absent under a plain `wafh server|web` — and is the node a test
  *   replaces with a fake shell.
  * - `BuiltinBrowserRoutes` builds the generation's BuiltinBrowser — the built-in browser over
  *   that port, and the users' own Chromes through the extension hub — mounts the routes, and
@@ -16,9 +16,16 @@
  * is not opened for them.
  */
 import type { DatabaseSync } from "node:sqlite";
-import { buildInfo } from "@prismshadow/penguin-core";
-import { Bind, Component, Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
-import type { ClassCtx, Opaque } from "@prismshadow/penguin-core/kernel";
+import { buildInfo } from "@waterford/waf-harness-core";
+import {
+  Bind,
+  Component,
+  Interface,
+  Module,
+  Provide,
+  Use,
+} from "@waterford/waf-harness-core/kernel";
+import type { ClassCtx, Opaque } from "@waterford/waf-harness-core/kernel";
 import type { Hono } from "hono";
 import type { BrowserBackend, BuiltinBrowserServerEvent, UiPrefs } from "../api/types.js";
 import type { AppEnv } from "../auth/middleware.js";

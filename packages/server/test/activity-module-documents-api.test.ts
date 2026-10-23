@@ -15,7 +15,7 @@ import { activitySpec, refFilesDir } from "./activity-fixtures.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
 import type { ActivityRuns } from "../src/activities/run-store.js";
 
-// A product code no WAF checkout on the machine has, so the module source is Penguin's own.
+// A product code no WAF checkout on the machine has, so the module source is WAF Harness's own.
 const PRODUCT = "zz-edit-docs";
 const spec = { ...activitySpec, id: PRODUCT };
 const configuration = { [PRODUCT]: { telemetry: false, rounds: 5 } };
@@ -100,8 +100,8 @@ describe("module document edits", () => {
       editable: true,
     });
 
-    // The edit lives in the draft: Penguin's bookkeeping in the ref's folder of the module.
-    const draftFile = path.join(refFilesDir(t.root, PRODUCT, 1), "penguin.json");
+    // The edit lives in the draft: WAF Harness's bookkeeping in the ref's folder of the module.
+    const draftFile = path.join(refFilesDir(t.root, PRODUCT, 1), "wafh.json");
     expect(
       JSON.parse(await fs.readFile(draftFile, "utf8")).moduleDocuments.configuration.value,
     ).toEqual(configuration);

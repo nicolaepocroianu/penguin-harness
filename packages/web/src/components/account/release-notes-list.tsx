@@ -11,7 +11,7 @@
  * Stateless: the dialog owns the fold and starts it closed on every opening, and a test reads
  * both states from static markup.
  */
-import { Chevron, ICON_GAP, ICON_SIZE, Pill, RuledSection } from "@prismshadow/penguin-ui";
+import { Chevron, ICON_GAP, ICON_SIZE, Pill, RuledSection } from "@waterford/waf-harness-ui";
 import { formatYearMonthDay } from "../../lib/format";
 import { noteLines, releaseNotesNewestFirst } from "../../lib/release-notes";
 import type { ReleaseNote } from "../../lib/release-notes";

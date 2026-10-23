@@ -15,7 +15,7 @@
  *   the bot to the chat that wrote, and the binding still names the Session.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import type {
   MessagesResponse,
   MessagingBindingsResponse,

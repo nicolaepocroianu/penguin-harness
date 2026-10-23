@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import * as api from "../../api/endpoints";
-import { Select, PrefRow } from "@prismshadow/penguin-ui";
+import { Select, PrefRow } from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { runLimitChoices, runLimitOf, runLimitValue } from "./run-limit";

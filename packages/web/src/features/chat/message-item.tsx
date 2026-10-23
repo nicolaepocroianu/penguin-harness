@@ -24,7 +24,7 @@ import {
   MessageRow,
   RetryActions,
   useCountdown,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { useLocale } from "../../state/locale";
 import { formatMessageTime } from "../../lib/format";

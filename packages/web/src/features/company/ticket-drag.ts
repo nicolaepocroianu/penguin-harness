@@ -16,7 +16,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import type { OrgTicketItem, OrgTicketStatus } from "@prismshadow/penguin-server/api";
+import type { OrgTicketItem, OrgTicketStatus } from "@waterford/waf-harness-server/api";
 import { canMove, isTicketStatus } from "./ticket-board";
 import { createTicketPress, edgeScrollStep } from "./ticket-press";
 

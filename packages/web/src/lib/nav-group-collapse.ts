@@ -166,8 +166,8 @@ export interface NavCollapseStorage {
   setItem(key: string, value: string): void;
 }
 
-/** The fold's single global key (`penguin.…` naming convention); holds "collapsed" / "expanded". */
-export const NAV_GROUP_COLLAPSED_KEY = "penguin.sidebarNavGroupCollapsed";
+/** The fold's single global key (`wafh.…` naming convention); holds "collapsed" / "expanded". */
+export const NAV_GROUP_COLLAPSED_KEY = "wafh.sidebarNavGroupCollapsed";
 
 /**
  * Reads the persisted choice; only an explicit "collapsed" collapses — anything else
@@ -198,7 +198,7 @@ export function storeNavGroupCollapsed(collapsed: boolean, storage?: NavCollapse
 }
 
 /** The pin choices' single global key; holds NavPinOverrides as a JSON object. */
-export const NAV_PINNED_KEY = "penguin.sidebarNavPinned";
+export const NAV_PINNED_KEY = "wafh.sidebarNavPinned";
 
 /** Keys a stored choice may name: the whole manifest, pages this user is not offered included (New chat is never a choice). */
 const NAV_ENTRY_KEYS: ReadonlySet<string> = new Set<string>(NAV_GROUP_KEYS);

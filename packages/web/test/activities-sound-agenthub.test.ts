@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SoundProviderStatus } from "@prismshadow/penguin-server/api";
+import type { SoundProviderStatus } from "@waterford/waf-harness-server/api";
 import {
   canGenerateSound,
   chosenModel,

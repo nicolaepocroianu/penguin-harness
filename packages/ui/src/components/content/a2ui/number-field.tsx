@@ -13,7 +13,7 @@
  * over the unit. The arrow keys in the box still step, as they do in any number input.
  */
 import { useId } from "react";
-import type { A2uiFormField } from "@prismshadow/penguin-core/a2ui";
+import type { A2uiFormField } from "@waterford/waf-harness-core/a2ui";
 import { ICON_SIZE } from "../../../icon-scale";
 import type { A2uiStrings } from "../../../strings";
 import { IconButton } from "../../actions/button/button";

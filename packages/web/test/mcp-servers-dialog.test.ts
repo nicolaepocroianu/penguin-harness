@@ -18,8 +18,8 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement as h } from "react";
-import type { MCPServerConfig } from "@prismshadow/penguin-core/interfaces";
-import { hasUnsaved } from "@prismshadow/penguin-ui";
+import type { MCPServerConfig } from "@waterford/waf-harness-core/interfaces";
+import { hasUnsaved } from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { McpServersSection } from "../src/features/agents/mcp-servers-section";

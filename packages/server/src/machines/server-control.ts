@@ -1,18 +1,18 @@
 /**
  * Starting and stopping the INSTALLED server on a remote machine.
  *
- * A start is one command on the shared shell — `nohup penguin server … &` — and then the
+ * A start is one command on the shared shell — `nohup wafh server … &` — and then the
  * status probe, on that same shell, until the server answers. A stop is a request to the
  * server's own shutdown endpoint, over the forward this side holds, then watching that port
  * go quiet. Neither costs a handshake.
  *
- * The remote server is a plain `penguin server` process, never supervised from here. A
+ * The remote server is a plain `wafh server` process, never supervised from here. A
  * machine that reboots simply reads as "not running" on the next probe.
  */
 import {
   isAliveCommand,
   launchedPid,
-  remotePenguin,
+  remoteWafHarness,
   serverLogTail,
   startServerCommand,
 } from "./commands.js";
@@ -52,7 +52,7 @@ export async function startRemoteServer(
   let exited = false;
   const deadline = Date.now() + START_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    // Each probe is a full Node start on the far side (`penguin-hmr.js server status`), so
+    // Each probe is a full Node start on the far side (`wafh-hmr.js server status`), so
     // the interval is what bounds the CPU this wait costs there; a server that is coming up
     // takes a few seconds anyway.
     await sleep(1500);
@@ -96,10 +96,10 @@ export function startFailure(
 /**
  * Stops the remote server, over its own CLI.
  *
- * `penguin server stop` and not a request to the server itself: the machine that needs
+ * `wafh server stop` and not a request to the server itself: the machine that needs
  * stopping is usually the one whose PLATFORM is behind, and a platform route only exists
  * once it is already running the build that has it. The CLI comes from the store this side
- * pushed (commands.ts's remotePenguin), so it speaks the current protocol whatever the
+ * pushed (commands.ts's remoteWafHarness), so it speaks the current protocol whatever the
  * running platform is.
  */
 export async function stopRemoteServer(
@@ -107,7 +107,7 @@ export async function stopRemoteServer(
   layout: RemoteLayout,
   exec: (target: RemoteTarget, command: string) => Promise<ExecResult>,
 ): Promise<{ ok: true } | { ok: false; detail: string }> {
-  const result = await exec(target, `${remotePenguin("linux", layout)} server stop 2>&1`);
+  const result = await exec(target, `${remoteWafHarness("linux", layout)} server stop 2>&1`);
   const answer = jsonAnswer<{ ok: boolean; detail?: string }>(result.stdout, "ok");
   if (answer?.ok === true) return { ok: true };
   const said = answer?.detail ?? result.stdout.trim();

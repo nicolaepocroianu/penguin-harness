@@ -40,8 +40,8 @@ import { randomBytes } from "node:crypto";
 import net from "node:net";
 import { sessionArgs } from "../commands.js";
 import type { RemoteTarget } from "../commands.js";
-import { Interface } from "@prismshadow/penguin-core/kernel";
-import type { Resources } from "@prismshadow/penguin-core/kernel";
+import { Interface } from "@waterford/waf-harness-core/kernel";
+import type { Resources } from "@waterford/waf-harness-core/kernel";
 import { sshFailureText } from "../ssh-failure.js";
 import { noteSignIn, signInFor } from "./login.js";
 import type { SignIn } from "./login.js";
@@ -167,7 +167,7 @@ const HOST: ShellHost = { changed: tell, signInFor, noteSignIn };
  */
 export const SESSION_GROUP = "machineSession.v2";
 export const SESSION_SHAPE_ID = `${SESSION_GROUP}:shape`;
-export const MACHINE_SESSION_IFACE = "@prismshadow/penguin-server#MachineSession";
+export const MACHINE_SESSION_IFACE = "@waterford/waf-harness-server#MachineSession";
 const sessionResourceId = (address: string): string => `${SESSION_GROUP}:${address}`;
 
 /**
@@ -364,7 +364,7 @@ class MachineShell implements MachineSession {
     if (!login.ok) return { refused: login.detail };
     const port = await freeLocalPort();
     if (port === null) throw new Error("no free local port for the session's SOCKS listener");
-    this.#mark = `--penguin-${randomBytes(9).toString("hex")}--`;
+    this.#mark = `--wafh-${randomBytes(9).toString("hex")}--`;
     // Hidden: on Windows a server with no console would show ssh.exe's own window for as long
     // as the session is held.
     const child = spawn("ssh", sessionArgs(target, port), {

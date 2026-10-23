@@ -14,7 +14,7 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createElement as h } from "react";
-import { hasUnsaved, toastStore } from "@prismshadow/penguin-ui";
+import { hasUnsaved, toastStore } from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { VaultTab } from "../src/features/agents/vault-tab";

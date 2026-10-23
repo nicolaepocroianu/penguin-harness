@@ -35,7 +35,7 @@ import {
   USER_SCOPE_KEY,
   memoryDir,
   memoryScopeDir,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   AgentConfigResponse,
   MemoryFileResponse,
@@ -377,7 +377,7 @@ describe("memory scope export/import", () => {
 
   /** A transfer document carrying the given files; its index links each of them unless one is given. */
   const document = (files: MemoryTransferFile[], index?: string | null): MemoryScopeExport => ({
-    format: "penguin-memory-scope",
+    format: "wafh-memory-scope",
     version: 1,
     scopeKey: WORKSPACE_KEY,
     kind: "workspace",
@@ -423,7 +423,7 @@ describe("memory scope export/import", () => {
       new RegExp(`filename="${agentId}-${WORKSPACE_KEY}-memory-\\d{8}-\\d{4}\\.json"`),
     );
     const doc = (await res.json()) as MemoryScopeExport;
-    expect(doc.format).toBe("penguin-memory-scope");
+    expect(doc.format).toBe("wafh-memory-scope");
     expect(doc.version).toBe(1);
     expect(doc.kind).toBe("workspace");
     expect(doc.workspacePath).toBe("/home/dev/my-app");

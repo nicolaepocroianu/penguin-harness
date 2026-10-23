@@ -20,12 +20,12 @@
  * also closes the fragment (covers stop-less closures, e.g. interruption cleanup); the
  * whole session entry is dropped when the run ends (SessionManager.drive's finally).
  */
-import { isPartialPayload } from "@prismshadow/penguin-core";
+import { isPartialPayload } from "@waterford/waf-harness-core";
 import type {
   CompleteModelPayload,
   OmniMessage,
   PartialModelPayload,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 
 type PartialKind = PartialModelPayload["type"];
 

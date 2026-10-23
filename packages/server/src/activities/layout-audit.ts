@@ -22,7 +22,7 @@
  * video-check.ts) as a warning, since a measurement cannot know what the author meant.
  *
  * The idea follows HeyGen HyperFrames' `check` command (Apache-2.0), which seeks a composition at
- * sampled times and audits overlap, off-canvas content and text; this is Penguin's own, smaller
+ * sampled times and audits overlap, off-canvas content and text; this is WAF Harness's own, smaller
  * version of it.
  */
 import type { VideoCheckFinding } from "./video-types.js";

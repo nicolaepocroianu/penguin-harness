@@ -35,7 +35,7 @@ import type {
   BuiltinBrowserServerEvent,
   BuiltinBrowserStatus,
   BuiltinBrowserTab,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   INITIAL_BROWSER_STATE,
   activeTab,
@@ -141,7 +141,7 @@ describe("pages this window hosts", () => {
       {
         key: guestKey("r1"),
         scope: "~none",
-        partition: "persist:penguin-browser",
+        partition: "persist:wafh-browser",
         src: "https://amazon.com/",
         requestId: "r1",
         tabId: null,
@@ -868,7 +868,7 @@ describe("conversation browser scopes", () => {
   });
 
   it("adopts draft pages and a pending popup without replacing elements or storage", () => {
-    const partition = "persist:penguin-browser-project-" + "a".repeat(64);
+    const partition = "persist:wafh-browser-project-" + "a".repeat(64);
     let state = run(
       READY,
       { type: "scope", scope: "draft" },

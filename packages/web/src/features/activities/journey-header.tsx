@@ -17,7 +17,7 @@ import {
   ChevronDown,
   ICON_SIZE,
   Spinner,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";
 import type {

@@ -1,6 +1,6 @@
 /**
  * The chrome backend's transport: `GET /api/builtin-browser/extension/ws` (Upgrade), the socket
- * the PenguinHarness Browser extension opens to this server.
+ * the WAF Harness Browser extension opens to this server.
  *
  * Runtime, and only the handshake — as the terminal stream's (terminal/ws.ts): a WebSocket
  * cannot cross the platform seam, so this checks the request, upgrades, and hands the live
@@ -9,8 +9,8 @@
  * Auth is the extension's own token, never the session cookie: a cookie rides along with any
  * page's request, and a page must never ride a signed-in session into the hub, so cookies are
  * not read here at all. The token travels in the subprotocol list —
- * `Sec-WebSocket-Protocol: penguin-browser.1, token.<token>` — so it never lands in a URL or an
- * access log; the server selects `penguin-browser.1`. And the Origin must be the extension's
+ * `Sec-WebSocket-Protocol: wafh-browser.1, token.<token>` — so it never lands in a URL or an
+ * access log; the server selects `wafh-browser.1`. And the Origin must be the extension's
  * (extension-origin.ts): a web page holding a stolen token cannot connect with it either. A
  * request with no Origin is a non-browser client (a test, a tool), which has no ambient
  * credential to abuse.
@@ -18,17 +18,17 @@
  * Refusals: a foreign Origin 403, a missing or unknown token 401, a platform without the
  * browser 503 — before the upgrade. A token the extension should stop using is told after it,
  * with a close code it can act on: 4003 revoked, 4009 switched off by the admin, 4005 when the
- * subprotocol `penguin-browser.1` is missing.
+ * subprotocol `wafh-browser.1` is missing.
  */
 import type { IncomingMessage, Server as HttpServer } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocketServer } from "ws";
 import type { RawData, WebSocket } from "ws";
 import type { ExtensionSocket } from "./extension-link.js";
-import { isPenguinExtensionOrigin } from "./extension-origin.js";
+import { isWafHarnessExtensionOrigin } from "./extension-origin.js";
 
 export const EXTENSION_WS_PATH = "/api/builtin-browser/extension/ws";
-export const EXTENSION_SUBPROTOCOL = "penguin-browser.1";
+export const EXTENSION_SUBPROTOCOL = "wafh-browser.1";
 const TOKEN_PREFIX = "token.";
 /** A screenshot of a tall page is the largest frame: well under this. */
 const MAX_FRAME_BYTES = 64 * 1024 * 1024;
@@ -86,7 +86,7 @@ export function readSubprotocols(header: string | string[] | undefined): {
 
 /** The extension's page or service worker, or no browser at all. */
 function isAllowedOrigin(origin: string | undefined): boolean {
-  return origin === undefined || origin === "" || isPenguinExtensionOrigin(origin);
+  return origin === undefined || origin === "" || isWafHarnessExtensionOrigin(origin);
 }
 
 export function attachExtensionWebSocket(server: HttpServer, deps: ExtensionWebSocketDeps): void {

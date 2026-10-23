@@ -15,7 +15,7 @@
  * this is the transport and its adapters, not the render.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ServerEvent } from "@prismshadow/penguin-server/api";
+import type { ServerEvent } from "@waterford/waf-harness-server/api";
 import type { MachineStreamHandlers, StreamConnection } from "../src/api/sse";
 import { FakeSocket } from "./fake-socket";
 

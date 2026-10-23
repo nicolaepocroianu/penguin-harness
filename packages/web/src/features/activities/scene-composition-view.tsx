@@ -14,8 +14,8 @@ import type {
   CompositionCandidate,
   SceneLookSummary,
   VideoCheck,
-} from "@prismshadow/penguin-server/api";
-import { Badge, Button, InfoPopover, Select } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { Badge, Button, InfoPopover, Select } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {

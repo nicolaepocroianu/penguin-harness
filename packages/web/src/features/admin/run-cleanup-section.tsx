@@ -7,7 +7,11 @@
  * a page of the System settings dialog.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { RunCleanupPlan, RunCleanupReport, RunStorage } from "@prismshadow/penguin-server/api";
+import type {
+  RunCleanupPlan,
+  RunCleanupReport,
+  RunStorage,
+} from "@waterford/waf-harness-server/api";
 import { ApiError } from "../../api/client";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
@@ -23,7 +27,7 @@ import {
   toastSuccess,
   PrefRow,
   SettingsSection,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import {
   KEEP_DEFAULT,
   KEEP_MAX,

@@ -12,7 +12,7 @@
  * terminal at all until its first send.
  */
 import { useSyncExternalStore } from "react";
-import { toastError } from "@prismshadow/penguin-ui";
+import { toastError } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { onCommand } from "../../lib/shortcuts/dispatcher";
 import { HttpStatusError, fetchJson, type TerminalInfo } from "../terminal/terminal-view";

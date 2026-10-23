@@ -4,7 +4,7 @@
  * Workspace finder's machine list and a conversation that ran on the machine.
  *
  * Nothing is mocked except the model. The machine is real: an ssh host this server reaches
- * with a key (the release shots used a Debian container running sshd, user `penguin`,
+ * with a key (the release shots used a Debian container running sshd, user `wafh`,
  * aliased `devbox`). The server is the built one from this checkout, so it builds its own
  * install image at the first install; the machine downloads release VERSION itself and the
  * image goes over ssh. The mock model must be reachable from the machine as well, since the
@@ -21,7 +21,7 @@
  *                      $SHOT_SCRATCH/data; the release shots bind-mounted a scratch directory
  *                      on /srv in a user namespace so no home directory shows)
  *   SHOT_MACHINE_HOST  the machine's address (required for `shots`)
- *   SHOT_MACHINE_USER  its ssh user (default penguin)
+ *   SHOT_MACHINE_USER  its ssh user (default wafh)
  *   SHOT_MACHINE_ALIAS the name to add it under (default devbox)
  *   SHOT_MOCK_HOST     the address the mock model listens on and machines call (default
  *                      127.0.0.1; a container reaches its host on the bridge address)
@@ -46,12 +46,12 @@ const MOCK_PORT = Number(process.env.MOCK_PORT ?? 19131);
 const MOCK_HOST = process.env.SHOT_MOCK_HOST ?? "127.0.0.1";
 const BASE = `http://localhost:${SRV_PORT}`;
 const MOCK = `http://${MOCK_HOST}:${MOCK_PORT}`;
-const SEED_PASSWORD = "penguin-2026";
-const ADMIN_PASSWORD = "penguin-machines-2026";
+const SEED_PASSWORD = "wafh-2026";
+const ADMIN_PASSWORD = "wafh-machines-2026";
 const MACHINE = {
   alias: process.env.SHOT_MACHINE_ALIAS ?? "devbox",
   host: process.env.SHOT_MACHINE_HOST ?? "",
-  user: process.env.SHOT_MACHINE_USER ?? "penguin",
+  user: process.env.SHOT_MACHINE_USER ?? "wafh",
 };
 const WORKSPACE = "~/projects/etl";
 /** The build this checkout installs, as the API reports it, and what the shots show instead. */
@@ -225,12 +225,12 @@ async function serve() {
   const srv = spawn("node", [path.join(ROOT, "packages/server/dist/index.js")], {
     env: {
       ...process.env,
-      PENGUIN_HOME: dataRoot,
-      PENGUIN_WEB_DB: path.join(dataRoot, "web.db"),
-      PENGUIN_WEB_DIST: path.join(ROOT, "packages/web/dist"),
+      WAFH_HOME: dataRoot,
+      WAFH_WEB_DB: path.join(dataRoot, "web.db"),
+      WAFH_WEB_DIST: path.join(ROOT, "packages/web/dist"),
       PORT: String(SRV_PORT),
       HOST: "127.0.0.1",
-      PENGUIN_SEED_ADMIN_PASSWORD: SEED_PASSWORD,
+      WAFH_SEED_ADMIN_PASSWORD: SEED_PASSWORD,
     },
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -329,11 +329,11 @@ async function shots() {
     });
     await context.addInitScript(
       ([l, p]) => {
-        localStorage.setItem("penguin.lang", l);
-        localStorage.setItem("penguin.themeId", "modern");
-        localStorage.setItem("penguin.theme", "light");
-        localStorage.setItem("penguin.lastProjectId", p);
-        localStorage.setItem("penguin.dock.launcherHidden", "1");
+        localStorage.setItem("wafh.lang", l);
+        localStorage.setItem("wafh.themeId", "modern");
+        localStorage.setItem("wafh.theme", "light");
+        localStorage.setItem("wafh.lastProjectId", p);
+        localStorage.setItem("wafh.dock.launcherHidden", "1");
       },
       [lang, projectId],
     );
@@ -534,7 +534,7 @@ async function shots() {
         await page.waitForTimeout(1200);
         // The window down to the answer: the sidebar's `etl [SSH: devbox]` group, the command
         // and what it printed on devbox, and the reply.
-        await save(page, `penguinharness-0-2-14-machines-${lang}.png`, {
+        await save(page, `waf-harness-0-2-14-machines-${lang}.png`, {
           x: 0,
           y: 0,
           width: 1440,

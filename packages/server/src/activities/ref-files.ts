@@ -3,25 +3,25 @@
  *
  *     <wafRoot>/modules/<moduleFolder>/generated/<pc>/
  *       spec/activity_metadata.json        the product: code, module, type, canonical ref, tags
- *       spec/penguin.json                  Penguin's own: which project owns the product
+ *       spec/wafh.json                  WAF Harness's own: which project owns the product
  *       refs/<pc>-<ref>/spec/
  *         activity_metadata.json           the ref: number, title, display name, stability
  *         activity_spec.json               the specification (`{}` until one is saved)
  *         activity_description.txt         what the author wrote
  *         asset_manifest.json              the media plan's manifest (no assets until planned)
  *         implementation_features.json     `{ selectedIds }`
- *         penguin.json                     Penguin's bookkeeping for the draft
+ *         wafh.json                     WAF Harness's bookkeeping for the draft
  *
- * Penguin is the only writer, so its own fields may sit inside Loom's files; what Loom's
+ * WAF Harness is the only writer, so its own fields may sit inside Loom's files; what Loom's
  * files have no place for (the draft's status and revision, which specification the media
- * plan was made from, module document edits, a pinned build) is `penguin.json`, committed
- * with the module like the rest. `penguin.json` is written last: a draft whose other files
+ * plan was made from, module document edits, a pinned build) is `wafh.json`, committed
+ * with the module like the rest. `wafh.json` is written last: a draft whose other files
  * changed after it reads as "draft" until it is saved again, as `draft.json` did before.
  *
  * Loom lists a ref only when its spec, manifest, description and metadata are all there (and
  * the module's `configurations/<pc>-<ref>.json`), so none of them is ever removed: a draft
  * with no specification or plan leaves Loom's, or writes Loom's own empty stub. Every Loom
- * file is merged into rather than replaced, so what Loom wrote that Penguin does not use
+ * file is merged into rather than replaced, so what Loom wrote that WAF Harness does not use
  * stays (see loom-manifest.ts for the manifest).
  *
  * File I/O only: where the folders are is waf-layout.ts; the service owns locking, validation
@@ -31,7 +31,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { renameOver } from "../internal/rename-over.js";
 import type { ActivityAddress, ActivityDraft, ModuleDocumentOverrides } from "./domain.js";
-import { mergeLoomManifest, penguinManifest } from "./loom-manifest.js";
+import { mergeLoomManifest, wafHarnessManifest } from "./loom-manifest.js";
 import { acceptedTags } from "./tags.js";
 
 export const REF_METADATA_FILE = "activity_metadata.json";
@@ -39,14 +39,14 @@ export const REF_SPEC_FILE = "activity_spec.json";
 export const REF_DESCRIPTION_FILE = "activity_description.txt";
 export const REF_MANIFEST_FILE = "asset_manifest.json";
 export const REF_FEATURES_FILE = "implementation_features.json";
-/** Loom's manifest as it was when a project adopted the ref, kept beside Penguin's. */
+/** Loom's manifest as it was when a project adopted the ref, kept beside WAF Harness's. */
 export const LOOM_MANIFEST_COPY = "asset_manifest.loom.json";
-export const PENGUIN_FILE = "penguin.json";
+export const WAFH_FILE = "wafh.json";
 /** The behaviour machine, on the product (Loom's canonical one) or on a ref once implemented. */
 export const STATE_MACHINE_FILE = "state-machine.json";
 
-/** What `penguin.json` holds for a ref: the draft less what Loom's files carry. */
-export interface PenguinRefState {
+/** What `wafh.json` holds for a ref: the draft less what Loom's files carry. */
+export interface WafHarnessRefState {
   schemaVersion: 1;
   draftId: string;
   activityId: string;
@@ -59,7 +59,7 @@ export interface PenguinRefState {
   moduleDocuments?: ModuleDocumentOverrides;
   pinnedModuleRunId?: string;
   /**
-   * The draft has no specification. `activity_spec.json` is then Loom's (one Penguin could
+   * The draft has no specification. `activity_spec.json` is then Loom's (one WAF Harness could
    * not accept) or Loom's empty `{}`, and is not the draft's.
    */
   noSpec?: true;
@@ -89,8 +89,8 @@ export interface ProductMetadata {
   tags: string[];
 }
 
-/** Which Penguin project owns a product, as the product's `penguin.json` records it. */
-export interface PenguinProductState {
+/** Which WAF Harness project owns a product, as the product's `wafh.json` records it. */
+export interface WafHarnessProductState {
   schemaVersion: 1;
   projectId: string;
   productId: string;
@@ -137,14 +137,14 @@ async function readJson(file: string): Promise<unknown | undefined> {
 }
 
 /**
- * The draft the ref's files make, or null when the ref has no `penguin.json` (a ref Penguin
+ * The draft the ref's files make, or null when the ref has no `wafh.json` (a ref WAF Harness
  * never saved). A file that does not parse is an error: the caller reports the draft corrupt.
  */
 export async function readRefDraft(specDir: string): Promise<ActivityDraft | null> {
-  const state = (await readJson(path.join(specDir, PENGUIN_FILE))) as PenguinRefState | undefined;
+  const state = (await readJson(path.join(specDir, WAFH_FILE))) as WafHarnessRefState | undefined;
   if (state === undefined) return null;
   if (!state || typeof state !== "object" || state.schemaVersion !== 1)
-    throw new Error("penguin.json is corrupt.");
+    throw new Error("wafh.json is corrupt.");
   const spec = state.noSpec ? undefined : await readJson(path.join(specDir, REF_SPEC_FILE));
   const manifest = await readJson(path.join(specDir, REF_MANIFEST_FILE));
   const description = await fs
@@ -165,15 +165,15 @@ export async function readRefDraft(specDir: string): Promise<ActivityDraft | nul
   };
   // A plan is its bookkeeping and its manifest together; either alone is no plan.
   if (state.mediaPlan && manifest !== undefined)
-    draft.mediaPlan = { ...state.mediaPlan, manifest: penguinManifest(manifest) };
+    draft.mediaPlan = { ...state.mediaPlan, manifest: wafHarnessManifest(manifest) };
   if (state.moduleDocuments) draft.moduleDocuments = state.moduleDocuments;
   if (state.pinnedModuleRunId) draft.pinnedModuleRunId = state.pinnedModuleRunId;
   return draft;
 }
 
 /**
- * Writes the draft into the ref's files, `penguin.json` last. A specification or plan the
- * draft lacks leaves the file as Loom has it, unless Penguin wrote it, when it becomes Loom's
+ * Writes the draft into the ref's files, `wafh.json` last. A specification or plan the
+ * draft lacks leaves the file as Loom has it, unless WAF Harness wrote it, when it becomes Loom's
  * empty stub; a missing file becomes the stub, so Loom still lists the ref.
  */
 export async function writeRefDraft(
@@ -184,10 +184,10 @@ export async function writeRefDraft(
   await fs.mkdir(specDir, { recursive: true });
   const specFile = path.join(specDir, REF_SPEC_FILE);
   const manifestFile = path.join(specDir, REF_MANIFEST_FILE);
-  const previous = (await readJson(path.join(specDir, PENGUIN_FILE)).catch(() => undefined)) as
-    PenguinRefState | undefined;
+  const previous = (await readJson(path.join(specDir, WAFH_FILE)).catch(() => undefined)) as
+    WafHarnessRefState | undefined;
   const ours = !!previous && typeof previous === "object" && previous.schemaVersion === 1;
-  // The draft had a specification Penguin wrote, and has none now.
+  // The draft had a specification WAF Harness wrote, and has none now.
   const specCleared = draft.spec === null && ours && !previous.noSpec;
   if (draft.spec !== null) await writeFileAtomic(specFile, json(draft.spec));
   else if (specCleared || !(await exists(specFile))) await writeFileAtomic(specFile, json({}));
@@ -201,7 +201,7 @@ export async function writeRefDraft(
     );
   }
   await writeFileAtomic(path.join(specDir, REF_DESCRIPTION_FILE), draft.description);
-  const state: PenguinRefState = {
+  const state: WafHarnessRefState = {
     schemaVersion: 1,
     draftId: draft.draftId,
     activityId: draft.activityId,
@@ -221,7 +221,7 @@ export async function writeRefDraft(
     ...(draft.spec === null ? { noSpec: true as const } : {}),
     updatedAt: draft.updatedAt,
   };
-  await writeFileAtomic(path.join(specDir, PENGUIN_FILE), json(state));
+  await writeFileAtomic(path.join(specDir, WAFH_FILE), json(state));
   return { specCleared };
 }
 
@@ -266,9 +266,9 @@ export async function writeRefMetadata(specDir: string, ref: RefMetadata): Promi
 export async function writeProductFiles(
   spec: string,
   product: ProductMetadata,
-  owner: PenguinProductState,
+  owner: WafHarnessProductState,
 ): Promise<void> {
-  // Loom's tags stay as Loom wrote them, beyond Penguin's own limits, until the tags Penguin
+  // Loom's tags stay as Loom wrote them, beyond WAF Harness's own limits, until the tags WAF Harness
   // keeps are no longer the ones it took from them.
   const onDisk = await readProductTags(spec);
   const tags =
@@ -282,7 +282,7 @@ export async function writeProductFiles(
     canonicalRefNum: product.canonicalRefNum ?? undefined,
     tags,
   });
-  await writeFileAtomic(path.join(spec, PENGUIN_FILE), json(owner));
+  await writeFileAtomic(path.join(spec, WAFH_FILE), json(owner));
 }
 
 /** The tags the product's metadata lists; none when it lists none or cannot be read. */
@@ -303,9 +303,9 @@ export async function ensureConfigurationFile(file: string): Promise<boolean> {
   return true;
 }
 
-/** The product's owner from its `spec/`, or null when no Penguin project owns it yet. */
-export async function readProductOwner(spec: string): Promise<PenguinProductState | null> {
-  const state = (await readJson(path.join(spec, PENGUIN_FILE))) as PenguinProductState | undefined;
+/** The product's owner from its `spec/`, or null when no WAF Harness project owns it yet. */
+export async function readProductOwner(spec: string): Promise<WafHarnessProductState | null> {
+  const state = (await readJson(path.join(spec, WAFH_FILE))) as WafHarnessProductState | undefined;
   return state && typeof state === "object" && state.schemaVersion === 1 ? state : null;
 }
 

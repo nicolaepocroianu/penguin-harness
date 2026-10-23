@@ -14,7 +14,7 @@
  */
 import type { SessionCategory, SessionSource } from "../api/types.js";
 import type { SessionRow } from "../db/repos/sessions.js";
-import { Component } from "@prismshadow/penguin-core/kernel";
+import { Component } from "@waterford/waf-harness-core/kernel";
 import type { SessionOrigins } from "../mechanisms/sessions.js";
 
 /**
@@ -60,7 +60,7 @@ export function unrunSource(client: SessionRow["client"]): SessionSource | undef
 
 /**
  * The sources a program opens a Session for — the Agent API, a scheduled task's new-Session
- * run, `penguin run`, a workbench — which the listing rule files away unless the user keeps them.
+ * run, `wafh run`, a workbench — which the listing rule files away unless the user keeps them.
  */
 export const BACKGROUND_SOURCES: ReadonlySet<SessionSource> = new Set([
   "api",
@@ -73,7 +73,7 @@ export const BACKGROUND_SOURCES: ReadonlySet<SessionSource> = new Set([
  * The request header a server that adopted this one as a machine sends with every call it makes
  * here (its `/server/<id>` proxy and its own calls): the time it adopted this server, ISO.
  */
-export const ADOPTED_AT_HEADER = "x-penguin-adopted-at";
+export const ADOPTED_AT_HEADER = "x-wafh-adopted-at";
 
 /**
  * Who is reading a list, as far as the listing rule cares: a server that adopted this one as a

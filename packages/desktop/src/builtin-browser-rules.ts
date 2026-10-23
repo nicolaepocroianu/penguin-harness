@@ -14,18 +14,17 @@ import type {
   DesktopBrowserCommand,
   DesktopBrowserCommandMessage,
   DesktopBrowserCookie,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import type { TrayLocale } from "./tray-menu.js";
 
 /** The guests' own session: independent sign-ins and profile, persisted under userData. */
-export const BUILTIN_BROWSER_PARTITION = "persist:penguin-browser";
+export const BUILTIN_BROWSER_PARTITION = "persist:wafh-browser";
 
 /** Only browser-owned storage partitions may be selected, never the app's own session. */
 export function isBrowserPartition(partition: unknown): partition is string {
   return (
     partition === BUILTIN_BROWSER_PARTITION ||
-    (typeof partition === "string" &&
-      /^persist:penguin-browser-project-[a-f0-9]{64}$/.test(partition))
+    (typeof partition === "string" && /^persist:wafh-browser-project-[a-f0-9]{64}$/.test(partition))
   );
 }
 

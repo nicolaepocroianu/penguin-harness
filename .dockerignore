@@ -6,7 +6,7 @@
 
 # History, and the workflows that drive the build from outside it. The absence of .git is
 # also why the artifact carries no git stamp of its own: the commit reaches it through the
-# PENGUIN_COMMIT build arg instead.
+# WAFH_COMMIT build arg instead.
 .git
 .gitattributes
 .github

@@ -13,7 +13,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 async function fixture() {
   let projects = [project("one"), project("two")];
-  const storage = new Map([["penguin.lastProjectId", "one"]]);
+  const storage = new Map([["wafh.lastProjectId", "one"]]);
   const requests: { url: string; method: string }[] = [];
   let agents: () => Promise<Response> = async () => Response.json({ agents: [] });
   vi.stubGlobal("localStorage", {
@@ -65,7 +65,7 @@ describe("Project selection and local editor guards", () => {
     await f.store.getState().reloadProjects();
     f.store.getState().setCurrentProjectId("two");
     expect(f.store.getState().unavailableProjectId).toBe("one");
-    expect(f.storage.get("penguin.lastProjectId")).toBe("one");
+    expect(f.storage.get("wafh.lastProjectId")).toBe("one");
     expect(f.requests.filter((request) => request.method === "PUT")).toEqual([]);
     guard.mockReturnValue(true);
     f.store.getState().setCurrentProjectId("two");
@@ -73,7 +73,7 @@ describe("Project selection and local editor guards", () => {
       currentProjectId: "two",
       unavailableProjectId: null,
     });
-    expect(f.storage.get("penguin.lastProjectId")).toBe("two");
+    expect(f.storage.get("wafh.lastProjectId")).toBe("two");
   });
 
   it("asks before DELETE, and applies an approved deletion without asking after the Project is gone", async () => {

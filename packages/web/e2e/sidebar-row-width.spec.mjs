@@ -31,10 +31,10 @@ const MOCK = process.env.MOCK_URL;
 // beforeAll, and a second seeding into the same user would show every row twice.
 const U = `rowwidth${process.pid}`;
 const P = "password123";
-const LONG = "审查并安装 PenguinHarness 桌面端的发布流程，并核对签名与公证结果";
+const LONG = "审查并安装 WAF Harness 桌面端的发布流程，并核对签名与公证结果";
 const LONG_BACKGROUND = "Background run that keeps going until every check has passed";
 const LONG_ARCHIVED = "一个已经归档的对话，标题也很长 with a long English tail";
-const REPORTED = "审查并安装 PenguinHaradadad";
+const REPORTED = "审查并安装 WafHarnessHaradadad";
 const SHORT = "Nonsense in";
 const LONG_TITLES = [LONG, LONG_BACKGROUND];
 
@@ -59,7 +59,7 @@ test.beforeAll(async () => {
   });
   expect(put.ok(), "put models").toBeTruthy();
   // A real directory: a Workspace is validated by realpath and must exist.
-  const workspace = await mkdtemp(join(tmpdir(), "penguin-rowwidth-"));
+  const workspace = await mkdtemp(join(tmpdir(), "wafh-rowwidth-"));
   const create = async (title, data = {}) => {
     const res = await ctx.post(`${BASE}/api/projects/${projectId}/agents/default_agent/sessions`, {
       data,
@@ -93,9 +93,9 @@ async function openList(page, { theme, grouping, drawer = false }) {
   await login(page.request, U, P);
   await page.addInitScript(
     ([t, g]) => {
-      localStorage.setItem("penguin.lang", "zh");
-      localStorage.setItem("penguin.themeId", t);
-      localStorage.setItem("penguin.sidebarGroupMode", g);
+      localStorage.setItem("wafh.lang", "zh");
+      localStorage.setItem("wafh.themeId", t);
+      localStorage.setItem("wafh.sidebarGroupMode", g);
     },
     [theme, grouping],
   );

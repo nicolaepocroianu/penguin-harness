@@ -1,5 +1,5 @@
 /** Bind the shared site control to this site's preferences and translations. */
-import { SiteThemeToggle } from "@prismshadow/penguin-ui/site";
+import { SiteThemeToggle } from "@waterford/waf-harness-ui/site";
 import { useTheme } from "./prefs";
 import { useGallery } from "../state";
 

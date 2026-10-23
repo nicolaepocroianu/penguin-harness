@@ -25,10 +25,10 @@ import {
   agentVaultPath,
   snapshotsDir,
   systemConfigPath,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { HttpError } from "../http/errors.js";
 import { badRequest } from "../http/validate.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Log, Paths } from "../hmr/capabilities.js";
 import type { Snapshots } from "../mechanisms/agents.js";
 

@@ -204,4 +204,4 @@ export {
   XIcon,
   GlobeIcon,
   ChevronDownIcon,
-} from "@prismshadow/penguin-ui/site";
+} from "@waterford/waf-harness-ui/site";

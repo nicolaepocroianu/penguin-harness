@@ -20,8 +20,14 @@
  * run continues the conversation, the way a program passes `session_id`; New conversation
  * forgets it.
  */
-import { readSse, RunCollector } from "@prismshadow/amsp";
-import type { AmspError, AmspEvent, RunRequest, RunResult, TokenCounts } from "@prismshadow/amsp";
+import { readSse, RunCollector } from "@waterford/waf-harness-amsp";
+import type {
+  AmspError,
+  AmspEvent,
+  RunRequest,
+  RunResult,
+  TokenCounts,
+} from "@waterford/waf-harness-amsp";
 import { ApiError } from "../../api/client";
 import * as api from "../../api/endpoints";
 

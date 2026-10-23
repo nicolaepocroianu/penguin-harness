@@ -1,5 +1,5 @@
 /**
- * Integration tests for the group form of `penguin config model` (run through commander's
+ * Integration tests for the group form of `wafh config model` (run through commander's
  * parseAsync for the full command path): `model add --provider <group>` without `--model-id`
  * writes the group's connection to `[providers.<id>]` in the hidden .project_config.toml under
  * --root (mode 0600), sets and clears each field on its own, takes a protocol on any group but
@@ -17,7 +17,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
 import { parse as parseToml } from "smol-toml";
-import { DEFAULT_PROJECT_ID, projectConfigPath } from "@prismshadow/penguin-core";
+import { DEFAULT_PROJECT_ID, projectConfigPath } from "@waterford/waf-harness-core";
 import { registerConfigCommand } from "../src/commands/config.js";
 import { getMessages } from "../src/i18n.js";
 import { seedProject } from "./seeded-project.js";
@@ -27,23 +27,23 @@ let tmpRoot: string;
 let prevHome: string | undefined;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-cli-home-"));
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-cli-root-"));
+  prevHome = process.env.WAFH_HOME;
+  tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-cli-home-"));
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-cli-root-"));
   // A Project as the server seeds one: core's own default carries no models.
   await seedProject(tmpRoot);
-  process.env.PENGUIN_HOME = tmpHome;
+  process.env.WAFH_HOME = tmpHome;
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.PENGUIN_HOME;
-  else process.env.PENGUIN_HOME = prevHome;
+  if (prevHome === undefined) delete process.env.WAFH_HOME;
+  else process.env.WAFH_HOME = prevHome;
   await fs.rm(tmpHome, { recursive: true, force: true });
   await fs.rm(tmpRoot, { recursive: true, force: true });
 });
 
 /**
- * Runs a `penguin config model …` command, capturing stdout / stderr and the exit code
+ * Runs a `wafh config model …` command, capturing stdout / stderr and the exit code
  * (commander usage errors are thrown under exitOverride and turned into a non-zero code).
  */
 async function run(args: string[]): Promise<{ out: string; err: string; code: number }> {
@@ -63,7 +63,7 @@ async function run(args: string[]): Promise<{ out: string; err: string; code: nu
   const prevExitCode = process.exitCode;
   process.exitCode = undefined;
   try {
-    await program.parseAsync(["node", "penguin", "config", "model", ...args, "--root", tmpRoot]);
+    await program.parseAsync(["node", "wafh", "config", "model", ...args, "--root", tmpRoot]);
     return { out: out.join(""), err: err.join(""), code: Number(process.exitCode ?? 0) };
   } catch (e) {
     const exitCode = (e as { exitCode?: number }).exitCode;
@@ -105,7 +105,7 @@ async function groupLine(group: string): Promise<string | undefined> {
   return groups.split("\n").find((l) => l.split(/\s+/)[0] === group);
 }
 
-describe("penguin config model add without --model-id: the group's connection", () => {
+describe("wafh config model add without --model-id: the group's connection", () => {
   it("writes the group key once under --root (0600), and the group's models use it", async () => {
     const set = await run(["add", "--provider", "tokendance", "--api-key", "td-group-key-aaaa"]);
     expect(set.code).toBe(0);
@@ -113,7 +113,7 @@ describe("penguin config model add without --model-id: the group's connection", 
     if (process.platform !== "win32") {
       expect((await fs.stat(configFile())).mode & 0o777).toBe(0o600);
     }
-    // --root beats PENGUIN_HOME.
+    // --root beats WAFH_HOME.
     await expect(fs.access(projectConfigPath(tmpHome, DEFAULT_PROJECT_ID))).rejects.toThrow();
 
     const stored = await readConfig();
@@ -323,7 +323,7 @@ describe("penguin config model add without --model-id: the group's connection", 
   });
 });
 
-describe("penguin config model add --clear-* on one model", () => {
+describe("wafh config model add --clear-* on one model", () => {
   it("clears the model's own key, base URL and protocol, after which it follows its group", async () => {
     await run([
       "add",
@@ -394,7 +394,7 @@ describe("penguin config model add --clear-* on one model", () => {
   });
 });
 
-describe("penguin config model remove without --model-id: the group's connection", () => {
+describe("wafh config model remove without --model-id: the group's connection", () => {
   it("drops the group's table and keeps its models, which then use the client defaults", async () => {
     await run(["add", "--provider", "openrouter", "--api-key", "sk-or-group-gggg"]);
     const before = (await readConfig()).models.filter((m) => m.provider === "openrouter").length;
@@ -427,7 +427,7 @@ describe("penguin config model remove without --model-id: the group's connection
   });
 });
 
-describe("penguin config model list", () => {
+describe("wafh config model list", () => {
   it("prints the groups' stored connections above the models, keys masked", async () => {
     await run(["add", "--provider", "vllm", "--base-url", "http://10.0.0.5:8000/v1"]);
     const list = await run(["list"]);

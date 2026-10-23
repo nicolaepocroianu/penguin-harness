@@ -12,7 +12,7 @@ import {
   partialText,
   userText,
   type OmniMessage,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { cli } from "../src/index.js";
 import { getMessages } from "../src/i18n.js";
 import { SESSION_TITLE_MAX } from "../src/server-session.js";
@@ -59,7 +59,7 @@ afterEach(() => {
 
 const out = () => stdout.join("");
 
-describe("penguin run", () => {
+describe("wafh run", () => {
   it("creates a Session (client:'cli'), posts the task, renders the reply, exits 0", async () => {
     server.onTask = () => streamedText("hello from the model");
     const code = await cli(["run", "-m", "say hi"]);
@@ -192,7 +192,7 @@ describe("penguin run", () => {
   });
 });
 
-describe("penguin session ls", () => {
+describe("wafh session ls", () => {
   it("lists sessions of every agent with short id / state / workspace tail; -a includes archived", async () => {
     server.addSession({ sessionId: "session-2026-08-25-10-00-00-11110000", title: "First" });
     server.addSession({
@@ -212,7 +212,7 @@ describe("penguin session ls", () => {
     expect(out()).toContain("path"); // workspace tail, not the whole path column value
   });
 
-  it("leaves out the Sessions penguin run created, which are archived until kept; -a lists them", async () => {
+  it("leaves out the Sessions wafh run created, which are archived until kept; -a lists them", async () => {
     server.addSession({ sessionId: "session-2026-08-25-10-00-00-c4a70001", title: "Chat" });
     expect(await cli(["run", "-m", "batch job", "--background"])).toBe(0);
     const run = [...server.sessions.values()].find((s) => s.title !== "Chat")!;
@@ -234,7 +234,7 @@ describe("penguin session ls", () => {
   });
 });
 
-describe("penguin session input", () => {
+describe("wafh session input", () => {
   it("running session -> steer; idle -> task; --timeout 0 returns right after delivery", async () => {
     const running = server.addSession({
       sessionId: "session-2026-08-25-10-00-00-abcd0001",
@@ -274,7 +274,7 @@ describe("penguin session input", () => {
   });
 });
 
-describe("penguin session log", () => {
+describe("wafh session log", () => {
   it("renders history through the history renderer; --tail keeps the last n entries", async () => {
     server.history = [assistantText("one"), assistantText("two"), assistantText("three")];
     const s = server.addSession({ sessionId: "session-2026-08-25-10-00-00-10990001" });
@@ -289,7 +289,7 @@ describe("penguin session log", () => {
   });
 });
 
-describe("penguin agent / project", () => {
+describe("wafh agent / project", () => {
   it("agent ls prints the table; agent create posts id/name/plugins", async () => {
     await cli(["agent", "ls"]);
     expect(out()).toContain("default_agent");
@@ -321,7 +321,7 @@ describe("penguin agent / project", () => {
   });
 });
 
-describe("penguin cost", () => {
+describe("wafh cost", () => {
   it("default prints the summary card (today / last7d / total)", async () => {
     const code = await cli(["cost"]);
     expect(code).toBe(0);
@@ -359,7 +359,7 @@ describe("penguin cost", () => {
   });
 });
 
-describe("penguin schedule ls", () => {
+describe("wafh schedule ls", () => {
   it("lists schedules with target and status markers; invalid files are marked", async () => {
     server.schedules = {
       schedules: [
@@ -396,7 +396,7 @@ describe("penguin schedule ls", () => {
   });
 });
 
-describe("caller-context defaults (PENGUIN_SESSION_ID inheritance)", () => {
+describe("caller-context defaults (WAFH_SESSION_ID inheritance)", () => {
   it("run inherits workspace/model/approve from the calling session and pins its thinking level on the new session", async () => {
     const caller = server.addSession({
       sessionId: "session-2026-08-25-10-00-00-ca11e001",
@@ -406,7 +406,7 @@ describe("caller-context defaults (PENGUIN_SESSION_ID inheritance)", () => {
       approvalMode: "always-ask",
       thinkingLevel: "high",
     });
-    process.env.PENGUIN_SESSION_ID = caller.sessionId;
+    process.env.WAFH_SESSION_ID = caller.sessionId;
     const code = await cli(["run", "-m", "child job"]);
     expect(code).toBe(0);
     const create = server.requests.find((r) => r.method === "POST" && r.path.endsWith("/sessions"));
@@ -430,7 +430,7 @@ describe("caller-context defaults (PENGUIN_SESSION_ID inheritance)", () => {
       approvalMode: "always-ask",
       thinkingLevel: "high",
     });
-    process.env.PENGUIN_SESSION_ID = caller.sessionId;
+    process.env.WAFH_SESSION_ID = caller.sessionId;
     const code = await cli(["run", "-m", "x", "--workspace", "/elsewhere", "--thinking", "low"]);
     expect(code).toBe(0);
     const create = server.requests.find((r) => r.method === "POST" && r.path.endsWith("/sessions"));
@@ -447,7 +447,7 @@ describe("caller-context defaults (PENGUIN_SESSION_ID inheritance)", () => {
   });
 
   it("a failed caller lookup warns (dim, stderr) and falls back to the plain defaults", async () => {
-    process.env.PENGUIN_SESSION_ID = "session-2026-08-25-10-00-00-deadc0de"; // unknown to the server
+    process.env.WAFH_SESSION_ID = "session-2026-08-25-10-00-00-deadc0de"; // unknown to the server
     const code = await cli(["run", "-m", "x"]);
     expect(code).toBe(0);
     expect(stderr.join("")).toContain("session-2026-08-25-10-00-00-deadc0de");
@@ -457,7 +457,7 @@ describe("caller-context defaults (PENGUIN_SESSION_ID inheritance)", () => {
     expect(create?.body?.approvalMode).toBeUndefined();
   });
 
-  it("outside an agent (no PENGUIN_SESSION_ID) nothing changes", async () => {
+  it("outside an agent (no WAFH_SESSION_ID) nothing changes", async () => {
     await cli(["run", "-m", "x"]);
     const create = server.requests.find((r) => r.method === "POST" && r.path.endsWith("/sessions"));
     expect(create?.body?.workspace).toBe(process.cwd());
@@ -528,7 +528,7 @@ describe("--timeout soft yield", () => {
   });
 });
 
-describe("penguin session input (bare poll form)", () => {
+describe("wafh session input (bare poll form)", () => {
   it("idle: prints the most recent complete assistant text (skipping user/nested messages)", async () => {
     server.history = [
       assistantText("first answer"),
@@ -668,14 +668,14 @@ describe("session log / input without a session id (the agent's most recent)", (
       expect(code).toBe(1);
       const errText = stderr.join("");
       expect(errText).toContain(t.client.noSessionsYet("default_agent", "default_project"));
-      expect(errText).toContain("penguin chat");
+      expect(errText).toContain("wafh chat");
       expect(errText).not.toContain("missing required argument");
       expect(errText).not.toContain("    at "); // no stack trace
     }
   });
 });
 
-describe("penguin session ls --days", () => {
+describe("wafh session ls --days", () => {
   it("keeps sessions last active within the trailing calendar window (today = day 1) and combines with -a", async () => {
     const now = new Date();
     const at = (daysAgo: number) =>
@@ -719,7 +719,7 @@ describe("penguin session ls --days", () => {
   });
 });
 
-describe("penguin schedule add/update/rm (validated writer over the API)", () => {
+describe("wafh schedule add/update/rm (validated writer over the API)", () => {
   it("add posts the full definition, ENABLED by default (the deliberate divergence); --disabled opts out", async () => {
     const code = await cli([
       "schedule",

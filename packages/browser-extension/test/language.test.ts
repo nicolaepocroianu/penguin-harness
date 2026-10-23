@@ -39,7 +39,7 @@ describe("the pages' copy", () => {
   it("the options page reads in English", async () => {
     const page = await openPage("pair");
 
-    expect(page.byId("heading").textContent).toBe("PenguinHarness Browser");
+    expect(page.byId("heading").textContent).toBe("WAF Harness Browser");
     expect(page.byId("add-title").textContent).toBe("Add a server");
   });
 });

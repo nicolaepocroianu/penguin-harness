@@ -303,13 +303,13 @@ export class Graph {
     this.nodes.push(cat([blob(1, output), blob(2, "output"), blob(4, "Identity")]));
     const graph = cat([
       ...this.nodes.map((n) => blob(1, n)),
-      blob(2, "penguin-local-audio"),
+      blob(2, "wafh-local-audio"),
       ...[...this.initializers.values()].map((t) => blob(5, t)),
       ...this.inputs.map(([n, s, t]) => blob(11, valueInfo(n, s, t))),
       blob(12, valueInfo("output", dimensions)),
       ...this.outputs.map(([n, s]) => blob(12, valueInfo(n, s))),
     ]);
-    const model = cat([vi(1, 8), blob(2, "penguin-harness"), blob(7, graph), blob(8, vi(2, 17))]);
+    const model = cat([vi(1, 8), blob(2, "waf-harness"), blob(7, graph), blob(8, vi(2, 17))]);
     await writeFile(filename, model);
     return filename;
   }

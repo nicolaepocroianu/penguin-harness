@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AcceptanceReport, QualityReport } from "@prismshadow/penguin-server/api";
+import type { AcceptanceReport, QualityReport } from "@waterford/waf-harness-server/api";
 import {
   checksBadge,
   checksFacts,
