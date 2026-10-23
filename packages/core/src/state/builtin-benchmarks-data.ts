@@ -110,7 +110,7 @@ export const BUILTIN_BENCHMARKS: BuiltinBenchmark[] = [
       "Sec A 即 rag-bench-essential（Data Analysis Bench）：在长报告、多级表头的表格、电子表格、文档库、" +
       "一份 144 MB 的调查微观数据和一个 Formula 1 SQLite 数据库上做数据分析，由每道题自带的评分器判定通过与否。" +
       BUILT_IN_ZH,
-    version: "2026.10.12.1",
+    version: "2026.10.23.1",
     repoDir: "rag-bench-essential",
     ref: SECTIONS_REF,
     results: SECTIONS_RESULTS,
@@ -227,7 +227,7 @@ export const BUILTIN_BENCHMARKS: BuiltinBenchmark[] = [
     descriptionZh:
       "Sec B 即 DeepSWE v1.1：在真实的开源仓库里实现功能、修复缺陷，按 Agent 提交的代码由项目自己的测试评分。" +
       BUILT_IN_ZH,
-    version: "2026.10.12.1",
+    version: "2026.10.23.1",
     repoDir: "deep-swe",
     ref: SECTIONS_REF,
     results: SECTIONS_RESULTS,
@@ -342,7 +342,7 @@ export const BUILTIN_BENCHMARKS: BuiltinBenchmark[] = [
     descriptionZh:
       "Sec C 即 AutomationBench：在模拟的 SaaS 应用之间完成业务流程，经命令行工具操作，按上游的评分细则打分。" +
       BUILT_IN_ZH,
-    version: "2026.10.12.1",
+    version: "2026.10.23.1",
     repoDir: "automation-bench",
     ref: SECTIONS_REF,
     results: SECTIONS_RESULTS,
@@ -456,7 +456,7 @@ export const BUILTIN_BENCHMARKS: BuiltinBenchmark[] = [
       `terminal. ${BUILT_IN}`,
     descriptionZh:
       "Sec D 即 Terminal-Bench-Science 0.1：在终端里完成研究级的科学计算任务。" + BUILT_IN_ZH,
-    version: "2026.10.12.1",
+    version: "2026.10.23.1",
     repoDir: "terminal-bench-science",
     ref: SECTIONS_REF,
     results: SECTIONS_RESULTS,
@@ -592,7 +592,7 @@ export const BUILTIN_BENCHMARKS: BuiltinBenchmark[] = [
     descriptionZh:
       "Sec E 即 Terminal-Bench 4.0：在终端里完成困难而真实的任务，涵盖软件、安全、科学、机器学习、运维、硬件与媒体。" +
       BUILT_IN_ZH,
-    version: "2026.10.12.1",
+    version: "2026.10.23.1",
     repoDir: "terminal-bench",
     ref: SECTIONS_REF,
     results: SECTIONS_RESULTS,
@@ -723,7 +723,7 @@ export const BUILTIN_BENCHMARKS: BuiltinBenchmark[] = [
       "每题以一个 JSON 对象作答，由上游的任务评分器打分。先在这个 Benchmark 上优化 Agent，" +
       "再到与它共享这些环境的 WAF Harness Benchmark GDPevo Test 上评估。" +
       "每道题经 Harbor 框架在 Docker 中运行，题目文件在公开仓库 Prism-Shadow/penguin-harness-benchmark 中。",
-    version: "2026.10.12.1",
+    version: "2026.10.23.1",
     ...GDPEVO,
     cases: [
       {
@@ -1032,7 +1032,7 @@ export const BUILTIN_BENCHMARKS: BuiltinBenchmark[] = [
       "GDPevo 子集留出的测试题：与 WAF Harness Benchmark GDPevo Train 相同的六个公司环境里来自真实岗位的业务任务，" +
       "每题以一个 JSON 对象作答，由上游的任务评分器打分。在训练集上优化过的 Agent 在这里评估。每道题经 Harbor 框架在 Docker 中运行，" +
       "题目文件在公开仓库 Prism-Shadow/penguin-harness-benchmark 中。",
-    version: "2026.10.12.1",
+    version: "2026.10.23.1",
     ...GDPEVO,
     cases: [
       {

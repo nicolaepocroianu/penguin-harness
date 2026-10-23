@@ -149,10 +149,10 @@ describe("finding the checkout", () => {
       project,
       "node_modules",
       ".pnpm",
-      "@prismshadow+wafh-server@0.2.13",
+      "@waterford+waf-harness-server@0.2.13",
       "node_modules",
-      "@prismshadow",
-      "wafh-server",
+      "@waterford",
+      "waf-harness-server",
       "dist",
     );
     fs.mkdirSync(installed, { recursive: true });

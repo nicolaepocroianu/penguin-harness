@@ -64,7 +64,7 @@ describe.skipIf(process.platform === "win32")(
 
     it("npm global: pnpm's global store, through the .pnpm virtual dir", () => {
       const p =
-        "/home/me/.local/share/pnpm/global/5/node_modules/.pnpm/@prismshadow+wafh-cli@0.1.1/node_modules/@waterford/waf-harness-cli/dist/index.js";
+        "/home/me/.local/share/pnpm/global/5/node_modules/.pnpm/@waterford+waf-harness-cli@0.1.1/node_modules/@waterford/waf-harness-cli/dist/index.js";
       const info = detectInstall(p);
       expect(info.kind).toBe("npm");
       expect(info.globalRoot).toContain(".pnpm");

@@ -165,7 +165,7 @@ export function detectInstall(modulePath: string, runtime?: { electron: boolean 
   // …/node_modules/@waterford/waf-harness-cli/…
   const nmIdx = parts.findIndex(
     (seg, i) =>
-      seg === "node_modules" && parts[i + 1] === "@prismshadow" && parts[i + 2] === "wafh-cli",
+      seg === "node_modules" && parts[i + 1] === "@waterford" && parts[i + 2] === "waf-harness-cli",
   );
   if (nmIdx >= 0) {
     return { kind: "npm", globalRoot: join(nmIdx + 1) };

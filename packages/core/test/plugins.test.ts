@@ -914,7 +914,7 @@ describe("workspacePluginRoot (a checkout reads plugins from the repo's plugins/
     // Where core itself sits in that checkout: its own injected copy, deep under .pnpm.
     const core = path.join(
       root,
-      "node_modules/.pnpm/@prismshadow+wafh-core@file+packages+core/node_modules/@waterford/waf-harness-core",
+      "node_modules/.pnpm/@waterford+waf-harness-core@file+packages+core/node_modules/@waterford/waf-harness-core",
     );
     await fs.mkdir(core, { recursive: true });
     return { root, source, injected, core };

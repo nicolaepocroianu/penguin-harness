@@ -4,11 +4,7 @@ import http from "node:http";
 import https from "node:https";
 
 const [agentId, workbenchId] = process.argv.slice(2);
-const {
-  WAFH_API_URL: base,
-  WAFH_API_TOKEN: token,
-  WAFH_PROJECT_ID: project,
-} = process.env;
+const { WAFH_API_URL: base, WAFH_API_TOKEN: token, WAFH_PROJECT_ID: project } = process.env;
 if (!base || !token || !project || !agentId || !workbenchId) {
   console.error(
     "Usage: node check.mjs <agent_id> <workbench_id> inside a WAF Harness Session. Requires its injected WAFH_API_URL, WAFH_API_TOKEN and WAFH_PROJECT_ID. Do not search for another server or credentials.",

@@ -1,7 +1,7 @@
 ---
 name: codex
 description: Connect a ChatGPT subscription and delegate explicit coding tasks to Codex through WAF Harness's MCP tools and ACP. Use for Codex sign-in, model discovery, coding delegation, progress, approvals, cancellation, and follow-up tasks.
-version: 2026.09.19.1
+version: 2026.10.23.1
 ---
 
 # Codex delegation

@@ -1,7 +1,7 @@
 ---
 name: company-finance
 description: Run finance for a WAF Harness organization — set and adjust monthly budgets along the reporting line, audit spend daily with wafh org finance and wafh cost, explain budget alerts in the all-hands channel with savings proposals, and handle budget pauses.
-version: 2026.10.10.1
+version: 2026.10.23.1
 ---
 
 # Company Finance

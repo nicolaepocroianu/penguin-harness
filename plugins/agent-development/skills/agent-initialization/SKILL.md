@@ -1,7 +1,7 @@
 ---
 name: agent-initialization
 description: Initialize or extend an Agent from a user requirement - write AGENTS.md, set identity metadata, and create, install or import Skills and hook packages (scripts the harness runs on every prompt, before tool calls, or after a task). For an Agent with an in-app workbench, pair with wafh-plugin; for a standalone external program, use wafh-sdk.
-version: 2026.10.14.1
+version: 2026.10.23.1
 ---
 
 # Agent Initialization
