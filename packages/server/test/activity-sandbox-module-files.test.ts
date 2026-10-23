@@ -13,6 +13,22 @@ describe("what a preview may fetch from a build workspace", () => {
     expect(moduleFilePath("dist/main.js.map")).toBe("dist/main.js.map");
   });
 
+  it("serves the assets a module packages itself", () => {
+    for (const file of [
+      "engine/rive.wasm",
+      "counting.riv",
+      "models/apple.gltf",
+      "models/apple.glb",
+      "models/apple.bin",
+      "audio/tap.mp3",
+      "audio/tap.ogg",
+      "audio/tap.wav",
+    ])
+      expect(moduleFilePath(file)).toBe(file);
+    expect(moduleFilePath("../media/tap.mp3")).toBeNull();
+    expect(moduleFilePath("node_modules/@rive-app/canvas/rive.wasm")).toBeNull();
+  });
+
   it("refuses a path that climbs out", () => {
     expect(moduleFilePath("../definition.json")).toBeNull();
     expect(moduleFilePath("a/../../b.js")).toBeNull();
@@ -54,6 +70,17 @@ describe("how a module file is served", () => {
     expect(moduleContentType("layout.html")).toBe("text/html; charset=utf-8");
     expect(moduleContentType("main.js.map")).toBe("application/json; charset=utf-8");
     expect(moduleContentType("logo.svg")).toBe("image/svg+xml");
+  });
+
+  it("names the types of the assets a module packages itself", () => {
+    // Streaming wasm compilation refuses anything but application/wasm.
+    expect(moduleContentType("res/engine/rive.wasm")).toBe("application/wasm");
+    expect(moduleContentType("counting.riv")).toBe("application/octet-stream");
+    expect(moduleContentType("models/apple.gltf")).toBe("model/gltf+json");
+    expect(moduleContentType("models/apple.glb")).toBe("model/gltf-binary");
+    expect(moduleContentType("models/apple.bin")).toBe("application/octet-stream");
+    expect(moduleContentType("models/apple.webp")).toBe("image/webp");
+    expect(moduleContentType("audio/tap.mp3")).toBe("audio/mpeg");
   });
 
   it("falls back rather than crashing on an extension it does not know", () => {
