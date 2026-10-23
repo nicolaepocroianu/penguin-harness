@@ -2,8 +2,11 @@
  * Serving a built module's own files to a running preview.
  *
  * The payload points a module's `require` entries at a per-activity route, so something has
- * to answer it. These are the module's code, styles and layout — small text files read once
- * at load, not the media stream that `media-origin` handles.
+ * to answer it. These are the module's code, styles and layout, and the assets it packages
+ * itself: a Rive file and its runtime's wasm, a glTF model with its buffers and textures, the
+ * narration in its `res/audio`. A module finds those relative to its `entry.js`, and Loom's
+ * dev-sandbox serves them at the module's own URL. The checkout's shared `{{MEDIA}}` is a
+ * different stream, which `media-origin` handles.
  *
  * The rule that matters is which files may be served at all. A build workspace holds the
  * module's sources, its `node_modules`, its build log and whatever else the assembly agent
@@ -31,6 +34,14 @@ const SERVABLE_EXTENSIONS = new Set([
   ".woff",
   ".woff2",
   ".ttf",
+  ".wasm",
+  ".riv",
+  ".gltf",
+  ".glb",
+  ".bin",
+  ".mp3",
+  ".ogg",
+  ".wav",
 ]);
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -50,6 +61,15 @@ const CONTENT_TYPES: Record<string, string> = {
   ".woff": "font/woff",
   ".woff2": "font/woff2",
   ".ttf": "font/ttf",
+  // Streaming compilation refuses wasm sent as anything else.
+  ".wasm": "application/wasm",
+  ".riv": "application/octet-stream",
+  ".gltf": "model/gltf+json",
+  ".glb": "model/gltf-binary",
+  ".bin": "application/octet-stream",
+  ".mp3": "audio/mpeg",
+  ".ogg": "audio/ogg",
+  ".wav": "audio/wav",
 };
 
 /** Directories inside a build workspace a preview never reaches into. */

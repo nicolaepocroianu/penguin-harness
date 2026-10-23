@@ -59,6 +59,13 @@ async function checkout(options: { usesAssessment?: boolean } = {}): Promise<str
   });
   await write(path.join(module, "package.json"), { version: "1.0.0" });
   await write(path.join(module, "res", "layout.html"), "<div>layout</div>");
+  // Assets the module packages itself, which it finds relative to its entry.js.
+  await write(path.join(module, "res", "engine", "rive.wasm"), "wasm bytes");
+  await write(path.join(module, "res", "counting.riv"), "riv bytes");
+  await write(path.join(module, "res", "models", "apple.gltf"), "{}");
+  await write(path.join(module, "res", "models", "apple.bin"), "buffer");
+  await write(path.join(module, "res", "models", "apple.webp"), "texture");
+  await write(path.join(module, "res", "audio", "tap.mp3"), "tap sound");
   await write(path.join(module, "configurations", `${CODE}-1.json`), {
     sightWords: { intro: "{{MEDIA}}/loom/sight-words/intro.mp3" },
   });
@@ -160,6 +167,33 @@ describe("playing an imported activity", () => {
     expect(await media.text()).toBe("intro sound");
     const css = await onPreview(`${base}css/style.css`);
     expect(css.headers.get("content-type")).toContain("text/css");
+  });
+
+  it("serves the assets a module packages itself, each under its own type", async () => {
+    // Rive, three.js and audio modules fetch these beside entry.js, as in Loom's dev-sandbox.
+    const { base, onPreview } = await setup();
+    const types = {
+      "engine/rive.wasm": "application/wasm",
+      "counting.riv": "application/octet-stream",
+      "models/apple.gltf": "model/gltf+json",
+      "models/apple.bin": "application/octet-stream",
+      "models/apple.webp": "image/webp",
+      "audio/tap.mp3": "audio/mpeg",
+    };
+    for (const [file, type] of Object.entries(types)) {
+      const response = await onPreview(`${base}module/${file}`);
+      expect(response.status, file).toBe(200);
+      expect(response.headers.get("content-type"), file).toBe(type);
+    }
+    expect(await (await onPreview(`${base}module/audio/tap.mp3`)).text()).toBe("tap sound");
+  });
+
+  it("keeps a packaged asset's path inside the module", async () => {
+    const { base, onPreview } = await setup();
+    const climbed = await onPreview(`${base}module/..%2F..%2Fmedia%2Floom%2F${CODE}%2Fintro.mp3`);
+    expect(climbed.status).toBe(400);
+    const missing = await onPreview(`${base}module/audio/missing.mp3`);
+    expect(missing.status).toBe(404);
   });
 
   it("does not hand out Loom's authoring files through the module route", async () => {
