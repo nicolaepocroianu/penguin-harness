@@ -83,17 +83,17 @@ describe("painting two finds at once", () => {
   it("keeps each owner's hits painted while the other repaints", () => {
     paintHits(hits("page-a", "page-b"), 0);
     paintHits(hits("doc-a", "doc-b", "doc-c"), 1, "reader");
-    expect(painted("penguin-find")).toEqual(["doc-a", "doc-c", "page-b"]);
-    expect(painted("penguin-find-current")).toEqual(["doc-b", "page-a"]);
+    expect(painted("wafh-find")).toEqual(["doc-a", "doc-c", "page-b"]);
+    expect(painted("wafh-find-current")).toEqual(["doc-b", "page-a"]);
   });
 
   it("clears only the closing owner's hits", () => {
     paintHits(hits("page-a"), 0);
     paintHits(hits("doc-a", "doc-b"), 0, "reader");
     clearHighlights("reader");
-    expect(painted("penguin-find")).toEqual([]);
-    expect(painted("penguin-find-current")).toEqual(["page-a"]);
+    expect(painted("wafh-find")).toEqual([]);
+    expect(painted("wafh-find-current")).toEqual(["page-a"]);
     clearHighlights();
-    expect(registry.has("penguin-find-current")).toBe(false);
+    expect(registry.has("wafh-find-current")).toBe(false);
   });
 });

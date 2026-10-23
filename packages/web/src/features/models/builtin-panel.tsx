@@ -1,10 +1,10 @@
 /**
- * Models → Built-in: agents Penguin downloads, runs and updates itself. One card for GitHub
+ * Models → Built-in: agents WAF Harness downloads, runs and updates itself. One card for GitHub
  * Copilot: paste a PAT, Set up, and it becomes a coding agent like the Local CLI ones. Polls
  * while a download runs. Admin-only, like the routes it calls.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { BuiltinAgentInfo, CodingAgentTestResult } from "@prismshadow/penguin-server/api";
+import type { BuiltinAgentInfo, CodingAgentTestResult } from "@waterford/waf-harness-server/api";
 import {
   cancelBuiltinCopilot,
   listBuiltinAgents,
@@ -26,7 +26,7 @@ import {
   toastError,
   useGuardedClose,
   useUnsavedChanges,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { codingAgentLogo } from "../chat/coding-agent-models";
 import { builtinActions, builtinSubtitle, progressPercent } from "./builtin-model";
 

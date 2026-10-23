@@ -24,7 +24,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { Component } from "@prismshadow/penguin-core/kernel";
+import { Component } from "@waterford/waf-harness-core/kernel";
 import type { PluginPackages } from "../mechanisms/plugins.js";
 
 const execFileAsync = promisify(execFile);
@@ -62,7 +62,7 @@ async function ensurePrefix(root: string): Promise<string> {
   } catch {
     await fs.writeFile(
       manifest,
-      `${JSON.stringify({ name: "penguin-plugins", private: true, version: "0.0.0" }, null, 2)}\n`,
+      `${JSON.stringify({ name: "wafh-plugins", private: true, version: "0.0.0" }, null, 2)}\n`,
     );
   }
   return prefix;

@@ -1,10 +1,10 @@
 {
-  "name": "@penguinharness/goal",
+  "name": "@waf-harness/goal",
   "version": "0.2.16",
   "description": "Goal mode: a stop hook that keeps the session working toward an objective — re-injecting it every round and checking the goal file — until the goal is complete, blocked, or out of token budget.",
   "keywords": [
-    "penguin-plugin",
-    "penguinharness",
+    "wafh-plugin",
+    "waf-harness",
     "hooks"
   ],
   "license": "Apache-2.0",
@@ -22,7 +22,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "penguin": {
+  "wafh": {
     "short_description": "Loop the session on an objective until it is done.",
     "category": "office-productivity",
     "icon": "icon.svg",

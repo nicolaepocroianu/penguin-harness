@@ -2,7 +2,7 @@
 # Example: an Agent that builds another Agent (local, on an AMD GPU via Ollama)
 
 This example is the **"Harness for Building Agents"** pillar in runnable code. Using only the
-PenguinHarness SDK, it:
+WAF Harness SDK, it:
 
 1. **builds** a brand-new agent (`commit-helper`) by driving `default_agent` with the
    `agent-initialization` skill from a plain-language requirement, then
@@ -22,22 +22,22 @@ ollama serve &          # if not already running as a service
 ollama pull qwen3.6:35b
 ```
 
-## 2. Point PenguinHarness at it (once)
+## 2. Point WAF Harness at it (once)
 
 ```bash
-penguin config model add \
+wafh config model add \
   --model-id qwen3.6:35b \
   --provider custom --client-type openai \
   --base-url http://localhost:11434/v1 \
   --api-key ollama --set-default
 ```
 
-This writes the model into `~/.penguin/data/default_project/.project_config.toml`. The example
+This writes the model into `~/.waf-harness/data/default_project/.project_config.toml`. The example
 uses the project's default model, so no model id is hard-coded in the script.
 
 ## 3. Run the example
 
-From the repo root (build the workspace first so `@prismshadow/penguin-core` resolves to its
+From the repo root (build the workspace first so `@waterford/waf-harness-core` resolves to its
 `dist/`):
 
 ```bash

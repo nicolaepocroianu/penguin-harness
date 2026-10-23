@@ -17,7 +17,7 @@
  */
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router";
-import { PENGUIN_LOGO_URL } from "../lib/brand-logo";
+import { WAFH_LOGO_URL } from "../lib/brand-logo";
 import { S } from "../lib/strings";
 import { createCompletionTracker, observedSessions } from "../lib/completion-notify";
 import { sessionHref } from "../lib/activity-sessions";
@@ -63,8 +63,8 @@ export function useCompletionNotifications(): void {
         const notification = new Notification(S.notify.taskCompleteTitle, {
           body: S.notify.taskCompleteBody(title),
           // One notification per Session: a newer completion replaces the stale one.
-          tag: `penguin-task-${sessionId}`,
-          icon: PENGUIN_LOGO_URL,
+          tag: `wafh-task-${sessionId}`,
+          icon: WAFH_LOGO_URL,
         });
         notification.onclick = () => {
           notification.close();

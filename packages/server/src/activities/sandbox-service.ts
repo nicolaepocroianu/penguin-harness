@@ -7,7 +7,7 @@
  * `sandbox-builder`; this is the part that touches the filesystem and the activity record,
  * kept thin on purpose.
  *
- * A module comes from one of two places -- a run workspace Penguin assembled it in, or the
+ * A module comes from one of two places -- a run workspace WAF Harness assembled it in, or the
  * WAF checkout, where Loom left the modules it generated (see `sandbox-source`); which one,
  * and its documents, is the module source's answer (`module-source`), and every build goes
  * through the module builder (`module-builder`). Media
@@ -32,7 +32,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use, type Opaque } from "@waterford/waf-harness-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
 import type { ProjectActivityWork } from "../mechanisms/projects.js";
@@ -842,7 +842,7 @@ export class ActivitySandboxService implements ActivitySandbox {
         ?.value ?? {};
     let configuration = unwrapModuleConfiguration(raw, declaration.id, [activity.productCode]);
     // The machine and scene catalog as Loom keeps them synced, so an assembly made before
-    // Penguin synced them, or an edit that predates them, still boots its state machine.
+    // WAF Harness synced them, or an edit that predates them, still boots its state machine.
     // A book's configuration carries its reader's own catalog, compiled with the book.
     // An author's edit of the machine stands in for the module's own, as the configuration's
     // does, but not in a play of one module run: that plays, and checks, the machine the run built.
@@ -896,8 +896,8 @@ export class ActivitySandboxService implements ActivitySandbox {
   async build(projectId: string, activityId: string, force = false): Promise<SandboxBuildReport> {
     const activity = await this.activities.getActivity(projectId, activityId);
     const source = await this.moduleSource(projectId, activity);
-    // Only the canonical ref owns a module Penguin assembled, and a build writes into it. A
-    // checkout module's build writes only Penguin's own copy, so any ref may ask for one.
+    // Only the canonical ref owns a module WAF Harness assembled, and a build writes into it. A
+    // checkout module's build writes only WAF Harness's own copy, so any ref may ask for one.
     if (source?.kind !== "checkout" && !this.activities.isCanonicalRef(activity)) {
       const product = this.activities.productOf(activity);
       throw new HttpError(
@@ -1220,7 +1220,7 @@ export class ActivitySandboxService implements ActivitySandbox {
     if (!spec) return failurePage(409, "Save a specification before previewing.");
     const source = await this.moduleSource(projectId, activity, options.runId);
     if (!source) return failurePage(409, "No module has been built for this activity yet.");
-    // A module Penguin assembled may be played before its configuration exists, and plays
+    // A module WAF Harness assembled may be played before its configuration exists, and plays
     // empty. A Loom module without one was never finished -- Loom's own sandbox refused to
     // play it -- so saying so beats a blank activity.
     const configuration = moduleDocumentPath(

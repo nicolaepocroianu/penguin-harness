@@ -41,7 +41,7 @@ function database(): DatabaseSync {
 }
 
 async function home() {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-deploy-run-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-deploy-run-"));
   cleanups.push(() => fs.rm(dir, { recursive: true, force: true }));
   await fs.mkdir(path.join(dir, "module"));
   return dir;

@@ -8,7 +8,7 @@
  * the App's own host, with no separate preview origin, the page is sandboxed off its origin.
  */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { Bind, Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Interface, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono, type Context } from "hono";
 import { HttpError } from "../http/errors.js";
 import type { ActivityGeneration } from "../mechanisms/activities.js";

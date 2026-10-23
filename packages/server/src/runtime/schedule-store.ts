@@ -10,8 +10,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { stringify as stringifyToml } from "smol-toml";
-import { atomicWriteFile, resolveModelRef, scheduleDir } from "@prismshadow/penguin-core";
-import type { ProjectConfig } from "@prismshadow/penguin-core";
+import { atomicWriteFile, resolveModelRef, scheduleDir } from "@waterford/waf-harness-core";
+import type { ProjectConfig } from "@waterford/waf-harness-core";
 import { cacheable, statMtime } from "../internal/mtime-gate.js";
 import {
   parseScheduleFile,

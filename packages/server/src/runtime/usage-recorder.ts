@@ -13,10 +13,10 @@
  * The attribution key is always the paired reference `(provider, model_id)` (the same
  * model_id name across different vendors is attributed separately).
  */
-import { isEventMessage, isSessionMeta } from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import { isEventMessage, isSessionMeta } from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import { formatLocalDate } from "../internal/dates.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Clock } from "../hmr/capabilities.js";
 import type { UsageRecording, UsageStore } from "../mechanisms/observability.js";
 

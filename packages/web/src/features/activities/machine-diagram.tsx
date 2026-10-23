@@ -27,7 +27,7 @@ import {
   IconButton,
   Pill,
   Select,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk, toneName } from "../../lib/tone";
 import { isZoomWheel } from "../../lib/shortcuts/wheel";

@@ -29,7 +29,7 @@ import type {
   AgentApiSettings,
   AgentApiUpdateRequest,
   ApprovalMode,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   CodeBlock,
@@ -49,7 +49,7 @@ import {
   ToggleRow,
   toastError,
   useUnsavedChanges,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";
@@ -102,17 +102,17 @@ export function agentApiRef(projectId: string, agentId: string): string {
 export function agentApiExamples(baseUrl: string, agentRef: string): { curl: string; sdk: string } {
   const curl = [
     `curl -N ${baseUrl}/agents/${agentRef}/runs \\`,
-    `  -H "Authorization: Bearer $PENGUIN_AGENT_KEY" \\`,
+    `  -H "Authorization: Bearer $WAFH_AGENT_KEY" \\`,
     `  -H "Content-Type: application/json" \\`,
     `  -d '{"input":"Hello"}'`,
   ].join("\n");
   const sdk = [
-    `import { AgentClient } from "@prismshadow/amsp";`,
+    `import { AgentClient } from "@waterford/waf-harness-amsp";`,
     ``,
     `const client = new AgentClient({`,
     `  baseUrl: "${baseUrl}",`,
     `  agent: "${agentRef}",`,
-    `  apiKey: process.env.PENGUIN_AGENT_KEY,`,
+    `  apiKey: process.env.WAFH_AGENT_KEY,`,
     `});`,
     ``,
     `const result = await client.run({ input: "Hello" });`,

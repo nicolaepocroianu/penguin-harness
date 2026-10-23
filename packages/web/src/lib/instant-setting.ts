@@ -15,7 +15,7 @@
  * draft beside it stays as it was.
  */
 import { useState } from "react";
-import { toastError } from "@prismshadow/penguin-ui";
+import { toastError } from "@waterford/waf-harness-ui";
 import { apiErrorText } from "./api-error";
 
 export interface InstantSetting<T> {

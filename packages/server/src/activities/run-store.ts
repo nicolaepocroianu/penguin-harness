@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Component, Interface, Use, type Opaque } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use, type Opaque } from "@waterford/waf-harness-core/kernel";
 import type { Config, Db, Log } from "../hmr/capabilities.js";
 import type { ActivityRun, ActivityRunSummary } from "./domain.js";
 

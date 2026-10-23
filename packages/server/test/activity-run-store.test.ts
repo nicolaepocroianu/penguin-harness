@@ -7,8 +7,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { projectDir } from "@prismshadow/penguin-core";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { projectDir } from "@waterford/waf-harness-core";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import type { ActivityDetail, ActivityRun } from "../src/activities/domain.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../src/mechanisms/activities.js";
 import { isRunWorkspace, type ActivityRuns } from "../src/activities/run-store.js";

@@ -14,7 +14,7 @@
  * linked document in place, as it does for any Workspace file.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, EmptyState, SkeletonList } from "@prismshadow/penguin-ui";
+import { Button, EmptyState, SkeletonList } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";

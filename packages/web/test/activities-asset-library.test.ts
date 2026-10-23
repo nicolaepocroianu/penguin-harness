@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
+import type { AssetManifest, UploadedMedia } from "@waterford/waf-harness-server/api";
 import {
   LIBRARY_LAYOUT_KEY,
   filterPlanned,

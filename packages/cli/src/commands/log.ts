@@ -1,18 +1,18 @@
 /**
- * `penguin session log` — render a session's history (and optionally follow it live).
+ * `wafh session log` — render a session's history (and optionally follow it live).
  *
- *   penguin session log [session_id] [--tail <n>] [-f|--follow] [--timeout <duration>]
+ *   wafh session log [session_id] [--tail <n>] [-f|--follow] [--timeout <duration>]
  *                       [--project-id <id>] [--agent-id <id>] [--json] [--server <url>]
  *
  * `[session_id]` is a full id or a unique fragment; omitted, it is the agent's most
  * recent session (announced as a dim `[latest]` line on stderr — see
- * resolveSessionTarget), so a bare `penguin session log` shows what just happened.
+ * resolveSessionTarget), so a bare `wafh session log` shows what just happened.
  *
  * History comes from GET /messages and renders through the same history renderer the
  * REPL's `--resume` uses; `--tail n` keeps the last n entries. `-f` keeps the command
  * attached: after the history it subscribes to the session's SSE stream and renders new
  * messages as they arrive (read-only — Ctrl-C detaches without touching the session).
- * Docs: /docs/cli § "penguin session log".
+ * Docs: /docs/cli § "wafh session log".
  */
 import type { Command } from "commander";
 import { StreamRenderer, dim, renderHistory } from "../render.js";
@@ -26,10 +26,10 @@ import {
 } from "../client.js";
 import { getSessionMessages, resolveSessionTarget } from "../server-session.js";
 import { SessionStream, nextFrameOrDeadline } from "../server-task.js";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import type { Messages } from "../i18n.js";
 
-/** Registers `log` under the `penguin session` group (see session.ts). */
+/** Registers `log` under the `wafh session` group (see session.ts). */
 export function registerLogCommand(session: Command, t: Messages): void {
   session
     .command("log [sessionId]")

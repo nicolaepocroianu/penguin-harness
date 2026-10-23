@@ -53,7 +53,7 @@ describe("the plugin library's host package", () => {
   let bundle: string;
 
   beforeAll(async () => {
-    scratch = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-plugin-host-"));
+    scratch = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-plugin-host-"));
     // The store a push lands in: `<root>/hmr/store/platform/<sha>.mjs`, nothing above it a package.
     bundle = path.join(scratch, "root", "hmr", "store", "platform", "platform.mjs");
     fs.mkdirSync(path.dirname(bundle), { recursive: true });
@@ -92,9 +92,9 @@ describe("the plugin library's host package", () => {
     fs.mkdirSync(path.join(lib, "dist"), { recursive: true });
     fs.writeFileSync(
       path.join(lib, "package.json"),
-      JSON.stringify({ name: "host", dependencies: { "@penguinharness/goal": "*" } }),
+      JSON.stringify({ name: "host", dependencies: { "@waf-harness/goal": "*" } }),
     );
-    fs.cpSync(GOAL_PLUGIN, path.join(lib, "node_modules", "@penguinharness", "goal"), {
+    fs.cpSync(GOAL_PLUGIN, path.join(lib, "node_modules", "@waf-harness", "goal"), {
       recursive: true,
     });
     const program = path.join(lib, "dist", "serve.mjs");
@@ -120,20 +120,20 @@ describe("the plugin library's host package", () => {
     fs.writeFileSync(path.join(app, "dist", "package.json"), JSON.stringify({ type: "module" }));
     fs.writeFileSync(
       path.join(app, "package.json"),
-      JSON.stringify({ name: "app", dependencies: { "@penguinharness/goal": "*" } }),
+      JSON.stringify({ name: "app", dependencies: { "@waf-harness/goal": "*" } }),
     );
-    fs.cpSync(GOAL_PLUGIN, path.join(app, "node_modules", "@penguinharness", "goal"), {
+    fs.cpSync(GOAL_PLUGIN, path.join(app, "node_modules", "@waf-harness", "goal"), {
       recursive: true,
     });
     // The program's installation is a host too, of a different plugin: were it chosen, the
     // library would read that one instead.
     const other = path.join(scratch, "other");
-    fs.cpSync(HUMANIZER_PLUGIN, path.join(other, "node_modules", "@penguinharness", "humanizer"), {
+    fs.cpSync(HUMANIZER_PLUGIN, path.join(other, "node_modules", "@waf-harness", "humanizer"), {
       recursive: true,
     });
     fs.writeFileSync(
       path.join(other, "package.json"),
-      JSON.stringify({ name: "other", dependencies: { "@penguinharness/humanizer": "*" } }),
+      JSON.stringify({ name: "other", dependencies: { "@waf-harness/humanizer": "*" } }),
     );
     const program = path.join(other, "serve.mjs");
     fs.writeFileSync(program, script(inlined));
@@ -149,15 +149,15 @@ describe("the plugin library's host package", () => {
     fs.writeFileSync(
       path.join(pushed, "package.json"),
       JSON.stringify({
-        name: "penguin-plugin-library",
-        dependencies: { "@penguinharness/goal": "*", "@penguinharness/humanizer": "*" },
+        name: "wafh-plugin-library",
+        dependencies: { "@waf-harness/goal": "*", "@waf-harness/humanizer": "*" },
       }),
     );
     for (const [name, from] of [
       ["goal", GOAL_PLUGIN],
       ["humanizer", HUMANIZER_PLUGIN],
     ] as const) {
-      fs.cpSync(from, path.join(pushed, "node_modules", "@penguinharness", name), {
+      fs.cpSync(from, path.join(pushed, "node_modules", "@waf-harness", name), {
         recursive: true,
       });
     }

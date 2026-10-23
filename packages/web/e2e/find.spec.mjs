@@ -100,8 +100,8 @@ test("Ctrl+F scopes to the focused area, Ctrl+Shift+F searches them all", async 
 
   // The hits are registered as CSS highlights — the DOM the markdown rendered is untouched.
   const highlights = await page.evaluate(() => Array.from(CSS.highlights.keys()));
-  expect(highlights).toContain("penguin-find");
-  expect(highlights).toContain("penguin-find-current");
+  expect(highlights).toContain("wafh-find");
+  expect(highlights).toContain("wafh-find-current");
 
   // Enter travels only on the second press: the first shows the match that is already selected.
   await input.press("Enter");
@@ -132,9 +132,7 @@ test("Ctrl+F scopes to the focused area, Ctrl+Shift+F searches them all", async 
   // Escape closes it, and the paint goes with it.
   await page.keyboard.press("Escape");
   await expect(bar).toHaveCount(0);
-  expect(await page.evaluate(() => Array.from(CSS.highlights.keys()))).not.toContain(
-    "penguin-find",
-  );
+  expect(await page.evaluate(() => Array.from(CSS.highlights.keys()))).not.toContain("wafh-find");
 
   // --- Ctrl+Shift+F: every region at once, as a list. ---
   await page.keyboard.press("Control+Shift+f");

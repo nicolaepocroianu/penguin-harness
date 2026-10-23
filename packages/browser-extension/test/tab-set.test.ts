@@ -2,8 +2,8 @@
  * Which tabs a server may drive, and what it hears about them.
  *
  * - Given an `open-tab`, the new tab opens in the last focused window, inside a group titled
- *   "Penguin" (blue), and the server hears about it; the next one joins the same group.
- * - Given two paired servers, each gets its own group, titled "Penguin · <server>".
+ *   "WAF Harness" (blue), and the server hears about it; the next one joins the same group.
+ * - Given two paired servers, each gets its own group, titled "WAF Harness · <server>".
  * - Given a page a driven tab opens, it joins its opener's server and group; a page an undriven
  *   tab opens is not adopted.
  * - Given a driven tab opens a page into a popup window (which holds no groups), the page is
@@ -46,7 +46,7 @@ function controller(servers: Record<string, string> = { [A]: "ph.example.com" })
   const tabs = new TabController({
     send: (server, event) => heard.push({ server, event }),
     detach: (tabId) => detached.push(tabId),
-    groupTitle: (server) => (many ? `Penguin · ${servers[server]}` : "Penguin"),
+    groupTitle: (server) => (many ? `WAF Harness · ${servers[server]}` : "WAF Harness"),
   });
   fake.events.tabUpdated.addListener((tabId, change, tab) =>
     tabs.onUpdated(tabId, change as chrome.tabs.OnUpdatedInfo, tab as chrome.tabs.Tab),
@@ -78,7 +78,7 @@ afterEach(() => {
 });
 
 describe("tabs a server opens", () => {
-  it("opens in the last focused window, inside a blue Penguin group, announced to the server", async () => {
+  it("opens in the last focused window, inside a blue WAF Harness group, announced to the server", async () => {
     const { tabs, kinds } = controller();
     const first = await tabs.open(A, "https://shop.example.com/", true);
     const second = await tabs.open(A, "https://mail.example.com/", false);
@@ -86,7 +86,11 @@ describe("tabs a server opens", () => {
     const groupIds = new Set([first.id, second.id].map((id) => fake.tabs.get(id)!.groupId));
     expect(groupIds.size).toBe(1);
     const [groupId] = [...groupIds];
-    expect(fake.groups.get(groupId!)).toMatchObject({ windowId, title: "Penguin", color: "blue" });
+    expect(fake.groups.get(groupId!)).toMatchObject({
+      windowId,
+      title: "WAF Harness",
+      color: "blue",
+    });
     expect(first).toMatchObject({ url: "https://shop.example.com/", loading: true });
     expect(kinds(A)).toEqual([`tab:${first.id}`, `tab:${second.id}`]);
   });
@@ -96,8 +100,8 @@ describe("tabs a server opens", () => {
     const a = await tabs.open(A, "https://shop.example.com/", false);
     const b = await tabs.open(B, "https://news.example.com/", false);
     const groupOf = (id: number) => fake.groups.get(fake.tabs.get(id)!.groupId);
-    expect(groupOf(a.id)?.title).toBe("Penguin · ph.example.com");
-    expect(groupOf(b.id)?.title).toBe("Penguin · localhost:7369");
+    expect(groupOf(a.id)?.title).toBe("WAF Harness · ph.example.com");
+    expect(groupOf(b.id)?.title).toBe("WAF Harness · localhost:7369");
   });
 
   it("drives a page opened into a popup window without a group", async () => {

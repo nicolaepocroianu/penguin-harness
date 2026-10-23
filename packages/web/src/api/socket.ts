@@ -28,8 +28,8 @@
  * Without a socket — the browser cannot open one, or the handshake keeps failing — calls
  * fall back to fetch, and streams wait in silence until one comes or the page reloads.
  */
-import type { OmniMessage } from "@prismshadow/penguin-core/omnimessage";
-import type { ServerEvent } from "@prismshadow/penguin-server/api";
+import type { OmniMessage } from "@waterford/waf-harness-core/omnimessage";
+import type { ServerEvent } from "@waterford/waf-harness-server/api";
 import type { StreamConnection, StreamHandlers } from "./sse";
 
 /** Reconnect backoff, the ssh reconnect's shape: doubling from the floor to the ceiling. */

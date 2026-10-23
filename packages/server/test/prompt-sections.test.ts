@@ -12,7 +12,7 @@
  *   everywhere.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { LEGACY_SKILLS_SECTION, LEGACY_VAULT_SECTION } from "@prismshadow/penguin-core";
+import { LEGACY_SKILLS_SECTION, LEGACY_VAULT_SECTION } from "@waterford/waf-harness-core";
 import type {
   AgentConfigResponse,
   AgentSchedulesConfigDto,

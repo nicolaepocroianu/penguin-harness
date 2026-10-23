@@ -97,7 +97,7 @@ export function noticeFilter(write: (chunk: string) => void): {
 function main(): void {
   const encoded = process.argv[2];
   if (encoded === undefined) {
-    process.stderr.write("penguin-wsl: the launcher was started without a job\n");
+    process.stderr.write("wafh-wsl: the launcher was started without a job\n");
     process.exit(126);
   }
   const job = JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) as LaunchJob;
@@ -111,7 +111,7 @@ function main(): void {
   child.stderr.on("data", (chunk: string) => filter.push(chunk));
   child.stderr.on("end", () => filter.end());
   child.on("error", (err) => {
-    process.stderr.write(`penguin-wsl: could not start ${job.wsl}: ${err.message}\n`);
+    process.stderr.write(`wafh-wsl: could not start ${job.wsl}: ${err.message}\n`);
     process.exit(127);
   });
   child.on("exit", (code, signal) => {

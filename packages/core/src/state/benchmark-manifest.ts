@@ -70,7 +70,7 @@ export interface BenchmarkOrigin {
   url?: string;
   /** git: the 40-hex commit the import resolved the link to. */
   ref?: string;
-  /** git: the folder inside the repository, e.g. `packages/penguinharness-benchmark-sec-a`. */
+  /** git: the folder inside the repository, e.g. `packages/waf-harness-benchmark-sec-a`. */
   path?: string;
   /** git / zip: when this copy was written, ISO 8601. */
   imported_at?: string;

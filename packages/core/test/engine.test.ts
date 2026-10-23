@@ -70,7 +70,7 @@ class FakeLLM implements LLMInterface {
       yield assistantText("I will create the file.");
       yield toolCall({
         name: "exec_command",
-        arguments: JSON.stringify({ cmd: "printf 'Hello, Penguin' > hello.txt" }),
+        arguments: JSON.stringify({ cmd: "printf 'Hello, WAF Harness' > hello.txt" }),
         toolCallId: "call_1",
         stopReason: "completed",
       });
@@ -191,8 +191,8 @@ describe("ContextEngine ReAct loop (mock LLM, approve callback)", () => {
   let traces: string;
 
   beforeEach(async () => {
-    workspace = await mkdtemp(join(tmpdir(), "penguin-ws-"));
-    traces = await mkdtemp(join(tmpdir(), "penguin-tr-"));
+    workspace = await mkdtemp(join(tmpdir(), "wafh-ws-"));
+    traces = await mkdtemp(join(tmpdir(), "wafh-tr-"));
   });
 
   afterEach(async () => {
@@ -213,7 +213,7 @@ describe("ContextEngine ReAct loop (mock LLM, approve callback)", () => {
 
     const collected = await collectRun(
       engine,
-      [userText("Create hello.txt saying Hello, Penguin")],
+      [userText("Create hello.txt saying Hello, WAF Harness")],
       allowAll,
     );
 
@@ -223,8 +223,8 @@ describe("ContextEngine ReAct loop (mock LLM, approve callback)", () => {
         (m) => (m.payload as { type?: string }).type === "tool_call_output",
       ),
     ).toBe(true);
-    expect(await readFileEventually(join(workspace, "hello.txt"), "Hello, Penguin")).toBe(
-      "Hello, Penguin",
+    expect(await readFileEventually(join(workspace, "hello.txt"), "Hello, WAF Harness")).toBe(
+      "Hello, WAF Harness",
     );
 
     const types = collected.map((m) => (m.payload as { type?: string }).type);
@@ -385,7 +385,7 @@ describe("ContextEngine ReAct loop (mock LLM, approve callback)", () => {
       const start = performance.now();
       const collected = await collectRun(
         engine,
-        [userText("Create hello.txt saying Hello, Penguin")],
+        [userText("Create hello.txt saying Hello, WAF Harness")],
         allowAll,
       );
       const elapsed = performance.now() - start;
@@ -1048,7 +1048,7 @@ describe("ContextEngine live thinking level (the soft-limited runtime parameter)
 describe("ContextEngine async/incremental tool calls (overlapping execution)", () => {
   let workspace: string;
   beforeEach(async () => {
-    workspace = await mkdtemp(join(tmpdir(), "penguin-ws2-"));
+    workspace = await mkdtemp(join(tmpdir(), "wafh-ws2-"));
   });
   afterEach(async () => {
     await rm(workspace, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
@@ -1216,7 +1216,7 @@ describe("ContextEngine async/incremental tool calls (overlapping execution)", (
 describe("ContextEngine tool execution resilience", () => {
   let workspace: string;
   beforeEach(async () => {
-    workspace = await mkdtemp(join(tmpdir(), "penguin-ws4-"));
+    workspace = await mkdtemp(join(tmpdir(), "wafh-ws4-"));
   });
   afterEach(async () => {
     await rm(workspace, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
@@ -1426,7 +1426,7 @@ describe("ContextEngine tool execution resilience", () => {
 describe("ContextEngine abort during execution", () => {
   let workspace: string;
   beforeEach(async () => {
-    workspace = await mkdtemp(join(tmpdir(), "penguin-ws3-"));
+    workspace = await mkdtemp(join(tmpdir(), "wafh-ws3-"));
   });
   afterEach(async () => {
     await rm(workspace, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
@@ -1576,7 +1576,7 @@ describe("ContextEngine abort during execution", () => {
 describe("ContextEngine LLM timeout / network interruption (PRN-012)", () => {
   let workspace: string;
   beforeEach(async () => {
-    workspace = await mkdtemp(join(tmpdir(), "penguin-ws4-"));
+    workspace = await mkdtemp(join(tmpdir(), "wafh-ws4-"));
   });
   afterEach(async () => {
     await rm(workspace, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
@@ -2721,8 +2721,8 @@ describe("ContextEngine mid-run steering ([user_steering])", () => {
   let traces: string;
 
   beforeEach(async () => {
-    workspace = await mkdtemp(join(tmpdir(), "penguin-ws-"));
-    traces = await mkdtemp(join(tmpdir(), "penguin-tr-"));
+    workspace = await mkdtemp(join(tmpdir(), "wafh-ws-"));
+    traces = await mkdtemp(join(tmpdir(), "wafh-tr-"));
   });
 
   afterEach(async () => {
@@ -2951,7 +2951,7 @@ describe("ContextEngine mid-run steering ([user_steering])", () => {
   it("without vision, a steering message's images fold into [attached image: …] lines INSIDE the block", async () => {
     // The block must stay the whole text: lines appended after the closing tag would cost the
     // message its steering identity (parseUserSteeringText) and read as a new Task everywhere.
-    const scratch = await mkdtemp(join(tmpdir(), "penguin-steer-img-"));
+    const scratch = await mkdtemp(join(tmpdir(), "wafh-steer-img-"));
     try {
       let engineRef: ContextEngine | null = null;
       const inputs: OmniMessage[][] = [];

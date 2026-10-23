@@ -18,7 +18,7 @@ import {
   CodeHighlighterProvider,
   Toaster,
   TooltipLayer,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { LocaleProvider, LocaleScope } from "./state/locale";
 import { ThemeProvider } from "./state/theme";
 import { BackgroundProvider } from "./state/background";

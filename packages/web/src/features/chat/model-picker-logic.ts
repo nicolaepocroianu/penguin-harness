@@ -13,8 +13,8 @@
  * `modelLabel` lives here too (model-select.tsx re-exports it for its existing importers), so
  * the modal and the triggers share it without importing each other.
  */
-import type { ModelProviderInfo } from "@prismshadow/penguin-server/model-catalog";
-import type { ModelInfo } from "@prismshadow/penguin-server/api";
+import type { ModelProviderInfo } from "@waterford/waf-harness-server/model-catalog";
+import type { ModelInfo } from "@waterford/waf-harness-server/api";
 import {
   discountedPrice,
   groupModelRows,

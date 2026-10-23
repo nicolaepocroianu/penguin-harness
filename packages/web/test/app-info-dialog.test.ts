@@ -14,7 +14,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { nextFocusIndex } from "@prismshadow/penguin-ui";
+import { nextFocusIndex } from "@waterford/waf-harness-ui";
 import { AppInfoBody } from "../src/components/account/app-info-dialog";
 import type { AppInfoBodyProps } from "../src/components/account/app-info-dialog";
 import { S, setActiveStrings } from "../src/lib/strings";

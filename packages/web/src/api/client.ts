@@ -13,7 +13,7 @@
  * notifies AuthProvider to clear the current user, letting the route guard redirect to the
  * login page — instead of each page popping its own "unauthorized" error.
  */
-import { sessionKindPath, type ErrorDetails } from "@prismshadow/penguin-server/api";
+import { sessionKindPath, type ErrorDetails } from "@waterford/waf-harness-server/api";
 import { S } from "../lib/strings";
 import { apiUrl } from "../lib/server-context";
 import { machineForPath } from "../lib/session-machines";

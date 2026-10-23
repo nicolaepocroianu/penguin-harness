@@ -13,7 +13,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement as h } from "react";
-import type { ScheduleItem, SessionInfo } from "@prismshadow/penguin-server/api";
+import type { ScheduleItem, SessionInfo } from "@waterford/waf-harness-server/api";
 import { SchedulePanel } from "../src/features/schedules/schedule-panel";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
@@ -50,7 +50,7 @@ const session = {
   agentId: AGENT_ID,
   provider: "custom",
   modelId: "m",
-  workspace: "/home/penguin",
+  workspace: "/home/wafh",
   approvalMode: "allow-all",
   sandbox: { mode: "danger-full-access", network: "open" },
   createdAt: "2026-10-15T21:07:10.000Z",

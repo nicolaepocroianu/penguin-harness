@@ -14,7 +14,7 @@ import type {
   DeployStage,
   DeployStageSelection,
   DeployStageState,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { ApiError } from "../../api/client";
 import {
   Button,
@@ -27,7 +27,7 @@ import {
   ICONS,
   Menu,
   MenuItem,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";

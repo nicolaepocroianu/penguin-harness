@@ -14,8 +14,8 @@ import type {
   ApprovalMode,
   SessionSandbox,
   SessionSandboxPreset,
-} from "@prismshadow/penguin-server/api";
-import { ICONS } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { ICONS } from "@waterford/waf-harness-ui";
 import type { Tone } from "./tone";
 
 export type PermissionLevel = "all" | "partial" | "read-only" | "off";

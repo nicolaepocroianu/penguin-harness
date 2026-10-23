@@ -1,10 +1,10 @@
 {
-  "name": "@penguinharness/use-claude-code",
+  "name": "@waf-harness/use-claude-code",
   "version": "0.2.16",
   "description": "Run Claude Code on a remote host over SSH — a persistent expect-driven login session, headless claude -p with the stdin fix, the interactive TUI inside a remote tmux driven by send-keys/capture-pane (one keystroke at a time, capture-verified; relayed user messages go through verbatim), and multi-turn continuity via --session-id/--resume or stream-json; hosts and credentials are placeholders resolved at runtime from the user or the vault, never hardcoded.",
   "keywords": [
-    "penguin-plugin",
-    "penguinharness",
+    "wafh-plugin",
+    "waf-harness",
     "skills"
   ],
   "license": "Apache-2.0",
@@ -22,7 +22,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "penguin": {
+  "wafh": {
     "short_description": "Run Claude Code on remote hosts over SSH.",
     "category": "software-development",
     "icon": "icon.svg",

@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { MediaWorkspacesPrototype, git, gitEnvironment } from "./manager.mts";
 
-const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-media-PROTOTYPE-"));
+const scratch = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-media-PROTOTYPE-"));
 const source = path.join(scratch, "source");
 const root = path.join(scratch, "managed");
 await fs.mkdir(source);

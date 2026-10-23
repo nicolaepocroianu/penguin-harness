@@ -8,10 +8,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { Hono } from "hono";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import { bootAppDeps, createApp } from "../src/app.js";
 import type { ServerBoot } from "../src/app.js";
-import type { ModuleTree, ModuleClass } from "@prismshadow/penguin-core/kernel";
+import type { ModuleTree, ModuleClass } from "@waterford/waf-harness-core/kernel";
 import type { DatabaseSync } from "node:sqlite";
 import type { ServerHmrHost } from "../src/hmr/platform.js";
 import type { ChannelHub } from "../src/runtime/channel.js";
@@ -57,7 +57,7 @@ import type { AppEnv } from "../src/auth/middleware.js";
 import { ADMIN_USER_ID } from "../src/auth/service.js";
 import type { ServerConfig } from "../src/config.js";
 import type { UserInfo } from "../src/api/types.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import { SandboxModule, SandboxService } from "../src/sandbox/service.js";
 import { DEFAULT_PLUGINS } from "../src/plugin/loader.js";
 import type { PluginHost } from "../src/plugin/host.js";
@@ -140,7 +140,7 @@ const tempRoots = new Set<string>();
  * (test/setup/run-temp-dir.ts).
  */
 export async function makeTempRoot(): Promise<string> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-server-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-server-test-"));
   tempRoots.add(root);
   return root;
 }
@@ -172,7 +172,7 @@ let symlinkCapability: boolean | undefined;
  */
 export function canCreateSymlink(): boolean {
   if (symlinkCapability === undefined) {
-    const probeDir = mkdtempSync(path.join(os.tmpdir(), "penguin-symlink-probe-"));
+    const probeDir = mkdtempSync(path.join(os.tmpdir(), "wafh-symlink-probe-"));
     try {
       // A directory link, the variant the guarded cases create; the privilege gate is the
       // same for file links.
@@ -191,7 +191,7 @@ export function canCreateSymlink(): boolean {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Fixed seeded-admin password injected into every test app (in production the seed generates a random one). */
-export const TEST_ADMIN_PASSWORD = "penguin-0000";
+export const TEST_ADMIN_PASSWORD = "wafh-0000";
 
 /**
  * scrypt work factor for test apps: the lowest legal one. Nearly every case here seeds an
@@ -211,7 +211,7 @@ export function testConfig(root: string): ServerConfig {
     port: 7364,
     dbPath: ":memory:",
     previewOrigin: null,
-    penguinGoOrigin: "https://token.penguin.ooo",
+    wafHarnessGoOrigin: "https://token.penguin.ooo",
     // The production bridge address, path prefix included. Nothing reaches it in tests: the
     // ModelScope cases construct the service themselves with a stubbed fetch.
     modelscopeBridgeUrl: "https://go.penguin.ooo/modelscope",
@@ -716,7 +716,7 @@ export async function desktopLoginCookie(app: Hono<AppEnv>): Promise<string> {
   return setCookie.split(";")[0]!;
 }
 
-/** Logs in and returns the session cookie (`penguin_session=...`). */
+/** Logs in and returns the session cookie (`wafh_session=...`). */
 export async function loginUser(
   app: Hono<AppEnv>,
   userId: string,

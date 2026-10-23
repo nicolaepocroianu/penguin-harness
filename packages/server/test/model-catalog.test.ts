@@ -20,8 +20,8 @@ import {
   providerConnectionShape,
   resolveEntryCredential,
   sameEndpoint,
-} from "@prismshadow/penguin-core";
-import type { ModelEntry, ProviderConnection, ProviderTable } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { ModelEntry, ProviderConnection, ProviderTable } from "@waterford/waf-harness-core";
 import {
   CLIENT_PROTOCOLS,
   clientEnvKey,
@@ -185,7 +185,7 @@ describe("model-catalog", () => {
     expect(oauth.authorizeUrl).toBe("https://tokendance.space/auth");
     expect(oauth.exchangeUrl).toBe("https://tokendance.space/portal/api/v1/auth/keys");
     // The key's name is also the app name the authorization page shows.
-    expect(oauth.keyName).toBe("PenguinHarness");
+    expect(oauth.keyName).toBe("WAF Harness");
   });
 
   it("exactly the bridged groups publish an authorization flow, and each names its own", () => {
@@ -228,10 +228,10 @@ describe("model-catalog", () => {
   });
 
   it("prebuilds Penguin Go with fixed relay routes and list prices, leaving promotions to the platform", () => {
-    const penguinGoModels = MODEL_CATALOG.filter((model) => model.provider === "penguin-go");
+    const wafHarnessGoModels = MODEL_CATALOG.filter((model) => model.provider === "penguin-go");
     // The DeepSeek rows follow DeepSeek's own lineup: V4.1 Flash and V4 Pro 0813. The two
     // retired V4 Flash ids are not resold.
-    expect(penguinGoModels.map((model) => model.modelId)).toEqual([
+    expect(wafHarnessGoModels.map((model) => model.modelId)).toEqual([
       "gemini-4-argon",
       "gemini-3.8-flash",
       "gemini-3.6-flash",
@@ -243,20 +243,20 @@ describe("model-catalog", () => {
       "deepseek-v4-pro",
     ]);
     expect(
-      penguinGoModels.every((model) => model.baseUrl === "https://go.penguin.ooo/api/v1"),
+      wafHarnessGoModels.every((model) => model.baseUrl === "https://go.penguin.ooo/api/v1"),
     ).toBe(true);
     expect(
-      penguinGoModels.every(
+      wafHarnessGoModels.every(
         (model) => model.pricing !== undefined && model.pricing.unit === "usd_per_mtok",
       ),
     ).toBe(true);
     expect(
-      penguinGoModels
+      wafHarnessGoModels
         .filter((model) => model.modelId.startsWith("gemini-"))
         .every((model) => model.clientType === "mmsp"),
     ).toBe(true);
     expect(
-      penguinGoModels
+      wafHarnessGoModels
         .filter((model) => model.modelId.startsWith("deepseek-"))
         .every((model) => model.clientType === "mmsp"),
     ).toBe(true);
@@ -267,7 +267,7 @@ describe("model-catalog", () => {
     });
     // No static promotion: the platform delivers whatever it runs at authorization and Sync,
     // so every row here is its list price and nothing else.
-    expect(penguinGoModels.filter((model) => model.discount !== undefined)).toEqual([]);
+    expect(wafHarnessGoModels.filter((model) => model.discount !== undefined)).toEqual([]);
     for (const modelId of ["gemini-3.8-flash", "gemini-3.6-flash"]) {
       expect(catalogEntryFor("penguin-go", modelId)!.pricing, modelId).toEqual({
         unit: "usd_per_mtok",

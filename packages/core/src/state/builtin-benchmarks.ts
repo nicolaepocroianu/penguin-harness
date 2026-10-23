@@ -1,7 +1,7 @@
 /**
  * The built-in Benchmarks: what one is, and the writer that puts it on disk.
  *
- * Seven Benchmarks ship beside the example. PenguinHarness Benchmark Sec A to Sec E are subsets of
+ * Seven Benchmarks ship beside the example. WAF Harness Benchmark Sec A to Sec E are subsets of
  * rag-bench-essential, DeepSWE v1.1, AutomationBench, Terminal-Bench-Science 0.1 and
  * Terminal-Bench 4.0, each chosen to run on CPU-only Docker; GDPevo Train and GDPevo Test are the
  * two halves of a GDPevo subset, the train tasks to optimize an agent on and the held-out test
@@ -55,9 +55,9 @@ export interface BuiltinBenchmarkCase {
 
 /** One built-in Benchmark: its card, the facts every statement repeats, and its cases. */
 export interface BuiltinBenchmark {
-  /** Directory under `benchmarks/`, which is the Benchmark id: `penguinharness-benchmark-<name>`. */
+  /** Directory under `benchmarks/`, which is the Benchmark id: `waf-harness-benchmark-<name>`. */
   id: string;
-  /** "PenguinHarness Benchmark <name>", the name being "Sec <letter>" or "GDPevo Train" / "GDPevo Test". */
+  /** "WAF Harness Benchmark <name>", the name being "Sec <letter>" or "GDPevo Train" / "GDPevo Test". */
   title: string;
   /** Names the original benchmark the Benchmark is drawn from, then what it shares with the others. */
   description: string;
@@ -77,7 +77,7 @@ export interface BuiltinBenchmark {
    */
   ref: string;
   /**
-   * The measured results of a PenguinHarness release on these tasks, as a path in the repository
+   * The measured results of a WAF Harness release on these tasks, as a path in the repository
    * at `ref`; the statements link it and the numbers stay there. Absent while no such page exists.
    */
   results?: string;
@@ -87,7 +87,7 @@ export interface BuiltinBenchmark {
   upstream: { url: string; license: string };
   /** Agent-phase network of the tasks: open, or none except the model provider's API host. */
   agentNetwork: "public" | "no-network";
-  /** Trials may join the host's shared `penguin-bench` Docker network (the repository allows it for these). */
+  /** Trials may join the host's shared `wafh-bench` Docker network (the repository allows it for these). */
   sharedNetwork: boolean;
   /** Where the task's verifier runs. */
   verifier: string;
@@ -167,7 +167,7 @@ function statement(bench: BuiltinBenchmark, item: BuiltinBenchmarkCase): string 
     'export PYTHONPATH="$PWD/agents"',
     `uvx --from harbor==${HARBOR_VERSION} harbor run -p ${taskPath(bench)} -i ${item.task} \\`,
     `  -a ${HARBOR_AGENT} -m <provider>/<model_id> \\`,
-    "  --ak thinking=<level> --ak penguin_version=<penguin version> \\",
+    "  --ak thinking=<level> --ak wafh_version=<wafh version> \\",
     `  --ak run_timeout=${bench.runTimeout} --ak max_turns=${bench.maxTurns} \\`,
     ...(bench.timeBudgetNote !== undefined
       ? [`  --ak time_budget_note=${shellWord(bench.timeBudgetNote)} \\`]
@@ -188,7 +188,7 @@ function statement(bench: BuiltinBenchmark, item: BuiltinBenchmarkCase): string 
     "## How this case is run",
     "",
     "This case does not run in a Workspace. It is a Harbor task: the evaluator runs it in Docker " +
-      `with Harbor ${HARBOR_VERSION} and the PenguinHarness adapter from the repository above, ` +
+      `with Harbor ${HARBOR_VERSION} and the WAF Harness adapter from the repository above, ` +
       `following that repository's rules for agents — ${repoLink(bench, "blob", BENCHMARK_RUN_RULES)} — ` +
       `from the root of a checkout at commit \`${bench.ref}\`:`,
     "",
@@ -199,7 +199,7 @@ function statement(bench: BuiltinBenchmark, item: BuiltinBenchmarkCase): string 
     `Caps: the agent is stopped at ${bench.runTimeout} and after ${bench.maxTurns} turns. Run at ` +
       "most four trials at a time on one machine. Prerequisites on the evaluating machine: Docker " +
       `with Compose v2; uv; network access to ${bench.downloads}, nodejs.org, the npm registry and ` +
-      "the model provider; the model under test configured in this machine's PenguinHarness with " +
+      "the model provider; the model under test configured in this machine's WAF Harness with " +
       "its API key saved (the adapter copies that one entry into the container, outside the " +
       "trial's log directory)." +
       (bench.note !== undefined ? ` ${bench.note}` : ""),
@@ -212,7 +212,7 @@ function statement(bench: BuiltinBenchmark, item: BuiltinBenchmarkCase): string 
     "",
     ...(bench.results !== undefined
       ? [
-          `Measured results of PenguinHarness on these tasks: ${repoLink(bench, "blob", bench.results)}`,
+          `Measured results of WAF Harness on these tasks: ${repoLink(bench, "blob", bench.results)}`,
           "",
         ]
       : []),

@@ -12,7 +12,7 @@ export type CompositionProblemCode =
   | "composition_reference"
   /** No paused GSAP timeline is exposed as `window.__composition.timeline`. */
   | "composition_timeline"
-  /** The page dropped the template's content policy or its Penguin bridge script. */
+  /** The page dropped the template's content policy or its WAF Harness bridge script. */
   | "composition_template"
   /** The page uses randomness, so two recordings would differ. */
   | "composition_random"

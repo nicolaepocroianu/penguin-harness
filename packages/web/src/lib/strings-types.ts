@@ -1,4 +1,4 @@
-import type { ActivityRunStatus, OutcomeFactName } from "@prismshadow/penguin-server/api";
+import type { ActivityRunStatus, OutcomeFactName } from "@waterford/waf-harness-server/api";
 import type { PeakWindows } from "../features/models/model-grouping";
 
 /** Shared dictionary contract for supported translations. */
@@ -1048,7 +1048,7 @@ export type Strings = {
       notes: Record<
         | "planCurrent"
         | "allTranslated"
-        | "needsPenguinAgent"
+        | "needsWafHarnessAgent"
         | "noNarration"
         | "noImages"
         | "notDecodable"
@@ -2146,7 +2146,7 @@ export type Strings = {
     saveDescription: string;
     generate: string;
     agent: string;
-    penguinAgents: string;
+    wafHarnessAgents: string;
     codingAgents: string;
     codingAgentMedia: string;
     runs: string;
@@ -2898,7 +2898,7 @@ export type Strings = {
       /** `version` is the Chromium version, or null when the server could not tell. */
       installed: (version: string | null) => string;
       missing: string;
-      /** This copy of Penguin cannot install or run it (the desktop app ships no Playwright). */
+      /** This copy of WAF Harness cannot install or run it (the desktop app ships no Playwright). */
       unavailable: string;
       location: (path: string) => string;
       install: string;
@@ -3346,8 +3346,8 @@ export type Strings = {
       };
       /** What the less obvious columns count, disclosed beside their headings. */
       columnInfo: { repaired: string; edits: string; untrusted: string };
-      /** A recipe's parts under its runtime: Penguin's version, its skills, its harness. */
-      recipeDetail: (penguin: string, skills: string, harness: number | null) => string;
+      /** A recipe's parts under its runtime: WAF Harness's version, its skills, its harness. */
+      recipeDetail: (wafh: string, skills: string, harness: number | null) => string;
       noSkills: string;
       /** A tally of runs whose recipes have no such part. */
       noKey: string;
@@ -6405,7 +6405,7 @@ export type Strings = {
       dir_permission_denied: string;
       benchmark_busy: string;
       model_not_routable: string;
-      penguin_go_protocol_fixed: string;
+      wafh_go_protocol_fixed: string;
       model_not_addable: string;
       modelscope_refresh_failed: string;
     };

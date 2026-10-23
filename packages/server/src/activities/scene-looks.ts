@@ -11,9 +11,9 @@
  *
  * The format — a manifest, a DESIGN.md of prose for agents, and a tokens.css — is open-design's
  * design-system package (`design-systems/<slug>/` in github.com/nexu-io/open-design, Apache-2.0).
- * The looks themselves are Penguin's own, made for young learners and animated scenes.
+ * The looks themselves are WAF Harness's own, made for young learners and animated scenes.
  */
-import { libraryPlugin } from "@prismshadow/penguin-core";
+import { libraryPlugin } from "@waterford/waf-harness-core";
 
 /** The skill whose folder holds the looks. */
 const LOOKS_SKILL = "waf-scene-composition";

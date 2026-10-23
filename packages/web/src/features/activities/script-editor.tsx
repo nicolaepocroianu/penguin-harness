@@ -40,7 +40,7 @@ import {
   unifiedMergeView,
 } from "@codemirror/merge";
 import { search, searchKeymap } from "@codemirror/search";
-import { Button, CloseIcon } from "@prismshadow/penguin-ui";
+import { Button, CloseIcon } from "@waterford/waf-harness-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip } from "../../lib/tone";

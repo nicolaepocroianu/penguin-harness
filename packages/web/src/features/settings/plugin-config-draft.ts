@@ -4,7 +4,7 @@
  * sent — an untouched field would store its default as a value, pinning it against a later
  * change of the default. A `boolean` field is no part of a draft: it writes when flipped.
  */
-import type { PluginConfigEntry, PluginConfigField } from "@prismshadow/penguin-server/api";
+import type { PluginConfigEntry, PluginConfigField } from "@waterford/waf-harness-server/api";
 
 type Cells = Record<string, string | boolean>;
 

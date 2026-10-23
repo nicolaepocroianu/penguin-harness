@@ -14,7 +14,7 @@
  */
 import { createHash } from "node:crypto";
 import { Hono } from "hono";
-import { isValidId } from "@prismshadow/penguin-core";
+import { isValidId } from "@waterford/waf-harness-core";
 import type { ProjectSchedulesResponse, ScheduleItem, SchedulesResponse } from "../../api/types.js";
 import type { AppEnv } from "../../auth/middleware.js";
 import type { ServerConfig } from "../../config.js";
@@ -52,7 +52,7 @@ import {
   writeScheduleFile,
 } from "../../runtime/schedule-store.js";
 import { scheduleStatus } from "../../runtime/scheduler.js";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Config } from "../../hmr/capabilities.js";
 import type { Access, ProjectConfigStore } from "../../mechanisms/projects.js";
 import type { Schedules, Scheduling } from "../../mechanisms/sessions.js";

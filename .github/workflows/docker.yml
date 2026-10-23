@@ -112,10 +112,10 @@ jobs:
         with:
           context: .
           load: true
-          tags: penguin-harness:pr
+          tags: waf-harness:pr
           build-args: |
-            PENGUIN_VERSION=pr
-            PENGUIN_COMMIT=${{ github.sha }}
+            WAFH_VERSION=pr
+            WAFH_COMMIT=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -123,7 +123,7 @@ jobs:
       # from a one-off run: `id -u` goes through the same entrypoint the server does.
       - name: Entrypoint drops to uid 1000
         run: |
-          uid="$(docker run --rm penguin-harness:pr id -u)"
+          uid="$(docker run --rm waf-harness:pr id -u)"
           echo "entrypoint ran the command as uid $uid"
           [ "$uid" = "1000" ]
 
@@ -131,18 +131,18 @@ jobs:
       # remove the stub so Agent commands can resolve the installed CLI on PATH.
       - name: Seed an old CLI error stub
         run: |
-          docker run --rm -v penguin-data:/data penguin-harness:pr sh -ec '
+          docker run --rm -v wafh-data:/data waf-harness:pr sh -ec '
             mkdir -p /data/bin
-            printf "#!/bin/sh\necho old-cli-error-stub >&2\nexit 1\n" > /data/bin/penguin
-            chmod +x /data/bin/penguin
+            printf "#!/bin/sh\necho old-cli-error-stub >&2\nexit 1\n" > /data/bin/wafh
+            chmod +x /data/bin/wafh
           '
 
       - name: Start the container
         run: |
-          docker run -d --name penguin -p 127.0.0.1:7364:7364 \
-            -e PENGUIN_SEED_ADMIN_PASSWORD=ci-password-123 \
-            -v penguin-data:/data \
-            penguin-harness:pr
+          docker run -d --name wafh -p 127.0.0.1:7364:7364 \
+            -e WAFH_SEED_ADMIN_PASSWORD=ci-password-123 \
+            -v wafh-data:/data \
+            waf-harness:pr
 
       - name: Wait for the server
         run: |
@@ -154,17 +154,17 @@ jobs:
             sleep 1
           done
           echo "error: the server did not answer /api/install within 90s" >&2
-          docker logs penguin >&2
+          docker logs wafh >&2
           exit 1
 
       - name: Agent commands reach the installed CLI
         run: |
-          docker exec penguin test ! -e /opt/penguin/lib/pnpm-workspace.yaml
-          docker exec penguin test ! -e /data/bin/penguin
-          docker exec penguin sh -ec '
+          docker exec wafh test ! -e /opt/wafh/lib/pnpm-workspace.yaml
+          docker exec wafh test ! -e /data/bin/wafh
+          docker exec wafh sh -ec '
             export PATH="/data/bin:$PATH"
-            penguin --version
-            penguin browser --help
+            wafh --version
+            wafh browser --help
           '
 
       # The pinned seed password suppresses the first-login notice, so a successful login is
@@ -186,32 +186,32 @@ jobs:
       # web.db was created by the server itself, so its owner is the euid the server runs as.
       - name: Data root belongs to the unprivileged user
         run: |
-          owners="$(docker exec penguin stat -c '%n %u:%g' /data /data/web.db)"
+          owners="$(docker exec wafh stat -c '%n %u:%g' /data /data/web.db)"
           echo "$owners"
-          [ "$(docker exec penguin stat -c %u /data)" = "1000" ]
-          [ "$(docker exec penguin stat -c %u /data/web.db)" = "1000" ]
+          [ "$(docker exec wafh stat -c %u /data)" = "1000" ]
+          [ "$(docker exec wafh stat -c %u /data/web.db)" = "1000" ]
 
       - name: HEALTHCHECK reports healthy
         run: |
           for _ in $(seq 1 90); do
-            status="$(docker inspect -f '{{.State.Health.Status}}' penguin)"
+            status="$(docker inspect -f '{{.State.Health.Status}}' wafh)"
             if [ "$status" = "healthy" ]; then exit 0; fi
             if [ "$status" = "unhealthy" ]; then break; fi
             sleep 1
           done
           echo "error: healthcheck ended in '$status'" >&2
-          docker inspect -f '{{json .State.Health}}' penguin >&2
+          docker inspect -f '{{json .State.Health}}' wafh >&2
           exit 1
 
-      # tini forwards SIGTERM to `penguin server`, which forwards it to the service child; the
+      # tini forwards SIGTERM to `wafh server`, which forwards it to the service child; the
       # service interrupts running Tasks, waits for them to wrap up and closes the database.
       # An idle server has nothing to drain, so this is a matter of a second, not the grace period.
       - name: Stops gracefully
         run: |
           start="$(date +%s)"
-          docker stop -t 30 penguin
+          docker stop -t 30 wafh
           elapsed="$(( $(date +%s) - start ))"
-          code="$(docker inspect -f '{{.State.ExitCode}}' penguin)"
+          code="$(docker inspect -f '{{.State.ExitCode}}' wafh)"
           echo "stopped in ${elapsed}s with exit code $code"
           [ "$code" = "0" ]
           [ "$elapsed" -lt 15 ]
@@ -220,7 +220,7 @@ jobs:
       # data root must come back with its user intact rather than being seeded a second time.
       - name: Restarts onto the same data root
         run: |
-          docker start penguin
+          docker start wafh
           for _ in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:7364/api/install > /dev/null; then break; fi
             sleep 1
@@ -231,13 +231,13 @@ jobs:
             http://127.0.0.1:7364/api/auth/login)"
           if [ "$code" != "200" ]; then
             echo "error: login after restart answered $code" >&2
-            docker logs penguin >&2
+            docker logs wafh >&2
             exit 1
           fi
 
       - name: Container log
         if: always()
-        run: docker logs penguin || true
+        run: docker logs wafh || true
 
   publish:
     name: Build and push
@@ -324,8 +324,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            PENGUIN_VERSION=${{ steps.version.outputs.version }}
-            PENGUIN_COMMIT=${{ steps.version.outputs.commit }}
+            WAFH_VERSION=${{ steps.version.outputs.version }}
+            WAFH_COMMIT=${{ steps.version.outputs.commit }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false

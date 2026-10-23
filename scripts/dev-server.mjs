@@ -8,7 +8,7 @@ import { spawn } from "node:child_process";
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveRoot } from "@prismshadow/penguin-core";
+import { resolveRoot } from "@waterford/waf-harness-core";
 
 const root = path.resolve(resolveRoot());
 await mkdir(root, { recursive: true });

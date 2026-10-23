@@ -143,7 +143,7 @@ describe("the state machine a ref's configuration carries", () => {
   });
 
   it("takes the machine the assembly left, before its files are collected", async () => {
-    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-machine-"));
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-machine-"));
     dirs.push(workspace);
     const files = scaffoldModule(activity);
     for (const [name, source] of Object.entries(files)) {
@@ -194,7 +194,7 @@ describe("the state machine a ref's configuration carries", () => {
     }
 
     async function assembled(withEdit: ActivityDetail) {
-      const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-machine-"));
+      const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-machine-"));
       dirs.push(workspace);
       for (const [name, source] of Object.entries(scaffoldModule(withEdit))) {
         const file = path.join(workspace, "module", name);

@@ -134,7 +134,7 @@ const GLYPHS: Record<string, Glyph> = {
     ),
   },
   "penguin-go": {
-    // The app's Penguin emblem with its white rounded-square background and gradients
+    // The app's WAF Harness emblem with its white rounded-square background and gradients
     // removed. Every remaining brand shape inherits currentColor, matching the other
     // preset-provider marks while the original full-colour app logo stays untouched.
     viewBox: "139 129 954 954",

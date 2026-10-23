@@ -23,7 +23,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type {
   ProjectScheduleItem,
   ProjectSchedulesResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { pendingScheduleSessions } from "../src/features/schedules/schedule-panel-state";
 import {
   noteScheduleEvent,

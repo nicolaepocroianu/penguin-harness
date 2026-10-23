@@ -7,8 +7,8 @@
  * dialog while none is paired, Settings › Browser once one is, and nothing while the admin's
  * switch is off.
  */
-import type { BrowserBackendInfo } from "@prismshadow/penguin-server/api";
-import { GlyphIcon, ICONS, ICON_SIZE, MenuItem } from "@prismshadow/penguin-ui";
+import type { BrowserBackendInfo } from "@waterford/waf-harness-server/api";
+import { GlyphIcon, ICONS, ICON_SIZE, MenuItem } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 

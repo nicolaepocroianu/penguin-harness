@@ -8,8 +8,8 @@ rendering, path hidden by default). The LLM is driven by `mock-llm.mjs` (a mock 
 Messages SSE endpoint) — no network access.
 
 ```sh
-pnpm --filter @prismshadow/penguin-web test:e2e          # build + start the server + run the tests
-SKIP_BUILD=1 pnpm --filter @prismshadow/penguin-web test:e2e   # skip the build
+pnpm --filter @waterford/waf-harness-web test:e2e          # build + start the server + run the tests
+SKIP_BUILD=1 pnpm --filter @waterford/waf-harness-web test:e2e   # skip the build
 ```
 
 PR CI runs `smoke.spec.mjs`, three browser scenarios against the real HTTP server and core:
@@ -32,8 +32,8 @@ another), a new shell starts in the conversation's Workspace, a failed shell cre
 a toast and a later attempt recovers, and a shell keeps its screen across a reload.
 
 ```sh
-pnpm --filter @prismshadow/penguin-web test:e2e smoke.spec.mjs project-switch.spec.mjs sticky-rows.spec.mjs dock.spec.mjs terminal.spec.mjs
-SKIP_BUILD=1 pnpm --filter @prismshadow/penguin-web test:e2e smoke.spec.mjs project-switch.spec.mjs sticky-rows.spec.mjs dock.spec.mjs terminal.spec.mjs
+pnpm --filter @waterford/waf-harness-web test:e2e smoke.spec.mjs project-switch.spec.mjs sticky-rows.spec.mjs dock.spec.mjs terminal.spec.mjs
+SKIP_BUILD=1 pnpm --filter @waterford/waf-harness-web test:e2e smoke.spec.mjs project-switch.spec.mjs sticky-rows.spec.mjs dock.spec.mjs terminal.spec.mjs
 ```
 
 Arguments are forwarded to Playwright, so a spec path or `--grep` selects a focused run.
@@ -41,7 +41,7 @@ With no arguments the runner executes every browser spec. `SKIP_BUILD=1` require
 server/web build and their workspace dependencies; the default runner builds them in dependency
 order. It uses a temporary data root and stops its server and mock on exit.
 
-The first run requires `pnpm --filter @prismshadow/penguin-web exec playwright install chromium`
+The first run requires `pnpm --filter @waterford/waf-harness-web exec playwright install chromium`
 (add `--with-deps` on Linux CI). No provider credentials or external LLM service are needed.
 Failed tests retain a trace and screenshot under `packages/web/test-results/`. Server and mock
 logs are written to `packages/web/e2e-logs/` (override with `E2E_LOG_DIR`) and their tails are

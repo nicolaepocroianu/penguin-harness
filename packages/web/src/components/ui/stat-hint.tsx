@@ -11,8 +11,8 @@
  */
 import { Fragment } from "react";
 import type { ReactNode } from "react";
-import type { CostParts } from "@prismshadow/penguin-server/api";
-import { InfoPopover } from "@prismshadow/penguin-ui";
+import type { CostParts } from "@waterford/waf-harness-server/api";
+import { InfoPopover } from "@waterford/waf-harness-ui";
 import { formatMoney, formatPercent, humanizeDuration, humanizeTokens } from "../../lib/format";
 import { S } from "../../lib/strings";
 import type { Currency } from "../../state/theme";

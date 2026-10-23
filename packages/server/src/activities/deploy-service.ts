@@ -18,7 +18,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use, type ClassCtx } from "@waterford/waf-harness-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { Config, Db } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
@@ -264,7 +264,7 @@ export class ActivityDeployService implements ActivityDeploys {
       throw new HttpError(
         409,
         "deploy_monorepo_module",
-        `${folder} is in the monorepo modules folder, which shares one repository. Penguin cannot deploy it yet.`,
+        `${folder} is in the monorepo modules folder, which shares one repository. WAF Harness cannot deploy it yet.`,
       );
     return checkout.module(folder).root;
   }

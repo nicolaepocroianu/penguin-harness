@@ -4,7 +4,7 @@
  * the same list, decided once.
  */
 
-import type { ActivityRunSummary, AssetManifest } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary, AssetManifest } from "@waterford/waf-harness-server/api";
 import { indexRuns, type RunsIndex } from "./runs-index";
 
 type MediaAsset = AssetManifest["assets"][string][number];

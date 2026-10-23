@@ -25,8 +25,8 @@ import {
   modelVisiblePath,
   parseHandoffMessage,
   scratchpadDir,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import type { SessionRow } from "../src/db/repos/sessions.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
 import { MAX_ATTACHMENT_COUNT } from "../src/services/attachment-limits.js";
@@ -415,7 +415,7 @@ describe("task input file attachments", () => {
   it.skipIf(process.platform === "win32")(
     "a session directory symlinked out of the scratchpad root is refused, not written through",
     async () => {
-      const outside = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-outside-"));
+      const outside = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-outside-"));
       try {
         await fs.mkdir(path.dirname(dir), { recursive: true });
         // `fs.mkdir(dir, {recursive:true})` succeeds silently on an existing symlink-to-directory,

@@ -10,10 +10,10 @@
  * - A zip of Skills whose package.json has only a name and a version installs, and lists with
  *   no description, category, icon or quick start — nothing invented; an unversioned skill
  *   reads as unversioned.
- * - A package of MCP servers alone (`penguin.mcp_servers`) is a plugin: from a zip and from a
+ * - A package of MCP servers alone (`wafh.mcp_servers`) is a plugin: from a zip and from a
  *   link alike it installs and lists in the library with its servers — transport, target, the
  *   vault keys they reference and whether they need a sign-in.
- * - A member is refused every install path; the local API token an Agent's `penguin plugin
+ * - A member is refused every install path; the local API token an Agent's `wafh plugin
  *   install` carries installs as the admin.
  * - A zip holding another version of an installed package asks before replacing it; the same
  *   version is left as it is.
@@ -76,7 +76,7 @@ const notesPackage = (version = "1.0.0"): Files => ({
     name: "@acme/notes",
     version,
     description: "Take notes.",
-    penguin: { title: "Notes", category: "office-productivity" },
+    wafh: { title: "Notes", category: "office-productivity" },
   }),
   "icon.svg": "<svg viewBox='0 0 24 24'/>\n",
   "skills/notes/SKILL.md": skill("notes"),
@@ -84,7 +84,7 @@ const notesPackage = (version = "1.0.0"): Files => ({
 
 /** A package of server modules, `@acme/sandbox-x`, as files (the module fixture the loader tests use). */
 async function modulePackage(): Promise<Files> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-module-pkg-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-module-pkg-"));
   try {
     await writeClassPackage(dir, { name: "@acme/sandbox-x", module: "SandboxX" });
     const manifest = JSON.parse(
@@ -96,7 +96,7 @@ async function modulePackage(): Promise<Files> {
         ...manifest,
         version: "0.3.0",
         description: "A sandbox.",
-        penguin: { short_description: "Sandbox X.", category: "sandbox" },
+        wafh: { short_description: "Sandbox X.", category: "sandbox" },
       }),
     );
     const files: Files = {};
@@ -131,9 +131,7 @@ function fakeNpm() {
     }
     const prefixFile = path.join(prefix, "package.json");
     const own = JSON.parse(
-      await fs
-        .readFile(prefixFile, "utf8")
-        .catch(() => '{"name":"penguin-plugins","private":true}'),
+      await fs.readFile(prefixFile, "utf8").catch(() => '{"name":"wafh-plugins","private":true}'),
     ) as { dependencies?: Record<string, string> };
     own.dependencies = { ...own.dependencies, [manifest.name]: spec };
     await fs.writeFile(prefixFile, JSON.stringify(own));
@@ -204,7 +202,7 @@ describe("plugin import and export", () => {
       "workbenches/desk/package.json": JSON.stringify({
         name: "desk",
         version: "1.0.0",
-        penguin: { version: "2026.10.14.1", modules: [{ name: "Workbench" }] },
+        wafh: { version: "2026.10.14.1", modules: [{ name: "Workbench" }] },
       }),
       "workbenches/desk/index.ts": "export default { modules: {} };",
     });
@@ -249,7 +247,7 @@ describe("plugin import and export", () => {
       }),
     ]);
     expect(await projectConfig()).toContain(`[plugins.${body.machineId}]\n"@acme/sandbox-x"`);
-    // The registry lists it from its own package — its npm fields, then its `penguin` block — so
+    // The registry lists it from its own package — its npm fields, then its `wafh` block — so
     // its card and its export have a row.
     const index = (await (await admin.get("/api/plugins/registry")).json()) as PluginIndexResponse;
     expect(index.plugins.find((e) => e.name === "@acme/sandbox-x")).toMatchObject({
@@ -288,7 +286,7 @@ describe("plugin import and export", () => {
         name,
         version: "0.1.9",
         description: "Mail.",
-        penguin: {
+        wafh: {
           mcp_servers: [
             {
               name: "mail",
@@ -439,7 +437,7 @@ describe("plugin import and export", () => {
       { "package.json": JSON.stringify({ name: "left-pad", version: "1.0.0" }), "index.js": "" },
       400,
       "plugin_archive_invalid",
-      /Not a PenguinHarness plugin: .*MCP servers/,
+      /Not a WAF Harness plugin: .*MCP servers/,
     );
     await refused(
       { ...notesPackage(), "skills/notes/SKILL.md": "No frontmatter at all.\n" },
@@ -651,7 +649,7 @@ describe("npm, through the installer itself", () => {
     async () => {
       // The data root is reached through a symlink, as macOS's temp directory is: what npm
       // records must not depend on the path's spelling.
-      real = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-npm-wire-"));
+      real = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-npm-wire-"));
       const root = `${real}-link`;
       await fs.symlink(real, root, "dir");
       // A package without dependencies needs no registry: offline, with a cache of its own.

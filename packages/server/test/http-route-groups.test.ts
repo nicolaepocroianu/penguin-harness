@@ -10,8 +10,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { Hono } from "hono";
-import { wire } from "@prismshadow/penguin-core/kernel";
-import type { ClassCtx, Contributed } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
+import type { ClassCtx, Contributed } from "@waterford/waf-harness-core/kernel";
 import type { AppEnv } from "../src/auth/middleware.js";
 import type { UserRow } from "../src/db/repos/users.js";
 import { HttpModule } from "../src/http/app.js";
@@ -77,7 +77,7 @@ function assemble(groups: Group[]): {
         new Request(`http://localhost${path}`, {
           headers: {
             ...(token === undefined ? {} : { authorization: `Bearer ${token}` }),
-            ...(cookie === undefined ? {} : { cookie: `penguin_session=${cookie}` }),
+            ...(cookie === undefined ? {} : { cookie: `wafh_session=${cookie}` }),
           },
         }),
       ),
@@ -159,7 +159,7 @@ describe("a route group's auth flag", () => {
 
     const res = await app.fetch("/api/nothing-here");
     expect(res.status).toBe(404);
-    expect(res.headers.get("x-penguin-platform-decline")).not.toBeNull();
+    expect(res.headers.get("x-wafh-platform-decline")).not.toBeNull();
   });
 });
 

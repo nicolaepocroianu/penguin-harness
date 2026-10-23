@@ -35,7 +35,7 @@ import { isBookWord, wordsMissingPhonemes } from "./book-words.js";
 import { PHONEMES_RUN_MAX_WORDS } from "./phonemes-run.js";
 import { speechModelFor } from "./audio.js";
 import { KOKORO_VOICES } from "./local-audio-models.js";
-import { Component, Interface, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use, type ClassCtx } from "@waterford/waf-harness-core/kernel";
 import type { Db } from "../hmr/capabilities.js";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";

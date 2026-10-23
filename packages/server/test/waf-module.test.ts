@@ -195,7 +195,7 @@ describe("native WAF module boundary", () => {
     book.activityType = "book";
     book.draft.spec = {
       ...activitySpec,
-      id: "penguin-book",
+      id: "wafh-book",
       scenes: [
         {
           id: "cover",

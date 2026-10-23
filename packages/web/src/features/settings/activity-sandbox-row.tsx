@@ -6,12 +6,12 @@
  * is available.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { ActivitySandboxState } from "@prismshadow/penguin-server/api";
+import type { ActivitySandboxState } from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";
-import { Button, Switch, toastError, toastSuccess, PrefRow } from "@prismshadow/penguin-ui";
+import { Button, Switch, toastError, toastSuccess, PrefRow } from "@waterford/waf-harness-ui";
 
 /** The status line under the switch: what the current setting means, in its tone. */
 export function activitySandboxLine(state: ActivitySandboxState): { tone: Tone; text: string } {

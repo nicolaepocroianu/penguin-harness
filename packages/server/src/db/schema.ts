@@ -172,7 +172,7 @@ CREATE TABLE IF NOT EXISTS ui_prefs (
   user_id    TEXT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
   prefs_json TEXT NOT NULL                    -- {theme?, lastProjectId?, ...} free-form JSON
 );
-CREATE TABLE IF NOT EXISTS browser_extensions ( -- one row per Chrome paired to a user (builtin-browser/extension-pairing.ts): the PenguinHarness Browser extension's long-lived credential, stored only hashed; NOT rebuildable — a lost row means pairing that Chrome again
+CREATE TABLE IF NOT EXISTS browser_extensions ( -- one row per Chrome paired to a user (builtin-browser/extension-pairing.ts): the WAF Harness Browser extension's long-lived credential, stored only hashed; NOT rebuildable — a lost row means pairing that Chrome again
   extension_id TEXT PRIMARY KEY,              -- random id shown in the Web App's list
   user_id      TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   token_hash   TEXT NOT NULL UNIQUE,          -- sha256(token) hex; the extension alone holds the token
@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS agent_api_keys (     -- one row per key the API tab o
   project_id   TEXT NOT NULL,
   agent_id     TEXT NOT NULL,
   token_hash   TEXT NOT NULL UNIQUE,            -- sha256(key) hex
-  prefix       TEXT NOT NULL,                   -- the key's first 16 characters ("penguin_" + 8), shown in the list
+  prefix       TEXT NOT NULL,                   -- the key's first 13 characters ("wafh_" + 8), shown in the list
   name         TEXT NOT NULL,                   -- 1-64 characters
   created_by   TEXT NOT NULL REFERENCES users(user_id),
   created_at   TEXT NOT NULL,
@@ -213,7 +213,7 @@ CREATE TABLE IF NOT EXISTS server_settings (   -- admin-level server-global sett
   key   TEXT PRIMARY KEY,                     -- setting name, e.g. 'proxy_for_app'
   value TEXT NOT NULL                         -- JSON-encoded value; an absent row means the setting's built-in default
 );
-CREATE TABLE IF NOT EXISTS machine (           -- this server's OWN identity, minted here and never assigned from outside (what 'penguin server status' reports)
+CREATE TABLE IF NOT EXISTS machine (           -- this server's OWN identity, minted here and never assigned from outside (what 'wafh server status' reports)
   singleton  INTEGER PRIMARY KEY CHECK (singleton = 1),  -- exactly one row, enforced by the schema rather than by convention
   machine_id TEXT NOT NULL                    -- 16 base64url characters; what every stored reference to this machine points at
 );

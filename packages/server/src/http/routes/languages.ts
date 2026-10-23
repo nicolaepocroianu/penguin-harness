@@ -9,7 +9,7 @@
  * per App — so it carries a long cache header and the App fetches each grammar at most once.
  */
 import { Hono } from "hono";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { AppEnv } from "../../auth/middleware.js";
 import type { LanguageIndexResponse } from "../../api/types.js";
 import type { Languages } from "../../languages/service.js";

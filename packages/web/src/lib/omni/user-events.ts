@@ -6,7 +6,7 @@
  * the archive page — listens instead of opening a second EventSource, so it hears exactly what
  * the list hears, in the same order.
  */
-import type { ServerEvent } from "@prismshadow/penguin-server/api";
+import type { ServerEvent } from "@waterford/waf-harness-server/api";
 
 type Listener = (ev: ServerEvent) => void;
 

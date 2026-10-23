@@ -5,14 +5,14 @@
  *
  * Routing is by CAPABILITY, not by registration order: of the mounted backends covering
  * every dimension a policy requires, the one implementing the most dimensions wins, so a
- * native backend (penguin-bwrap) serves every policy it covers even when the portable DSH
+ * native backend (wafh-bwrap) serves every policy it covers even when the portable DSH
  * adaptor is mounted beside it, and the adaptor serves only where it is the one left — a
  * Linux host refusing bubblewrap's user namespaces, where it confines files through
  * Landlock. Registration order only breaks ties. A request nothing covers fails closed —
  * never a silent unconfined run, and never a silently dropped dimension.
  */
 import fs from "node:fs";
-import type { SessionSandboxMode, SpawnConfiner } from "@prismshadow/penguin-core";
+import type { SessionSandboxMode, SpawnConfiner } from "@waterford/waf-harness-core";
 import type {
   SandboxDimension,
   SandboxLimit,
@@ -21,10 +21,10 @@ import type {
   SandboxProvider,
   SandboxProviderSource,
   SandboxSettings,
-} from "@prismshadow/penguin-core/plugin";
+} from "@waterford/waf-harness-core/plugin";
 import { providerDimensions, requestedDimensions } from "./dimensions.js";
-import { Interface, Module, Provide } from "@prismshadow/penguin-core/kernel";
-import type { Slot, ClassCtx, Json } from "@prismshadow/penguin-core/kernel";
+import { Interface, Module, Provide } from "@waterford/waf-harness-core/kernel";
+import type { Slot, ClassCtx, Json } from "@waterford/waf-harness-core/kernel";
 
 interface MountedProvider {
   name: string;
@@ -79,7 +79,7 @@ export class SandboxService {
 
   /**
    * @param registrations - the backends plugins registered (see the sandbox registry on
-   *   PenguinInterface). Loading is async, but create() and the confiner are sync: a
+   *   WafHarnessInterface). Loading is async, but create() and the confiner are sync: a
    *   confining policy resolved before loading settles fails closed rather than
    *   waiting. The default settings never consult a backend, so that window only
    *   exists for deployments flipping the mode in the first milliseconds after boot.

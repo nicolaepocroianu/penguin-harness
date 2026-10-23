@@ -41,7 +41,7 @@ describe("windowsLauncherScript", () => {
 });
 
 describe("appImageWrapperScript", () => {
-  const appImage = "/home/user/Apps/penguin-desktop-linux-x86_64.AppImage";
+  const appImage = "/home/user/Apps/wafh-desktop-linux-x86_64.AppImage";
   const script = appImageWrapperScript(appImage);
 
   it("bakes in the AppImage path and guards against it disappearing", () => {
@@ -52,7 +52,7 @@ describe("appImageWrapperScript", () => {
   it("invokes the AppImage as Node with the bootstrap and forwards arguments", () => {
     expect(script).toContain("export ELECTRON_RUN_AS_NODE=1");
     // The -- is load-bearing: without it Node swallows leading-dash arguments
-    // (penguin --help) as its own flags instead of passing them to the CLI.
+    // (wafh --help) as its own flags instead of passing them to the CLI.
     expect(script).toContain(`exec "$APPIMAGE_PATH" -e '${appImageBootstrapJs()}' -- "$@"`);
   });
 
@@ -94,13 +94,13 @@ describe("appImageBootstrapJs", () => {
 
 describe("LAUNCHER_MARKER", () => {
   it("appears in every generated launcher", () => {
-    // cli-link.ts recognises a `penguin` this app wrote by this text, and skips anything
+    // cli-link.ts recognises a `wafh` this app wrote by this text, and skips anything
     // that lacks it. A launcher that stopped carrying it would be classified as somebody
     // else's command and the install would silently stop repairing itself.
     for (const script of [
       posixLauncherScript(),
       windowsLauncherScript(),
-      appImageWrapperScript("/home/user/Apps/penguin.AppImage"),
+      appImageWrapperScript("/home/user/Apps/wafh.AppImage"),
     ]) {
       expect(script).toContain(LAUNCHER_MARKER);
     }
@@ -109,9 +109,7 @@ describe("LAUNCHER_MARKER", () => {
 
 describe("shellQuote", () => {
   it("wraps a plain value in single quotes", () => {
-    expect(shellQuote("/Applications/PenguinHarness.app")).toBe(
-      "'/Applications/PenguinHarness.app'",
-    );
+    expect(shellQuote("/Applications/WAF Harness.app")).toBe("'/Applications/WAF Harness.app'");
   });
 
   it("splices embedded single quotes so the word never closes early", () => {
@@ -130,8 +128,8 @@ describe("appleScriptString", () => {
 });
 
 describe("adminSymlinkAppleScript", () => {
-  const target = "/Applications/PenguinHarness.app/Contents/Resources/app/bin/penguin";
-  const link = "/usr/local/bin/penguin";
+  const target = "/Applications/WAF Harness.app/Contents/Resources/app/bin/wafh";
+  const link = "/usr/local/bin/wafh";
 
   /** The shell command osascript would run: the AppleScript literal, unescaped. */
   function shellCommandOf(script: string): string {
@@ -151,17 +149,17 @@ describe("adminSymlinkAppleScript", () => {
     // What a user gets by keeping the app in a folder named with an apostrophe — and what
     // an attacker gets to write if the two escapers are not applied, since this command
     // runs with administrator privileges.
-    const evil = "/Users/anne/Anne's Apps'; touch /tmp/pwned; '/PenguinHarness.app/bin/penguin";
+    const evil = "/Users/anne/Anne's Apps'; touch /tmp/pwned; '/WAF Harness.app/bin/wafh";
     const command = shellCommandOf(adminSymlinkAppleScript(evil, link));
     expect(command).toBe(`mkdir -p '/usr/local/bin' && ln -sf ${shellQuote(evil)} '${link}'`);
     // The injected segment survives only as literal text inside the quoted word.
     expect(command).not.toContain("&& touch");
-    expect(command).not.toContain("; touch /tmp/pwned; '/PenguinHarness");
+    expect(command).not.toContain("; touch /tmp/pwned; '/WAF Harness");
   });
 });
 
 describe("mergeWindowsUserPath", () => {
-  const bin = "C:\\Program Files\\PenguinHarness\\resources\\app\\bin";
+  const bin = "C:\\Program Files\\WAF Harness\\resources\\app\\bin";
 
   it("appends to an existing value with a semicolon", () => {
     expect(mergeWindowsUserPath("C:\\other", bin)).toBe(`C:\\other;${bin}`);
@@ -183,7 +181,7 @@ describe("mergeWindowsUserPath", () => {
 
   it("matches case-insensitively and ignores quotes and trailing slashes", () => {
     expect(
-      mergeWindowsUserPath(`c:\\program files\\penguinharness\\RESOURCES\\app\\BIN`, bin),
+      mergeWindowsUserPath(`c:\\program files\\waf harness\\RESOURCES\\app\\BIN`, bin),
     ).toBeNull();
     expect(mergeWindowsUserPath(`"${bin}"`, bin)).toBeNull();
     expect(mergeWindowsUserPath(`${bin}\\`, bin)).toBeNull();
@@ -210,7 +208,7 @@ describe("cliInstallKind", () => {
     );
   });
 
-  it("on Linux only the AppImage form installs (deb ships /usr/bin/penguin itself)", () => {
+  it("on Linux only the AppImage form installs (deb ships /usr/bin/wafh itself)", () => {
     expect(cliInstallKind({ packaged: true, platform: "linux", appImagePath: null })).toBeNull();
     expect(cliInstallKind({ packaged: true, platform: "linux", appImagePath: "" })).toBeNull();
     expect(
@@ -220,7 +218,7 @@ describe("cliInstallKind", () => {
 });
 
 /**
- * The couplings that make an installed desktop app carry a working `penguin`. They span
+ * The couplings that make an installed desktop app carry a working `wafh`. They span
  * three files nothing else compares: the constants above, the packaging decisions in
  * electron-builder.yml, and the deb postinst templates. Each is load-bearing at run time
  * and silent at build time — a packed app with no CLI in it builds, signs and ships
@@ -232,13 +230,13 @@ describe("packaged CLI", () => {
     fs.readFileSync(path.join(pkgDir, ...rel.split("/")), "utf8");
   const builderConfig = read("electron-builder.yml");
   /** The deb link target, spelled identically by the install and remove templates. */
-  const debTarget = "/opt/${sanitizedProductName}/resources/app/bin/penguin";
+  const debTarget = "/opt/${sanitizedProductName}/resources/app/bin/wafh";
 
-  it("ships bin/, which is the only reason <app>/bin/penguin exists in an install", () => {
+  it("ships bin/, which is the only reason <app>/bin/wafh exists in an install", () => {
     expect(builderConfig).toContain("- bin/**/*");
   });
 
-  it("keeps asar off — inside an archive there is no bin/penguin to exec", () => {
+  it("keeps asar off — inside an archive there is no bin/wafh to exec", () => {
     expect(builderConfig).toMatch(/^asar: false$/m);
   });
 
@@ -253,20 +251,20 @@ describe("packaged CLI", () => {
   it("bundles the CLI at the entry the launchers run", () => {
     const entry = CLI_ENTRY_RELPATH.replace(/^dist\//, "").replace(/\.js$/, "");
     expect(read("tsup.config.ts")).toMatch(
-      new RegExp(`^\\s*"?${entry}"?: "\\.\\./cli/dist/penguin\\.js",$`, "m"),
+      new RegExp(`^\\s*"?${entry}"?: "\\.\\./cli/dist/wafh\\.js",$`, "m"),
     );
   });
 
-  it("deb creates /usr/bin/penguin itself: it is the one form the shell does not install", () => {
+  it("deb creates /usr/bin/wafh itself: it is the one form the shell does not install", () => {
     // cliInstallKind returns null for it, so nothing else would ever put the CLI on PATH.
     expect(cliInstallKind({ packaged: true, platform: "linux", appImagePath: null })).toBeNull();
     expect(builderConfig).toMatch(
       /^deb:\n(?: .*\n|#.*\n)*? {2}afterInstall: build\/linux\/after-install\.tpl$/m,
     );
     const afterInstall = read("build/linux/after-install.tpl");
-    expect(afterInstall).toContain(`ln -sf '${debTarget}' '/usr/bin/penguin'`);
+    expect(afterInstall).toContain(`ln -sf '${debTarget}' '/usr/bin/wafh'`);
     // Never over a real file of that name — a CLI installed by install.sh, say.
-    expect(afterInstall).toContain(`if [ ! -e '/usr/bin/penguin' ] || [ -L '/usr/bin/penguin' ]`);
+    expect(afterInstall).toContain(`if [ ! -e '/usr/bin/wafh' ] || [ -L '/usr/bin/wafh' ]`);
   });
 
   it("deb removes only the link it made", () => {
@@ -274,8 +272,8 @@ describe("packaged CLI", () => {
       /^deb:\n(?: .*\n|#.*\n)*? {2}afterRemove: build\/linux\/after-remove\.tpl$/m,
     );
     const afterRemove = read("build/linux/after-remove.tpl");
-    expect(afterRemove).toContain(`[ "\`readlink '/usr/bin/penguin'\`" = '${debTarget}' ]`);
-    expect(afterRemove).toContain("rm -f '/usr/bin/penguin'");
+    expect(afterRemove).toContain(`[ "\`readlink '/usr/bin/wafh'\`" = '${debTarget}' ]`);
+    expect(afterRemove).toContain("rm -f '/usr/bin/wafh'");
   });
 });
 
@@ -288,20 +286,20 @@ describe("embeddedCliEntry", () => {
 
   it("leaves a source run to the server's own checkout lookup", () => {
     // A checkout has no bundled CLI beside the shell; the server finds
-    // packages/cli/dist/penguin.js by walking to the workspace root instead.
+    // packages/cli/dist/wafh.js by walking to the workspace root instead.
     expect(
       embeddedCliEntry({ isPackaged: false, appPath: "/src/packages/desktop", env: {} }),
     ).toBeNull();
   });
 
-  it("an explicit PENGUIN_CLI_ENTRY wins in both forms; blank counts as unset", () => {
+  it("an explicit WAFH_CLI_ENTRY wins in both forms; blank counts as unset", () => {
     for (const isPackaged of [true, false]) {
       expect(
-        embeddedCliEntry({ isPackaged, appPath: "/x", env: { PENGUIN_CLI_ENTRY: "/srv/cli.js" } }),
+        embeddedCliEntry({ isPackaged, appPath: "/x", env: { WAFH_CLI_ENTRY: "/srv/cli.js" } }),
       ).toBe("/srv/cli.js");
     }
     expect(
-      embeddedCliEntry({ isPackaged: true, appPath: "/x", env: { PENGUIN_CLI_ENTRY: " " } }),
+      embeddedCliEntry({ isPackaged: true, appPath: "/x", env: { WAFH_CLI_ENTRY: " " } }),
     ).toBe(path.join("/x", ...CLI_ENTRY_RELPATH.split("/")));
   });
 });

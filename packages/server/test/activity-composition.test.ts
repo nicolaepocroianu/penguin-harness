@@ -8,7 +8,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestBegin, requestEnd } from "@prismshadow/penguin-core";
+import { requestBegin, requestEnd } from "@waterford/waf-harness-core";
 import type {
   ActivityDetail,
   ActivityDraft,
@@ -329,7 +329,7 @@ describe("scene compositions", () => {
     });
     expect(await fs.readFile(path.join(workspace, "images", "sky.png"))).toEqual(f.sky);
     expect(await fs.readFile(path.join(workspace, "gsap.min.js"), "utf8")).toContain("GSAP");
-    expect(await fs.readFile(path.join(workspace, "penguin-composition.js"), "utf8")).toBe(
+    expect(await fs.readFile(path.join(workspace, "wafh-composition.js"), "utf8")).toBe(
       COMPOSITION_BRIDGE,
     );
     const template = await fs.readFile(path.join(workspace, "composition-template.html"), "utf8");
@@ -368,7 +368,7 @@ describe("scene compositions", () => {
     expect(image.headers.get("content-type")).toBe("image/png");
     expect(Buffer.from(await image.arrayBuffer())).toEqual(f.sky);
     expect(await (await f.onPreview(location, `${base}gsap.min.js`)).text()).toContain("GSAP");
-    expect(await (await f.onPreview(location, `${base}penguin-composition.js`)).text()).toBe(
+    expect(await (await f.onPreview(location, `${base}wafh-composition.js`)).text()).toBe(
       COMPOSITION_BRIDGE,
     );
     // Only the staged files, and only on the host the link names.
@@ -434,7 +434,7 @@ describe("scene compositions", () => {
 });
 
 describe("composition checks", () => {
-  const staged = new Set(["gsap.min.js", "penguin-composition.js", "images/sky.png"]);
+  const staged = new Set(["gsap.min.js", "wafh-composition.js", "images/sky.png"]);
 
   it("passes the page an agent should write", () => {
     expect(compositionProblem(goodPage(), staged)).toBeNull();
@@ -455,7 +455,7 @@ describe("composition checks", () => {
       "composition_timeline",
     );
     expect(code(goodPage().replace(/<meta http-equiv[^>]*>/, ""))).toBe("composition_template");
-    expect(code(goodPage().replace('<script src="penguin-composition.js"></script>', ""))).toBe(
+    expect(code(goodPage().replace('<script src="wafh-composition.js"></script>', ""))).toBe(
       "composition_template",
     );
     expect(code(goodPage(`<p>${"x".repeat(520 * 1024)}</p>`))).toBe("composition_size");

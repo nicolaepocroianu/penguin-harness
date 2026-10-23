@@ -7,7 +7,7 @@
  * the runs it plays.
  */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { Component, Interface } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface } from "@waterford/waf-harness-core/kernel";
 
 /**
  * How long a play link works. Every file the page fetches rides on it, and a book fetches

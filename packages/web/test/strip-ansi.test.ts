@@ -23,7 +23,7 @@ describe("stripAnsi", () => {
   });
 
   it("cleans the issue's nested-CLI gutter shape", () => {
-    // What #102 showed in the tool card: a nested `penguin run`'s colored call line.
+    // What #102 showed in the tool card: a nested `wafh run`'s colored call line.
     const raw = "\x1b[36m[tool-752] $ \x1b[0m\x1b[36mcat todo.md\x1b[0m\n";
     expect(stripAnsi(raw)).toBe("[tool-752] $ cat todo.md\n");
   });

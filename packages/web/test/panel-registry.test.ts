@@ -11,7 +11,7 @@
  *   puzzle glyph.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ICONS } from "@prismshadow/penguin-ui";
+import { ICONS } from "@waterford/waf-harness-ui";
 import {
   dockPanelDefinition,
   dockPanels,

@@ -10,7 +10,7 @@
  *   English text.
  */
 import { describe, expect, it } from "vitest";
-import type { OrgChannelNotice } from "@prismshadow/penguin-server/api";
+import type { OrgChannelNotice } from "@waterford/waf-harness-server/api";
 import { NOTICE_KINDS, noticeText } from "../src/features/company/channel-notices";
 
 import { en } from "../src/lib/strings-en";

@@ -1,18 +1,18 @@
 ---
 name: skill-porting
-description: Install skills from external ecosystems into this agent's agent_state/skills/ — resolve Claude Code plugin marketplaces, the Codex plugin repo, skills.sh registry names, GitHub repos, or local folders to their skill directories, review every file, and normalize SKILL.md frontmatter to the Penguin format.
+description: Install skills from external ecosystems into this agent's agent_state/skills/ — resolve Claude Code plugin marketplaces, the Codex plugin repo, skills.sh registry names, GitHub repos, or local folders to their skill directories, review every file, and normalize SKILL.md frontmatter to the WAF Harness format.
 version: 2026.10.10.1
 ---
 
 # Skill Porting
 
-The wider ecosystem's plugins are mostly wrappers around plain skill directories — a `SKILL.md` plus support files — which is exactly the shape Penguin installs. This skill turns any common external source into skills installed on this agent: locate the source, fetch it at a pinned revision, review everything, normalize the frontmatter, copy into `agent_state/skills/<name>/`, verify.
+The wider ecosystem's plugins are mostly wrappers around plain skill directories — a `SKILL.md` plus support files — which is exactly the shape WAF Harness installs. This skill turns any common external source into skills installed on this agent: locate the source, fetch it at a pinned revision, review everything, normalize the frontmatter, copy into `agent_state/skills/<name>/`, verify.
 
 ## Before you start
 
 If the user's message only invokes this skill (e.g. "use skill-porting skill") without naming a skill or a source, ask what skill they want and where it comes from (a marketplace plugin name, a repo URL, a `skills add` spec, or a local path).
 
-To make a whole plugin available to every agent on the server instead — a Codex or Claude Code plugin, a skills repository, a folder in a GitHub repository, turned into a PenguinHarness plugin package and installed with `penguin plugin install` — use the `plugin-porting` skill.
+To make a whole plugin available to every agent on the server instead — a Codex or Claude Code plugin, a skills repository, a folder in a GitHub repository, turned into a WAF Harness plugin package and installed with `wafh plugin install` — use the `plugin-porting` skill.
 
 Safety is non-negotiable — an installed skill becomes durable instructions this agent follows in every future session:
 
@@ -21,7 +21,7 @@ Safety is non-negotiable — an installed skill becomes durable instructions thi
 - **Prefer pinned revisions**: fetch by commit sha or tag when the source offers one (marketplace entries usually do), and record what you installed from where.
 - In your final reply, tell the user what each installed skill does and what you dropped or rewrote.
 
-## Target layout: what Penguin expects
+## Target layout: what WAF Harness expects
 
 Installed skills live in the current agent's state (paths from your Environment section):
 
@@ -36,7 +36,7 @@ Installed skills live in the current agent's state (paths from your Environment 
 - The frontmatter of every installed skill is injected into the system prompt automatically as `` - `name` — description ``; the body is read on demand. There is no registration step.
 - The frontmatter parser is deliberately simple: it only reads single-line `key: value` pairs inside the first `---` block (values may contain colons). **YAML lists, block scalars (`>-`, `|`) and nested maps do not parse** — flatten them during normalization.
 
-Penguin frontmatter:
+WAF Harness frontmatter:
 
 ```md
 ---
@@ -57,7 +57,7 @@ Every source below follows the Agent Skills convention (agentskills.io): a skill
 | `description`                                      | required; 1–1024 chars; what the skill does and when to use it                                                       |
 | `license` / `compatibility` / `metadata` / `allowed-tools` | optional; `metadata` is a string map, `allowed-tools` a space-separated string (experimental)                |
 
-Claude Code layers more optional fields on top (`when_to_use`, `argument-hint`, `arguments`, `allowed-tools`, `disallowed-tools`, `disable-model-invocation`, `user-invocable`, `model`, `effort`, `context: fork`, `agent`, `hooks`, `paths`, `shell`). None of these have a Penguin runtime — see Normalize below. Conventional support directories are `scripts/`, `references/`, `assets/`.
+Claude Code layers more optional fields on top (`when_to_use`, `argument-hint`, `arguments`, `allowed-tools`, `disallowed-tools`, `disable-model-invocation`, `user-invocable`, `model`, `effort`, `context: fork`, `agent`, `hooks`, `paths`, `shell`). None of these have a WAF Harness runtime — see Normalize below. Conventional support directories are `scripts/`, `references/`, `assets/`.
 
 Schemas evolve. The tables in this skill were verified against files fetched on 2026-08-04; always trust the JSON you actually fetched over this snapshot.
 
@@ -148,7 +148,7 @@ ls "$WORK/plugins-main/plugins/<name>/skills/"
 
 Plugin layout at `plugins/<name>/`: `.codex-plugin/plugin.json` (npm-style manifest — `name`, `version`, `description`, `author`, `license`, `keywords`, pointers `skills: "./skills/"`, `apps: "./.app.json"`, `mcpServers: "./.mcp.json"`, and a rich `interface` display block), `skills/<skill>/SKILL.md` (frontmatter is plain `name` + `description`), `.app.json` (hosted connector ids), `.mcp.json`, `assets/`. Differences from the Claude layout: manifest dir `.codex-plugin/` vs `.claude-plugin/`, marketplace at `.agents/plugins/marketplace.json` vs `.claude-plugin/marketplace.json`.
 
-Watch for skill bodies that say "use the X app from this plugin": those depend on `.app.json` hosted connectors with no Penguin equivalent. Port such a skill only if its body still stands on generic tools (shell, `curl`, official CLIs) after you rewrite or strip the connector references.
+Watch for skill bodies that say "use the X app from this plugin": those depend on `.app.json` hosted connectors with no WAF Harness equivalent. Port such a skill only if its body still stands on generic tools (shell, `curl`, official CLIs) after you rewrite or strip the connector references.
 
 ## Source: skills.sh registries (`npx skills add`)
 
@@ -174,15 +174,15 @@ awk '/^---$/{n++} n<2' "<dir>/SKILL.md"    # print just the frontmatter of a hit
 - Repo or subdirectory: use the fetch toolbox, then the same `find … -name SKILL.md` scan; many repos simply keep `skills/<name>/` at the root.
 - Local folder: `cp -r <src> "$WORK/<name>"` first, then review — same rules as remote content; never install straight from the source path.
 
-## Normalize to the Penguin format
+## Normalize to the WAF Harness format
 
 Shape each skill in `$WORK`, then copy the finished directory into `agent_state/skills/`:
 
 1. **Directory name**: keep the upstream name when it already matches `[A-Za-z0-9_-]+` (lowercase-hyphen preferred); otherwise rename and note it. One directory per skill — a plugin with several skills becomes several installs (or one merged skill if the user prefers).
 2. **Keep** `name` (set it to the directory name) and `description` (flatten to one line; keep or make it English).
 3. **Add** `short_description` (write it yourself, shorter than the description) and `version:` today's UTC date with sequence number 1, from `date -u +%Y.%m.%d.1`. Raise it on every later edit: the next sequence number on the same day, else that day's date with `.1`. Versions compare by date, then by number, so `.10` follows `.9`. Drop an `updated:` line; the version carries the date.
-4. **Drop foreign frontmatter fields** (`allowed-tools`, `disable-model-invocation`, `context`, `model`, `hooks`, `license`, `metadata`, `when_to_use`, …). Penguin ignores unknown single-line keys, but multi-line values corrupt the parse — flattening is mandatory, dropping keeps files honest. When a dropped field carries real information — required tools, trigger phrases — move it into the body text (`when_to_use` usually merges into `description`).
-5. **Components with no Penguin runtime**:
+4. **Drop foreign frontmatter fields** (`allowed-tools`, `disable-model-invocation`, `context`, `model`, `hooks`, `license`, `metadata`, `when_to_use`, …). WAF Harness ignores unknown single-line keys, but multi-line values corrupt the parse — flattening is mandatory, dropping keeps files honest. When a dropped field carries real information — required tools, trigger phrases — move it into the body text (`when_to_use` usually merges into `description`).
+5. **Components with no WAF Harness runtime**:
    - `commands/*.md` flat skills → each can become its own skill directory (file body → SKILL.md body), or a section of the main skill.
    - `agents/*.md` subagent definitions → no subagent binding here; fold genuinely useful instructions into the SKILL.md body as a procedure, otherwise leave them out and say so.
    - `hooks/`, `.mcp.json`, `.app.json`, `lspServers`, `${CLAUDE_PLUGIN_ROOT}` references → drop them; rewrite body steps that depend on them to plain shell equivalents, or remove that feature and tell the user.

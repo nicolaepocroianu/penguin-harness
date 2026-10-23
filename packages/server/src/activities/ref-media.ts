@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Component, Interface } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface } from "@waterford/waf-harness-core/kernel";
 import { HttpError } from "../http/errors.js";
 import { FfmpegError, runFfmpeg } from "./ffmpeg.js";
 import { ELEVENLABS_DEFAULT_VOICE } from "./voice-catalogue.js";
@@ -68,11 +68,11 @@ const ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128";
  * Loom's `generationFingerprint` of a narration: the SHA-256 of its provider client's
  * `generation_identity`. Loom makes a clip again when its sidecar's fingerprint differs from
  * the one it would use now, and always when a narration with its own voice has none, so a
- * clip Penguin accepted carries Loom's own. Null where Penguin cannot say what Loom would
+ * clip WAF Harness accepted carries Loom's own. Null where WAF Harness cannot say what Loom would
  * compute: a voice it did not resolve, or a provider Loom speaks through another engine
- * (Kokoro, which Loom runs in Python and Penguin in kokoro-js). The model is the one that made
+ * (Kokoro, which Loom runs in Python and WAF Harness in kokoro-js). The model is the one that made
  * the clip: Loom compares it with its own configured model and makes the clip again when they
- * differ, as it should for another model's recording (Penguin's Gemini model is not Loom's).
+ * differ, as it should for another model's recording (WAF Harness's Gemini model is not Loom's).
  *
  * - ElevenLabs: `{"modelId","outputFormat","provider":"elevenlabs","voiceId"}`, sorted, compact.
  * - Gemini: `gemini|<model>|<voice name>`.

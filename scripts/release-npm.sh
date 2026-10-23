@@ -67,21 +67,21 @@ case "$cmd" in
     echo "stamped $V"
     ;;
   test)
-    pnpm --filter @prismshadow/amsp test
-    pnpm --filter @prismshadow/penguin-core test
-    pnpm --filter @prismshadow/penguin-server test
-    pnpm --filter @prismshadow/penguin-cli test
+    pnpm --filter @waterford/waf-harness-amsp test
+    pnpm --filter @waterford/waf-harness-core test
+    pnpm --filter @waterford/waf-harness-server test
+    pnpm --filter @waterford/waf-harness-cli test
     ;;
   test-smoke)
     # These cover the release/source build identity, the embedded plugin index matching the
     # stamped package versions, and the HTTP/CLI version reports. Other behaviour is already
     # checked by the affected-package jobs; the release still runs every suite above.
-    pnpm --filter @prismshadow/penguin-core exec vitest run test/build-info.test.ts
+    pnpm --filter @waterford/waf-harness-core exec vitest run test/build-info.test.ts
     # `exec vitest` does not run the server's script, which normally generates this table.
-    pnpm --filter @prismshadow/penguin-server gen:ifaces
-    pnpm --filter @prismshadow/penguin-server exec vitest run \
+    pnpm --filter @waterford/waf-harness-server gen:ifaces
+    pnpm --filter @waterford/waf-harness-server exec vitest run \
       test/plugin-registry.test.ts test/version.test.ts test/deploy-same-build.test.ts
-    pnpm --filter @prismshadow/penguin-cli exec vitest run test/version.test.ts
+    pnpm --filter @waterford/waf-harness-cli exec vitest run test/version.test.ts
     ;;
   *)
     sed -n '2,7p' "$0" >&2

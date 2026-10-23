@@ -17,7 +17,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: process.env.BASE_PATH ?? "/",
   plugins: [react(), tailwindcss()],
-  // Fixed PenguinHarness dev ports (stand alone — only the main server default is
+  // Fixed WAF Harness dev ports (stand alone — only the main server default is
   // shared, as DEFAULT_SERVER_PORT in core; vite configs cannot import core TS): this
   // server's, and the gallery's, whose frames the home page shows.
   server: {

@@ -37,7 +37,7 @@ import type { ExecFile } from "../src/win-aumid.js";
 const release = appIdentity("release");
 const dev = appIdentity("dev");
 const ICON =
-  "C:\\Users\\Jane Doe\\AppData\\Local\\Programs\\PenguinHarness\\resources\\app\\dist\\icon.png";
+  "C:\\Users\\Jane Doe\\AppData\\Local\\Programs\\WAF Harness\\resources\\app\\dist\\icon.png";
 
 /** Where Windows looks up a toast sender's name and icon. */
 function senderKey(appUserModelId: string): string {
@@ -221,15 +221,15 @@ describe("registering the AUMID, reg.exe faked", () => {
 
 describe.skipIf(process.platform !== "win32")("registering the AUMID with the real reg.exe", () => {
   // This run's own throwaway AUMID, so no identity the app registers is touched.
-  const appUserModelId = `com.prismshadow.penguinharness.test-${process.pid}`;
+  const appUserModelId = `com.waterford.wafharness.test-${process.pid}`;
   const key = senderKey(appUserModelId);
   // A per-user install under a Windows account named in Chinese, with a space in it.
   const icon =
-    "C:\\Users\\企鹅 用户\\AppData\\Local\\Programs\\PenguinHarness\\resources\\app\\dist\\icon.png";
+    "C:\\Users\\企鹅 用户\\AppData\\Local\\Programs\\WAF Harness\\resources\\app\\dist\\icon.png";
   let dir = "";
 
   beforeAll(() => {
-    dir = mkdtempSync(path.join(tmpdir(), "penguin-aumid-"));
+    dir = mkdtempSync(path.join(tmpdir(), "wafh-aumid-"));
   });
   afterAll(() => {
     spawnSync("reg", ["delete", key, "/f"], { windowsHide: true });
@@ -265,13 +265,13 @@ describe.skipIf(process.platform !== "win32")("registering the AUMID with the re
   }
 
   it("stores the display name and the icon path exactly as given", async () => {
-    expect(await launch("PenguinHarness Test")).toEqual([]);
-    expect(storedValues()).toEqual({ DisplayName: "PenguinHarness Test", IconUri: icon });
+    expect(await launch("WAF Harness Test")).toEqual([]);
+    expect(storedValues()).toEqual({ DisplayName: "WAF Harness Test", IconUri: icon });
   });
 
   it("overwrites an earlier launch's values without reg.exe stopping to ask", async () => {
-    expect(await launch("PenguinHarness Test")).toEqual([]);
-    expect(await launch("PenguinHarness Test 2")).toEqual([]);
-    expect(storedValues()).toEqual({ DisplayName: "PenguinHarness Test 2", IconUri: icon });
+    expect(await launch("WAF Harness Test")).toEqual([]);
+    expect(await launch("WAF Harness Test 2")).toEqual([]);
+    expect(storedValues()).toEqual({ DisplayName: "WAF Harness Test 2", IconUri: icon });
   });
 });

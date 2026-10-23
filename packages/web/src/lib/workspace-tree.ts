@@ -17,8 +17,8 @@
  *     the fenced block a preview selection becomes, and where each of them may be spliced
  *     into a draft that is already half typed.
  */
-import type { FileBrowserPreviewKind, FileTreeRow } from "@prismshadow/penguin-ui";
-import type { WorkspaceFileEntry, WorkspaceSearchHit } from "@prismshadow/penguin-server/api";
+import type { FileBrowserPreviewKind, FileTreeRow } from "@waterford/waf-harness-ui";
+import type { WorkspaceFileEntry, WorkspaceSearchHit } from "@waterford/waf-harness-server/api";
 import { joinWorkspacePath } from "./file-path";
 
 // ------------------------------------------------------------------------------- layout
@@ -33,7 +33,7 @@ export {
   defaultTreeWidth,
   isNarrowLayout,
   maxTreeWidth,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 
 // -------------------------------------------------------------------------------- paths
 
@@ -418,10 +418,10 @@ export interface TreePreferenceStorage {
 }
 
 /** Global preferences, not per Session: whether the tree pane is shown, how wide it is, and whether the editor soft-wraps. */
-export const TREE_VISIBLE_KEY = "penguin.files.treeVisible";
-export const TREE_WIDTH_KEY = "penguin.files.treeWidth";
+export const TREE_VISIBLE_KEY = "wafh.files.treeVisible";
+export const TREE_WIDTH_KEY = "wafh.files.treeWidth";
 /** Soft wrap, shared by the source view and the editor (see parseWrapLines on why one value, and on the key's name). */
-export const EDITOR_WRAP_KEY = "penguin.files.editorWrap";
+export const EDITOR_WRAP_KEY = "wafh.files.editorWrap";
 
 /** Tolerant parse: only an explicit "off" spelling hides the tree; nothing stored or anything unrecognized shows it (the default). */
 export function parseTreeVisible(raw: string | null): boolean {

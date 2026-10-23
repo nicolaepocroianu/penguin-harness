@@ -11,7 +11,7 @@
  * A number cell left blank means the tool's default: the PUT replaces the whole table, so a
  * cleared cell drops the override. A cell holding anything must be an integer > 0 or -1.
  */
-import type { ToolDefinitionConfig, ToolPermission } from "@prismshadow/penguin-core/interfaces";
+import type { ToolDefinitionConfig, ToolPermission } from "@waterford/waf-harness-core/interfaces";
 import { runtimeNumberOf } from "./runtime-form";
 
 /** One row of the table's draft. */

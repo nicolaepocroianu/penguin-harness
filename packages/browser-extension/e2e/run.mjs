@@ -1,12 +1,12 @@
-// End-to-end, the whole chain: the agent's `penguin browser` CLI → this checkout's server → the
+// End-to-end, the whole chain: the agent's `wafh browser` CLI → this checkout's server → the
 // built extension (dist/) in a real Chromium → a local fixture site. Run through run.sh, which
 // builds what is missing and wraps this in xvfb-run; set E2E_SHOTS=<dir> to keep pictures of the
-// Chrome window (the Penguin tab group) and of the Web App's Browser panel in Chrome mode.
+// Chrome window (the WAF Harness tab group) and of the Web App's Browser panel in Chrome mode.
 //
 // The story: an admin adds a member; the member, signed in, has a Project and a conversation,
 // mints a pairing code and pastes it with the server's address into the extension's options
 // page. Then the agent of that conversation — the CLI with the admin API token and the
-// conversation's PENGUIN_SESSION_ID, as inside a session — opens, scans, clicks, types and closes
+// conversation's WAFH_SESSION_ID, as inside a session — opens, scans, clicks, types and closes
 // a page in the member's Chrome. Along the way: a cookie-store CDP method is refused (403), the
 // same CLI without the session id is not the member and finds no Chrome, the Web App's panel
 // mirrors the Chrome tabs, and revoking the pairing closes the socket with 4003.
@@ -56,7 +56,7 @@ async function expectOk(res, what) {
 
 const fixture = await startFixtureSite();
 const server = await startRealServer({ repoRoot });
-const userDataDir = mkdtempSync(path.join(tmpdir(), "penguin-ext-e2e-"));
+const userDataDir = mkdtempSync(path.join(tmpdir(), "wafh-ext-e2e-"));
 const context = await chromium.launchPersistentContext(userDataDir, {
   headless: false,
   viewport: null,
@@ -136,7 +136,7 @@ try {
     }),
     "create a conversation",
   );
-  const agentEnv = { PENGUIN_SESSION_ID: session.sessionId };
+  const agentEnv = { WAFH_SESSION_ID: session.sessionId };
   const agent = (...args) => server.cli(["browser", ...args], agentEnv);
 
   const before = await agent("status");
@@ -199,7 +199,7 @@ try {
 
   const ordersUrl = `${fixture.origin}/orders`;
   const open = await agent("open", ordersUrl);
-  check("penguin browser open", open.code === 0, oneLine(open.stdout || open.stderr));
+  check("wafh browser open", open.code === 0, oneLine(open.stdout || open.stderr));
   const driven = await eventually(() =>
     worker.evaluate(async (url) => {
       const tab = (await chrome.tabs.query({})).find((t) => t.url === url);
@@ -209,14 +209,14 @@ try {
     }, ordersUrl),
   );
   check(
-    "the page opens in the member's Chrome, in the blue Penguin group",
-    driven?.title === "Penguin" && driven?.color === "blue",
+    "the page opens in the member's Chrome, in the blue WAF Harness group",
+    driven?.title === "WAF Harness" && driven?.color === "blue",
     JSON.stringify(driven),
   );
 
   const scan = await agent("scan");
   check(
-    "penguin browser scan reads the page",
+    "wafh browser scan reads the page",
     scan.code === 0 && scan.stdout.includes("Your Orders") && scan.stdout.includes("USB-C cable"),
     `${scan.stdout.length} chars`,
   );
@@ -227,7 +227,7 @@ try {
     return out.stdout.includes("Added to cart") && out.stdout;
   });
   check(
-    "penguin browser click is a trusted click",
+    "wafh browser click is a trusted click",
     click.code === 0 && toast?.includes("(trusted click)") === true,
     oneLine(toast ?? click.stderr),
   );
@@ -238,7 +238,7 @@ try {
     return out.stdout.includes("4 orders placed") && out.stdout;
   });
   check(
-    "penguin browser type fills the search and submits it",
+    "wafh browser type fills the search and submits it",
     type.code === 0 && count !== undefined,
     oneLine(count ?? type.stderr),
   );
@@ -246,7 +246,7 @@ try {
   const tabs = await agent("tabs", "--json");
   const listed = tabs.code === 0 ? JSON.parse(tabs.stdout).tabs : [];
   check(
-    "penguin browser tabs lists only the agent's tab, none of the user's own",
+    "wafh browser tabs lists only the agent's tab, none of the user's own",
     listed.length === 1 && listed[0].id === driven?.id,
     listed.map((t) => t.url).join(", "),
   );
@@ -279,7 +279,7 @@ try {
 
   // --- pictures: the Chrome window, and the Web App's Browser panel in Chrome mode -------------
   const switched = await agent("switch", String(driven?.id));
-  check("penguin browser switch shows the tab in Chrome", switched.code === 0);
+  check("wafh browser switch shows the tab in Chrome", switched.code === 0);
   if (shots !== null && process.env.DISPLAY) {
     await sleep(800);
     screenshotX(process.env.DISPLAY, path.join(shots, "chrome-window.png"));
@@ -321,7 +321,7 @@ try {
       driven?.id,
     ),
   );
-  check("penguin browser close closes the tab in Chrome", close.code === 0 && gone === true);
+  check("wafh browser close closes the tab in Chrome", close.code === 0 && gone === true);
 
   // --- revoke -------------------------------------------------------------------------------------
   const socketsBefore = (await sockets()).sockets;

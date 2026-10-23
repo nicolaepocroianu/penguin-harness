@@ -5,7 +5,7 @@
  * This table stores only refresh material and expiry metadata that must stay on the server:
  * never return it through model APIs and never write it into Project files.
  */
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Db } from "../../hmr/capabilities.js";
 import type { ModelProviderAuthToken, ModelProviderAuthTokens } from "../../mechanisms/projects.js";
 

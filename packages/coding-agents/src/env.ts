@@ -24,10 +24,10 @@ const MAX_ENV_VALUE = 8192;
 
 /**
  * Names an agent definition may not set: the ones the sandbox passes through from the host
- * (overriding them breaks how the agent starts) and the ones Penguin sets itself.
+ * (overriding them breaks how the agent starts) and the ones WAF Harness sets itself.
  */
 export function isReservedEnvKey(key: string): boolean {
-  return PASS_THROUGH.test(key) || /^NO_BROWSER$/i.test(key) || /^PENGUIN_/i.test(key);
+  return PASS_THROUGH.test(key) || /^NO_BROWSER$/i.test(key) || /^WAFH_/i.test(key);
 }
 
 /**
@@ -38,7 +38,7 @@ export function validateAgentEnvEntry(key: string, value: string | undefined): s
   if (!ENV_KEY_PATTERN.test(key)) {
     return `${key}: a name starts with a letter or underscore and uses only letters, digits and underscores.`;
   }
-  if (isReservedEnvKey(key)) return `${key} is set by Penguin and cannot be changed here.`;
+  if (isReservedEnvKey(key)) return `${key} is set by WAF Harness and cannot be changed here.`;
   if (value === undefined) return null;
   if (value === "") return `${key}: the value is empty.`;
   if (/[\r\n]/.test(value)) return `${key}: the value cannot contain a line break.`;

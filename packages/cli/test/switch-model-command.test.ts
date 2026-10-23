@@ -78,15 +78,15 @@ describe("switchModelRefusal (409 codes -> one localized line)", () => {
     expect(refuse("model_not_configured")).toBe(
       t.switchModelNotConfigured(
         label,
-        "penguin config model list",
-        "penguin config model add --provider openrouter --model-id anthropic/claude-opus-5",
+        "wafh config model list",
+        "wafh config model add --provider openrouter --model-id anthropic/claude-opus-5",
       ),
     );
     expect(refuse("model_not_configured", "", "proj_x")).toBe(
       t.switchModelNotConfigured(
         label,
-        "penguin config model list --project-id proj_x",
-        "penguin config model add --provider openrouter --model-id anthropic/claude-opus-5 --project-id proj_x",
+        "wafh config model list --project-id proj_x",
+        "wafh config model add --provider openrouter --model-id anthropic/claude-opus-5 --project-id proj_x",
       ),
     );
   });

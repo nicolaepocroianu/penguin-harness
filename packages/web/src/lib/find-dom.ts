@@ -13,5 +13,5 @@ export {
   indexRegions,
   paintHits,
   revealHit,
-} from "@prismshadow/penguin-ui";
-export type { FindHit, FindRegion, RevealResult } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+export type { FindHit, FindRegion, RevealResult } from "@waterford/waf-harness-ui";

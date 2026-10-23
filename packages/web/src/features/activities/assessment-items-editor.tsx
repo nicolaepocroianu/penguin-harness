@@ -5,7 +5,7 @@
  * Nothing is saved while a blocker stands, and each blocker names its item.
  */
 import { useMemo, useState } from "react";
-import { Button, Input, Textarea, Switch } from "@prismshadow/penguin-ui";
+import { Button, Input, Textarea, Switch } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneStrip } from "../../lib/tone";
 import {

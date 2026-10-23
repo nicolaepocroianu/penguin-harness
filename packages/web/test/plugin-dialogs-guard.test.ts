@@ -18,8 +18,8 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement as h, useState } from "react";
-import type { PluginItem } from "@prismshadow/penguin-server/api";
-import { hasUnsaved } from "@prismshadow/penguin-ui";
+import type { PluginItem } from "@waterford/waf-harness-server/api";
+import { hasUnsaved } from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { draftKey, loadDraft } from "../src/features/chat/draft-cache";
@@ -159,7 +159,7 @@ describe("the plugin import dialog", () => {
     await waitFor(() => whereIs(router) === "/chat/new");
     expect(loadDraft(draftKey(ADMIN_ME.user.userId, PROJECT_ID)).text).toContain(source);
     expect(loadDraft(draftKey(ADMIN_ME.user.userId, PROJECT_ID)).text).toContain(
-      "penguin plugin install",
+      "wafh plugin install",
     );
   });
 

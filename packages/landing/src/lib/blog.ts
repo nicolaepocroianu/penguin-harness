@@ -4,7 +4,7 @@
  * a post missing the active language falls back to English, so the list
  * is always complete for every locale.
  */
-import { parseFrontmatter } from "@prismshadow/penguin-ui/site";
+import { parseFrontmatter } from "@waterford/waf-harness-ui/site";
 import type { Locale } from "./locale";
 
 export type BlogCategory = "news" | "practice" | "perspectives" | "changelog";

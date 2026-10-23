@@ -31,7 +31,7 @@
  */
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { isValidId } from "@prismshadow/penguin-core";
+import { isValidId } from "@waterford/waf-harness-core";
 import type {
   OrgApprovalMode,
   OrgLanguage,
@@ -42,7 +42,7 @@ import type {
 } from "../../api/types.js";
 import type { AppEnv } from "../../auth/middleware.js";
 import type { SessionVia } from "../../auth/service.js";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Settings } from "../../mechanisms/settings.js";
 import type { ProjectLifecycle } from "../../mechanisms/projects.js";
 import { TICKET_ID_PATTERN } from "../../organization/files.js";
@@ -97,7 +97,7 @@ function nullableString(
 /**
  * The body's `sessionId` is an identity claim — "this write comes from inside that Session" —
  * and the only credential that backs it is the boot's local API token: `controlEnv` (app.ts)
- * hands it to a Session's subprocesses together with PENGUIN_SESSION_ID, and holding it is
+ * hands it to a Session's subprocesses together with WAFH_SESSION_ID, and holding it is
  * already admin authority. A cookie proves a person, not a session, so a cookie-authenticated
  * claim is dropped and the write is attributed to that person; otherwise any Project member
  * could quote the CEO desk session id `GET /:orgId` returns and write as `agent:<org>_ceo`.
@@ -114,7 +114,7 @@ function callerSessionId(
 
 /**
  * Who performs this write. `agentId` is the same kind of identity claim as `sessionId` — the
- * `PENGUIN_AGENT_ID` a Session hands its command subprocesses — and is backed by the same
+ * `WAFH_AGENT_ID` a Session hands its command subprocesses — and is backed by the same
  * credential, so a cookie-authenticated body's `agentId` is dropped. It names the operator
  * more precisely than the session does, so the service prefers it.
  *

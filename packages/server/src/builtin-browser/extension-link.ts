@@ -1,5 +1,5 @@
 /**
- * The chrome backend's link: one user's PenguinHarness Browser extension, over the WebSocket it
+ * The chrome backend's link: one user's WAF Harness Browser extension, over the WebSocket it
  * opened to `/api/builtin-browser/extension/ws` (extension-ws.ts authenticates it; the hub hands
  * it here). The frames are the shell's envelopes as JSON text — `desktop-browser-command` out,
  * `desktop-browser-reply` and `desktop-browser-event` in — validated by the same parsers.

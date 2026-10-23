@@ -7,7 +7,7 @@
  */
 import { createElement as h } from "react";
 import { afterEach, expect, it } from "vitest";
-import type { WorkbenchInfo } from "@prismshadow/penguin-server/api";
+import type { WorkbenchInfo } from "@waterford/waf-harness-server/api";
 import { AgentSettingsPage } from "../src/features/agents/agent-settings-page";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";

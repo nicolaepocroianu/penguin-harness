@@ -1,11 +1,11 @@
 /**
- * `penguin project ls` — the projects this token/user can reach (own and shared).
+ * `wafh project ls` — the projects this token/user can reach (own and shared).
  *
- *   penguin project ls [--json] [--server <url>]
- * Docs: /docs/cli § "penguin project".
+ *   wafh project ls [--json] [--server <url>]
+ * Docs: /docs/cli § "wafh project".
  */
 import type { Command } from "commander";
-import type { ProjectsResponse } from "@prismshadow/penguin-server/api";
+import type { ProjectsResponse } from "@waterford/waf-harness-server/api";
 import { resolveConnection, ServerClient } from "../client.js";
 import { renderTable } from "../table.js";
 import type { Messages } from "../i18n.js";

@@ -12,6 +12,6 @@ export default defineConfig({
   // per-platform Codex binary through @openai/codex, so it stays an installed dependency.
   external: ["@agentclientprotocol/codex-acp"],
   banner: {
-    js: 'import { createRequire as __penguinCreateRequire } from "node:module"; const require = __penguinCreateRequire(import.meta.url);',
+    js: 'import { createRequire as __wafHarnessCreateRequire } from "node:module"; const require = __wafHarnessCreateRequire(import.meta.url);',
   },
 });

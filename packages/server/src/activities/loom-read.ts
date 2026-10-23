@@ -2,12 +2,12 @@
  * Reading a product Loom authored in a module, for a project to adopt in place.
  *
  * Read-only: this opens a module's `generated/` files and reports what it found, and never
- * writes. Adopting (service.claimModuleProduct) is what then gives each ref Penguin's own
+ * writes. Adopting (service.claimModuleProduct) is what then gives each ref WAF Harness's own
  * files beside Loom's.
  *
  *     <wafRoot>/modules/<moduleFolder>/generated/<productCode>/   (see waf-layout.ts)
  *       spec/activity_metadata.json      product: canonical ref, type, templateStable
- *       spec/penguin.json                which Penguin project owns it, once one does
+ *       spec/wafh.json                which WAF Harness project owns it, once one does
  *       spec/state-machine.json          the canonical product machine
  *       refs/<productCode>-<refNum>/spec/
  *         activity_metadata.json         ref: number, display name
@@ -34,7 +34,7 @@ import {
   type WafLayout,
 } from "./waf-layout.js";
 
-/** What a product's metadata says, with Loom's names translated to Penguin's. */
+/** What a product's metadata says, with Loom's names translated to WAF Harness's. */
 export interface LoomProductMetadata {
   productCode: string;
   moduleFolder: string;
@@ -67,7 +67,7 @@ export function mapProductMetadata(
   const bookMode = asString(record["bookMode"]);
   return {
     productCode,
-    // Where the files are is where Penguin reads and writes them, whatever an older copy of
+    // Where the files are is where WAF Harness reads and writes them, whatever an older copy of
     // the folder's name in the file says.
     moduleFolder,
     title: asString(record["title"]),

@@ -7,7 +7,7 @@
  * text as typed, a number field's the digits as typed or as its stepper left them — the gate
  * checks a number, it never rewrites one.
  */
-import type { A2uiForm, A2uiFormField } from "@prismshadow/penguin-core/a2ui";
+import type { A2uiForm, A2uiFormField } from "@waterford/waf-harness-core/a2ui";
 
 export type A2uiFormAnswer = string | readonly string[];
 export type A2uiFormAnswers = Readonly<Record<string, A2uiFormAnswer | undefined>>;

@@ -67,7 +67,7 @@ export interface CreateTerminalSessionOptions {
   /** Owning user id — a shell is the most privileged thing this server hands out. */
   ownerUserId: string;
   /**
-   * The conversation (PenguinHarness Session) this shell was opened for — not this object's own
+   * The conversation (WAF Harness Session) this shell was opened for — not this object's own
    * id. A label the Web App files the shell under, so each conversation lists only its own; null
    * for a shell no conversation asked for (the API, the CLI, the standalone /terminal page).
    */
@@ -90,24 +90,24 @@ export interface CreateTerminalSessionOptions {
   assets?: () => string | null;
   /**
    * What leads PATH once the shell's own startup files have run: the server's CLI shim
-   * directory, so `penguin` here is the one the Agent's commands get (see shell-startup.ts).
+   * directory, so `wafh` here is the one the Agent's commands get (see shell-startup.ts).
    * Absent or null, the shell starts with the inherited PATH as it is.
    */
   pathFirst?: TerminalPathFirst | null;
   /**
    * One line shown above everything the shell prints — on a development instance, which
-   * `penguin` this terminal runs, or why it is not this instance's (cli-notice.ts). Written to
+   * `wafh` this terminal runs, or why it is not this instance's (cli-notice.ts). Written to
    * the screen, never to the shell: nothing runs, and the user's prompt follows it. A line with
    * a `target` the shell prints itself instead, at its first prompt, where it can
    * (shell-startup.ts ShellNotice): only then is it known what the user's own startup files left
-   * `penguin` pointing at.
+   * `wafh` pointing at.
    */
   notice?: TerminalNotice | null;
   /**
-   * Whether the shell keeps the server process's `PENGUIN_HOME` and `PENGUIN_WEB_DB`. Only
-   * where no shim names this server's data root for `penguin` — a server with no CLI to offer,
-   * or a runtime older than the shim's root default — so that `penguin` there still finds this
-   * server the way it did before. Default false: every `PENGUIN_*` stays out.
+   * Whether the shell keeps the server process's `WAFH_HOME` and `WAFH_WEB_DB`. Only
+   * where no shim names this server's data root for `wafh` — a server with no CLI to offer,
+   * or a runtime older than the shim's root default — so that `wafh` there still finds this
+   * server the way it did before. Default false: every `WAFH_*` stays out.
    */
   inheritDataRoot?: boolean;
 }
@@ -117,9 +117,9 @@ export interface TerminalNotice {
   text: string;
   tone: "info" | "warning";
   /**
-   * What `text` takes for granted: that `penguin` here targets this data root. On a development
+   * What `text` takes for granted: that `wafh` here targets this data root. On a development
    * instance's line, which then says otherwise — `elsewhere`'s two halves around `VAR=value` —
-   * when the shell's own startup files set PENGUIN_API_URL, or a PENGUIN_HOME that is not `root`.
+   * when the shell's own startup files set WAFH_API_URL, or a WAFH_HOME that is not `root`.
    */
   target?: { root: string; elsewhere: readonly [before: string, after: string] };
 }
@@ -159,55 +159,55 @@ export type TerminalTitleListener = (title: string | null) => void;
 
 /**
  * Whether a variable of the server's own environment is the user's to inherit. Not the
- * harness's: every `PENGUIN_*` is this installation's own wiring (its data root, its CLI entry,
+ * harness's: every `WAFH_*` is this installation's own wiring (its data root, its CLI entry,
  * the desktop shell's token) or context the server process inherited from whoever started it —
  * a server started by an Agent command of ANOTHER harness carries that harness's
- * `PENGUIN_API_URL`, token and Session id — and `PORT` / `HOST` are this server's listener.
- * None of it describes the user's shell, and all of it misdirects what runs there: `penguin`
+ * `WAFH_API_URL`, token and Session id — and `PORT` / `HOST` are this server's listener.
+ * None of it describes the user's shell, and all of it misdirects what runs there: `wafh`
  * would talk to whatever server those name, and `pnpm dev` or `npm run dev` would take this
  * server's data root and port over their own defaults. Core strips these from an Agent's
  * commands too (see its command session manager), matched the same case-insensitive way; it
  * also strips FORCE_COLOR and CLICOLOR_FORCE there, which a terminal, being a real one, keeps.
  *
- * The user's startup files still set any of them they export, and `penguin` needs none of
+ * The user's startup files still set any of them they export, and `wafh` needs none of
  * them: the shim names this server's data root itself (services/cli-shim.ts). Where no shim
- * does, `keepDataRoot` keeps `PENGUIN_HOME` and `PENGUIN_WEB_DB`, as every terminal had them
+ * does, `keepDataRoot` keeps `WAFH_HOME` and `WAFH_WEB_DB`, as every terminal had them
  * before (see CreateTerminalSessionOptions.inheritDataRoot). The user's own settings among
  * them stay as well ({@link USER_SETTINGS}).
  */
 function inheritedByTerminal(key: string, keepDataRoot: boolean): boolean {
   const name = key.toUpperCase();
-  if (keepDataRoot && (name === "PENGUIN_HOME" || name === "PENGUIN_WEB_DB")) return true;
+  if (keepDataRoot && (name === "WAFH_HOME" || name === "WAFH_WEB_DB")) return true;
   if (USER_SETTINGS.has(name)) return true;
-  return !(name.startsWith("PENGUIN_") || name === "PORT" || name === "HOST");
+  return !(name.startsWith("WAFH_") || name === "PORT" || name === "HOST");
 }
 
 /**
- * The `PENGUIN_*` variables that are the user's own settings rather than any instance's wiring:
- * how PenguinHarness should behave for this person wherever it runs. None names a data root, a
+ * The `WAFH_*` variables that are the user's own settings rather than any instance's wiring:
+ * how WAF Harness should behave for this person wherever it runs. None names a data root, a
  * server, a session or the code that runs, so none can point what runs in the terminal at the
  * wrong instance. They stay in the terminal because they are not always set by a startup file
- * the shell reads again: on Windows a user variable set with `setx` (what `penguin config lang`
+ * the shell reads again: on Windows a user variable set with `setx` (what `wafh config lang`
  * itself suggests there) reaches the desktop app, and from it the terminal, by inheritance only.
  */
 const USER_SETTINGS = new Set([
   // The CLI's language.
-  "PENGUIN_LANG",
+  "WAFH_LANG",
   // `off`: no automatic release check.
-  "PENGUIN_UPDATE_CHECK",
+  "WAFH_UPDATE_CHECK",
   // The desktop app does not import the login shell's environment.
-  "PENGUIN_NO_LOGIN_SHELL_ENV",
+  "WAFH_NO_LOGIN_SHELL_ENV",
   // The shell Agent commands run in.
-  "PENGUIN_SHELL",
-  // Where the installer and `penguin update` put a tarball install, and where they download from.
-  "PENGUIN_INSTALL_DIR",
-  "PENGUIN_DOWNLOAD_SOURCE",
-  "PENGUIN_DOWNLOAD_SPEED_PROBE",
-  "PENGUIN_DOWNLOAD_BASE_URL",
-  "PENGUIN_DOWNLOAD_FALLBACK_BASE_URL",
+  "WAFH_SHELL",
+  // Where the installer and `wafh update` put a tarball install, and where they download from.
+  "WAFH_INSTALL_DIR",
+  "WAFH_DOWNLOAD_SOURCE",
+  "WAFH_DOWNLOAD_SPEED_PROBE",
+  "WAFH_DOWNLOAD_BASE_URL",
+  "WAFH_DOWNLOAD_FALLBACK_BASE_URL",
   // The same choice for the desktop app's updater.
-  "PENGUIN_UPDATE_SOURCE",
-  "PENGUIN_UPDATE_SPEED_PROBE",
+  "WAFH_UPDATE_SOURCE",
+  "WAFH_UPDATE_SPEED_PROBE",
   // The Penguin Go provider's key and endpoint, as OPENAI_API_KEY is OpenAI's (which stays too).
   "PENGUIN_GO_API_KEY",
   "PENGUIN_GO_BASE_URL",
@@ -230,7 +230,7 @@ function buildTerminalEnv(
   Object.assign(env, extra ?? {});
   env.TERM = "xterm-256color";
   env.COLORTERM = "truecolor";
-  env.PENGUIN_TERMINAL = "1";
+  env.WAFH_TERMINAL = "1";
   env.PWD = cwd;
   // Inherited from the server process; a pty is not that server and these would point the
   // shell (and anything it starts) at the wrong runtime.

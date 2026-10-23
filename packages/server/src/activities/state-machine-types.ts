@@ -1,6 +1,6 @@
 /**
  * A ref's state machine as the Studio reads it: Loom's `StateMachineDocument`, with what
- * Penguin's draft adds. Its own module so the App can import the shape without the server.
+ * WAF Harness's draft adds. Its own module so the App can import the shape without the server.
  */
 
 /** One problem with a machine, named by where in the file it is. */

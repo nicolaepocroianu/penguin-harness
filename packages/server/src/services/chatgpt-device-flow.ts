@@ -2,8 +2,8 @@ import { randomBytes } from "node:crypto";
 import {
   startChatGPTDeviceAuthorization,
   pollChatGPTDeviceAuthorization,
-} from "@prismshadow/penguin-core";
-import type { ChatGPTCredentials, ChatGPTDeviceAuthorization } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { ChatGPTCredentials, ChatGPTDeviceAuthorization } from "@waterford/waf-harness-core";
 import { HttpError } from "../http/errors.js";
 import type { ModelOAuthStartResult, ModelOAuthErrorCode } from "./model-oauth-service.js";
 

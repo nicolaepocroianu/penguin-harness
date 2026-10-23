@@ -182,7 +182,7 @@ export function draftFollowEdit(draft: MentionDraft, next: string, caret: number
  * The clipboard type a copy, a cut or a drag out of the composer carries its mentions in. It
  * rides beside the `text/plain` of the same text, which is the names; only a composer reads it.
  */
-export const MENTION_CLIP_TYPE = "application/x-penguin-mentions";
+export const MENTION_CLIP_TYPE = "application/x-wafh-mentions";
 
 /** The draft's `from`…`to`, for a copy, a cut or a drag: its text and every mention wholly inside it. */
 export function draftSlice(draft: MentionDraft, from: number, to: number): DraftClip {

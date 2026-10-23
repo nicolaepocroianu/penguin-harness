@@ -5,7 +5,7 @@
  * An install puts two things on a machine (install-server.ts): a release, which the far side
  * downloads itself, and this server's hmr state, replicated over ssh. The second is what runs
  * there — every command this side sends goes through the CLI in that state (commands.ts's
- * remotePenguin), and that CLI carries the whole server — so the release contributes the Node
+ * remoteWafHarness), and that CLI carries the whole server — so the release contributes the Node
  * runtime and the loader. A packaged server reads both halves off its own install. A checkout
  * has neither: no release tree around its entry, and no store unless something pushed to it,
  * which would make the dev server run that copy instead of its source from its next start on.
@@ -229,7 +229,7 @@ function imageId(harness: string): string {
 }
 
 /** The root package of this repository, which tells its checkout from any other workspace. */
-const REPOSITORY_PACKAGE = "penguin-harness";
+const REPOSITORY_PACKAGE = "waf-harness";
 
 /**
  * The checkout this module runs from, or null when it runs from anything else: the directory

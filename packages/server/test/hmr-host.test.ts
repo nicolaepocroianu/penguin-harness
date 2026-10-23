@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Hono } from "hono";
 import type { AppEnv } from "../src/auth/middleware.js";
-import { HmrHost } from "@prismshadow/penguin-hmr";
+import { HmrHost } from "@waterford/waf-harness-hmr";
 import type { PlatformApi } from "../src/hmr/platform.js";
 import { packagedPlatform } from "../src/hmr/platform.js";
 import { readHarnessInfo } from "../src/hmr/manifest.js";
@@ -829,7 +829,7 @@ describe("the store is the only place a pushed platform bundle lands", () => {
  * Provenance is the one part of a push that describes where the code came from: the bundles
  * are content-addressed, and a pushed bundle lands outside any checkout, so unless the
  * pusher's revision is committed with the version nothing on the target can name it. These
- * assert the round trip a `penguin version --json` on the target depends on.
+ * assert the round trip a `wafh version --json` on the target depends on.
  */
 describe("upgrade provenance: recorded with the version, or not at all", () => {
   let t: TestApp | undefined;
@@ -868,7 +868,7 @@ describe("upgrade provenance: recorded with the version, or not at all", () => {
     const cookie = (await loginAdmin(t.app)).cookie;
     const before = Date.now();
     const push = await pushWithSource(t.app, cookie, {
-      repo: "https://example.com/penguin.git",
+      repo: "https://example.com/wafh.git",
       revision: "v0.2.3-7-gabc1234-dirty",
     });
     expect(push.status).toBe(200);
@@ -876,7 +876,7 @@ describe("upgrade provenance: recorded with the version, or not at all", () => {
 
     const manifest = await manifestOf(t.root);
     expect(manifest.source).toEqual({
-      repo: "https://example.com/penguin.git",
+      repo: "https://example.com/wafh.git",
       revision: "v0.2.3-7-gabc1234-dirty",
     });
     expect(Date.parse(manifest.pushedAt as string)).toBeGreaterThanOrEqual(before);

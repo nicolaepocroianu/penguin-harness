@@ -195,12 +195,12 @@ criterion("It is blue.", async () => {
   it("fails a check that reaches past the page or out of its process", async () => {
     const page = await serve(PAGE);
     const elsewhere = await serve("another service");
-    const secretFile = path.join(os.tmpdir(), `penguin-checks-secret-${process.pid}.txt`);
+    const secretFile = path.join(os.tmpdir(), `wafh-checks-secret-${process.pid}.txt`);
     fs.writeFileSync(secretFile, "a secret");
     closers.push(async () => fs.rmSync(secretFile, { force: true }));
-    process.env.PENGUIN_CHECKS_SECRET = "in the server's environment";
+    process.env.WAFH_CHECKS_SECRET = "in the server's environment";
     closers.push(async () => {
-      delete process.env.PENGUIN_CHECKS_SECRET;
+      delete process.env.WAFH_CHECKS_SECRET;
     });
     const criteria = ["read", "write", "spawn", "env", "file", "port"];
     const outcome = await run(
@@ -214,7 +214,7 @@ criterion("spawn", () => {
   if (child.error) throw child.error;
 });
 criterion("env", () => {
-  expect(process.env.PENGUIN_CHECKS_SECRET === undefined, "It saw the server's environment.");
+  expect(process.env.WAFH_CHECKS_SECRET === undefined, "It saw the server's environment.");
   // What Node needs, its IPC channel, and what each OS adds to every child on its own: Windows'
   // process spawning adds the profile variables, macOS CoreFoundation adds its text encoding.
   const needed = /^(PATH|TEMP|TMP|TMPDIR|SYSTEMROOT|WINDIR|NODE_CHANNEL_\\w+)$/i;

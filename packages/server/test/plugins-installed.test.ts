@@ -6,8 +6,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { ModuleDef } from "@prismshadow/penguin-core/kernel";
-import { parseManifest } from "@prismshadow/penguin-core/kernel";
+import type { ModuleDef } from "@waterford/waf-harness-core/kernel";
+import { parseManifest } from "@waterford/waf-harness-core/kernel";
 import type { InstalledPluginsResponse, UsageErrorsPage } from "../src/api/types.js";
 import { PluginHost } from "../src/plugin/host.js";
 import { openPushSlip } from "../src/hmr/push-plugins.js";
@@ -277,7 +277,7 @@ describe("installed plugins", () => {
       manifest: parseManifest({
         name: "ServerSettingsRepo",
         requires: {},
-        provides: { Settings: "@prismshadow/penguin-server#Nope" },
+        provides: { Settings: "@waterford/waf-harness-server#Nope" },
         contributes: {},
         children: [],
       }),

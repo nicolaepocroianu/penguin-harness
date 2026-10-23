@@ -43,7 +43,7 @@ describe.skipIf(process.platform === "win32")("the spawn paths drop the runner's
   let dir: string;
   let wrap: string;
   beforeEach(async () => {
-    dir = await mkdtemp(path.join(tmpdir(), "penguin-runner-lines-"));
+    dir = await mkdtemp(path.join(tmpdir(), "wafh-runner-lines-"));
     // A stand-in runner: prints its report line on stderr, then runs the rest of its argv.
     wrap = path.join(dir, "runner.mjs");
     await writeFile(

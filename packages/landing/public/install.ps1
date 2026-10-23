@@ -1,4 +1,4 @@
-# https://penguin.ooo/install.ps1 - PenguinHarness installer entry point for Windows.
+# https://penguin.ooo/install.ps1 - WAF Harness installer entry point for Windows.
 #
 # GitHub Pages cannot serve HTTP redirects, so this thin forwarder IS the
 # stable install URL. It selects an immutable OSS release when that mirror is
@@ -48,12 +48,12 @@
     # .NET builds where the enum is immutable already default to TLS 1.2+.
   }
 
-  $SourceMode = if ($env:PENGUIN_DOWNLOAD_SOURCE) { $env:PENGUIN_DOWNLOAD_SOURCE.ToLowerInvariant() } else { "auto" }
+  $SourceMode = if ($env:WAFH_DOWNLOAD_SOURCE) { $env:WAFH_DOWNLOAD_SOURCE.ToLowerInvariant() } else { "auto" }
   if ($SourceMode -notin @("auto", "oss", "github")) {
-    Fail "PENGUIN_DOWNLOAD_SOURCE must be auto, oss, or github"
+    Fail "WAFH_DOWNLOAD_SOURCE must be auto, oss, or github"
   }
 
-  $RequestedVersion = if ($env:PENGUIN_VERSION) { $env:PENGUIN_VERSION } else { "" }
+  $RequestedVersion = if ($env:WAFH_VERSION) { $env:WAFH_VERSION } else { "" }
   for ($i = 0; $i -lt $ForwardedArgs.Count; $i++) {
     if ([string]$ForwardedArgs[$i] -ieq "-Version" -and $i + 1 -lt $ForwardedArgs.Count) {
       $RequestedVersion = [string]$ForwardedArgs[$i + 1]
@@ -73,13 +73,13 @@
   # user has already consented to remote code by piping this forwarder into iex.
   # Neither this forwarder nor the installer calls `exit`, which in iex/script-block
   # context would terminate the user's whole PowerShell session.
-  $TmpDir = Join-Path ([IO.Path]::GetTempPath()) "penguin-forwarder-$PID"
+  $TmpDir = Join-Path ([IO.Path]::GetTempPath()) "wafh-forwarder-$PID"
   $InstallerPath = Join-Path $TmpDir "install.ps1"
   $ManifestPath = Join-Path $TmpDir "latest.json"
   $SelectedBase = ""
   $FallbackBase = ""
-  $OriginalBase = [Environment]::GetEnvironmentVariable("PENGUIN_DOWNLOAD_BASE_URL", "Process")
-  $OriginalFallback = [Environment]::GetEnvironmentVariable("PENGUIN_DOWNLOAD_FALLBACK_BASE_URL", "Process")
+  $OriginalBase = [Environment]::GetEnvironmentVariable("WAFH_DOWNLOAD_BASE_URL", "Process")
+  $OriginalFallback = [Environment]::GetEnvironmentVariable("WAFH_DOWNLOAD_FALLBACK_BASE_URL", "Process")
 
   try {
     if (Test-Path -LiteralPath $TmpDir) {
@@ -90,9 +90,9 @@
     if ($OriginalBase) {
       $SelectedBase = $OriginalBase.TrimEnd('/')
       $FallbackBase = if ($OriginalFallback) { $OriginalFallback.TrimEnd('/') } else { "" }
-      if (-not (Test-HttpsUrl $SelectedBase)) { Fail "PENGUIN_DOWNLOAD_BASE_URL must be an absolute HTTPS URL" }
+      if (-not (Test-HttpsUrl $SelectedBase)) { Fail "WAFH_DOWNLOAD_BASE_URL must be an absolute HTTPS URL" }
       if ($FallbackBase -and -not (Test-HttpsUrl $FallbackBase)) {
-        Fail "PENGUIN_DOWNLOAD_FALLBACK_BASE_URL must be an absolute HTTPS URL"
+        Fail "WAFH_DOWNLOAD_FALLBACK_BASE_URL must be an absolute HTTPS URL"
       }
       if (-not (Try-DownloadFile "$SelectedBase/install.ps1" $InstallerPath 30)) {
         Fail "could not download the installer from the configured mirror."
@@ -139,29 +139,29 @@
     }
 
     if ($OriginalBase) {
-      $env:PENGUIN_DOWNLOAD_BASE_URL = $SelectedBase
+      $env:WAFH_DOWNLOAD_BASE_URL = $SelectedBase
       if ($FallbackBase) {
-        $env:PENGUIN_DOWNLOAD_FALLBACK_BASE_URL = $FallbackBase
+        $env:WAFH_DOWNLOAD_FALLBACK_BASE_URL = $FallbackBase
       } else {
-        Remove-Item Env:\PENGUIN_DOWNLOAD_FALLBACK_BASE_URL -ErrorAction SilentlyContinue
+        Remove-Item Env:\WAFH_DOWNLOAD_FALLBACK_BASE_URL -ErrorAction SilentlyContinue
       }
     } else {
-      Remove-Item Env:\PENGUIN_DOWNLOAD_BASE_URL -ErrorAction SilentlyContinue
-      Remove-Item Env:\PENGUIN_DOWNLOAD_FALLBACK_BASE_URL -ErrorAction SilentlyContinue
+      Remove-Item Env:\WAFH_DOWNLOAD_BASE_URL -ErrorAction SilentlyContinue
+      Remove-Item Env:\WAFH_DOWNLOAD_FALLBACK_BASE_URL -ErrorAction SilentlyContinue
     }
     $InstallerText = [IO.File]::ReadAllText($InstallerPath, [Text.UTF8Encoding]::new($false))
     $Installer = [scriptblock]::Create($InstallerText)
     & $Installer @ForwardedArgs
   } finally {
     if ($null -eq $OriginalBase) {
-      Remove-Item Env:\PENGUIN_DOWNLOAD_BASE_URL -ErrorAction SilentlyContinue
+      Remove-Item Env:\WAFH_DOWNLOAD_BASE_URL -ErrorAction SilentlyContinue
     } else {
-      $env:PENGUIN_DOWNLOAD_BASE_URL = $OriginalBase
+      $env:WAFH_DOWNLOAD_BASE_URL = $OriginalBase
     }
     if ($null -eq $OriginalFallback) {
-      Remove-Item Env:\PENGUIN_DOWNLOAD_FALLBACK_BASE_URL -ErrorAction SilentlyContinue
+      Remove-Item Env:\WAFH_DOWNLOAD_FALLBACK_BASE_URL -ErrorAction SilentlyContinue
     } else {
-      $env:PENGUIN_DOWNLOAD_FALLBACK_BASE_URL = $OriginalFallback
+      $env:WAFH_DOWNLOAD_FALLBACK_BASE_URL = $OriginalFallback
     }
     Remove-Item -LiteralPath $TmpDir -Recurse -Force -ErrorAction SilentlyContinue
   }

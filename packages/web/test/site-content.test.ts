@@ -28,8 +28,8 @@ import {
   SiteThemeProvider,
   useSiteLocale,
   useSiteTheme,
-} from "@prismshadow/penguin-ui/site";
-import type { SiteLocale, SiteSearchResult } from "@prismshadow/penguin-ui/site";
+} from "@waterford/waf-harness-ui/site";
+import type { SiteLocale, SiteSearchResult } from "@waterford/waf-harness-ui/site";
 import { click, mount, run, settle, type, unmountAll } from "./helpers/dom";
 
 afterEach(async () => {
@@ -199,10 +199,10 @@ describe("copy", () => {
 
   it("copies through the fallback where the Clipboard API is missing, and announces it", async () => {
     const copied = execCommandAnswers(true);
-    await mount(h(SiteCopyButton, { text: "penguin web", label: "Copy", announcement: "Copied" }));
+    await mount(h(SiteCopyButton, { text: "wafh web", label: "Copy", announcement: "Copied" }));
     await click(copyButton());
     await settle();
-    expect(copied).toEqual(["penguin web"]);
+    expect(copied).toEqual(["wafh web"]);
     expect(announced()).toBe("Copied");
     expect(copyButton().textContent).toBe("Copy");
     expect(document.querySelector("textarea")).toBeNull();
@@ -210,7 +210,7 @@ describe("copy", () => {
 
   it("never claims a copy when every route refuses", async () => {
     execCommandAnswers(false);
-    await mount(h(SiteCopyButton, { text: "penguin web", label: "Copy", announcement: "Copied" }));
+    await mount(h(SiteCopyButton, { text: "wafh web", label: "Copy", announcement: "Copied" }));
     await click(copyButton());
     await settle();
     expect(announced()).toBe("");

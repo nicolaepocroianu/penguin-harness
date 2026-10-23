@@ -135,7 +135,7 @@ describe("video check", () => {
     let dir = "";
     const file = (name: string) => path.join(dir, name);
     beforeAll(async () => {
-      dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-check-"));
+      dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-check-"));
       const encode = ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-shortest"];
       await runFfmpeg(
         ["-y", "-f", "lavfi", "-i", "testsrc=size=640x480:rate=30:duration=4"]

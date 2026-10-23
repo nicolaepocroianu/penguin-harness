@@ -1,33 +1,33 @@
-# PenguinHarness one-line installer for Windows.
+# WAF Harness one-line installer for Windows.
 #
 #   irm https://penguin.ooo/install.ps1 | iex
 #
 # Options:
-#   $env:PENGUIN_VERSION = "vX.Y.Z"     choose a version (same as -Version vX.Y.Z); a published Release
+#   $env:WAFH_VERSION = "vX.Y.Z"     choose a version (same as -Version vX.Y.Z); a published Release
 #                                         installer defaults to its own version, an unstamped source copy to latest
-#   $env:PENGUIN_INSTALL_DIR = "<dir>"  install dir; default $env:USERPROFILE\.penguin
-#   $env:PENGUIN_ARCHIVE = "<file>"     install a local Release zip without network access (same as -ArchivePath)
-#   $env:PENGUIN_DOWNLOAD_SOURCE = "auto|oss|github" choose the online source; default auto
+#   $env:WAFH_INSTALL_DIR = "<dir>"  install dir; default $env:USERPROFILE\.waf-harness
+#   $env:WAFH_ARCHIVE = "<file>"     install a local Release zip without network access (same as -ArchivePath)
+#   $env:WAFH_DOWNLOAD_SOURCE = "auto|oss|github" choose the online source; default auto
 #                                         (speed-probed, with the same-version other source as fallback)
-#   $env:PENGUIN_DOWNLOAD_SPEED_PROBE = "0" disable same-version OSS/GitHub probe timing in auto mode
-#   $env:PENGUIN_DOWNLOAD_BASE_URL = "https://..." exact online asset directory selected by the stable forwarder
-#   $env:PENGUIN_DOWNLOAD_FALLBACK_BASE_URL = "https://..." fallback for PENGUIN_DOWNLOAD_BASE_URL
+#   $env:WAFH_DOWNLOAD_SPEED_PROBE = "0" disable same-version OSS/GitHub probe timing in auto mode
+#   $env:WAFH_DOWNLOAD_BASE_URL = "https://..." exact online asset directory selected by the stable forwarder
+#   $env:WAFH_DOWNLOAD_FALLBACK_BASE_URL = "https://..." fallback for WAFH_DOWNLOAD_BASE_URL
 #   -NoModifyPath                       do not add <install>\bin to the user Path; for a second installation
-#                                       beside the one the `penguin` command belongs to
+#                                       beside the one the `wafh` command belongs to
 #
-# Each Release attaches exactly one Windows artifact: penguin-win32-x64.zip, a shallow installer
+# Each Release attaches exactly one Windows artifact: wafh-win32-x64.zip, a shallow installer
 # bundle holding install.cmd, this script, the program payload (payload.zip) and the payload's
 # checksum. Online installs download that bundle and verify it against its published .sha256;
 # offline installs transfer the same single file, extract it once (the outer layer is flat, so
 # no deep paths are created) and double-click install.cmd. Both paths verify the payload
 # checksum sealed inside the bundle, then expand the payload straight into the short staging
-# directory. Releases up to v0.1.5 shipped the program tree directly (top-level penguin\);
+# directory. Releases up to v0.1.5 shipped the program tree directly (top-level wafh\);
 # such zips are still accepted, from -Version pins and -ArchivePath files alike.
 #
 # There is no -Universal on Windows: where the zip is unsuitable, install Node.js >= 24 and run
-# `npm install -g @prismshadow/penguin-cli` instead.
+# `npm install -g @waterford/waf-harness-cli` instead.
 #
-# The data dir (%USERPROFILE%\.penguin\data) sits under the install home but is never touched by
+# The data dir (%USERPROFILE%\.waf-harness\data) sits under the install home but is never touched by
 # reinstall/upgrade (which only replace bin/lib/web/node/git). Upgrading = re-running this installer.
 #
 # Docs: https://penguin.ooo/docs/quickstart-cli
@@ -46,7 +46,7 @@ $OssOrigin = "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com"
 $OssReleaseRoot = "$OssOrigin/releases"
 $GitHubReleaseRoot = "$Repo/releases/download"
 $GitHubLatestBase = "$Repo/releases/latest/download"
-$Asset = "penguin-win32-x64.zip"
+$Asset = "wafh-win32-x64.zip"
 # Auto-mode source selection, one rule shared by install.ps1, install.sh and the download page on
 # penguin.ooo (packages/landing/src/lib/download-source.ts):
 #
@@ -73,7 +73,7 @@ $SpeedProbeOssSwitchRatio = 1.5
 $PayloadName = "payload.zip"
 # The release workflow replaces this token with the immutable tag before publishing both the
 # standalone installer and the copy sealed inside the Windows bundle.
-$EmbeddedReleaseVersion = "__PENGUIN_RELEASE_VERSION__"
+$EmbeddedReleaseVersion = "__WAFH_RELEASE_VERSION__"
 
 function Fail([string]$Message) {
   # `throw` rather than `exit`: the penguin.ooo forwarder runs this installer as an in-memory
@@ -84,7 +84,7 @@ function Fail([string]$Message) {
 
 # Lists a zip's top-level entry names without extracting (PS 5.1-safe; Expand-Archive itself
 # uses the same .NET type). Used to tell an installer bundle (contains payload.zip) from a
-# program archive (payload.zip itself, or a pre-0.1.6 release zip with a top-level penguin\).
+# program archive (payload.zip itself, or a pre-0.1.6 release zip with a top-level wafh\).
 function Get-ZipEntryNames([string]$ZipPath) {
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   $Zip = [IO.Compression.ZipFile]::OpenRead($ZipPath)
@@ -196,7 +196,7 @@ function Read-ReleaseDownloadManifest([string]$Tag, [string]$ManifestPath, [Date
 
   $Lines = [IO.File]::ReadAllLines($ManifestPath, [Text.UTF8Encoding]::new($false))
   if ($Lines.Count -lt 4) { return $null }
-  if ($Lines[0] -ne "penguin-release-download-manifest`t1`t$Tag") { return $null }
+  if ($Lines[0] -ne "wafh-release-download-manifest`t1`t$Tag") { return $null }
 
   $SmallProbe = $null
   $LargeProbe = $null
@@ -354,31 +354,31 @@ function Restore-PreviousInstall(
 }
 
 # --- Resolve options (parameters win over env vars, mirroring install.sh's --version) ---
-if (-not $Version) { $Version = if ($env:PENGUIN_VERSION) { $env:PENGUIN_VERSION } else { "" } }
+if (-not $Version) { $Version = if ($env:WAFH_VERSION) { $env:WAFH_VERSION } else { "" } }
 if (-not $InstallDir) {
-  $InstallDir = if ($env:PENGUIN_INSTALL_DIR) { $env:PENGUIN_INSTALL_DIR } else { Join-Path $env:USERPROFILE ".penguin" }
+  $InstallDir = if ($env:WAFH_INSTALL_DIR) { $env:WAFH_INSTALL_DIR } else { Join-Path $env:USERPROFILE ".waf-harness" }
 }
 if (-not $ArchivePath) {
-  $ArchivePath = if ($env:PENGUIN_ARCHIVE) { $env:PENGUIN_ARCHIVE } else { "" }
+  $ArchivePath = if ($env:WAFH_ARCHIVE) { $env:WAFH_ARCHIVE } else { "" }
 }
-$DownloadBaseUrl = if ($env:PENGUIN_DOWNLOAD_BASE_URL) {
-  $env:PENGUIN_DOWNLOAD_BASE_URL.TrimEnd('/')
+$DownloadBaseUrl = if ($env:WAFH_DOWNLOAD_BASE_URL) {
+  $env:WAFH_DOWNLOAD_BASE_URL.TrimEnd('/')
 } else {
   ""
 }
-$DownloadFallbackBaseUrl = if ($env:PENGUIN_DOWNLOAD_FALLBACK_BASE_URL) {
-  $env:PENGUIN_DOWNLOAD_FALLBACK_BASE_URL.TrimEnd('/')
+$DownloadFallbackBaseUrl = if ($env:WAFH_DOWNLOAD_FALLBACK_BASE_URL) {
+  $env:WAFH_DOWNLOAD_FALLBACK_BASE_URL.TrimEnd('/')
 } else {
   ""
 }
 if (-not $DownloadBaseUrl) { $DownloadFallbackBaseUrl = "" }
-$SourceMode = if ($env:PENGUIN_DOWNLOAD_SOURCE) {
-  $env:PENGUIN_DOWNLOAD_SOURCE.ToLowerInvariant()
+$SourceMode = if ($env:WAFH_DOWNLOAD_SOURCE) {
+  $env:WAFH_DOWNLOAD_SOURCE.ToLowerInvariant()
 } else {
   "auto"
 }
-$DownloadSpeedProbe = if ($env:PENGUIN_DOWNLOAD_SPEED_PROBE) {
-  $env:PENGUIN_DOWNLOAD_SPEED_PROBE
+$DownloadSpeedProbe = if ($env:WAFH_DOWNLOAD_SPEED_PROBE) {
+  $env:WAFH_DOWNLOAD_SPEED_PROBE
 } else {
   "1"
 }
@@ -390,16 +390,16 @@ if (-not $ArchivePath -and $PSScriptRoot) {
   if (Test-Path -LiteralPath $SiblingArchive -PathType Leaf) { $ArchivePath = $SiblingArchive }
 }
 if ($ArchivePath -and $Version) {
-  Fail "-ArchivePath/PENGUIN_ARCHIVE cannot be combined with -Version/PENGUIN_VERSION"
+  Fail "-ArchivePath/WAFH_ARCHIVE cannot be combined with -Version/WAFH_VERSION"
 }
 if ($Version -and -not (Test-ReleaseTag $Version)) {
   Fail "invalid release version: $Version"
 }
 if ($SourceMode -notin @("auto", "oss", "github")) {
-  Fail "PENGUIN_DOWNLOAD_SOURCE must be auto, oss, or github"
+  Fail "WAFH_DOWNLOAD_SOURCE must be auto, oss, or github"
 }
 if ($DownloadSpeedProbe -notin @("0", "1")) {
-  Fail "PENGUIN_DOWNLOAD_SPEED_PROBE must be 0 or 1"
+  Fail "WAFH_DOWNLOAD_SPEED_PROBE must be 0 or 1"
 }
 $ResolvedReleaseVersion = if ($Version) {
   $Version
@@ -409,15 +409,15 @@ $ResolvedReleaseVersion = if ($Version) {
   ""
 }
 if ($DownloadBaseUrl) {
-  Assert-HttpsUrl "PENGUIN_DOWNLOAD_BASE_URL" $DownloadBaseUrl
+  Assert-HttpsUrl "WAFH_DOWNLOAD_BASE_URL" $DownloadBaseUrl
 }
 if ($DownloadBaseUrl -and $DownloadFallbackBaseUrl) {
-  Assert-HttpsUrl "PENGUIN_DOWNLOAD_FALLBACK_BASE_URL" $DownloadFallbackBaseUrl
+  Assert-HttpsUrl "WAFH_DOWNLOAD_FALLBACK_BASE_URL" $DownloadFallbackBaseUrl
 }
 
 # --- Platform preconditions: 64-bit Windows; the only Windows package is x64 (ARM64 runs it emulated) ---
 if (-not [Environment]::Is64BitOperatingSystem) {
-  Fail "32-bit Windows is not supported. Install Node.js >= 24 and use: npm install -g @prismshadow/penguin-cli"
+  Fail "32-bit Windows is not supported. Install Node.js >= 24 and use: npm install -g @waterford/waf-harness-cli"
 }
 if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
   Write-Host "note: no native ARM64 package yet; installing the x64 package (runs via emulation)."
@@ -434,7 +434,7 @@ try {
 #     uses its own immutable version: auto prefers OSS and falls back only to the same GitHub
 #     tag. An unstamped source-tree installer resolves latest.json first so it also locks one
 #     version before downloading assets. ---
-$Tmp = Join-Path ([IO.Path]::GetTempPath()) "penguin-install-$PID"
+$Tmp = Join-Path ([IO.Path]::GetTempPath()) "wafh-install-$PID"
 if (Test-Path $Tmp) { Remove-Item -Recurse -Force $Tmp }
 New-Item -ItemType Directory -Path $Tmp | Out-Null
 # Pre-declare so the finally block can read them even when an early failure skipped the
@@ -508,7 +508,7 @@ try {
 
   # --- Resolve the program payload. An installer bundle (contains payload.zip) is opened flat
   #     and its sealed payload checksum verified; a program archive (payload.zip itself, or a
-  #     pre-0.1.6 release zip with a top-level penguin\) is used directly. ---
+  #     pre-0.1.6 release zip with a top-level wafh\) is used directly. ---
   $ArchiveShape = if ((Get-ZipEntryNames $ZipPath) -contains $PayloadName) { "bundle" } else { "program" }
   if ($ArchiveShape -eq "bundle") {
     # A local bundle is self-verifying through its sealed payload checksum; when the published
@@ -549,7 +549,7 @@ try {
 
   # --- Extract into staging, then swap by same-volume renames. Keep the previous dirs in .old.$PID
   #    until the installed command runs successfully; any move or launch failure restores them.
-  #    The data dir (%USERPROFILE%\.penguin\data) is never part of the swap. ---
+  #    The data dir (%USERPROFILE%\.waf-harness\data) is never part of the swap. ---
   New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
   $Staging = Join-Path $InstallDir ".staging.$PID"
   $OldDir = Join-Path $InstallDir ".old.$PID"
@@ -559,9 +559,9 @@ try {
 
   Write-Host "Extracting ..."
   Expand-Archive -LiteralPath $ZipPath -DestinationPath $Staging -Force
-  $NewRoot = Join-Path $Staging "penguin"
-  if (-not (Test-Path $NewRoot)) { Fail "unexpected archive layout: top-level penguin\ missing." }
-  if (-not (Test-Path (Join-Path $NewRoot "bin"))) { Fail "unexpected archive layout: penguin\bin missing." }
+  $NewRoot = Join-Path $Staging "wafh"
+  if (-not (Test-Path $NewRoot)) { Fail "unexpected archive layout: top-level wafh\ missing." }
+  if (-not (Test-Path (Join-Path $NewRoot "bin"))) { Fail "unexpected archive layout: wafh\bin missing." }
   $ManifestPath = Join-Path $NewRoot "package-manifest.json"
   if (Test-Path -LiteralPath $ManifestPath -PathType Leaf) {
     try {
@@ -602,25 +602,25 @@ try {
     }
 
     # --- Launcher shim: shipped in the payload; (re)generated only when missing. There is
-    #     deliberately no penguin.ps1 launcher — PowerShell would prefer it over penguin.cmd on
+    #     deliberately no wafh.ps1 launcher — PowerShell would prefer it over wafh.cmd on
     #     PATH, and client Windows defaults to the Restricted execution policy, so a .ps1
-    #     launcher makes the plain `penguin` command fail with "running scripts is disabled".
-    #     Batch files are policy-exempt and both PowerShell and cmd.exe resolve penguin.cmd.
-    #     (bin\ is swapped wholesale above, so upgrading also removes the penguin.ps1 that
+    #     launcher makes the plain `wafh` command fail with "running scripts is disabled".
+    #     Batch files are policy-exempt and both PowerShell and cmd.exe resolve wafh.cmd.
+    #     (bin\ is swapped wholesale above, so upgrading also removes the wafh.ps1 that
     #     pre-0.1.6 payloads shipped.) ---
-    $CmdShim = Join-Path $InstallDir "bin\penguin.cmd"
+    $CmdShim = Join-Path $InstallDir "bin\wafh.cmd"
     if (-not (Test-Path -LiteralPath $CmdShim)) {
       @(
         '@echo off'
         'setlocal'
         'set "DIR=%~dp0.."'
-        'if not defined PENGUIN_WEB_DIST set "PENGUIN_WEB_DIST=%DIR%\web"'
-        'if exist "%DIR%\git\usr\bin\sh.exe" set "PENGUIN_BUNDLED_SHELL=%DIR%\git\usr\bin\sh.exe"'
-        'if not defined PENGUIN_BUNDLED_BROWSERS if exist "%DIR%\browsers" set "PENGUIN_BUNDLED_BROWSERS=%DIR%\browsers"'
+        'if not defined WAFH_WEB_DIST set "WAFH_WEB_DIST=%DIR%\web"'
+        'if exist "%DIR%\git\usr\bin\sh.exe" set "WAFH_BUNDLED_SHELL=%DIR%\git\usr\bin\sh.exe"'
+        'if not defined WAFH_BUNDLED_BROWSERS if exist "%DIR%\browsers" set "WAFH_BUNDLED_BROWSERS=%DIR%\browsers"'
         'if exist "%DIR%\node\node.exe" ('
-        '  "%DIR%\node\node.exe" "%DIR%\lib\dist\penguin.js" %*'
+        '  "%DIR%\node\node.exe" "%DIR%\lib\dist\wafh.js" %*'
         ') else ('
-        '  node "%DIR%\lib\dist\penguin.js" %*'
+        '  node "%DIR%\lib\dist\wafh.js" %*'
         ')'
         'exit /b %ERRORLEVEL%'
       ) | Set-Content -LiteralPath $CmdShim -Encoding ascii
@@ -641,17 +641,17 @@ try {
       $ErrorActionPreference = $PreviousErrorActionPreference
     }
     if ($VersionExitCode -ne 0) {
-      Fail "installed PenguinHarness failed to run (exit code $VersionExitCode). See the error above."
+      Fail "installed WAF Harness failed to run (exit code $VersionExitCode). See the error above."
     }
     $InstalledVersion = $VersionOutput | Select-Object -First 1
     if ([string]::IsNullOrWhiteSpace([string]$InstalledVersion)) {
-      Fail "installed PenguinHarness returned an empty version."
+      Fail "installed WAF Harness returned an empty version."
     }
   } catch {
     $InstallFailure = $_
     try {
       Restore-PreviousInstall -InstallDir $InstallDir -OldDir $OldDir -MovedOld $MovedOld -MovedNew $MovedNew
-      Write-Host "Previous PenguinHarness installation restored."
+      Write-Host "Previous WAF Harness installation restored."
     } catch {
       throw "error: installation failed and automatic rollback was incomplete. Original error: $($InstallFailure.Exception.Message) Rollback error: $($_.Exception.Message) Previous files may remain in $OldDir"
     }
@@ -660,7 +660,7 @@ try {
 
   Remove-Item -LiteralPath $OldDir -Recurse -Force -ErrorAction SilentlyContinue
   if (Test-Path -LiteralPath $OldDir) {
-    Write-Host "warning: could not fully remove $OldDir; delete it after closing running penguin processes."
+    Write-Host "warning: could not fully remove $OldDir; delete it after closing running wafh processes."
   }
 } finally {
   Remove-Item -LiteralPath $Tmp -Recurse -Force -ErrorAction SilentlyContinue
@@ -676,7 +676,7 @@ try {
 #     (unexpanded) value, append to it, and write it back with its original value kind.
 #     The registry only exists on Windows; skip the block elsewhere (functional test runs
 #     of this script on pwsh/Linux — where the old API was a silent no-op anyway). ---
-#     -NoModifyPath skips it: `penguin` resolves to the first bin directory on the
+#     -NoModifyPath skips it: `wafh` resolves to the first bin directory on the
 #     Path, and a second installation's entry there would answer whenever the first is absent.
 $BinDir = Join-Path $InstallDir "bin"
 $PathUpdateMessage = ""
@@ -701,40 +701,40 @@ if (-not $NoModifyPath -and $env:OS -eq "Windows_NT") {
       # logon. Broadcast it the way [Environment]::SetEnvironmentVariable would; best-effort,
       # a failure only means new terminals need a fresh logon to see the Path.
       try {
-        if (-not ("PenguinInstaller.NativeMethods" -as [type])) {
-          Add-Type -Namespace PenguinInstaller -Name NativeMethods -MemberDefinition @'
+        if (-not ("WafHarnessInstaller.NativeMethods" -as [type])) {
+          Add-Type -Namespace WafHarnessInstaller -Name NativeMethods -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
 public static extern System.IntPtr SendMessageTimeout(System.IntPtr hWnd, uint Msg, System.UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out System.UIntPtr lpdwResult);
 '@
         }
         $BroadcastResult = [UIntPtr]::Zero
         # HWND_BROADCAST (0xffff), WM_SETTINGCHANGE (0x1a), SMTO_ABORTIFHUNG (0x2), 5s timeout.
-        [PenguinInstaller.NativeMethods]::SendMessageTimeout([IntPtr]0xffff, 0x1a, [UIntPtr]::Zero,
+        [WafHarnessInstaller.NativeMethods]::SendMessageTimeout([IntPtr]0xffff, 0x1a, [UIntPtr]::Zero,
           "Environment", 2, 5000, [ref]$BroadcastResult) | Out-Null
       } catch {
       }
-      $PathUpdateMessage = "note: installation succeeded and $BinDir was appended to your user Path. Open a new terminal window so 'penguin' is found (a new tab of an already-running terminal keeps the old Path)."
+      $PathUpdateMessage = "note: installation succeeded and $BinDir was appended to your user Path. Open a new terminal window so 'wafh' is found (a new tab of an already-running terminal keeps the old Path)."
     }
   } finally {
     $EnvKey.Close()
   }
 }
-# Make `penguin` work in this session too.
-$PenguinCommand = "penguin"
+# Make `wafh` work in this session too.
+$WafHarnessCommand = "wafh"
 if (-not $NoModifyPath) {
   if (($env:Path -split ";") -notcontains $BinDir) { $env:Path = "$env:Path;$BinDir" }
 } else {
-  $PenguinCommand = "& `"$(Join-Path $BinDir "penguin.cmd")`""
+  $WafHarnessCommand = "& `"$(Join-Path $BinDir "wafh.cmd")`""
 }
 
 Write-Host ""
-Write-Host "PenguinHarness $InstalledVersion installed to $InstallDir"
+Write-Host "WAF Harness $InstalledVersion installed to $InstallDir"
 if ($PathUpdateMessage) {
   Write-Host ""
   Write-Host $PathUpdateMessage
 }
 Write-Host ""
 Write-Host "Get started:"
-Write-Host "  $PenguinCommand --help    # all commands"
-Write-Host "  $PenguinCommand web       # start the Web UI at http://127.0.0.1:7364 (a first-login link is printed on first start)"
-Write-Host "  $PenguinCommand server    # headless server (PORT / HOST to override)"
+Write-Host "  $WafHarnessCommand --help    # all commands"
+Write-Host "  $WafHarnessCommand web       # start the Web UI at http://127.0.0.1:7364 (a first-login link is printed on first start)"
+Write-Host "  $WafHarnessCommand server    # headless server (PORT / HOST to override)"

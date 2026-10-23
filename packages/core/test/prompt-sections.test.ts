@@ -43,7 +43,7 @@ let root: string;
 let restoreKeys: () => void;
 
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-sections-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-sections-"));
   restoreKeys = stubProviderKeys();
   // The Project a host would have seeded: core itself carries no models.
   await seedProject(root);
@@ -71,7 +71,7 @@ const SESSION_ENVIRONMENT = {
   sessionId: "session-2026-08-01-00-00-00-0000abcd",
   cwd: "/tmp/workspace",
   agentId: DEFAULT_AGENT_ID,
-  projectDir: "/tmp/penguin",
+  projectDir: "/tmp/wafh",
   provider: "anthropic",
   modelId: "claude-sonnet-4-5",
   platform: "linux",

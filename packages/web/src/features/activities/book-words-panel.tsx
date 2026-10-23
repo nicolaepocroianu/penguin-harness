@@ -14,8 +14,8 @@ import type {
   ActivityRunSummary,
   AssetManifest,
   BookWordsState,
-} from "@prismshadow/penguin-server/api";
-import { Button, ConfirmModal, InfoPopover } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { Button, ConfirmModal, InfoPopover } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { useActivityClient } from "./activity-client";
@@ -59,7 +59,7 @@ export function BookWordsPanel({
   onRefresh: (bookMode: BookMode | undefined) => void;
   onAskModel: (words: string[]) => void;
   onUseSounds: (runId: string) => void;
-  /** Whether the words stage can start now: saved, nothing running, a Penguin agent chosen. */
+  /** Whether the words stage can start now: saved, nothing running, a WAF Harness agent chosen. */
   canRecord: boolean;
   onRecord: () => void;
 }) {

@@ -9,10 +9,10 @@
  *   link the server installs, since npm installs a whole repository or nothing; a repository
  *   itself, or a tarball GitHub serves, still is.
  * - The Agent's prompt names the source, asks for a review before anything is installed, and
- *   installs with `penguin plugin install` in this Project — a package from npm, a link or a
+ *   installs with `wafh plugin install` in this Project — a package from npm, a link or a
  *   local folder; a GitHub folder is ported into a package first with the `plugin-porting`
  *   skill, then installed as a folder, in either language — its MCP servers carried as
- *   `penguin.mcp_servers`.
+ *   `wafh.mcp_servers`.
  * - The server's 409 is read as the question the replace confirm asks; any other message is
  *   not one.
  */
@@ -96,7 +96,7 @@ describe("the prompt for an agent", () => {
     const prompt = buildPluginImportPrompt("https://github.com/acme/notes", "proj-1");
     expect(prompt).toContain("https://github.com/acme/notes");
     expect(prompt).toContain("before installing anything");
-    expect(prompt).toContain("penguin plugin install");
+    expect(prompt).toContain("wafh plugin install");
     expect(prompt).toContain("--project-id proj-1");
   });
 
@@ -107,10 +107,8 @@ describe("the prompt for an agent", () => {
       const prompt = buildPluginImportPrompt(folder, "proj-1");
       expect(prompt).toContain(folder);
       expect(prompt).toContain("`plugin-porting`");
-      expect(prompt).toMatch(
-        /`penguin plugin install <[^>`]*(folder|文件夹)> --project-id proj-1`/,
-      );
-      expect(prompt).toContain("`penguin.mcp_servers`");
+      expect(prompt).toMatch(/`wafh plugin install <[^>`]*(folder|文件夹)> --project-id proj-1`/);
+      expect(prompt).toContain("`wafh.mcp_servers`");
     }
   });
 

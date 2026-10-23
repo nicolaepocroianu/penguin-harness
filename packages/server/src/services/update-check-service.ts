@@ -8,7 +8,7 @@
  * a normal response with `error` set and `latestVersion` null. Outcomes are cached
  * in-memory (success for 1 hour, failure for 10 minutes) so a sidebar that opens on every
  * page load cannot hammer GitHub's unauthenticated rate limit; concurrent requests share
- * one in-flight lookup. `PENGUIN_UPDATE_CHECK=off` disables the lookup entirely (no
+ * one in-flight lookup. `WAFH_UPDATE_CHECK=off` disables the lookup entirely (no
  * network call), for air-gapped or privacy-sensitive deployments. A build whose repository
  * publishes no releases (core's RELEASE_IDENTITY) answers the same way: there is nothing it
  * should be offered, and every release out there is another repository's.
@@ -25,13 +25,13 @@ import {
   compareVersions,
   normalizeVersion,
   userAgent,
-} from "@prismshadow/penguin-core";
-import type { ReleaseIdentity } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { ReleaseIdentity } from "@waterford/waf-harness-core";
 import type { UpdateCheckResponse } from "../api/types.js";
-import { Bind, Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Interface, Use } from "@waterford/waf-harness-core/kernel";
 import type { AppEnv } from "../auth/middleware.js";
 import type { Hono } from "hono";
-import type { ClassCtx, Opaque } from "@prismshadow/penguin-core/kernel";
+import type { ClassCtx, Opaque } from "@waterford/waf-harness-core/kernel";
 import { versionRoutes } from "../http/routes/version.js";
 import type { Clock, Config } from "../hmr/capabilities.js";
 import { processRestart } from "./process-restart.js";
@@ -62,7 +62,7 @@ export class GlobalFetch implements HttpFetch {
 export class UpdateCheckService implements UpdateCheck {
   @Use() private readonly http!: HttpFetch;
   @Use() private readonly clock!: Clock;
-  /** Environment to read PENGUIN_UPDATE_CHECK from; a test wires its own. */
+  /** Environment to read WAFH_UPDATE_CHECK from; a test wires its own. */
   private env: Record<string, string | undefined> = process.env;
   /** Where releases come from, and whether there are any; a test wires its own. */
   private identity: ReleaseIdentity = RELEASE_IDENTITY;
@@ -76,13 +76,13 @@ export class UpdateCheckService implements UpdateCheck {
    * exists to shield GitHub's unauthenticated rate limit from *passive* checks fired
    * by every sidebar open, and an explicit user click is rare enough to press through
    * it. Everything else is unchanged: the opt-out stays authoritative (force never
-   * dials out under PENGUIN_UPDATE_CHECK=off, nor for a repository that publishes no
+   * dials out under WAFH_UPDATE_CHECK=off, nor for a repository that publishes no
    * releases), the outcome lands in the same cache
    * (subsequent passive checks reuse it), and concurrent callers — forced or not —
    * still share one in-flight lookup.
    */
   async check(force = false): Promise<UpdateCheckResponse> {
-    if (this.env["PENGUIN_UPDATE_CHECK"] === "off" || !this.identity.publishesReleases) {
+    if (this.env["WAFH_UPDATE_CHECK"] === "off" || !this.identity.publishesReleases) {
       return {
         currentVersion: VERSION,
         buildDate: BUILD_DATE,

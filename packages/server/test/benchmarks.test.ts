@@ -28,7 +28,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
-import { benchmarksDir } from "@prismshadow/penguin-core";
+import { benchmarksDir } from "@waterford/waf-harness-core";
 import type {
   BenchmarkCasesResponse,
   BenchmarkCreateRequest,
@@ -126,11 +126,11 @@ describe("benchmarks api", () => {
   it("never lists a staging copy an interrupted seeding left, or the Harbor checkouts under .harbor/", async () => {
     const dir = benchmarksDir(t.root, projectId);
     // A seeding cut short leaves a whole Benchmark, manifest included, under staging.
-    const staged = path.join(dir, ".seeding", "penguinharness-benchmark-sec-e-AbC123");
+    const staged = path.join(dir, ".seeding", "waf-harness-benchmark-sec-e-AbC123");
     await fs.mkdir(path.join(staged, "CASE-001-music-harmony", "statement"), { recursive: true });
-    await writeManifest(staged, { id: "penguinharness-benchmark-sec-e" });
+    await writeManifest(staged, { id: "waf-harness-benchmark-sec-e" });
     // A Harbor checkout holds the benchmark repository's own benchmarks/ tree.
-    await fs.mkdir(path.join(dir, ".harbor", "penguin-harness-benchmark-0123abc", "benchmarks"), {
+    await fs.mkdir(path.join(dir, ".harbor", "waf-harness-benchmark-0123abc", "benchmarks"), {
       recursive: true,
     });
     await writeManifest(path.join(dir, "report-writing-v1"), { title: "Report writing" });

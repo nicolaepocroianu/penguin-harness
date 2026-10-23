@@ -5,8 +5,8 @@
  * build), the same shape adopts it, and the transport honours the verdict.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { closedShape } from "@prismshadow/penguin-core/kernel";
-import type { IfaceTable } from "@prismshadow/penguin-core/kernel";
+import { closedShape } from "@waterford/waf-harness-core/kernel";
+import type { IfaceTable } from "@waterford/waf-harness-core/kernel";
 import type { Reassembly } from "../src/hmr/capabilities.js";
 import ifaceTable from "../src/ifaces.json" with { type: "json" };
 import {

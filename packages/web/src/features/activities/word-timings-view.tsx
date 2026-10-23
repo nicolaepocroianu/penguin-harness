@@ -3,7 +3,7 @@
  * the read-along highlighting an author can check before the book does it. A clip without
  * timings says so rather than showing words that never light up.
  */
-import { InfoPopover } from "@prismshadow/penguin-ui";
+import { InfoPopover } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { activeWord } from "./speech-provider";
 

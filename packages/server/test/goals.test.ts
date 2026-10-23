@@ -23,7 +23,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import type { DatabaseSync } from "node:sqlite";
 import {
   assistantText,
@@ -38,8 +38,8 @@ import {
   sessionScratchpadDir,
   tokenUsage,
   userText,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage, TokenCounts } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage, TokenCounts } from "@waterford/waf-harness-core";
 import { openDatabase } from "../src/db/database.js";
 import { SessionsRepo } from "../src/db/repos/sessions.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";

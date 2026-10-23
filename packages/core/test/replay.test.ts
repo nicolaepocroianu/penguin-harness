@@ -476,7 +476,7 @@ describe("readTraceTolerant", () => {
   let dir: string;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "penguin-tolerant-"));
+    dir = await mkdtemp(join(tmpdir(), "wafh-tolerant-"));
   });
 
   afterEach(async () => {
@@ -538,8 +538,8 @@ describe("engine trace round-trip", () => {
   let traces: string;
 
   beforeEach(async () => {
-    workspace = await mkdtemp(join(tmpdir(), "penguin-replay-ws-"));
-    traces = await mkdtemp(join(tmpdir(), "penguin-replay-tr-"));
+    workspace = await mkdtemp(join(tmpdir(), "wafh-replay-ws-"));
+    traces = await mkdtemp(join(tmpdir(), "wafh-replay-tr-"));
   });
 
   afterEach(async () => {

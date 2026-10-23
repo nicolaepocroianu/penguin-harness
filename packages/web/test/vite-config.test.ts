@@ -3,7 +3,7 @@
  *
  * - The dev server's `/api` proxy defaults to the development backend (7368, not the installed
  *   server's 7364), follows PORT, treats an empty PORT as unset rather than as port 80, and is
- *   replaced outright by PENGUIN_API_PROXY unless that is empty.
+ *   replaced outright by WAFH_API_PROXY unless that is empty.
  * - A call the page addresses to a machine (`/server/<machineId>/api/…`) is handed to the same
  *   backend, and the SPA's own paths are not.
  * - KaTeX's stylesheet ships woff2 only: the woff and truetype fallbacks are dropped, and a
@@ -36,14 +36,14 @@ describe("apiProxyTarget", () => {
     expect(apiProxyTarget({ PORT: "9999" })).toBe("http://127.0.0.1:9999");
   });
 
-  it("PENGUIN_API_PROXY replaces the whole target, PORT and all", () => {
-    expect(apiProxyTarget({ PORT: "9999", PENGUIN_API_PROXY: "http://10.0.0.2:8080" })).toBe(
+  it("WAFH_API_PROXY replaces the whole target, PORT and all", () => {
+    expect(apiProxyTarget({ PORT: "9999", WAFH_API_PROXY: "http://10.0.0.2:8080" })).toBe(
       "http://10.0.0.2:8080",
     );
   });
 
-  it("an empty PENGUIN_API_PROXY falls back instead of proxying to nowhere", () => {
-    expect(apiProxyTarget({ PENGUIN_API_PROXY: "" })).toBe("http://127.0.0.1:7368");
+  it("an empty WAFH_API_PROXY falls back instead of proxying to nowhere", () => {
+    expect(apiProxyTarget({ WAFH_API_PROXY: "" })).toBe("http://127.0.0.1:7368");
   });
 });
 

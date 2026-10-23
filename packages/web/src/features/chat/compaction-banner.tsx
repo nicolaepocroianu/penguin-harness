@@ -52,8 +52,8 @@ import {
   LiveDuration,
   StatusIcon,
   StreamText,
-} from "@prismshadow/penguin-ui";
-import type { ActivityGroupRow } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { ActivityGroupRow } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { humanizeDuration } from "../../lib/format";
 import type { CompactionItem } from "../../lib/omni/stream-model";

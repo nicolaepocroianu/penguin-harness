@@ -16,7 +16,7 @@ import {
   IconButton,
   InfoPopover,
   SkeletonList,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";

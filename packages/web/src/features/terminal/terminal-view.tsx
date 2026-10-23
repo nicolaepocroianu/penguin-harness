@@ -71,7 +71,7 @@ export type TerminalStatus = "connecting" | "ready" | "exited" | "error";
  * The screen's own palette, one per appearance. Two things matter here.
  *
  * The surface colours are the app's, not a terminal's: `#121212`/`#ffffff` are Primer's canvas
- * (`themes/github.css` in @prismshadow/penguin-ui) and the inks are its ink, and the selection
+ * (`themes/github.css` in @waterford/waf-harness-ui) and the inks are its ink, and the selection
  * matches its `::selection`. A panel docked inside the app that brought its
  * own charcoal along read as a foreign window sitting on top of it.
  *

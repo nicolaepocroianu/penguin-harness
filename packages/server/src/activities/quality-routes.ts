@@ -5,7 +5,7 @@
  * way (audio first, for pre-readers); a quality check still reports them, but they no longer
  * fail it. Server-wide, and empty until an admin lists some.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import { HttpError } from "../http/errors.js";

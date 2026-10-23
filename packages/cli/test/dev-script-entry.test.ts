@@ -1,11 +1,11 @@
 /**
  * Drift guard for the source entry the dev runners execute.
  *
- * Only `src/penguin.ts` runs the CLI: it calls `cli()` and sets the exit code, and tsup
- * builds it into the `penguin` bin. `src/index.ts` merely exports `cli()`, so a runner
+ * Only `src/wafh.ts` runs the CLI: it calls `cli()` and sets the exit code, and tsup
+ * builds it into the `wafh` bin. `src/index.ts` merely exports `cli()`, so a runner
  * pointed at it imports the module, executes nothing and exits 0 — indistinguishable, at
  * the terminal, from a CLI that started and printed nothing. Splitting the entry in #298
- * updated this package's own `penguin` script and left the repo root's behind, which is
+ * updated this package's own `wafh` script and left the repo root's behind, which is
  * exactly that silent no-op. If this test fails, point the failing script at the source
  * file matching the bin.
  */
@@ -24,22 +24,22 @@ const cliPkg = JSON.parse(readFileSync(path.join(cliDir, "package.json"), "utf8"
   bin: Record<string, string | undefined>;
 };
 
-const binEntry = cliPkg.bin.penguin;
-if (binEntry === undefined) throw new Error("packages/cli/package.json declares no penguin bin");
+const binEntry = cliPkg.bin.wafh;
+if (binEntry === undefined) throw new Error("packages/cli/package.json declares no wafh bin");
 
-/** `./dist/penguin.js` -> `penguin.ts`: the source file the bin is built from. */
+/** `./dist/wafh.js` -> `wafh.ts`: the source file the bin is built from. */
 const entrySource = `${path.basename(binEntry, ".js")}.ts`;
 
 describe("dev runner entry", () => {
-  it("is the source file the penguin bin is built from", () => {
-    expect(entrySource).toBe("penguin.ts");
+  it("is the source file the wafh bin is built from", () => {
+    expect(entrySource).toBe("wafh.ts");
   });
 
   it.each([
     ["repo root", path.join(repoRoot, "package.json"), `packages/cli/src/${entrySource}`],
     ["packages/cli", path.join(cliDir, "package.json"), `src/${entrySource}`],
   ])("%s runs it through tsx", (_name, pkgPath, expected) => {
-    const script = readScripts(pkgPath).penguin;
+    const script = readScripts(pkgPath).wafh;
     expect(script).toBeDefined();
     expect(script).toContain(`tsx ${expected}`);
   });

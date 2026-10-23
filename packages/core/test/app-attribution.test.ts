@@ -1,5 +1,5 @@
 /**
- * App attribution: the headers that name PenguinHarness to the gateways that read one, decided
+ * App attribution: the headers that name WAF Harness to the gateways that read one, decided
  * by the endpoint host alone (core's one gateway special case, PRN-021). Whether GenerativeModel
  * sends them is proved in generative-model-attribution.test.ts.
  *
@@ -15,7 +15,7 @@ describe("attributionHeaders (how the harness names itself to the gateways that 
   it("OpenRouter gets its three attribution headers, on the preset base URL and on any custom one", () => {
     const expected = {
       "HTTP-Referer": "https://penguin.ooo/",
-      "X-OpenRouter-Title": "PenguinHarness",
+      "X-OpenRouter-Title": "WAF Harness",
       "X-OpenRouter-Categories": "cli-agent,personal-agent",
     };
     expect(attributionHeaders("https://openrouter.ai/api/v1")).toEqual(expected);
@@ -62,7 +62,7 @@ describe("attributionHeaders (how the harness names itself to the gateways that 
     const sessionId = "session-2026-09-14-10-30-00-a1b2c3d4";
     expect(attributionHeaders("https://openrouter.ai/api/v1", sessionId)).toEqual({
       "HTTP-Referer": "https://penguin.ooo/",
-      "X-OpenRouter-Title": "PenguinHarness",
+      "X-OpenRouter-Title": "WAF Harness",
       "X-OpenRouter-Categories": "cli-agent,personal-agent",
     });
     expect(attributionHeaders("https://tokendance.space/gateway/v1", sessionId)).toEqual({

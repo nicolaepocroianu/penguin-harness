@@ -12,7 +12,7 @@
  * The seek-and-capture loop and the encode follow open-design's deterministic frame renderer
  * (apps/desktop/src/main/frame-capture.ts and `encodeHyperFramesMp4` in
  * apps/daemon/src/media/index.ts, Apache-2.0), moved from Electron to Playwright and to
- * Penguin's `window.__composition` bridge.
+ * WAF Harness's `window.__composition` bridge.
  *
  * Recordings made before this renderer are WebM files from Playwright's page recorder; they
  * are still read and checked here (`inspectWebm`).
@@ -122,7 +122,7 @@ export interface RenderRequest {
   fps?: number;
 }
 
-/** Why a recording did not come out, with the code the App words it by when Penguin knows it. */
+/** Why a recording did not come out, with the code the App words it by when WAF Harness knows it. */
 export class RenderError extends Error {
   constructor(
     message: string,
@@ -220,7 +220,7 @@ export async function renderComposition(request: RenderRequest): Promise<Rendere
   }
 }
 
-/** Why a file is not a recording Penguin keeps. */
+/** Why a file is not a recording WAF Harness keeps. */
 export class VideoFileError extends Error {
   constructor(
     message: string,
@@ -249,7 +249,7 @@ const EBML_MAGIC = [0x1a, 0x45, 0xdf, 0xa3];
 const DOC_TYPE_ID = 0x4282;
 
 /**
- * Checks that bytes are a WebM Penguin keeps: an EBML header whose document type is `webm`, at
+ * Checks that bytes are a WebM WAF Harness keeps: an EBML header whose document type is `webm`, at
  * most 100 MB. Answers its digest and size; throws a `VideoFileError` otherwise.
  */
 export function inspectWebm(input: Uint8Array): { sha256: string; bytes: number } {
@@ -300,7 +300,7 @@ function isoBox(bytes: Uint8Array): string | null {
 }
 
 /**
- * Checks that bytes are an MP4 Penguin keeps: an ISO media file that opens with its `ftyp`
+ * Checks that bytes are an MP4 WAF Harness keeps: an ISO media file that opens with its `ftyp`
  * box, at most 100 MB. Answers its digest and size; throws a `VideoFileError` otherwise.
  */
 export function inspectMp4(bytes: Uint8Array): { sha256: string; bytes: number } {

@@ -9,7 +9,7 @@ import { lintComposition, lintForAgent } from "../src/activities/composition-lin
 
 const page = (body: string, script: string, style = "") => `<!doctype html><html><head>
 <style>#stage { width: 640px; } ${style}</style>
-<script src="gsap.min.js"></script><script src="penguin-composition.js"></script></head>
+<script src="gsap.min.js"></script><script src="wafh-composition.js"></script></head>
 <body><div id="stage">${body}</div>
 <script>const timeline = gsap.timeline({ paused: true }); ${script} window.__composition.timeline = timeline;</script>
 </body></html>`;

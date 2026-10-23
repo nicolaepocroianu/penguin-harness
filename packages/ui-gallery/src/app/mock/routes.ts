@@ -155,7 +155,7 @@ import type {
   WorkbenchInfo,
   WorkspaceFilesResponse,
   WorkspaceSearchResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 // The catalog decides which groups publish a balance, as it does on the server.
 import { catalogEntryFor, providerInfo } from "../../../../server/dist/model-catalog.js";
 import { READ_ONLY } from "./errors";
@@ -318,8 +318,8 @@ function ledgerKey(store: DemoStore, story: RunStory, by: string | null): string
   switch (by ?? "recipe") {
     case "runtime":
       return recipe.runtime;
-    case "penguin":
-      return recipe.penguin;
+    case "wafh":
+      return recipe.wafh;
     case "harness":
       return recipe.harness === undefined ? null : String(recipe.harness);
     case "library":
@@ -486,7 +486,7 @@ router
     a.wafWorkspace = {
       ...a.wafWorkspace,
       managed: next.externalRoot === "",
-      root: next.externalRoot || "/var/lib/penguin/waf",
+      root: next.externalRoot || "/var/lib/wafh/waf",
       modulesRoot: next.modulesRoot || null,
       modulesRootPresent: next.modulesRoot ? true : null,
       repos: a.wafWorkspace.repos.map((repo) => ({
@@ -964,7 +964,7 @@ router
       const scope = memory.overview.scopes.find((s) => s.scopeKey === ctx.params.scopeKey);
       if (!scope) notFound("Memory scope");
       return {
-        format: "penguin-memory-scope",
+        format: "wafh-memory-scope",
         version: 1,
         scopeKey: scope.scopeKey,
         kind: scope.kind,
@@ -1179,7 +1179,7 @@ router
     if (name.length < 1 || name.length > 64) {
       fail(400, "bad_request", "A key's name is 1 to 64 characters.");
     }
-    const secret = `penguin_${base64url(32)}`;
+    const secret = `wafh_${base64url(32)}`;
     const key: AgentApiKeyInfo = {
       keyId: base64url(12),
       name,
@@ -1424,7 +1424,7 @@ router
     return {
       session: {
         ...session,
-        tracePath: `/home/demo/.penguin/data/traces/${session.sessionId}/001.jsonl`,
+        tracePath: `/home/demo/.waf-harness/data/traces/${session.sessionId}/001.jsonl`,
       },
     };
   })
@@ -2686,7 +2686,7 @@ router
       socket: null,
       api: null,
       status: null,
-      root: `~/.penguin/data`,
+      root: `~/.waf-harness/data`,
     });
     void hostName;
     return json(machinesResponse(store), 201);

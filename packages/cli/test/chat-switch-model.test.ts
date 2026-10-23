@@ -11,7 +11,7 @@
 import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
-import { compactionBegin, compactionEnd, sessionMeta } from "@prismshadow/penguin-core";
+import { compactionBegin, compactionEnd, sessionMeta } from "@waterford/waf-harness-core";
 import { registerChatCommand } from "../src/commands/chat.js";
 import { getMessages } from "../src/i18n.js";
 import { FakeServer } from "./fake-server.js";
@@ -36,7 +36,7 @@ function stripAnsi(s: string): string {
   return s.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
 }
 
-/** Runs `penguin chat <argv>` end to end over a PassThrough stdin, feeding each line at the prompt (same driver as chat-clear.test.ts); returns stdout without colors. */
+/** Runs `wafh chat <argv>` end to end over a PassThrough stdin, feeding each line at the prompt (same driver as chat-clear.test.ts); returns stdout without colors. */
 async function driveChat(lines: string[], argv: string[] = []): Promise<string> {
   const stdin = new PassThrough();
   const realStdin = process.stdin;
@@ -63,7 +63,7 @@ async function driveChat(lines: string[], argv: string[] = []): Promise<string> 
     const program = new Command();
     program.exitOverride();
     registerChatCommand(program, t);
-    const done = program.parseAsync(["node", "penguin", "chat", ...argv]);
+    const done = program.parseAsync(["node", "wafh", "chat", ...argv]);
     for (let i = 0; i < lines.length; i++) {
       await Promise.race([waitForPrompt(i + 1), done]);
       stdin.write(`${lines[i]}\n`);
@@ -240,8 +240,8 @@ describe("chat /switch-model: 409 refusals print one localized line each", () =>
       "model_not_configured",
       t.switchModelNotConfigured(
         TARGET,
-        "penguin config model list",
-        "penguin config model add --provider openrouter --model-id anthropic/claude-opus-5",
+        "wafh config model list",
+        "wafh config model add --provider openrouter --model-id anthropic/claude-opus-5",
       ),
     ],
     ["model_unavailable", t.switchModelUnavailable(TARGET, "Refused: model_unavailable.")],

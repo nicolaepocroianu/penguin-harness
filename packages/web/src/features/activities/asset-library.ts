@@ -3,7 +3,7 @@
  * for the activity, each with what connects it to the other. Kept pure so the filters and
  * the "used by" counts are the same wherever they are read.
  */
-import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
+import type { AssetManifest, UploadedMedia } from "@waterford/waf-harness-server/api";
 import { isUploadPath } from "./media-library";
 import { NO_PLACEHOLDERS, bindingOf, type PlaceholderPaths } from "./placeholder-media";
 
@@ -107,7 +107,7 @@ export function needsAttention(entry: PlannedEntry): boolean {
 /** How the Library lays out what it lists: pictures in a grid, or rows in a table. */
 export type LibraryLayout = "grid" | "table";
 
-export const LIBRARY_LAYOUT_KEY = "penguin.activityLibraryLayout";
+export const LIBRARY_LAYOUT_KEY = "wafh.activityLibraryLayout";
 
 /** This viewer's choice; unreadable storage, or none yet, gives the grid. */
 export function readLibraryLayout(storage?: Pick<Storage, "getItem">): LibraryLayout {

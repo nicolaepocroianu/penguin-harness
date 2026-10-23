@@ -1,5 +1,5 @@
 /**
- * Desktop mode (PENGUIN_DESKTOP_TOKEN): the shell that spawned this server proves itself
+ * Desktop mode (WAFH_DESKTOP_TOKEN): the shell that spawned this server proves itself
  * with a per-launch random token, which backs two endpoints with different consumption
  * rules:
  *

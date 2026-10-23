@@ -4,7 +4,7 @@ import { AcpAgentError } from "../src/types.js";
 import { FakeCodingAgent } from "./fake-agent.js";
 import type { AgentSessionEvent } from "../src/types.js";
 
-const CLIENT_INFO = { name: "penguin-test", version: "0.0.0" };
+const CLIENT_INFO = { name: "wafh-test", version: "0.0.0" };
 
 /** Pair a kernel connection with a fake agent and collect its events. */
 function pair(fake: FakeCodingAgent): {

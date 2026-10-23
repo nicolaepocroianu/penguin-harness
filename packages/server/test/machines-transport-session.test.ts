@@ -26,7 +26,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Resources } from "@prismshadow/penguin-core/kernel";
+import type { Resources } from "@waterford/waf-harness-core/kernel";
 import {
   SESSION_GROUP,
   attachSessionRegistry,
@@ -84,7 +84,7 @@ posixOnly("the session", () => {
   let logFile: string;
   let originalPath: string | undefined;
   beforeEach(() => {
-    stubBin = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-session-"));
+    stubBin = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-session-"));
     logFile = path.join(stubBin, "calls.log");
     // Every invocation is logged; an alias containing "refused" dies the way a wrong key
     // does; anything else asked for `sh` becomes one — commands run locally, harmlessly.
@@ -334,7 +334,7 @@ posixOnly("a password sign-in", () => {
   /** What the stub's sshd takes as the right password: changed to make it refuse. */
   const accept = (password: string) => fs.writeFileSync(path.join(stubBin, "expected"), password);
   beforeEach(() => {
-    stubBin = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-password-"));
+    stubBin = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-password-"));
     const log = (name: string) => JSON.stringify(path.join(stubBin, name));
     // The stub plays ssh and sshd: it asks the helper what ssh would ask — a new host key, then
     // the password — and lets in only the expected password.

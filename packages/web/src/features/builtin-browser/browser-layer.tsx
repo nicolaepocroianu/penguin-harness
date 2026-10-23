@@ -46,8 +46,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { CSSProperties } from "react";
-import type { BuiltinBrowserLoadWarning } from "@prismshadow/penguin-server/api";
-import { DOCK_FULLSCREEN_Z, toastAttention } from "@prismshadow/penguin-ui";
+import type { BuiltinBrowserLoadWarning } from "@waterford/waf-harness-server/api";
+import { DOCK_FULLSCREEN_Z, toastAttention } from "@waterford/waf-harness-ui";
 import { toneInk } from "../../lib/tone";
 import { currentDockScope, isTabShown, openPanel } from "../dock/dock-state";
 import { isBlankUrl } from "./address";

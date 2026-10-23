@@ -1,19 +1,19 @@
 /**
- * The `penguin` a command an Agent runs, or a person types in one of this server's terminals,
+ * The `wafh` a command an Agent runs, or a person types in one of this server's terminals,
  * should find: this harness's own CLI, talking to this harness — written into the data root as
  * a launcher script that every Session and every terminal puts at the front of PATH.
  *
- * Without it, `penguin` resolves against whatever the machine has installed globally — on a
+ * Without it, `wafh` resolves against whatever the machine has installed globally — on a
  * development box that is the desktop app's bundled release, several versions away from the
  * checkout the server was started from, so an Agent asking its own harness to do something
  * gets `unknown command` for anything added since. The shim closes that gap without asking
  * the Agent to know any paths.
  *
  * The right code is half of it; the other half is the right server. The CLI finds its server
- * through a data root — `PENGUIN_HOME`, else `~/.penguin/data`, which is the INSTALLED
+ * through a data root — `WAFH_HOME`, else `~/.waf-harness/data`, which is the INSTALLED
  * harness's — so a launcher that only picked the code would run this checkout's CLI against
  * the installed server. The launcher therefore names this data root as the default for the one
- * process it starts: `PENGUIN_HOME` is set there unless the caller already set one, which is
+ * process it starts: `WAFH_HOME` is set there unless the caller already set one, which is
  * the caller's own choice (as `--root` and `--server` stay), and nothing is exported into the
  * shell that runs it — a terminal whose environment carried this root would hand it to every
  * `pnpm dev` typed there, over that script's own default.
@@ -24,7 +24,7 @@
  * which runs a script only with `ELECTRON_RUN_AS_NODE` set; and the default above.
  *
  * Which CLI that is, is decided once per boot by {@link resolveCliLaunch}: an explicit
- * `PENGUIN_CLI_ENTRY` (what `penguin server|web` and the desktop shell pass for themselves),
+ * `WAFH_CLI_ENTRY` (what `wafh server|web` and the desktop shell pass for themselves),
  * else, for a server running from a checkout, that checkout's CLI — from source while the
  * server itself runs from source, so `pnpm dev` never offers a CLI older than the code it
  * serves.
@@ -32,10 +32,10 @@
  * Rewritten at every boot, so a moved checkout is picked up by the next start; while a
  * server is running, a dist that moved out from under it has already broken the server
  * itself. With no entry to point at, an existing shim is REMOVED — a launcher pointing at a
- * path that is no longer there is worse than no `penguin` at all — except on a server that
+ * path that is no longer there is worse than no `wafh` at all — except on a server that
  * runs from a checkout: there a CLI that cannot run is a development setup to fix, and the
  * shim is written as a stub that says what is missing rather than letting another
- * installation's `penguin` answer in its place.
+ * installation's `wafh` answer in its place.
  */
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -49,9 +49,9 @@ export function cliShimDir(root: string): string {
 
 /**
  * Where an offered CLI comes from:
- * - `env`: `PENGUIN_CLI_ENTRY`, set by `penguin server|web` and the desktop shell to their own;
- * - `source`: the checkout's `packages/cli/src/penguin.ts`, run through its TypeScript loader;
- * - `build`: the checkout's `packages/cli/dist/penguin.js`.
+ * - `env`: `WAFH_CLI_ENTRY`, set by `wafh server|web` and the desktop shell to their own;
+ * - `source`: the checkout's `packages/cli/src/wafh.ts`, run through its TypeScript loader;
+ * - `build`: the checkout's `packages/cli/dist/wafh.js`.
  */
 export type CliOrigin = "env" | "source" | "build";
 
@@ -70,8 +70,8 @@ export interface CliLaunch {
 }
 
 /** The checkout's CLI entries, relative to the workspace root. */
-const SOURCE_ENTRY = ["packages", "cli", "src", "penguin.ts"] as const;
-const BUILT_ENTRY = ["packages", "cli", "dist", "penguin.js"] as const;
+const SOURCE_ENTRY = ["packages", "cli", "src", "wafh.ts"] as const;
+const BUILT_ENTRY = ["packages", "cli", "dist", "wafh.js"] as const;
 
 /**
  * The workspace root of the checkout `fromDir` lies in — the directory holding
@@ -95,7 +95,7 @@ export function workspaceRoot(fromDir: string): string | null {
 /**
  * The TypeScript loader that runs a checkout's CLI from source, as the file URL `--import`
  * takes (a bare Windows path is not a valid specifier there): the `tsx` the CLI package itself
- * depends on, the same one its own `penguin` script runs through. Null when it does not
+ * depends on, the same one its own `wafh` script runs through. Null when it does not
  * resolve — the checkout's dependencies are not installed.
  */
 export function checkoutTsLoader(checkout: string): string | null {
@@ -108,7 +108,7 @@ export function checkoutTsLoader(checkout: string): string | null {
 }
 
 export interface ResolveCliLaunchOptions {
-  /** `PENGUIN_CLI_ENTRY` as the environment has it; blank counts as unset. */
+  /** `WAFH_CLI_ENTRY` as the environment has it; blank counts as unset. */
   explicit: string | undefined;
   /** The directory of the server module asking: where the walk to a checkout starts. */
   moduleDir: string;
@@ -121,9 +121,9 @@ export interface ResolveCliLaunchOptions {
 }
 
 /**
- * Which CLI this server offers as `penguin`, in this order:
+ * Which CLI this server offers as `wafh`, in this order:
  *
- * 1. `PENGUIN_CLI_ENTRY`, when set: whoever started the server named its own CLI.
+ * 1. `WAFH_CLI_ENTRY`, when set: whoever started the server named its own CLI.
  * 2. Outside a checkout, nothing: an installation that was not told its CLI has none to offer.
  * 3. In a checkout, that checkout's CLI. A server running from TypeScript source (`pnpm dev`
  *    runs it under `tsx watch`) offers the CLI's source through the checkout's loader: it is
@@ -133,7 +133,7 @@ export interface ResolveCliLaunchOptions {
  *    snapshot it is itself. Each falls back to the other; Electron runs no loader, so a server
  *    on it has the build only.
  * 4. A checkout with neither: no entry, and the reason, which the shim and every terminal then
- *    state instead of letting another installation's `penguin` stand in.
+ *    state instead of letting another installation's `wafh` stand in.
  */
 export function resolveCliLaunch(opts: ResolveCliLaunchOptions): CliLaunch {
   const checkout = workspaceRoot(opts.moduleDir);
@@ -169,7 +169,7 @@ export function resolveCliLaunch(opts: ResolveCliLaunchOptions): CliLaunch {
     execArgs: [],
     checkout,
     origin: null,
-    unavailable: `${why}. Run \`pnpm --filter @prismshadow/penguin-cli build\`, then restart the server.`,
+    unavailable: `${why}. Run \`pnpm --filter @waterford/waf-harness-cli build\`, then restart the server.`,
   };
 }
 
@@ -205,10 +205,10 @@ export interface CliShimOptions {
 
 /** What a launcher runs, and for which data root. */
 export interface ShimLaunch {
-  /** The data root the CLI targets unless its caller set `PENGUIN_HOME`. */
+  /** The data root the CLI targets unless its caller set `WAFH_HOME`. */
   root: string;
   /**
-   * The server's database when it is not `<root>/web.db` (PENGUIN_WEB_DB), named along with the
+   * The server's database when it is not `<root>/web.db` (WAFH_WEB_DB), named along with the
    * root — the CLI reads it for `auth token` and `server status`. Absent or null: the default.
    */
   database?: string | null;
@@ -221,7 +221,7 @@ export interface ShimLaunch {
 /**
  * The database a launcher names besides the root: `dbPath` unless it is the root's default
  * file, or a database no other process can open (`:memory:`). Named by its absolute path: the
- * server opened a relative PENGUIN_WEB_DB against its own working directory, and the CLI runs in
+ * server opened a relative WAFH_WEB_DB against its own working directory, and the CLI runs in
  * whichever directory it is called from.
  */
 function nonDefaultDatabase(root: string, dbPath: string | undefined): string | null {
@@ -241,10 +241,10 @@ function cmdLiteral(value: string): string {
 }
 
 /**
- * `<dir>/penguin` — the shim for every POSIX shell, Git Bash on Windows included (which is
+ * `<dir>/wafh` — the shim for every POSIX shell, Git Bash on Windows included (which is
  * the shell commands run in there, see core's shell resolver). `"$@"` forwards the
  * arguments one word each, and `exec` leaves the CLI as the process whose exit status the
- * caller reads. The script is its own process, so the `PENGUIN_HOME` it sets reaches the CLI
+ * caller reads. The script is its own process, so the `WAFH_HOME` it sets reaches the CLI
  * and nothing else.
  */
 export function posixShimScript(launch: ShimLaunch): string {
@@ -252,14 +252,12 @@ export function posixShimScript(launch: ShimLaunch): string {
   const database = launch.database ?? null;
   return [
     "#!/bin/sh",
-    "# penguin CLI shim, rewritten by the PenguinHarness server at every start.",
+    "# wafh CLI shim, rewritten by the WAF Harness server at every start.",
     "# Runs the CLI of the harness that serves this data root, on that server's own runtime,",
-    "# against this data root unless the caller set PENGUIN_HOME (or passes --root / --server).",
-    'if [ -z "${PENGUIN_HOME-}" ]; then',
-    `  PENGUIN_HOME=${posixQuote(launch.root)}; export PENGUIN_HOME`,
-    ...(database !== null
-      ? [`  PENGUIN_WEB_DB=${posixQuote(database)}; export PENGUIN_WEB_DB`]
-      : []),
+    "# against this data root unless the caller set WAFH_HOME (or passes --root / --server).",
+    'if [ -z "${WAFH_HOME-}" ]; then',
+    `  WAFH_HOME=${posixQuote(launch.root)}; export WAFH_HOME`,
+    ...(database !== null ? [`  WAFH_WEB_DB=${posixQuote(database)}; export WAFH_WEB_DB`] : []),
     "fi",
     ...(launch.electron ? ["export ELECTRON_RUN_AS_NODE=1"] : []),
     `exec ${argv.join(" ")} "$@"`,
@@ -268,7 +266,7 @@ export function posixShimScript(launch: ShimLaunch): string {
 }
 
 /**
- * `<dir>\penguin.cmd` — the same shim for `cmd` and PowerShell. CRLF on purpose: cmd.exe is
+ * `<dir>\wafh.cmd` — the same shim for `cmd` and PowerShell. CRLF on purpose: cmd.exe is
  * unreliable with bare-LF scripts. `setlocal` keeps the variables it sets to this script and
  * the CLI it starts.
  */
@@ -279,15 +277,15 @@ export function windowsShimScript(launch: ShimLaunch): string {
   const database = launch.database ?? null;
   return [
     "@echo off",
-    "rem penguin CLI shim, rewritten by the PenguinHarness server at every start.",
+    "rem wafh CLI shim, rewritten by the WAF Harness server at every start.",
     "rem Runs the CLI of the harness that serves this data root, on that server's own runtime,",
-    "rem against this data root unless the caller set PENGUIN_HOME (or passes --root / --server).",
+    "rem against this data root unless the caller set WAFH_HOME (or passes --root / --server).",
     "setlocal",
-    // The database first: once PENGUIN_HOME is set, the condition no longer holds.
+    // The database first: once WAFH_HOME is set, the condition no longer holds.
     ...(database !== null
-      ? [`if not defined PENGUIN_HOME set "PENGUIN_WEB_DB=${cmdLiteral(database)}"`]
+      ? [`if not defined WAFH_HOME set "WAFH_WEB_DB=${cmdLiteral(database)}"`]
       : []),
-    `if not defined PENGUIN_HOME set "PENGUIN_HOME=${cmdLiteral(launch.root)}"`,
+    `if not defined WAFH_HOME set "WAFH_HOME=${cmdLiteral(launch.root)}"`,
     ...(launch.electron ? ['set "ELECTRON_RUN_AS_NODE=1"'] : []),
     `${argv.join(" ")} %*`,
     "exit /b %errorlevel%",
@@ -297,23 +295,23 @@ export function windowsShimScript(launch: ShimLaunch): string {
 
 /** The stub's message: one line, whatever the reason carried. */
 function stubMessage(reason: string): string {
-  return `penguin: this PenguinHarness instance cannot run its own CLI: ${reason.replace(/\s*[\r\n]+\s*/g, " ")}`;
+  return `wafh: this WAF Harness instance cannot run its own CLI: ${reason.replace(/\s*[\r\n]+\s*/g, " ")}`;
 }
 
 /**
- * `<dir>/penguin` for a checkout whose CLI cannot run: it prints why and fails, so neither a
- * person nor an Agent gets another installation's `penguin` without being told. The heredoc's
+ * `<dir>/wafh` for a checkout whose CLI cannot run: it prints why and fails, so neither a
+ * person nor an Agent gets another installation's `wafh` without being told. The heredoc's
  * quoted delimiter keeps the text literal.
  */
 export function posixStubScript(reason: string): string {
   return [
     "#!/bin/sh",
-    "# penguin CLI shim, rewritten by the PenguinHarness server at every start.",
+    "# wafh CLI shim, rewritten by the WAF Harness server at every start.",
     "# This server runs from a checkout whose CLI cannot run; rather than let another",
-    "# installation's penguin answer in its place, the shim says why.",
-    "cat >&2 <<'PENGUIN_SHIM_EOF'",
+    "# installation's wafh answer in its place, the shim says why.",
+    "cat >&2 <<'WAFH_SHIM_EOF'",
     stubMessage(reason),
-    "PENGUIN_SHIM_EOF",
+    "WAFH_SHIM_EOF",
     "exit 1",
     "",
   ].join("\n");
@@ -324,7 +322,7 @@ export function windowsStubScript(reason: string): string {
   const text = cmdLiteral(stubMessage(reason)).replace(/[\^&|<>()]/g, "^$&");
   return [
     "@echo off",
-    "rem penguin CLI shim, rewritten by the PenguinHarness server at every start.",
+    "rem wafh CLI shim, rewritten by the WAF Harness server at every start.",
     "rem This server runs from a checkout whose CLI cannot run; the shim says why.",
     `>&2 echo ${text}`,
     "exit /b 1",
@@ -333,9 +331,9 @@ export function windowsStubScript(reason: string): string {
 }
 
 /**
- * Writes (or removes) this data root's `penguin` shim. Never throws: a data root that
+ * Writes (or removes) this data root's `wafh` shim. Never throws: a data root that
  * cannot be written is reported as a failure and leaves the server running — an Agent then
- * falls back to whatever `penguin` the machine has, which is where it started.
+ * falls back to whatever `wafh` the machine has, which is where it started.
  */
 export function ensureCliShim(
   root: string,
@@ -343,8 +341,8 @@ export function ensureCliShim(
   opts: CliShimOptions = {},
 ): CliShimResult {
   const dir = cliShimDir(root);
-  const posix = path.join(dir, "penguin");
-  const windows = path.join(dir, "penguin.cmd");
+  const posix = path.join(dir, "wafh");
+  const windows = path.join(dir, "wafh.cmd");
   const onWindows = (opts.platform ?? process.platform) === "win32";
   const unavailable = opts.unavailable ?? null;
   try {

@@ -1,7 +1,7 @@
 /**
  * The settings mechanisms: what a node may require, declared apart from what implements it.
  */
-import { Interface } from "@prismshadow/penguin-core/kernel";
+import { Interface } from "@waterford/waf-harness-core/kernel";
 
 /** Settings: the mechanism ServerSettingsRepo implements. */
 @Interface()

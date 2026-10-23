@@ -1,6 +1,6 @@
 /**
  * The two specification passes' prompts, Loom's (`activity_spec_prompts.py`) adapted to how
- * a Penguin run works: the agent reads its inputs from the workspace and writes
+ * a WAF Harness run works: the agent reads its inputs from the workspace and writes
  * `activity-spec.json`, rather than answering with the JSON. Their text is in prompts/spec.ts;
  * this module picks the parts a description calls for and fills them in.
  *

@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { verifyWindowsUpdateSignature } from "../src/windows-update-signature.js";
 import type { SignatureExecFile } from "../src/windows-update-signature.js";
 
-const FILE = "C:\\Downloads\\PenguinHarness.exe";
+const FILE = "C:\\Downloads\\WAF Harness.exe";
 
 function signatureProcess(result: Record<string, unknown> = {}, stderr = ""): SignatureExecFile {
   return (_file, _args, options, callback) => {
@@ -19,7 +19,7 @@ function signatureProcess(result: Record<string, unknown> = {}, stderr = ""): Si
       JSON.stringify({
         Status: 0,
         HasSigner: true,
-        Path: options.env.PENGUIN_UPDATE_VERIFY_PATH,
+        Path: options.env.WAFH_UPDATE_VERIFY_PATH,
         ...result,
       }),
       stderr,
@@ -89,7 +89,7 @@ describe("Windows signature verification", () => {
       expect(args.join(" ")).not.toContain(file);
       const command = Buffer.from(args.at(-1)!, "base64").toString("utf16le");
       expect(command).not.toContain(file);
-      expect(options.env.PENGUIN_UPDATE_VERIFY_PATH).toBe(file);
+      expect(options.env.WAFH_UPDATE_VERIFY_PATH).toBe(file);
       expect(options.env.PSModulePath).toBe("");
       expect(
         Object.keys(options.env).filter((key) => key.toLowerCase() === "psmodulepath"),

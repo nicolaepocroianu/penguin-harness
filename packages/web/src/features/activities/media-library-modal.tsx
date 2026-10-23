@@ -5,8 +5,8 @@
  * copied into this one first, so each activity keeps owning its files.
  */
 import { useEffect, useRef, useState } from "react";
-import type { LibraryFile, UploadedMedia } from "@prismshadow/penguin-server/api";
-import { Button, Input, Modal, toastSuccess } from "@prismshadow/penguin-ui";
+import type { LibraryFile, UploadedMedia } from "@waterford/waf-harness-server/api";
+import { Button, Input, Modal, toastSuccess } from "@waterford/waf-harness-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";

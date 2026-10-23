@@ -3,7 +3,7 @@
  *
  * `GET /preview/activity/:token/*` sits outside `/api` and outside the auth middleware, on
  * the preview origin, for the reason workspace previews do (see `http/routes/preview.ts`):
- * a module's code -- Loom's or Penguin's, written by an agent either way -- runs in this
+ * a module's code -- Loom's or WAF Harness's, written by an agent either way -- runs in this
  * page, and on the App's origin it would run with the author's session. So the signed
  * token in the path is the only credential, bound to one activity and one host.
  *
@@ -11,7 +11,7 @@
  * bundle, the module's files, the media, the framework's shared resources, and the few
  * backend calls the framework makes, answered the way the WAF backend would answer them.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono, type Context } from "hono";
 import { hostOnly, requestAuthority } from "../services/preview-token.js";
 import { readPlayQuery } from "./play-query.js";

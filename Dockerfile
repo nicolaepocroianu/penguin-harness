@@ -1,8 +1,8 @@
-# The official PenguinHarness server image: `penguin server` on 0.0.0.0:7364, serving the
+# The official WAF Harness server image: `wafh server` on 0.0.0.0:7364, serving the
 # Web App, with the data root at /data.
 #
-#   docker build -t penguin-harness:dev .
-#   docker run -d -p 127.0.0.1:7364:7364 -v penguin-data:/data penguin-harness:dev
+#   docker build -t waf-harness:dev .
+#   docker run -d -p 127.0.0.1:7364:7364 -v wafh-data:/data waf-harness:dev
 #
 # Published from .github/workflows/docker.yml to Docker Hub as hiyouga/penguinharness.
 # The user-facing contract (first sign-in, volumes, upgrades, reverse proxies) is
@@ -114,17 +114,17 @@ RUN set -eux; \
     npm cache clean --force; \
     pnpm --version
 
-ARG PENGUIN_COMMIT
+ARG WAFH_COMMIT
 
 # The commit is what tells two builds of the same version apart, and a bundle carries no
 # path back to the checkout it came from. This is the stamp release.yml applies before it
 # builds; VERSION is deliberately left alone, because a build from main is not a release
 # and the image's own version is a label. BRE: the unescaped | in these patterns is literal.
 RUN set -eux; \
-    if [ -n "$PENGUIN_COMMIT" ]; then \
+    if [ -n "$WAFH_COMMIT" ]; then \
       grep -q 'export const BUILD_COMMIT: string | null = ' packages/core/src/index.ts; \
-      sed -i "s/export const BUILD_COMMIT: string | null = [^;]*/export const BUILD_COMMIT: string | null = \"$PENGUIN_COMMIT\"/" packages/core/src/index.ts; \
-      grep -Fq "export const BUILD_COMMIT: string | null = \"$PENGUIN_COMMIT\"" packages/core/src/index.ts; \
+      sed -i "s/export const BUILD_COMMIT: string | null = [^;]*/export const BUILD_COMMIT: string | null = \"$WAFH_COMMIT\"/" packages/core/src/index.ts; \
+      grep -Fq "export const BUILD_COMMIT: string | null = \"$WAFH_COMMIT\"" packages/core/src/index.ts; \
     fi
 
 # The desktop package is part of the workspace and its install script would fetch a ~150 MB
@@ -132,7 +132,7 @@ RUN set -eux; \
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 
 # `<pkg>...` selects a package together with its workspace dependencies, so the CLI filter
-# pulls core, server and the @penguinharness/* plugin packages in topological order; web is
+# pulls core, server and the @waf-harness/* plugin packages in topological order; web is
 # named separately because nothing depends on it — its dist is what web/ ships. The rest of
 # the workspace (desktop, docs, landing) is installed but never built.
 #
@@ -142,24 +142,24 @@ ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 RUN set -eux; \
     pnpm install --frozen-lockfile; \
     pnpm --config.verify-deps-before-run=false \
-      --filter "@prismshadow/penguin-cli..." \
-      --filter "@prismshadow/penguin-web" \
+      --filter "@waterford/waf-harness-cli..." \
+      --filter "@waterford/waf-harness-web" \
       build
 
-# The payload layout every release artifact uses, and the one scripts/launchers/penguin
+# The payload layout every release artifact uses, and the one scripts/launchers/wafh
 # spells out: lib/ is the CLI with its production dependencies, web/ the built front end.
 # Deployed inside the workspace and moved afterwards, which is release.yml's line verbatim.
 # The hoisted node-linker is part of that recipe — it keeps paths short enough for Windows,
 # and it is the layout `npm rebuild` walks in the next stage.
 RUN set -eux; \
-    pnpm --config.node-linker=hoisted --filter @prismshadow/penguin-cli --prod deploy "$PWD/out/penguin/lib"; \
-    rm -f out/penguin/lib/pnpm-workspace.yaml; \
-    cp -r packages/web/dist out/penguin/web; \
-    mkdir -p /opt/penguin; \
-    mv out/penguin/lib /opt/penguin/lib; \
-    mv out/penguin/web /opt/penguin/web; \
-    test -f /opt/penguin/lib/dist/penguin.js; \
-    test -f /opt/penguin/web/index.html
+    pnpm --config.node-linker=hoisted --filter @waterford/waf-harness-cli --prod deploy "$PWD/out/wafh/lib"; \
+    rm -f out/wafh/lib/pnpm-workspace.yaml; \
+    cp -r packages/web/dist out/wafh/web; \
+    mkdir -p /opt/wafh; \
+    mv out/wafh/lib /opt/wafh/lib; \
+    mv out/wafh/web /opt/wafh/web; \
+    test -f /opt/wafh/lib/dist/wafh.js; \
+    test -f /opt/wafh/web/index.html
 
 # --- native: recompile what depends on the architecture, on the target platform ---
 FROM base AS native
@@ -172,7 +172,7 @@ RUN set -eux; \
       python3; \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /opt/penguin /opt/penguin
+COPY --from=build /opt/wafh /opt/wafh
 
 # node-pty's install script is `node scripts/prebuild.js || node-gyp rebuild`, and the
 # prebuilds it publishes are darwin and win32 only, so on Linux the fallback compiles.
@@ -189,7 +189,7 @@ COPY --from=build /opt/penguin /opt/penguin
 # The require() is the proof rather than a formality — node-pty loads its binding at import
 # time, so one built for the wrong architecture fails here instead of at the first Task.
 RUN set -eux; \
-    cd /opt/penguin/lib; \
+    cd /opt/wafh/lib; \
     rm -rf node_modules/node-pty/build; \
     npm rebuild --foreground-scripts node-pty; \
     if [ -f node_modules/node-pty/build/Release/pty.node ]; then \
@@ -200,66 +200,66 @@ RUN set -eux; \
 # --- runtime ---
 FROM base
 
-ARG PENGUIN_VERSION=dev
-ARG PENGUIN_COMMIT
+ARG WAFH_VERSION=dev
+ARG WAFH_COMMIT
 
-LABEL org.opencontainers.image.title="PenguinHarness" \
-      org.opencontainers.image.description="PenguinHarness server and Web App" \
+LABEL org.opencontainers.image.title="WAF Harness" \
+      org.opencontainers.image.description="WAF Harness server and Web App" \
       org.opencontainers.image.url="https://penguin.ooo" \
       org.opencontainers.image.source="https://github.com/Prism-Shadow/penguin-harness" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.version="${PENGUIN_VERSION}" \
-      org.opencontainers.image.revision="${PENGUIN_COMMIT}"
+      org.opencontainers.image.version="${WAFH_VERSION}" \
+      org.opencontainers.image.revision="${WAFH_COMMIT}"
 
 # One directory carries the CLI, the server, the plugin packages, the built web assets and
 # the node-pty binding compiled for this architecture.
 #
-# `penguin` is a symlink straight to the entry script rather than a copy of
-# scripts/launchers/penguin, and that is a behaviour rather than a shortcut: the launcher
+# `wafh` is a symlink straight to the entry script rather than a copy of
+# scripts/launchers/wafh, and that is a behaviour rather than a shortcut: the launcher
 # would hand node a path ending in .js, and the server reads such a path as a re-runnable
 # CLI entry — it would then offer in-container self-update, which installs into a filesystem
-# the next `docker pull` throws away. Through the symlink argv[1] is /usr/local/bin/penguin,
+# the next `docker pull` throws away. Through the symlink argv[1] is /usr/local/bin/wafh,
 # extensionless, so the entry stays unset and the update endpoint answers "unsupported".
-# PENGUIN_WEB_DIST below is the other half of what that launcher would have done.
-COPY --from=native /opt/penguin /opt/penguin
+# WAFH_WEB_DIST below is the other half of what that launcher would have done.
+COPY --from=native /opt/wafh /opt/wafh
 RUN set -eux; \
-    chmod 0755 /opt/penguin/lib/dist/penguin.js; \
-    ln -s /opt/penguin/lib/dist/penguin.js /usr/local/bin/penguin; \
-    PENGUIN_HOME=/tmp/penguin-smoke penguin --version; \
-    rm -rf /tmp/penguin-smoke
+    chmod 0755 /opt/wafh/lib/dist/wafh.js; \
+    ln -s /opt/wafh/lib/dist/wafh.js /usr/local/bin/wafh; \
+    WAFH_HOME=/tmp/wafh-smoke wafh --version; \
+    rm -rf /tmp/wafh-smoke
 
 # ubuntu:24.04 ships a stock `ubuntu` account already holding uid/gid 1000 — the id a host
-# user's bind mount most often carries — so it makes way for `penguin`. groupadd fails
+# user's bind mount most often carries — so it makes way for `wafh`. groupadd fails
 # loudly if the id is still taken, which is what keeps the tolerant userdel above honest.
 RUN set -eux; \
     userdel -r ubuntu 2>/dev/null || userdel ubuntu 2>/dev/null || true; \
-    groupadd --gid 1000 penguin; \
-    useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash penguin
+    groupadd --gid 1000 wafh; \
+    useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash wafh
 
 # HOME is set explicitly because the entrypoint drops privileges with setpriv, which
 # replaces the process's ids without rewriting its environment: without this the server
-# would run as `penguin` while still pointed at root's home.
-ENV HOME=/home/penguin \
-    PENGUIN_HOME=/data \
-    PENGUIN_WEB_DIST=/opt/penguin/web \
+# would run as `wafh` while still pointed at root's home.
+ENV HOME=/home/wafh \
+    WAFH_HOME=/data \
+    WAFH_WEB_DIST=/opt/wafh/web \
     HOST=0.0.0.0 \
     PORT=7364
 
-WORKDIR /home/penguin
+WORKDIR /home/wafh
 
 RUN set -eux; \
     mkdir -p /data; \
-    chown penguin:penguin /data
+    chown wafh:wafh /data
 VOLUME ["/data"]
 
 EXPOSE 7364
 
-COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/penguin-entrypoint
+COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/wafh-entrypoint
 
 # GET /api/install is public and needs no session, which is why it and not a page is the
 # probe. It reads one small file per request, so it also fails when the data root is gone.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:${PORT}/api/install" || exit 1
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/penguin-entrypoint"]
-CMD ["penguin", "server"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/wafh-entrypoint"]
+CMD ["wafh", "server"]

@@ -5,7 +5,7 @@
  *
  *   BASE_PATH=/<repo>/ pnpm build:site     # CI (GitHub Pages project subpath)
  *   pnpm build:site                        # local (base "/")
- *   pnpm --filter @prismshadow/penguin-landing preview   # serve the assembled tree
+ *   pnpm --filter @waterford/waf-harness-landing preview   # serve the assembled tree
  *
  * Each package builds with its own BASE_PATH (landing: <base>, docs: <base>docs/, gallery:
  * <base>gallery/), then the docs and gallery dists are copied into the landing dist under docs/
@@ -14,7 +14,7 @@
  * The gallery compiles the Web App's source, which imports core and amsp from their built dist
  * and the model catalog from the server's (`server/dist/model-catalog.js`; the UI package is
  * source-only), so those build first. The server's build inlines hmr, so hmr builds before it,
- * and JavaScript only: nothing here reads the server's declarations (PENGUIN_BUILD_JS_ONLY, see
+ * and JavaScript only: nothing here reads the server's declarations (WAFH_BUILD_JS_ONLY, see
  * packages/server/tsup.config.ts).
  */
 import { execSync } from "node:child_process";
@@ -43,17 +43,17 @@ const run = (cmd, BASE_PATH, extra = {}) => {
   execSync(cmd, { cwd: root, stdio: "inherit", env: { ...process.env, ...vars } });
 };
 
-run("pnpm --filter @prismshadow/penguin-landing build", base);
-run("pnpm --filter @prismshadow/penguin-docs build", `${base}docs/`);
-run("pnpm --filter @prismshadow/penguin-core --filter @prismshadow/amsp build");
+run("pnpm --filter @waterford/waf-harness-landing build", base);
+run("pnpm --filter @waterford/waf-harness-docs build", `${base}docs/`);
+run("pnpm --filter @waterford/waf-harness-core --filter @waterford/waf-harness-amsp build");
 run(
-  "pnpm --filter @prismshadow/penguin-hmr --filter @prismshadow/penguin-server build",
+  "pnpm --filter @waterford/waf-harness-hmr --filter @waterford/waf-harness-server build",
   undefined,
   {
-    PENGUIN_BUILD_JS_ONLY: "1",
+    WAFH_BUILD_JS_ONLY: "1",
   },
 );
-run("pnpm --filter @prismshadow/penguin-ui-gallery build", `${base}gallery/`);
+run("pnpm --filter @waterford/waf-harness-ui-gallery build", `${base}gallery/`);
 
 const pkgDir = (pkg) => join(root, "packages", pkg);
 /** Every file under `dir`, as absolute paths; none when there is no such directory. */
@@ -73,7 +73,7 @@ const ELSEWHERE = /^(?:$|[a-z][a-z0-9+.-]*:|\/\/|#)/i;
  * document written for deeper routes (blog posts, doc pages, gallery pages), and one outside the
  * base reaches into another site's tree. Read: src/href in HTML; url() in CSS, where a relative
  * URL is fine, as it resolves against the stylesheet; and, in scripts, a string naming one of the
- * site's public files by its root-absolute path (`"/penguin-logo.svg"`), which no bundler rebases.
+ * site's public files by its root-absolute path (`"/wafh-logo.svg"`), which no bundler rebases.
  */
 function straysIn(pkg, siteBase) {
   const dist = join(pkgDir(pkg), "dist");

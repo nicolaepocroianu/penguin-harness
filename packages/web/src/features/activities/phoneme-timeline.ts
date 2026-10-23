@@ -4,7 +4,7 @@
  * as the book's configuration: timings stored for the word's current sounds, else the two word
  * timings of a recording (a word imported from Loom) shared out between the sounds.
  */
-import type { AssetManifest } from "@prismshadow/penguin-server/api";
+import type { AssetManifest } from "@waterford/waf-harness-server/api";
 
 type MediaAsset = AssetManifest["assets"][string][number];
 

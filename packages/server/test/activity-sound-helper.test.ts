@@ -21,7 +21,7 @@ async function runHelper({
   status = 200,
   credential = "fake-test-only" as string | null,
 } = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-sound-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-sound-test-"));
   try {
     await fs.copyFile(
       new URL(

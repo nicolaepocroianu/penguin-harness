@@ -25,7 +25,7 @@ describe("readTrayPrefs", () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-tray-prefs-"));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-tray-prefs-"));
   });
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
@@ -105,7 +105,7 @@ describe("updateTrayPrefs", () => {
   let dir: string;
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-tray-prefs-"));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-tray-prefs-"));
   });
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 

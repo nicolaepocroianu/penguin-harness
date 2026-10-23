@@ -61,9 +61,9 @@ describe.skipIf(process.platform === "win32")("POSIX launcher execution", () => 
   }
 
   beforeEach(() => {
-    root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "penguin-launcher-")));
-    appDir = path.join(root, "选题日历 PenguinHarness", "resources", "app");
-    launcher = path.join(appDir, "bin", "penguin");
+    root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "wafh-launcher-")));
+    appDir = path.join(root, "选题日历 WAF Harness", "resources", "app");
+    launcher = path.join(appDir, "bin", "wafh");
     fs.mkdirSync(path.dirname(launcher), { recursive: true });
     fs.writeFileSync(launcher, posixLauncherScript(), { mode: 0o755 });
     toolsDir = path.join(root, "tools");
@@ -76,9 +76,9 @@ describe.skipIf(process.platform === "win32")("POSIX launcher execution", () => 
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   const layouts = [
-    { platform: "macOS", runtimePath: "../../MacOS/PenguinHarness" },
-    { platform: "Linux", runtimePath: "../../penguin-harness" },
-    { platform: "Windows", runtimePath: "../../PenguinHarness.exe" },
+    { platform: "macOS", runtimePath: "../../MacOS/WAF Harness" },
+    { platform: "Linux", runtimePath: "../../waf-harness" },
+    { platform: "Windows", runtimePath: "../../WAF Harness.exe" },
   ];
 
   it.each(
@@ -93,12 +93,12 @@ describe.skipIf(process.platform === "win32")("POSIX launcher execution", () => 
       if (platform !== "Windows") executable(path.join(toolsDir, "cygpath"), "exit 73");
       let command = launcher;
       if (invocation !== "directly") {
-        const alias = path.join(root, "penguin-alias");
+        const alias = path.join(root, "wafh-alias");
         fs.symlinkSync(path.relative(root, launcher), alias);
-        command = path.join(root, "penguin");
+        command = path.join(root, "wafh");
         fs.symlinkSync(path.basename(alias), command);
       }
-      expectRuntime(launch(command), path.join(appDir, "dist", "penguin.js"));
+      expectRuntime(launch(command), path.join(appDir, "dist", "wafh.js"));
     },
   );
 
@@ -107,9 +107,9 @@ describe.skipIf(process.platform === "win32")("POSIX launcher execution", () => 
     { shell: "MSYS2", msystem: "MSYS" },
     { shell: "Cygwin", msystem: undefined },
   ])("passes the converted CLI path to Windows under $shell", ({ msystem }) => {
-    runtime("../../PenguinHarness.exe");
-    const entry = path.join(appDir, "dist", "penguin.js");
-    const windowsEntry = "D:\\选题日历 PenguinHarness\\resources\\app\\dist\\penguin.js";
+    runtime("../../WAF Harness.exe");
+    const entry = path.join(appDir, "dist", "wafh.js");
+    const windowsEntry = "D:\\选题日历 WAF Harness\\resources\\app\\dist\\wafh.js";
     executable(
       path.join(toolsDir, "cygpath"),
       `[ "$#" -eq 2 ] && [ "$1" = "-w" ] && [ "$2" = ${shellQuote(entry)} ] || exit 72\n` +
@@ -119,7 +119,7 @@ describe.skipIf(process.platform === "win32")("POSIX launcher execution", () => 
   });
 
   it("does not start the runtime when Windows path conversion fails", () => {
-    runtime("../../PenguinHarness.exe");
+    runtime("../../WAF Harness.exe");
     executable(path.join(toolsDir, "cygpath"), "echo 'conversion failed' >&2\nexit 73");
     const result = launch();
     expect(result.status).toBe(73);
@@ -129,12 +129,12 @@ describe.skipIf(process.platform === "win32")("POSIX launcher execution", () => 
 
   it.each(["absent", "not executable"])("reports a runtime that is $0", (state) => {
     if (state === "not executable") {
-      fs.writeFileSync(path.resolve(appDir, "../../PenguinHarness.exe"), "not executable");
+      fs.writeFileSync(path.resolve(appDir, "../../WAF Harness.exe"), "not executable");
     }
     const result = launch();
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("could not find the PenguinHarness runtime");
+    expect(result.stderr).toContain("could not find the WAF Harness runtime");
     expect(result.stderr).toContain(appDir);
   });
 });

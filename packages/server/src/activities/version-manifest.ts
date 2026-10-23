@@ -2,9 +2,9 @@
  * What a saved version of an activity holds, worked out from the draft without touching disk.
  *
  * A version is the draft's content, the implementation-features selection, and the files of
- * every medium Penguin owns that the media plan binds: generated narration and images, and
+ * every medium WAF Harness owns that the media plan binds: generated narration and images, and
  * uploads. A binding into the WAF checkout is recorded by its path only; the checkout is the
- * author's, read-only, and not Penguin's to copy.
+ * author's, read-only, and not WAF Harness's to copy.
  */
 import { canonical, contentRevision, type ActivityDraft } from "./domain.js";
 import type { AssetManifest, MediaPlan } from "./media.js";
@@ -28,7 +28,7 @@ export interface VersionManifest {
   };
   /** The selected implementation features, or null when none is selected. */
   implementationFeatures: string[] | null;
-  /** Penguin-owned files, by path, sorted. */
+  /** WAF Harness-owned files, by path, sorted. */
   media: VersionMedia[];
   /** Checkout paths the media plan binds, recorded and not copied; sorted. */
   references: string[];
@@ -45,8 +45,8 @@ export interface OwnedMedia {
 const RUN_ID = /^run_[a-f0-9]{32}$/;
 
 /**
- * Which bound files belong to Penguin and which are references to media it did not make. A
- * generated clip, image or recording and an upload are Penguin's, each at its own path in the
+ * Which bound files belong to WAF Harness and which are references to media it did not make. A
+ * generated clip, image or recording and an upload are WAF Harness's, each at its own path in the
  * media repository; any other path (the curated library, Loom's media) is a reference.
  */
 export function ownedMediaPaths(manifest: AssetManifest | undefined): {

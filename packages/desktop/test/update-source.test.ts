@@ -27,8 +27,8 @@ import {
 const TAG = "v0.2.2";
 const OSS_BASE = `${OSS_RELEASE_ROOT}/${TAG}`;
 const GH_BASE = `${GITHUB_RELEASE_ROOT}/${TAG}`;
-const WIN_ASSET = "penguin-desktop-win32-x64.exe";
-const MAC_ASSET = "penguin-desktop-darwin-arm64.zip";
+const WIN_ASSET = "wafh-desktop-win32-x64.exe";
+const MAC_ASSET = "wafh-desktop-darwin-arm64.zip";
 
 function probeBody(size: number): Uint8Array {
   return new Uint8Array(size).fill(0x2a);
@@ -52,7 +52,7 @@ const LARGE_BYTES = probeBody(1024 * 1024);
 
 function manifestText(assetName: string, assetSize: number): string {
   return [
-    `penguin-release-download-manifest\t1\t${TAG}`,
+    `wafh-release-download-manifest\t1\t${TAG}`,
     `probe\tsmall\t${SMALL.name}\t${SMALL.size}\t${SMALL.sha256}`,
     `probe\tlarge\t${LARGE.name}\t${LARGE.size}\t${LARGE.sha256}`,
     `desktop_asset\t${assetName}\t${assetSize}\t${"0".repeat(64)}`,
@@ -167,10 +167,10 @@ function runSelection(
 
 describe("desktopUpdateAssetName", () => {
   it("maps the update asset per platform and arch (zip for macOS, never the dmg)", () => {
-    expect(desktopUpdateAssetName("darwin", "arm64")).toBe("penguin-desktop-darwin-arm64.zip");
-    expect(desktopUpdateAssetName("darwin", "x64")).toBe("penguin-desktop-darwin-x64.zip");
+    expect(desktopUpdateAssetName("darwin", "arm64")).toBe("wafh-desktop-darwin-arm64.zip");
+    expect(desktopUpdateAssetName("darwin", "x64")).toBe("wafh-desktop-darwin-x64.zip");
     expect(desktopUpdateAssetName("win32", "x64")).toBe(WIN_ASSET);
-    expect(desktopUpdateAssetName("linux", "x64")).toBe("penguin-desktop-linux-x86_64.AppImage");
+    expect(desktopUpdateAssetName("linux", "x64")).toBe("wafh-desktop-linux-x86_64.AppImage");
   });
 
   it("yields nothing for forms the updater never downloads", () => {

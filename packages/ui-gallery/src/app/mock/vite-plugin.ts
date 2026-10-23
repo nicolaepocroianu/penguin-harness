@@ -36,7 +36,7 @@ export function mockWebNetwork(): {
   resolveId: (source: string, importer: string | undefined) => string | null;
 } {
   return {
-    name: "penguin:gallery-mock-web-network",
+    name: "wafh:gallery-mock-web-network",
     enforce: "pre",
     resolveId: (source, importer) => swappedModuleFor(source, importer),
   };

@@ -1,6 +1,6 @@
 /** Tabs: the app's Tabs, plain and with an update badge on one tab. */
 import { useState } from "react";
-import { Tabs } from "@prismshadow/penguin-ui";
+import { Tabs } from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 

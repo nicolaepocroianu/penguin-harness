@@ -133,8 +133,15 @@ import {
   WeChatApiError,
   createWeChatTransport,
 } from "./wechat-api.js";
-import { Bind, Component, Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
-import type { Opaque } from "@prismshadow/penguin-core/kernel";
+import {
+  Bind,
+  Component,
+  Interface,
+  Module,
+  Provide,
+  Use,
+} from "@waterford/waf-harness-core/kernel";
+import type { Opaque } from "@waterford/waf-harness-core/kernel";
 import type { MessagingTuning } from "./bridge.js";
 import type { Clock } from "../../hmr/capabilities.js";
 import type { MessagingConversations } from "../../mechanisms/messaging.js";

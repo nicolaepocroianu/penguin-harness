@@ -3,7 +3,7 @@
  * a tone, findings as table rows, and when Check quality may be pressed.
  */
 import { describe, expect, it } from "vitest";
-import type { QualityReport } from "@prismshadow/penguin-server/api";
+import type { QualityReport } from "@waterford/waf-harness-server/api";
 import { S } from "../src/lib/strings";
 import {
   STATUS_TONE,

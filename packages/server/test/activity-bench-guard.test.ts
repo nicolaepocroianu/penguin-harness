@@ -61,7 +61,7 @@ describe("the browser guard", () => {
   it("refuses a navigation anywhere but the played module's origin", () => {
     for (const url of [
       "file:///C:/Users/someone/.claude/.credentials.json",
-      "file:///home/someone/.penguin/data/web.db",
+      "file:///home/someone/.waf-harness/data/web.db",
       "data:text/html,<p>",
       "chrome://settings",
       "view-source:file:///etc/passwd",

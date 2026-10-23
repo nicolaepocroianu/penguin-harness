@@ -21,7 +21,7 @@
  * `TRACE_LINE_INDEX_MAX_FILES` files are kept.
  */
 import fs from "node:fs/promises";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 
 /** How many files keep their index (least recently used is dropped first). */
 export const TRACE_LINE_INDEX_MAX_FILES = 32;

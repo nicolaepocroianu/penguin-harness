@@ -23,7 +23,7 @@ describe("isDesktopShellWindow", () => {
     // tray switch, which reaches the chrome the page is drawn in. Both single-field
     // simplifications are wrong: `desktopMode` alone lets a browser on another machine
     // drive this one's GUI app, `sessionVia` alone matches a stale desktop cookie
-    // replayed against a plain `penguin server`, where no shell is listening.
+    // replayed against a plain `wafh server`, where no shell is listening.
     expect(isDesktopShellWindow({ desktopMode: true, sessionVia: "desktop" })).toBe(true);
     expect(isDesktopShellWindow({ desktopMode: true, sessionVia: "password" })).toBe(false);
     expect(isDesktopShellWindow({ desktopMode: false, sessionVia: "desktop" })).toBe(false);
@@ -75,9 +75,9 @@ describe("omitsOldPassword", () => {
 
   it("keeps the field for a desktop session against a server no shell spawned", () => {
     // The shell mints one of these for itself when it attaches to a server it did not start
-    // (a `penguin web` instance on the same data root). The server's gate is the pair, so it
+    // (a `wafh web` instance on the same data root). The server's gate is the pair, so it
     // still demands the old password there; a form that dropped the field would submit a
-    // request the server refuses. That account's password is recovered with `penguin server
+    // request the server refuses. That account's password is recovered with `wafh server
     // reset-admin-password`, not from this form.
     expect(omitsOldPassword({ desktopMode: false, sessionVia: "desktop" })).toBe(false);
   });

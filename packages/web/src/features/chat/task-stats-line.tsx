@@ -27,7 +27,7 @@
  * itself doesn't render a separate one (otherwise two copy buttons would pop up in the same spot).
  */
 import { useState } from "react";
-import type { TracePosition } from "@prismshadow/penguin-server/api";
+import type { TracePosition } from "@waterford/waf-harness-server/api";
 import {
   ConfirmModal,
   CopyButton,
@@ -35,7 +35,7 @@ import {
   ICONS,
   Spinner,
   StatChip,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { formatTaskStats } from "../../lib/omni/task-stats";
 import type { TaskStats } from "../../lib/omni/task-stats";
 import {

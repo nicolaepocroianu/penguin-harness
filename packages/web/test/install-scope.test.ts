@@ -2,12 +2,12 @@
  * Install scope (lib/install-scope.ts): browser state that names one data root's entities is
  * swept when the server starts serving a different root, and nothing else ever is.
  *
- * - Every `penguin.*` key the source persists is classified — checked against the source, since
+ * - Every `wafh.*` key the source persists is classified — checked against the source, since
  *   a key added to the app and forgotten here is the one way this module silently stops working;
  *   each deliberate exclusion is still a key the source contains.
  * - An exact preference is never captured by a family that shares its stem
- *   (`penguin.sidebarCollapsed` beside `penguin.sidebarCollapsedGroups.`, `penguin.terminal.theme`
- *   beside `penguin.terminal.page.id`); the rule table is well formed.
+ *   (`wafh.sidebarCollapsed` beside `wafh.sidebarCollapsedGroups.`, `wafh.terminal.theme`
+ *   beside `wafh.terminal.page.id`); the rule table is well formed.
  * - A changed install id sweeps the install-scoped keys, orphans of every earlier root included,
  *   and keeps the preferences and every key no rule covers.
  * - An unchanged id (every ordinary restart) sweeps nothing; a first sight adopts without
@@ -41,53 +41,53 @@ import type { MemoryStorage } from "./helpers/storage";
 
 /** State that names the data root's Projects, Sessions, Workspaces and terminals. */
 const INSTALL_STATE: Record<string, string> = {
-  "penguin.chatDraft.admin.default_project": '{"workspace":"/srv/app","agentId":"default_agent"}',
-  "penguin.chatDraft.session.admin.session-1": '{"text":"half a sentence"}',
-  "penguin.chatDrafts.admin.default_project": '[{"id":"draft-abcd1234"}]',
-  "penguin.sidebarWorkspaces.default_project": '[{"path":"/srv/app"}]',
-  "penguin.pinnedSessions.default_project": '["session-1"]',
-  "penguin.sessionOrder.default_project.workspace": '["session-1"]',
-  "penguin.sessionSeen.default_project": '{"session-1":"2026-08-26T00:00:00Z"}',
-  "penguin.groupOrder.default_project.workspace": '["/srv/app"]',
-  "penguin.sidebarCollapsedGroups.default_project": '["/srv/app"]',
-  "penguin.sidebarPinnedGroups.default_project": '["/srv/app"]',
-  "penguin.lastProjectId": "default_project",
-  "penguin.lastAgentId.default_project": "default_agent",
-  "penguin.memoryCollapsed.admin.default_project.default_agent": '["project"]',
-  "penguin.modelsExpandedGroups.default_project": '["anthropic"]',
-  "penguin.modelsGroupOrder.default_project": '["anthropic"]',
-  "penguin.dock.layout": '{"scopes":{"session-1":{}},"bottomRatio":0.4}',
-  "penguin.terminal.page.id": "term-1",
-  "penguin.orgTempSessions.admin.default_project.acme":
+  "wafh.chatDraft.admin.default_project": '{"workspace":"/srv/app","agentId":"default_agent"}',
+  "wafh.chatDraft.session.admin.session-1": '{"text":"half a sentence"}',
+  "wafh.chatDrafts.admin.default_project": '[{"id":"draft-abcd1234"}]',
+  "wafh.sidebarWorkspaces.default_project": '[{"path":"/srv/app"}]',
+  "wafh.pinnedSessions.default_project": '["session-1"]',
+  "wafh.sessionOrder.default_project.workspace": '["session-1"]',
+  "wafh.sessionSeen.default_project": '{"session-1":"2026-08-26T00:00:00Z"}',
+  "wafh.groupOrder.default_project.workspace": '["/srv/app"]',
+  "wafh.sidebarCollapsedGroups.default_project": '["/srv/app"]',
+  "wafh.sidebarPinnedGroups.default_project": '["/srv/app"]',
+  "wafh.lastProjectId": "default_project",
+  "wafh.lastAgentId.default_project": "default_agent",
+  "wafh.memoryCollapsed.admin.default_project.default_agent": '["project"]',
+  "wafh.modelsExpandedGroups.default_project": '["anthropic"]',
+  "wafh.modelsGroupOrder.default_project": '["anthropic"]',
+  "wafh.dock.layout": '{"scopes":{"session-1":{}},"bottomRatio":0.4}',
+  "wafh.terminal.page.id": "term-1",
+  "wafh.orgTempSessions.admin.default_project.acme":
     '[{"sessionId":"session-2","agentId":"acme_dev","title":"Build the site"}]',
 };
 
 /** This browser's preferences, whatever root it talks to. */
 const PREFERENCES: Record<string, string> = {
-  "penguin.theme": "dark",
-  "penguin.themeId": "geek",
-  "penguin.textSize": "l",
-  "penguin.fontScale": "lg",
-  "penguin.fontLatin": "mona-sans",
-  "penguin.fontCjk": "noto-sans-sc",
-  "penguin.accent": "violet",
-  "penguin.currency": "CNY",
-  "penguin.terminal.theme": "dark",
-  "penguin.lang": "en",
-  "penguin.sidebarCollapsed": "1",
-  "penguin.panelWidth": "420",
-  "penguin.sidebarGroupMode": "agent",
-  "penguin.sidebarSortMode": "manual",
-  "penguin.sidebarNavGroupCollapsed": "collapsed",
-  "penguin.sidebarNavPinned": '{"models":false}',
-  "penguin.steerMode": "followup",
-  "penguin.dock.launcherY": "0.25",
-  "penguin.dock.launcherHidden": "1",
-  "penguin.files.treeVisible": "0",
-  "penguin.files.treeWidth": "220",
-  "penguin.files.editorWrap": "1",
-  "penguin.notifications": "1",
-  "penguin.keybindings": '{"v":1,"linux":{"terminal.close":"Mod+Alt+KeyW"}}',
+  "wafh.theme": "dark",
+  "wafh.themeId": "geek",
+  "wafh.textSize": "l",
+  "wafh.fontScale": "lg",
+  "wafh.fontLatin": "mona-sans",
+  "wafh.fontCjk": "noto-sans-sc",
+  "wafh.accent": "violet",
+  "wafh.currency": "CNY",
+  "wafh.terminal.theme": "dark",
+  "wafh.lang": "en",
+  "wafh.sidebarCollapsed": "1",
+  "wafh.panelWidth": "420",
+  "wafh.sidebarGroupMode": "agent",
+  "wafh.sidebarSortMode": "manual",
+  "wafh.sidebarNavGroupCollapsed": "collapsed",
+  "wafh.sidebarNavPinned": '{"models":false}',
+  "wafh.steerMode": "followup",
+  "wafh.dock.launcherY": "0.25",
+  "wafh.dock.launcherHidden": "1",
+  "wafh.files.treeVisible": "0",
+  "wafh.files.treeWidth": "220",
+  "wafh.files.editorWrap": "1",
+  "wafh.notifications": "1",
+  "wafh.keybindings": '{"v":1,"linux":{"terminal.close":"Mod+Alt+KeyW"}}',
 };
 
 /** A store holding both halves, with `marker` recorded as the install id when given. */
@@ -122,25 +122,25 @@ function sweptOnto(installId: string): [string, string][] {
  * recognise is left alone, which is exactly how the bug this module fixes comes back.
  */
 const UNCLASSIFIED_ON_PURPOSE: Record<string, string> = {
-  "penguin.installId": "the marker itself — it is what the comparison reads, never swept",
-  "penguin.chatRouteApplied.":
+  "wafh.installId": "the marker itself — it is what the comparison reads, never swept",
+  "wafh.chatRouteApplied.":
     "sessionStorage: scoped to one tab's history, so it cannot outlive a data root",
-  "penguin.mcp_servers":
+  "wafh.mcp_servers":
     "not a storage key: the plugin manifest field the import dialog's agent prompt names",
 };
 
 /**
- * Every `penguin.*` key literal in the scanned source, mapped to the file it was found in.
+ * Every `wafh.*` key literal in the scanned source, mapped to the file it was found in.
  *
  * Block comments are stripped first, and a match must follow a quote or backtick: prose
- * names key PREFIXES (`penguin.terminal.`), a family without its dot, and the product's own
+ * names key PREFIXES (`wafh.terminal.`), a family without its dot, and the product's own
  * domain in an example URL (`penguin.ooo`), and none of those is a storage key.
  */
 function storageKeysIn(scan: SourceScan): Map<string, string> {
   const found = new Map<string, string>();
   for (const file of scan.files) {
     const code = file.text.replace(/\/\*[\s\S]*?\*\//g, "");
-    for (const match of code.matchAll(/["'`](penguin\.[A-Za-z0-9_.]*)/g)) {
+    for (const match of code.matchAll(/["'`](wafh\.[A-Za-z0-9_.]*)/g)) {
       const key = match[1]!;
       if (!found.has(key)) found.set(key, file.id);
     }
@@ -149,7 +149,7 @@ function storageKeysIn(scan: SourceScan): Map<string, string> {
 }
 
 describe("install-scope classification", () => {
-  it("classifies every penguin.* key the source persists, and each exclusion is still one of them", () => {
+  it("classifies every wafh.* key the source persists, and each exclusion is still one of them", () => {
     const scan = scanSources([".ts", ".tsx"]);
     expectEveryRootScanned(scan);
     const found = storageKeysIn(scan);
@@ -166,16 +166,16 @@ describe("install-scope classification", () => {
 
   it("an exact preference is not captured by a family that shares its stem", () => {
     // The two traps plain prefix matching would fall into.
-    expect(scopeOfKey("penguin.sidebarCollapsed")).toBe("browser");
-    expect(scopeOfKey("penguin.sidebarCollapsedGroups.default_project")).toBe("install");
-    expect(scopeOfKey("penguin.terminal.theme")).toBe("browser");
-    expect(scopeOfKey("penguin.terminal.page.id")).toBe("install");
+    expect(scopeOfKey("wafh.sidebarCollapsed")).toBe("browser");
+    expect(scopeOfKey("wafh.sidebarCollapsedGroups.default_project")).toBe("install");
+    expect(scopeOfKey("wafh.terminal.theme")).toBe("browser");
+    expect(scopeOfKey("wafh.terminal.page.id")).toBe("install");
   });
 
-  it("rules are well formed: penguin-namespaced, families dotted, no duplicates", () => {
+  it("rules are well formed: wafh-namespaced, families dotted, no duplicates", () => {
     const seen = new Set<string>();
     for (const rule of KEY_RULES) {
-      expect(rule.key.startsWith("penguin."), rule.key).toBe(true);
+      expect(rule.key.startsWith("wafh."), rule.key).toBe(true);
       expect(rule.why.length, rule.key).toBeGreaterThan(0);
       if (rule.kind === "family") expect(rule.key.endsWith("."), rule.key).toBe(true);
       expect(seen.has(rule.key), rule.key).toBe(false);
@@ -197,17 +197,17 @@ describe("reconcileInstallScope", () => {
     // nothing would ever read again. Walking the store is what reaches them.
     const storage = memoryStorage({
       [INSTALL_ID_KEY]: "root-a",
-      "penguin.chatDraft.admin.default_project": "{}",
-      "penguin.pinnedSessions.long_gone_project": '["session-9"]',
-      "penguin.sessionSeen.another_dead_project": "{}",
-      "penguin.theme": "dark",
-      "penguin.somethingAddedLater": "1",
+      "wafh.chatDraft.admin.default_project": "{}",
+      "wafh.pinnedSessions.long_gone_project": '["session-9"]',
+      "wafh.sessionSeen.another_dead_project": "{}",
+      "wafh.theme": "dark",
+      "wafh.somethingAddedLater": "1",
       "unrelated-app-key": "1",
     });
 
     expect(reconcileInstallScope("root-b", storage)).toBe("swept");
     expect([...storage.map.keys()].sort()).toEqual(
-      [INSTALL_ID_KEY, "penguin.somethingAddedLater", "penguin.theme", "unrelated-app-key"].sort(),
+      [INSTALL_ID_KEY, "wafh.somethingAddedLater", "wafh.theme", "unrelated-app-key"].sort(),
     );
   });
 
@@ -340,7 +340,7 @@ describe("syncInstallScope", () => {
 });
 
 /**
- * The two-pass boot. dock-state.ts parses `penguin.dock.layout` into module state AT MODULE
+ * The two-pass boot. dock-state.ts parses `wafh.dock.layout` into module state AT MODULE
  * EVALUATION, which ES semantics put before main.tsx's first statement — so these tests
  * install the storage global first and import that module dynamically, in the order a
  * browser does it.
@@ -364,8 +364,8 @@ describe("bootInstallScope", () => {
     const storage = stubLocalStorage(
       memoryStorage({
         [INSTALL_ID_KEY]: "root-a",
-        "penguin.dock.layout": DOCK_FROM_ROOT_A,
-        "penguin.theme": "dark",
+        "wafh.dock.layout": DOCK_FROM_ROOT_A,
+        "wafh.theme": "dark",
       }),
     );
     serverReports("root-b");
@@ -377,7 +377,7 @@ describe("bootInstallScope", () => {
     await import("../src/features/dock/dock-state");
 
     expect(await bootInstallScope()).toBe("reload");
-    expect(storage.map.has("penguin.dock.layout")).toBe(false);
+    expect(storage.map.has("wafh.dock.layout")).toBe(false);
 
     // Pass two — the reload. Every module re-evaluates against the swept store.
     vi.resetModules();
@@ -387,10 +387,10 @@ describe("bootInstallScope", () => {
     // The first route resolution's setDockScope is what persisted the old map; here it can
     // only persist what the fresh evaluation read, which is nothing.
     dock.setDockScope("new");
-    const persisted = storage.map.get("penguin.dock.layout") ?? "";
+    const persisted = storage.map.get("wafh.dock.layout") ?? "";
     expect(persisted).not.toContain("term-abc");
     expect(persisted).not.toContain("session-1");
-    expect(storage.map.get("penguin.theme")).toBe("dark");
+    expect(storage.map.get("wafh.theme")).toBe("dark");
   });
 
   it("mounts on every outcome that swept nothing, and on a sweep that could not be recorded", async () => {
@@ -398,7 +398,7 @@ describe("bootInstallScope", () => {
     serverReports("root-a");
     expect(await bootInstallScope()).toBe("mount");
 
-    stubLocalStorage(memoryStorage({ "penguin.theme": "dark" }));
+    stubLocalStorage(memoryStorage({ "wafh.theme": "dark" }));
     serverReports("root-a");
     expect(await bootInstallScope()).toBe("mount");
 
@@ -407,7 +407,7 @@ describe("bootInstallScope", () => {
     expect(await bootInstallScope()).toBe("mount");
 
     // The reload would otherwise repeat forever: sweep, fail to record, reload, sweep again.
-    const backing = memoryStorage({ [INSTALL_ID_KEY]: "root-a", "penguin.lastProjectId": "p1" });
+    const backing = memoryStorage({ [INSTALL_ID_KEY]: "root-a", "wafh.lastProjectId": "p1" });
     stubLocalStorage({
       ...backing,
       get length(): number {
@@ -419,7 +419,7 @@ describe("bootInstallScope", () => {
     });
     serverReports("root-b");
     expect(await bootInstallScope()).toBe("mount");
-    expect(backing.map.has("penguin.lastProjectId")).toBe(false);
+    expect(backing.map.has("wafh.lastProjectId")).toBe(false);
   });
 });
 
@@ -468,7 +468,7 @@ describe("a tab left open across the wipe", () => {
 
     expect(
       reactToInstallIdChange(
-        { key: "penguin.pinnedSessions.default_project", oldValue: "[]", newValue: '["s1"]' },
+        { key: "wafh.pinnedSessions.default_project", oldValue: "[]", newValue: '["s1"]' },
         storage,
       ),
     ).toBe(false);

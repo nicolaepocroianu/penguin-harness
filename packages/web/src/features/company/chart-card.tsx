@@ -39,7 +39,7 @@
  */
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import type { OrgEmployeeItem, OrgEmployeeState } from "@prismshadow/penguin-server/api";
+import type { OrgEmployeeItem, OrgEmployeeState } from "@waterford/waf-harness-server/api";
 import {
   Dot,
   Dropdown,
@@ -48,8 +48,8 @@ import {
   ICON_SIZE,
   Legend,
   useRowContextMenu,
-} from "@prismshadow/penguin-ui";
-import type { ToneName } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { ToneName } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { formatMoney, formatPercent } from "../../lib/format";
 import { toneDot, toneInk } from "../../lib/tone";

@@ -12,7 +12,7 @@
  * - The video is H.264 and the audio AAC in an MP4; a timeline with no audio has no audio track.
  *
  * The steps follow what OpenMontage's FFmpeg tools do (video_compose, video_stitch,
- * audio_mixer), as ideas only; the command is Penguin's own.
+ * audio_mixer), as ideas only; the command is WAF Harness's own.
  */
 import type { MediaAsset } from "./media.js";
 import { cutStarts, timelineLengthMs } from "./video-timeline.js";

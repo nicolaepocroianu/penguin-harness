@@ -5,11 +5,11 @@
  */
 
 export function startingResponse(): Response {
-  return unavailable("penguin-server is starting", true);
+  return unavailable("wafh-server is starting", true);
 }
 
 export function noPlatformResponse(reason: string): Response {
-  return unavailable(`penguin-server has no running platform: ${reason}`, false);
+  return unavailable(`wafh-server has no running platform: ${reason}`, false);
 }
 
 function unavailable(text: string, retry: boolean): Response {

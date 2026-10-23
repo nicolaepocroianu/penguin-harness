@@ -10,7 +10,7 @@
  *   its group even when empty.
  */
 import { describe, expect, it } from "vitest";
-import type { AgentSummary, Employment } from "@prismshadow/penguin-server/api";
+import type { AgentSummary, Employment } from "@waterford/waf-harness-server/api";
 import {
   dropsEmployeeGroup,
   employeesLast,

@@ -26,7 +26,7 @@ const SIGNATURE_SCRIPT = `
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-$signature = Get-AuthenticodeSignature -LiteralPath $env:PENGUIN_UPDATE_VERIFY_PATH
+$signature = Get-AuthenticodeSignature -LiteralPath $env:WAFH_UPDATE_VERIFY_PATH
 [pscustomobject]@{
   Status = [int]$signature.Status
   HasSigner = ($null -ne $signature.SignerCertificate)
@@ -51,7 +51,7 @@ export async function verifyWindowsUpdateSignature(
       if (key.toLowerCase() === "psmodulepath") delete env[key];
     }
     env.PSModulePath = "";
-    env.PENGUIN_UPDATE_VERIFY_PATH = file;
+    env.WAFH_UPDATE_VERIFY_PATH = file;
     const stdout = await new Promise<string>((resolve, reject) => {
       run(
         path.win32.join(systemRoot, "System32/WindowsPowerShell/v1.0/powershell.exe"),

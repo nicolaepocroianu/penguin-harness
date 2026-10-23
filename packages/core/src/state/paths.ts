@@ -1,7 +1,7 @@
 /**
  * Local directory layout for Agent State and Project config.
  *
- * Strictly follows the `~/.penguin/data/<project>/agents/<agent>/...` structure.
+ * Strictly follows the `~/.waf-harness/data/<project>/agents/<agent>/...` structure.
  * This module only provides constants and pure path functions; it never creates directories or reads/writes files.
  * Docs: /docs/sessions-and-traces § "Data layout".
  */
@@ -22,12 +22,12 @@ export const ACTIVITY_AGENT_ID = "activity_agent";
 
 /**
  * Resolves the local data root directory.
- * Prefers the `PENGUIN_HOME` environment variable, otherwise falls back to `~/.penguin/data`
- * (under the hidden `~/.penguin` home so it never collides with unrelated folders, and in a
- * `data/` subdir kept separate from the installer's binaries under `~/.penguin`).
+ * Prefers the `WAFH_HOME` environment variable, otherwise falls back to `~/.waf-harness/data`
+ * (under the hidden `~/.waf-harness` home so it never collides with unrelated folders, and in a
+ * `data/` subdir kept separate from the installer's binaries under `~/.waf-harness`).
  */
 export function resolveRoot(): string {
-  return process.env.PENGUIN_HOME ?? path.join(os.homedir(), ".penguin", "data");
+  return process.env.WAFH_HOME ?? path.join(os.homedir(), ".waf-harness", "data");
 }
 
 /** `<root>/<projectId>`. */

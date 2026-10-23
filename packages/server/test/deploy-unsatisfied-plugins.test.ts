@@ -20,7 +20,7 @@ import {
   answerPush,
   openPushSlip,
 } from "../src/hmr/push-plugins.js";
-import { HotResources } from "@prismshadow/penguin-hmr";
+import { HotResources } from "@waterford/waf-harness-hmr";
 import type { UnsatisfiedPlugin } from "../src/api/types.js";
 
 const PLUGINS: UnsatisfiedPlugin[] = [

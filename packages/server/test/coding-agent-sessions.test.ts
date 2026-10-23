@@ -1,15 +1,15 @@
 /**
- * Coding agents as ordinary Penguin Sessions, end to end over HTTP against a real spawned ACP
+ * Coding agents as ordinary WAF Harness Sessions, end to end over HTTP against a real spawned ACP
  * agent: created by picking a `coding-agent` model, listed with every other Session, turns
  * streamed and written to the Session's Trace, the agent's permission asks answered through
- * Penguin's own approvals, and the Session reopened by its runtime once its entry is gone.
+ * WAF Harness's own approvals, and the Session reopened by its runtime once its entry is gone.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { findLatestTraceFile, readTrace, tracesDir } from "@prismshadow/penguin-core";
+import { findLatestTraceFile, readTrace, tracesDir } from "@waterford/waf-harness-core";
 import type { SessionInfo } from "../src/api/types.js";
 import type { CodingAgents } from "../src/mechanisms/coding-agents.js";
 import { apiClient, createTestApp, loginAdmin, waitFor, type TestApp } from "./helpers.js";

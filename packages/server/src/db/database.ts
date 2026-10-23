@@ -21,7 +21,7 @@ const sqlite = process.getBuiltinModule("node:sqlite");
  *
  * `openDatabase` migrates — CREATE TABLE, several ensureColumn calls, a DROP INDEX and a backfill.
  * That is right for the process that owns the database and wrong for a short-lived CLI writing
- * one row (`penguin auth token`): after `penguin update` the CLI on disk can be NEWER than the
+ * one row (`wafh auth token`): after `wafh update` the CLI on disk can be NEWER than the
  * running server, and migrating under a live server's prepared statements is not something a
  * token mint should do. The caller has already established that the file exists.
  */
@@ -36,7 +36,7 @@ export function openExistingDatabase(dbPath: string): DatabaseSync {
 /**
  * Opens an EXISTING database for reading only — SQLite refuses every write on the connection,
  * so a reader cannot change the file even by mistake. For a question asked of a database some
- * other process owns (`penguin server status`, run over ssh by a controller): the answer must
+ * other process owns (`wafh server status`, run over ssh by a controller): the answer must
  * not reshape that server's schema, and must not be able to. The caller has established that
  * the file exists; a read-only open of a missing file is an error, not a creation.
  */

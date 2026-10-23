@@ -9,7 +9,7 @@
  * - an open `partial_text` fragment, carried the same way, is a reply streaming in;
  * - a tool call the stream has escalated with `approval_request` is waiting on a human.
  */
-import type { GoalServerEvent } from "@prismshadow/penguin-server/api";
+import type { GoalServerEvent } from "@waterford/waf-harness-server/api";
 import { IDS } from "./ids";
 import type { Lang, OmniMessage, PayloadOf, ToolCallMessage } from "./types";
 
@@ -49,7 +49,7 @@ export const meta = (
     model_id: ref.modelId,
     model_context_window: ref.contextWindow,
     system_prompt: who.systemPrompt ?? "You are Docs Expert. Cite a real file for every claim.",
-    agent_state: `/home/demo/.penguin/data/projects/${IDS.project}/agents/${who.agentId ?? IDS.agents.docs}/agent_state`,
+    agent_state: `/home/demo/.waf-harness/data/projects/${IDS.project}/agents/${who.agentId ?? IDS.agents.docs}/agent_state`,
     workspace,
     source: who.source ?? "user",
   },
@@ -243,7 +243,7 @@ Nothing else in the corpus changed, so the index rebuild took 12.4 ms [1].
       thinking:
         "Publishing is irreversible and touches a registry outside the workspace, so this call goes through approval even though the session allows most commands.",
       allowed:
-        "Published `@penguinharness/docs-expert@2026.9.14.1`. The registry lists the new version and the tarball is 48.2 KB.",
+        "Published `@waf-harness/docs-expert@2026.9.14.1`. The registry lists the new version and the tarball is 48.2 KB.",
       denied:
         "Not published. The package is built and ready in `dist/`; run the publish yourself when you want it out.",
     },
@@ -619,7 +619,7 @@ export function approvalOutcome(
   return decision === "allow"
     ? {
         output:
-          "npm notice publishing @penguinharness/docs-expert@2026.9.14.1\nnpm notice 48.2 KB dist/index.js\n+ @penguinharness/docs-expert@2026.9.14.1",
+          "npm notice publishing @waf-harness/docs-expert@2026.9.14.1\nnpm notice 48.2 KB dist/index.js\n+ @waf-harness/docs-expert@2026.9.14.1",
         text: c.allowed,
       }
     : { output: "Tool call denied by user.", text: c.denied };

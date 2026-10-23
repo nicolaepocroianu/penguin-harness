@@ -4,7 +4,7 @@ Date: 2026-09-28. Branch: `feat/activity-studio-shell`. Status: approved in brai
 
 ## Goal
 
-Make Activities feel like a native part of Penguin Harness rather than Loom embedded in it — both
+Make Activities feel like a native part of WAF Harness rather than Loom embedded in it — both
 visually (house tokens, components, tone) and in flow (no lost context moving between the studio,
 chat, runs and settings). The studio serves engineers, curriculum and UX authors on one surface
 (see the Loom full-port decisions); nothing here introduces role-based views.

@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ActivityDetail, ActivityDraft, AssetManifest } from "@prismshadow/penguin-server/api";
+import type {
+  ActivityDetail,
+  ActivityDraft,
+  AssetManifest,
+} from "@waterford/waf-harness-server/api";
 import {
   MEDIA_AUTOSAVE_MS,
   SCRIPT_AUTOSAVE_MS,

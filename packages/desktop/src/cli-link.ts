@@ -1,13 +1,13 @@
 /**
- * The disk half of the `penguin` PATH entry: what sits at the target, whether this app put
+ * The disk half of the `wafh` PATH entry: what sits at the target, whether this app put
  * it there, and how to write ours without destroying anyone else's. Pure `node:fs` and no
  * Electron import, so it unit-tests against real temporary directories rather than mocks.
  *
  * The install runs automatically at startup (see cli-install.ts), which removes the user's
  * chance to object to it — so the one rule this module exists to enforce is that a
- * `penguin` this app did not write is never touched. `install.sh` puts its own symlink at
- * exactly the path the AppImage form uses (`~/.local/bin/penguin`), and a user may have a
- * `penguin` from npm, Homebrew or their own hand anywhere on PATH. Every one of those is
+ * `wafh` this app did not write is never touched. `install.sh` puts its own symlink at
+ * exactly the path the AppImage form uses (`~/.local/bin/wafh`), and a user may have a
+ * `wafh` from npm, Homebrew or their own hand anywhere on PATH. Every one of those is
  * classified `foreign` and left alone; the reason is recorded in the state file so support
  * can see why no command appeared.
  */
@@ -37,12 +37,12 @@ export interface TargetStatus {
 const MAX_MARKER_READ_BYTES = 64 * 1024;
 
 /**
- * The packaged layout every bundled launcher sits in — `<app>/bin/penguin`, where `<app>`
+ * The packaged layout every bundled launcher sits in — `<app>/bin/wafh`, where `<app>`
  * is `Contents/Resources/app` in a macOS bundle and `resources/app` in a Linux tree. It
  * identifies a link this app wrote even when the link dangles, which is the case the DMG
  * launch and a moved app both produce and the case where the file itself cannot be read.
  */
-const BUNDLED_LAUNCHER_PATH = /(?:^|\/)[Rr]esources\/app\/bin\/penguin$/;
+const BUNDLED_LAUNCHER_PATH = /(?:^|\/)[Rr]esources\/app\/bin\/wafh$/;
 
 /** Whether `file` is a launcher this app generated (marker text shipped since 0.2.2). */
 function hasLauncherMarker(file: string): boolean {
@@ -57,8 +57,8 @@ function hasLauncherMarker(file: string): boolean {
 
 /**
  * The macOS form: a symlink at `target` that should point at `desired`
- * (`<app>/bin/penguin`). Anything that is not a symlink is foreign — this app has never
- * written a regular file here, so a regular file is someone else's `penguin`.
+ * (`<app>/bin/wafh`). Anything that is not a symlink is foreign — this app has never
+ * written a regular file here, so a regular file is someone else's `wafh`.
  */
 export function inspectSymlinkTarget(target: string, desired: string): TargetStatus {
   let link: fs.Stats;
@@ -148,7 +148,7 @@ export function isVolatileAppLocation(appPath: string, platform: NodeJS.Platform
 /**
  * What one pass over the target did.
  * - `current`   — already ours and pointing here; nothing was written.
- * - `skipped`   — someone else's `penguin` is there and was left exactly as it was.
+ * - `skipped`   — someone else's `wafh` is there and was left exactly as it was.
  * - `installed` — ours was written (fresh, or repairing a stale or dangling one).
  */
 export interface SyncResult {
@@ -161,7 +161,7 @@ export interface SyncResult {
  * The whole disk-side decision, in one place so the automatic path and the menu item
  * cannot drift apart. `force` is reachable only from the menu item, where the user has
  * just been shown what would be replaced — the automatic path always passes false, which
- * is what makes "never overwrite a `penguin` this app did not write" a property of the
+ * is what makes "never overwrite a `wafh` this app did not write" a property of the
  * code rather than of a caller remembering to check.
  */
 function sync(status: TargetStatus, force: boolean, write: () => void): SyncResult {
@@ -185,7 +185,7 @@ export function syncWrapper(target: string, script: string, force: boolean): Syn
 
 /**
  * What the last attempt did. Only `decision` changes behaviour; the rest is a record for
- * whoever has to explain why no `penguin` appeared.
+ * whoever has to explain why no `wafh` appeared.
  */
 export interface CliCommandState {
   version: 1;

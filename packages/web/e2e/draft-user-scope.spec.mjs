@@ -4,7 +4,7 @@
  * Old bug: the draft key only included the Project/Session ID, with no user dimension. If user A
  * left an unsent draft in a shared Project and logged out, user B logging in and visiting the
  * same Project would restore A's body and selections — an info leak across accounts. After the
- * fix, the key includes userId (penguin.chatDraft.<userId>.<projectId>), so each account only sees its own draft.
+ * fix, the key includes userId (wafh.chatDraft.<userId>.<projectId>), so each account only sees its own draft.
  */
 import { test, expect } from "@playwright/test";
 import { provisionAndLogin, provisionUser } from "./auth.mjs";
@@ -50,7 +50,7 @@ test("switching accounts: B does not restore A's draft; both drafts coexist", as
   await page.goto(`${BASE}/chat`);
   const ta = page.getByPlaceholder(/输入消息/);
   await ta.fill("A's secret draft");
-  const keyA = `penguin.chatDraft.${userA}.${projectId}`;
+  const keyA = `wafh.chatDraft.${userA}.${projectId}`;
   await expect
     .poll(() => page.evaluate((k) => localStorage.getItem(k), keyA))
     .toContain("A's secret draft");
@@ -72,7 +72,7 @@ test("switching accounts: B does not restore A's draft; both drafts coexist", as
   await page.getByLabel("密码", { exact: true }).fill(P);
   await page.locator('button[type="submit"]').click();
   await page.waitForURL(/\/chat/);
-  await expect(page.getByRole("heading", { name: "PenguinHarness" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "WAF Harness" })).toBeVisible();
 
   // The leak's regression point: B's input area must be empty (before the fix, it would restore A's body and selections).
   await expect(ta).toHaveValue("");
@@ -80,7 +80,7 @@ test("switching accounts: B does not restore A's draft; both drafts coexist", as
   // B writes their own draft: it lands under B's key (the key includes projectId, confirming B
   // is on the same shared Project), while A's draft is left untouched — neither overwrites the other.
   await ta.fill("B's own draft");
-  const keyB = `penguin.chatDraft.${userB}.${projectId}`;
+  const keyB = `wafh.chatDraft.${userB}.${projectId}`;
   await expect
     .poll(() => page.evaluate((k) => localStorage.getItem(k), keyB))
     .toContain("B's own draft");

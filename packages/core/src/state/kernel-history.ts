@@ -22,7 +22,7 @@ import { createHash } from "node:crypto";
  * change without it moving. (The reverse — moving it with no default change — is inert rather
  * than an error: nothing is keyed by version, so there is no table to fall out of sync with.)
  */
-export const KERNEL_VERSION = "2026-10-14";
+export const KERNEL_VERSION = "2026-10-23";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -217,12 +217,14 @@ export function isKernelOutdated(kernelVersion: string | null | undefined): bool
  *   that closes a `[turn_retried]` or `[turn_aborted]` block after a failed request: read the
  *   quoted error before carrying on, change course if it names something fixable. The prompt
  *   tab moved.
- * - `2026-10-14` (current) — the prompt avoids repeating code from generated files, separates
+ * - `2026-10-14` — the prompt avoids repeating code from generated files, separates
  *   framework reuse from the React preference, and drops the redundant library-availability
  *   clause. The prompt tab moved.
+ * - `2026-10-23` (current) — the product was renamed to WAF Harness: the prompt names it and
+ *   its `wafh` CLI. The prompt tab moved.
  */
 export const KERNEL_DEFAULT_TAB_HASHES: Readonly<Record<KernelTab, string>> = {
-  prompt: "c1ce239d2ef23ef533b5f00d3ed453e98bd7eb66ac8af9916fd0a5281455effb",
+  prompt: "3f96b982202e34b0f0baf3c79c702216a4e6d950f1740fd2a73abc7b4c81733c",
   runtime: "5dfea06a5e801950c24f44f5527e62435ae4facc311a6587e53aa69983ab0346",
   tools: "3ee93edff7292412e9b0bbaff6cc64ee53127299450e6738fbd2e7448e148d5b",
   skills: "7e343aa692e5eaeadfc8add6bb375fb50ac33ef81ebe460490fc219b0f3d707f",
@@ -251,6 +253,7 @@ export const KERNEL_SUPERSEDED_TAB_HASHES: KernelSupersededTabHashes = {
     "f9576833f73192d69c962bf21bd2049d0c8f5389ba4b9700ca9bd95ea545d3b0", // the search-scope template, before the 2026-09-11 guardrails and interaction rules
     "9b2b54a241c7b8ac92faf7177d6f42c9c87b54f2e6d89411b37c53e5061ca515", // the guardrails template, before # System markers explained the [request_error] line
     "07392a2f034d869c4e1d42a1668378d267dca68a10a84605441d9c2afb4d038e", // before concise file delivery and separate framework guidance
+    "c1ce239d2ef23ef533b5f00d3ed453e98bd7eb66ac8af9916fd0a5281455effb", // before the rename to WAF Harness
   ],
   runtime: [
     "808ae1d1b544f46daff4f59f1e62357b89a61f60803061e86b10635616e0102c", // compaction.max_context_length was 128000, before the rise to 256000

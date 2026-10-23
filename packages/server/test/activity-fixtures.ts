@@ -83,7 +83,7 @@ export async function createCheckoutActivity(
       "utf8",
     ),
   ) as Record<string, unknown>;
-  // Penguin writes its own files for the product here; opening Loom's refs in place is later.
+  // WAF Harness writes its own files for the product here; opening Loom's refs in place is later.
   await fs.rm(path.join(root, "modules", `waf-module-${productCode}`, "generated", productCode), {
     recursive: true,
     force: true,

@@ -69,7 +69,7 @@ describe("renderHostBlock", () => {
   it("writes the lines ssh reads, led by who wrote them and when, and nothing blank; a new host's key is accepted on first use", () => {
     expect(renderHostBlock({ alias: "nas", hostName: "10.0.0.2" }, AT)).toBe(
       [
-        "# Added by PenguinHarness on 2026-09-05T12:00:00.000Z",
+        "# Added by WAF Harness on 2026-09-05T12:00:00.000Z",
         "Host nas",
         "  HostName 10.0.0.2",
         "  StrictHostKeyChecking accept-new",
@@ -92,7 +92,7 @@ describe("renderHostBlock", () => {
       ),
     ).toBe(
       [
-        "# Added by PenguinHarness on 2026-09-05T12:00:00.000Z",
+        "# Added by WAF Harness on 2026-09-05T12:00:00.000Z",
         "Host build-box",
         "  HostName box.example.net",
         "  User deploy",
@@ -112,7 +112,7 @@ const CONFIG = [
   "Host nas gpu-1",
   "  HostName 10.0.0.2",
   "",
-  "# Added by PenguinHarness on 2026-09-05T12:00:00.000Z",
+  "# Added by WAF Harness on 2026-09-05T12:00:00.000Z",
   "Host orchid-2",
   "  HostName 10.0.0.9",
   "  User k",
@@ -158,7 +158,7 @@ describe("replaceHostBlock", () => {
     );
     const next = replaceHostBlock(CONFIG, found, block);
     expect(next.split("\n").slice(6, 12)).toEqual([
-      "# Added by PenguinHarness on 2026-09-06T00:00:00.000Z",
+      "# Added by WAF Harness on 2026-09-06T00:00:00.000Z",
       "Host orchid-2",
       "  HostName 10.0.0.10",
       "  Port 22",

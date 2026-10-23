@@ -13,7 +13,7 @@
  * color).
  */
 import { useMemo } from "react";
-import { GlyphIcon } from "@prismshadow/penguin-ui";
+import { GlyphIcon } from "@waterford/waf-harness-ui";
 import { BOOK_ICON } from "../chat/skill-use";
 import { sanitizeSkillIcon } from "./skill-icon";
 
@@ -41,7 +41,7 @@ const SKILL_COLOR_OVERRIDES: Record<string, number> = {
   "use-firecrawl": 3,
   "data-analysis": 1,
   "web-design": 2,
-  "penguin-sdk": 0,
+  "wafh-sdk": 0,
 };
 
 export function skillTileColor(name: string): string {

@@ -24,7 +24,7 @@ import type { HttpBindings } from "@hono/node-server";
 import { bodyLimit } from "hono/body-limit";
 import { bodyLimitBytes, toAttachmentLimits } from "./services/attachment-limits.js";
 import type { DatabaseSync } from "node:sqlite";
-import type { Instance, ModuleTree } from "@prismshadow/penguin-core/kernel";
+import type { Instance, ModuleTree } from "@waterford/waf-harness-core/kernel";
 import type { ServerConfig } from "./config.js";
 import { applyProxySettings, mergedNoProxy } from "./net/proxy.js";
 import {
@@ -117,8 +117,8 @@ import { UpdateCheckService } from "./services/update-check-service.js";
 import { UpdateJobService } from "./services/update-job.js";
 import { UsageService } from "./services/usage-service.js";
 import { WorkspaceFilesService } from "./services/workspace-files-service.js";
-import { HmrHost, hmrControl } from "@prismshadow/penguin-hmr";
-import type { Hmr } from "@prismshadow/penguin-hmr";
+import { HmrHost, hmrControl } from "@waterford/waf-harness-hmr";
+import type { Hmr } from "@waterford/waf-harness-hmr";
 import type { PlatformApi, ServerHmrHost } from "./hmr/platform.js";
 import { packagedPlatform } from "./hmr/platform.js";
 import { platformHttpSeam } from "./hmr/http-seam.js";
@@ -130,7 +130,7 @@ import {
 } from "./services/preview-token.js";
 import type { PreviewTokenSigner } from "./services/preview-token.js";
 
-import type { ControlEnvContext, ProxyEnvPolicy, SpawnConfiner } from "@prismshadow/penguin-core";
+import type { ControlEnvContext, ProxyEnvPolicy, SpawnConfiner } from "@waterford/waf-harness-core";
 import { declined } from "./hmr/hono-seam.js";
 import { AgentsRepo } from "./db/repos/agents.js";
 import { MembersRepo } from "./db/repos/members.js";
@@ -169,7 +169,7 @@ import { machinesRoutes } from "./http/routes/machines.js";
 import { UsageRecorder } from "./runtime/usage-recorder.js";
 import { previewRoutes } from "./http/routes/preview.js";
 import { MachinesService } from "./machines/service.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import type { Settings } from "./mechanisms/settings.js";
 import type { Errors } from "./mechanisms/observability.js";
 import type { Access } from "./mechanisms/projects.js";
@@ -285,7 +285,7 @@ export async function bootAppDeps(
   // when it cannot be persisted: the browser then simply never sweeps.
   ensureInstallId(config.root);
 
-  // The `penguin` an Agent's commands resolve: this harness's own CLI, written into the
+  // The `wafh` an Agent's commands resolve: this harness's own CLI, written into the
   // data root for every Session to put at the front of PATH (see services/cli-shim.ts).
   // Here rather than per App, for the same reason the two above are: it is a fact about
   // this PROCESS's installation, and a hot-pushed platform — compiled somewhere else
@@ -300,20 +300,20 @@ export async function bootAppDeps(
     dbPath: config.dbPath,
   });
   if (shim.kind === "written") {
-    // The whole command the shim runs, loader included: which CLI `penguin` is, said once.
+    // The whole command the shim runs, loader included: which CLI `wafh` is, said once.
     const command = [...shim.execArgs, shim.entry].join(" ");
-    shimLog(`Agent CLI: ${path.join(shim.dir, "penguin")} -> ${command}`);
+    shimLog(`Agent CLI: ${path.join(shim.dir, "wafh")} -> ${command}`);
   } else if (shim.kind === "stub") {
     shimLog(
-      `Agent CLI: this checkout's CLI cannot run, so ${path.join(shim.dir, "penguin")} says why ` +
+      `Agent CLI: this checkout's CLI cannot run, so ${path.join(shim.dir, "wafh")} says why ` +
         `instead of running another installation's: ${shim.reason}`,
     );
   } else if (shim.kind === "absent") {
     shimLog(
-      "Agent CLI: no CLI entry found; commands an Agent runs resolve `penguin` on their own PATH.",
+      "Agent CLI: no CLI entry found; commands an Agent runs resolve `wafh` on their own PATH.",
     );
   } else {
-    console.warn(`[server] could not write the penguin CLI shim: ${shim.reason}`);
+    console.warn(`[server] could not write the wafh CLI shim: ${shim.reason}`);
   }
 
   // What buildAppDeps claims (see hmr/capabilities.ts) — every entry must be in place before
@@ -450,7 +450,7 @@ export function createApp(boot: ServerBoot): Hono<AppEnv> {
   // cookie had ever been set on that host — act as the user. So the preview host serves ONLY
   // /preview/*: /api answers 401 (it never sets or honors a cookie there, closing both the
   // login and the stale-cookie paths), and everything else 302s to the canonical App host.
-  // Off when PENGUIN_PREVIEW_ORIGIN is set: previews then
+  // Off when WAFH_PREVIEW_ORIGIN is set: previews then
   // use that origin rather than the loopback counterpart, so 127.0.0.1 is an ordinary App
   // access point and must not be locked down — deployments enforce the equivalent at the
   // reverse proxy (route only /preview/* to the App on the preview origin).

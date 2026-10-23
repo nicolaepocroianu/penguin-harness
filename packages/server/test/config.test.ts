@@ -4,9 +4,9 @@
  * - An empty PORT (the common `PORT=` line in `.env`) reads as unset, never as port 0; an
  *   explicit value takes effect and an explicit "0" is kept (bind a random free port); a
  *   non-integer or out-of-range value throws. This matches the CLI's resolvePort.
- * - PENGUIN_SEED_ADMIN_PASSWORD: unset, empty or blank leaves the seed unpinned (null, so the
+ * - WAFH_SEED_ADMIN_PASSWORD: unset, empty or blank leaves the seed unpinned (null, so the
  *   seed generates its own); a value is kept trimmed; desktop mode changes neither.
- * - PENGUIN_CLI_ENTRY: a value is kept trimmed; a blank one falls through to the checkout
+ * - WAFH_CLI_ENTRY: a value is kept trimmed; a blank one falls through to the checkout
  *   lookup like an unset one.
  * - PENGUIN_GO_ORIGIN accepts a loopback HTTP origin for integration work and refuses anything
  *   that is not a bare origin, or plaintext HTTP to another host.
@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 import path from "node:path";
 import { resolveServerConfig } from "../src/config.js";
 
-const base = { PENGUIN_HOME: "/tmp/penguin-config-test" };
+const base = { WAFH_HOME: "/tmp/wafh-config-test" };
 
 describe("resolveServerConfig: PORT parsing", () => {
   it("reads an empty PORT as unset, not as port 0", () => {
@@ -43,34 +43,32 @@ describe("resolveServerConfig: seed password", () => {
     expect(resolveServerConfig({ ...base }).seedAdminPassword).toBeNull();
     for (const blank of ["", "  "]) {
       expect(
-        resolveServerConfig({ ...base, PENGUIN_SEED_ADMIN_PASSWORD: blank }).seedAdminPassword,
+        resolveServerConfig({ ...base, WAFH_SEED_ADMIN_PASSWORD: blank }).seedAdminPassword,
       ).toBeNull();
     }
     expect(
-      resolveServerConfig({ ...base, PENGUIN_SEED_ADMIN_PASSWORD: " penguin-9999 " })
-        .seedAdminPassword,
-    ).toBe("penguin-9999");
+      resolveServerConfig({ ...base, WAFH_SEED_ADMIN_PASSWORD: " wafh-9999 " }).seedAdminPassword,
+    ).toBe("wafh-9999");
   });
 
   it("desktop mode leaves the seed unpinned, and an explicit value still wins there", () => {
     // Nothing pins it: the password the seed generates on its own is already unguessable, so
     // supplying one here would just be a second way to say the same thing.
-    const desktop = { ...base, PENGUIN_DESKTOP_TOKEN: "tok" };
+    const desktop = { ...base, WAFH_DESKTOP_TOKEN: "tok" };
     expect(resolveServerConfig(desktop).seedAdminPassword).toBeNull();
     expect(
-      resolveServerConfig({ ...desktop, PENGUIN_SEED_ADMIN_PASSWORD: "penguin-2026" })
-        .seedAdminPassword,
-    ).toBe("penguin-2026");
+      resolveServerConfig({ ...desktop, WAFH_SEED_ADMIN_PASSWORD: "wafh-2026" }).seedAdminPassword,
+    ).toBe("wafh-2026");
   });
 });
 
-describe("resolveServerConfig: PENGUIN_CLI_ENTRY parsing", () => {
-  it("keeps a value trimmed — it is what the <root>/bin/penguin shim execs", () => {
+describe("resolveServerConfig: WAFH_CLI_ENTRY parsing", () => {
+  it("keeps a value trimmed — it is what the <root>/bin/wafh shim execs", () => {
     const config = resolveServerConfig({
       ...base,
-      PENGUIN_CLI_ENTRY: " /opt/penguin/dist/penguin.js ",
+      WAFH_CLI_ENTRY: " /opt/wafh/dist/wafh.js ",
     });
-    expect(config.cliEntry).toBe("/opt/penguin/dist/penguin.js");
+    expect(config.cliEntry).toBe("/opt/wafh/dist/wafh.js");
     expect(config.cliLaunch).toMatchObject({ execArgs: [], origin: "env", unavailable: null });
   });
 
@@ -78,28 +76,28 @@ describe("resolveServerConfig: PENGUIN_CLI_ENTRY parsing", () => {
     // This test runs from the checkout's source, as `pnpm dev` runs the server, so the lookup
     // offers the checkout's CLI source (see cli-shim.test.ts for resolveCliLaunch itself); the
     // claim here is only that a blank value is not treated as an entry.
-    const blank = resolveServerConfig({ ...base, PENGUIN_CLI_ENTRY: "   " });
+    const blank = resolveServerConfig({ ...base, WAFH_CLI_ENTRY: "   " });
     const unset = resolveServerConfig({ ...base });
     expect(blank.cliEntry).toBe(unset.cliEntry);
     expect(blank.cliLaunch).toEqual(unset.cliLaunch);
-    expect(blank.cliEntry?.endsWith(path.join("packages", "cli", "src", "penguin.ts"))).toBe(true);
+    expect(blank.cliEntry?.endsWith(path.join("packages", "cli", "src", "wafh.ts"))).toBe(true);
   });
 });
 
 describe("resolveServerConfig: PENGUIN_GO_ORIGIN parsing", () => {
   // Without an override, authorize on the primary domain; an explicit secondary stays selected.
   it("defaults to the primary Go domain and keeps an explicitly selected secondary domain", () => {
-    expect(resolveServerConfig(base).penguinGoOrigin).toBe("https://go.penguin.ooo");
+    expect(resolveServerConfig(base).wafHarnessGoOrigin).toBe("https://go.penguin.ooo");
     expect(
       resolveServerConfig({ ...base, PENGUIN_GO_ORIGIN: "https://token.penguin.ooo" })
-        .penguinGoOrigin,
+        .wafHarnessGoOrigin,
     ).toBe("https://token.penguin.ooo");
   });
 
   it("accepts a loopback HTTP origin for integration work, trimmed", () => {
     expect(
       resolveServerConfig({ ...base, PENGUIN_GO_ORIGIN: " http://127.0.0.1:3000 " })
-        .penguinGoOrigin,
+        .wafHarnessGoOrigin,
     ).toBe("http://127.0.0.1:3000");
   });
 

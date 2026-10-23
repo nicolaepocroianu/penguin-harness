@@ -20,8 +20,15 @@ import type {
 import { feishuCardOf } from "./feishu-card.js";
 import type { FeishuApiClient, FeishuCredentials, FeishuMention, FeishuSdk } from "./feishu-sdk.js";
 import { FeishuApiError, createLarkSdk } from "./feishu-sdk.js";
-import { Bind, Component, Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
-import type { ClassCtx, Opaque } from "@prismshadow/penguin-core/kernel";
+import {
+  Bind,
+  Component,
+  Interface,
+  Module,
+  Provide,
+  Use,
+} from "@waterford/waf-harness-core/kernel";
+import type { ClassCtx, Opaque } from "@waterford/waf-harness-core/kernel";
 
 /** Default Feishu open-platform domain (Lark tenants override it in the form). */
 export const FEISHU_DEFAULT_DOMAIN = "https://open.feishu.cn";
@@ -92,9 +99,9 @@ function mentionKeyRegex(mentions: readonly FeishuMention[]): RegExp {
  *
  * A LEADING mention of this bot is dropped instead of named, when its open id is known: the
  * bridge feeds inbound text to the model exactly as if it had been typed into the web
- * composer, and a `@PenguinHarness` in front of the sentence would announce the channel the
+ * composer, and a `@WAF Harness` in front of the sentence would announce the channel the
  * message came through. Only that addressing prefix goes — this bot named further in ("why
- * did @PenguinHarness stop replying?") is a word the user chose, and it reads as itself like
+ * did @WAF Harness stop replying?") is a word the user chose, and it reads as itself like
  * anyone else's. An unknown id (see FeishuApiClient.botOpenId) only means the prefix is named
  * too — the confusion the placeholder caused is gone either way.
  *

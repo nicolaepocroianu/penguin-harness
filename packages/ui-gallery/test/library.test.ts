@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { STREAM_REVEALS, TOKEN_NAMES } from "@prismshadow/penguin-ui";
+import { STREAM_REVEALS, TOKEN_NAMES } from "@waterford/waf-harness-ui";
 import { HOME_SURFACE } from "../src/app/surfaces";
 import { SEEDED_KEYS } from "../src/app/frame";
 import {
@@ -169,7 +169,7 @@ describe("the charts board", () => {
 
   it("shows each primitive on its own, from the package and nothing from the app", () => {
     const stage = read("../src/library/boards/chart-primitives.tsx");
-    expect(stage).toMatch(/from "@prismshadow\/penguin-ui";/);
+    expect(stage).toMatch(/from "@waterford\/waf-harness-ui";/);
     expect(stage).not.toMatch(/web\/src/);
     for (const primitive of [
       "ChartBar",
@@ -234,7 +234,7 @@ describe("the charts board", () => {
       expect(board).toMatch(new RegExp(`<${chart}[\\s/>]`));
     }
     // The package's charts come from the package; the app's domain charts from the app.
-    expect(board).toMatch(/from "@prismshadow\/penguin-ui";/);
+    expect(board).toMatch(/from "@waterford\/waf-harness-ui";/);
     expect(board).not.toMatch(/token-donut"|-sparkline"/);
     expect(board).toMatch(
       /from "\.\.\/\.\.\/\.\.\/\.\.\/web\/src\/features\/traces\/timeline-chart"/,
@@ -245,7 +245,7 @@ describe("the charts board", () => {
 describe("the content board", () => {
   it("shows every content component from the package, and nothing from the app", () => {
     const board = read("../src/library/boards/content.tsx");
-    expect(board).toMatch(/from "@prismshadow\/penguin-ui";/);
+    expect(board).toMatch(/from "@waterford\/waf-harness-ui";/);
     expect(board).not.toMatch(/web\/src/);
     for (const component of [
       "Heading",
@@ -287,7 +287,7 @@ describe("the content board", () => {
 describe("the streaming board", () => {
   it("plays the streaming Session's answer through the package's reply body, on one seed, with a replay", () => {
     const board = read("../src/library/boards/streaming.tsx");
-    expect(board).toMatch(/import \{\s*AssistantText,[^}]*\} from "@prismshadow\/penguin-ui";/);
+    expect(board).toMatch(/import \{\s*AssistantText,[^}]*\} from "@waterford\/waf-harness-ui";/);
     expect(board).not.toMatch(/web\/src\/features\/chat/);
     expect(board).toMatch(/streamScript\(text, BOARD_SEED\)/);
     expect(board).toMatch(/const answer = streamingAnswer\("en"\);/);
@@ -347,7 +347,7 @@ describe("the layout and data boards", () => {
     };
     for (const [topic, components] of Object.entries(boards)) {
       const board = read(`../src/library/boards/${topic}.tsx`);
-      expect(board).toMatch(/from "@prismshadow\/penguin-ui";/);
+      expect(board).toMatch(/from "@waterford\/waf-harness-ui";/);
       expect(board).not.toMatch(/web\/src/);
       for (const component of components) {
         expect(board, `${topic}: ${component}`).toMatch(new RegExp(`<${component}[\\s/>]`));

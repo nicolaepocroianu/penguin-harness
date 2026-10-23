@@ -57,7 +57,7 @@ import { requireHuman } from "../auth/middleware.js";
 import type { AppEnv } from "../auth/middleware.js";
 import { HttpError, errorBody } from "../http/errors.js";
 import { badRequest } from "../http/validate.js";
-import { isPenguinExtensionOrigin } from "./extension-origin.js";
+import { isWafHarnessExtensionOrigin } from "./extension-origin.js";
 import type { ExtensionPairing } from "./extension-pairing.js";
 import { BrowserUnavailableError } from "./service.js";
 import type { Actor, BuiltinBrowser } from "./service.js";
@@ -119,7 +119,7 @@ function optNumber(body: Body, key: string): number | undefined {
   return value;
 }
 
-/** The session an Agent's CLI names (PENGUIN_SESSION_ID), so the window can follow its work. */
+/** The session an Agent's CLI names (WAFH_SESSION_ID), so the window can follow its work. */
 function sessionIdOf(body: Body): string | undefined {
   const id = optString(body, "sessionId");
   return id === undefined || id === "" ? undefined : id.slice(0, 200);
@@ -518,9 +518,9 @@ export function extensionPairRoutes(pairing: ExtensionPairing | null): Hono<AppE
   /** The extension's origin may read the answer; a web page's is refused, none is a tool. */
   const answer = (c: Context<AppEnv>, respond: () => Response | Promise<Response>) => {
     const origin = c.req.header("origin");
-    if (origin !== undefined && !isPenguinExtensionOrigin(origin)) {
+    if (origin !== undefined && !isWafHarnessExtensionOrigin(origin)) {
       return c.json(
-        errorBody("forbidden_origin", "Only the PenguinHarness Browser extension pairs here."),
+        errorBody("forbidden_origin", "Only the WAF Harness Browser extension pairs here."),
         403,
       );
     }

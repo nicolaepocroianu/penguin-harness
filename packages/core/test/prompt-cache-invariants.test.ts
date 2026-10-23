@@ -70,7 +70,7 @@ describe("prompt-cache invariants of request assembly", () => {
   let traces: string;
 
   beforeEach(async () => {
-    traces = await mkdtemp(join(tmpdir(), "penguin-prompt-cache-"));
+    traces = await mkdtemp(join(tmpdir(), "wafh-prompt-cache-"));
   });
 
   afterEach(async () => {

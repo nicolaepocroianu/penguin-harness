@@ -2,7 +2,7 @@
  * An author's edit of a module document: the configuration a ref's module reads, or the
  * assessment and the module definition every ref of a product shares.
  *
- * Loom wrote these straight into the module folder of the WAF checkout. Penguin keeps them in
+ * Loom wrote these straight into the module folder of the WAF checkout. WAF Harness keeps them in
  * the draft instead, as an override the preview and every assembly use until the author
  * discards it. It is never overwritten by a later plan or assembly; when what it was derived
  * from changes, it is reported stale instead.

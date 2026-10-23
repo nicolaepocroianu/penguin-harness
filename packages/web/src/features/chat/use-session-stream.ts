@@ -23,7 +23,7 @@ import type {
   PendingSteeringInfo,
   SessionStatus,
   SubagentRuntimeInfo,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { getGoal, getMessages } from "../../api/endpoints";
 import { probeSession } from "../../api/session-probe";
 import { apiSocket } from "../../api/socket";

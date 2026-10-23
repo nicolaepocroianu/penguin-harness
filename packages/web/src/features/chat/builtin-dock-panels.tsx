@@ -9,7 +9,7 @@
  * Importing the module registers the eight — chat-page.tsx does, so they are in the registry
  * before any dock renders.
  */
-import { EmptyState, ICONS } from "@prismshadow/penguin-ui";
+import { EmptyState, ICONS } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { machineForSession } from "../../lib/session-machines";
 import { NAV_ICONS } from "../../lib/nav-icons";

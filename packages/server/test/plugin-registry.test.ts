@@ -6,11 +6,11 @@
  *   (unlike a plugin list's per-entry tolerance).
  * - The builtin catalogue lists the sandbox backends that live in plugins/, each named,
  *   versioned, titled, described and licensed as the package names itself, described in both languages
- *   and drawn with the icon of its own package.json `penguin` block and icon.svg (which it
+ *   and drawn with the icon of its own package.json `wafh` block and icon.svg (which it
  *   publishes), and serves each one's own shipped README.md; a listed package not on this
  *   machine, a name it does not list and a remote registry have no readme.
  * - A package on this machine describes itself in the listing over what its row says; one
- *   without a penguin block or an icon, and a row whose package is not here, stay as the index
+ *   without a wafh block or an icon, and a row whose package is not here, stay as the index
  *   wrote them; an icon that is not a plain SVG is never sent.
  * - The HTTP registry fetches its index URL and runs the document through the same validator;
  *   an HTTP error, non-JSON and a malformed document fail it; a failed connection is tried
@@ -53,7 +53,7 @@ import { apiClient, createTestApp, loginAdmin } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
 
 const VALID_ENTRY: PluginIndexEntry = {
-  name: "@example/penguin-plugin-demo",
+  name: "@example/wafh-plugin-demo",
   version: "1.0.0",
   description: "A demo plugin.",
   authors: ["Example"],
@@ -175,7 +175,7 @@ interface PackageManifest {
   license?: string;
   files?: string[];
   /** The product's own fields: what the package says of itself for its card. */
-  penguin?: {
+  wafh?: {
     title?: string;
     title_zh?: string;
     description_zh?: string;
@@ -203,11 +203,8 @@ for (const dir of readdirSync(PLUGINS_DIR)) {
 async function shippedPrefix(
   names: Iterable<string>,
 ): Promise<{ dir: string; bases: PluginBase[] }> {
-  const dir = await mkdtemp(path.join(tmpdir(), "penguin-shipped-"));
-  await writeFile(
-    path.join(dir, "package.json"),
-    '{"name":"penguin-builtin-plugins","private":true}',
-  );
+  const dir = await mkdtemp(path.join(tmpdir(), "wafh-shipped-"));
+  await writeFile(path.join(dir, "package.json"), '{"name":"wafh-builtin-plugins","private":true}');
   for (const name of names) {
     const pkg = packages.get(name);
     if (pkg === undefined) continue;
@@ -257,15 +254,15 @@ describe("plugin readmes", () => {
 
   /**
    * The sandbox backends follow the rule the Agent plugins do: `plugins/<dir>` is the npm
-   * package `@penguinharness/<dir>`. The release publishes by that name and a Project's
+   * package `@waf-harness/<dir>`. The release publishes by that name and a Project's
    * `[plugins]` table names it, so a package that drifts from its directory is one nobody can
    * find by either.
    */
-  it("names every sandbox backend @penguinharness/<its directory>", () => {
+  it("names every sandbox backend @waf-harness/<its directory>", () => {
     const sandboxes = [...packages].filter(([, { dir }]) => dir.startsWith("sandbox-"));
     expect(sandboxes).toHaveLength(4);
     for (const [name, { dir }] of sandboxes) {
-      expect(name, `plugins/${dir}`).toBe(`@penguinharness/${dir}`);
+      expect(name, `plugins/${dir}`).toBe(`@waf-harness/${dir}`);
     }
   });
 });
@@ -289,18 +286,18 @@ describe("the builtin catalogue and the packages it lists", () => {
 
   /**
    * The row is the card on a server the package is not installed on, so it repeats what the
-   * package says of itself — its package.json's `penguin` block and its icon.svg — and the
+   * package says of itself — its package.json's `wafh` block and its icon.svg — and the
    * package publishes both, for the card of a server it is installed on.
    */
-  it("describes each backend with the package's own penguin block and icon.svg", async () => {
+  it("describes each backend with the package's own wafh block and icon.svg", async () => {
     for (const entry of await builtinPluginRegistry().index()) {
       const { dir, manifest } = packages.get(entry.name)!;
       expect(entry, entry.name).toMatchObject({
-        title: manifest.penguin?.title,
+        title: manifest.wafh?.title,
         description: manifest.description,
-        shortDescription: manifest.penguin?.short_description,
+        shortDescription: manifest.wafh?.short_description,
         icon: readFileSync(`${PLUGINS_DIR}${dir}/icon.svg`, "utf8"),
-        categories: [manifest.penguin?.category],
+        categories: [manifest.wafh?.category],
       });
       // English only: the index carries no Chinese copy of a backend's words.
       expect(
@@ -350,7 +347,7 @@ describe("the registry routes", () => {
   });
 
   it("requires auth, then serves a listed entry's readme from the package on this machine", async () => {
-    const name = "@penguinharness/sandbox-bwrap";
+    const name = "@waf-harness/sandbox-bwrap";
     const url = `/api/plugins/registry/readme?name=${encodeURIComponent(name)}`;
     expect((await t.app.request(url)).status).toBe(401);
 
@@ -500,7 +497,7 @@ describe("cachedRegistry", () => {
 describe("mergeIndexes", () => {
   const remoteEntry: PluginIndexEntry = {
     ...VALID_ENTRY,
-    name: "@example/penguin-plugin-remote",
+    name: "@example/wafh-plugin-remote",
   };
 
   it("concatenates sources in order, the first source winning a name@version collision", async () => {
@@ -531,14 +528,14 @@ describe("mergeIndexes", () => {
 });
 
 describe("the published index source", () => {
-  it("is a release asset on a fixed tag; PENGUIN_PLUGIN_INDEX unset reads it, off reads none, a URL replaces it", () => {
+  it("is a release asset on a fixed tag; WAFH_PLUGIN_INDEX unset reads it, off reads none, a URL replaces it", () => {
     // The tag is never re-pointed — a six-hourly workbench replaces the ASSET — so "latest
     // nightly" is resolved by name and costs no unauthenticated API budget.
     expect(NIGHTLY_INDEX_URL).toBe(
       "https://github.com/Prism-Shadow/penguin-extensions/releases/download/nightly/index.json",
     );
     const at = (value: string | undefined) =>
-      resolveServerConfig({ ...(value === undefined ? {} : { PENGUIN_PLUGIN_INDEX: value }) })
+      resolveServerConfig({ ...(value === undefined ? {} : { WAFH_PLUGIN_INDEX: value }) })
         .pluginIndexUrl;
     expect(at(undefined)).toBe(NIGHTLY_INDEX_URL);
     expect(at("")).toBe(NIGHTLY_INDEX_URL);
@@ -553,7 +550,7 @@ describe("the route's own merge", () => {
   // above, and what these assert is which sources reach the response body.
   const published: PluginIndexEntry = {
     ...VALID_ENTRY,
-    name: "@example/penguin-plugin-published",
+    name: "@example/wafh-plugin-published",
   };
 
   it("merges the published entries in behind the builtin ones, and reports a dead source", async () => {
@@ -653,20 +650,20 @@ describe("the route's own merge", () => {
 
   it("lets a package on this machine describe itself over its row, and leaves a row whose package is not here as it is", async () => {
     // A published row that carries only English and no icon, for a package an admin installed
-    // into the data root's prefix with its own penguin block and icon.svg; and one installed
+    // into the data root's prefix with its own wafh block and icon.svg; and one installed
     // with neither, which keeps its row's text and the puzzle piece.
     const installedHere: PluginIndexEntry = {
       ...VALID_ENTRY,
-      name: "@example/penguin-plugin-here",
+      name: "@example/wafh-plugin-here",
       title: "Old title",
       titleZh: "旧名称",
     };
-    const bare: PluginIndexEntry = { ...VALID_ENTRY, name: "@example/penguin-plugin-bare" };
-    const elsewhere: PluginIndexEntry = { ...VALID_ENTRY, name: "@example/penguin-plugin-away" };
-    const prefix = await mkdtemp(path.join(tmpdir(), "penguin-prefix-"));
+    const bare: PluginIndexEntry = { ...VALID_ENTRY, name: "@example/wafh-plugin-bare" };
+    const elsewhere: PluginIndexEntry = { ...VALID_ENTRY, name: "@example/wafh-plugin-away" };
+    const prefix = await mkdtemp(path.join(tmpdir(), "wafh-prefix-"));
     try {
       await writeFile(path.join(prefix, "package.json"), '{"name":"prefix","private":true}');
-      const dir = path.join(prefix, "node_modules", "@example", "penguin-plugin-here");
+      const dir = path.join(prefix, "node_modules", "@example", "wafh-plugin-here");
       await mkdir(dir, { recursive: true });
       await writeFile(
         path.join(dir, "package.json"),
@@ -674,7 +671,7 @@ describe("the route's own merge", () => {
           name: installedHere.name,
           version: "1.0.0",
           description: "A demo plugin.",
-          penguin: {
+          wafh: {
             title: "Local demo",
             title_zh: "本地示例",
             description_zh: "一个示例插件。",
@@ -684,7 +681,7 @@ describe("the route's own merge", () => {
         }),
       );
       await writeFile(path.join(dir, "icon.svg"), '<svg viewBox="0 0 24 24"></svg>\n');
-      const bareDir = path.join(prefix, "node_modules", "@example", "penguin-plugin-bare");
+      const bareDir = path.join(prefix, "node_modules", "@example", "wafh-plugin-bare");
       await mkdir(bareDir, { recursive: true });
       await writeFile(
         path.join(bareDir, "package.json"),
@@ -714,18 +711,18 @@ describe("the route's own merge", () => {
   });
 
   it("never sends the icon of a package on this machine that is not a plain SVG", async () => {
-    const entry: PluginIndexEntry = { ...VALID_ENTRY, name: "@example/penguin-plugin-risky" };
-    const prefix = await mkdtemp(path.join(tmpdir(), "penguin-prefix-"));
+    const entry: PluginIndexEntry = { ...VALID_ENTRY, name: "@example/wafh-plugin-risky" };
+    const prefix = await mkdtemp(path.join(tmpdir(), "wafh-prefix-"));
     try {
       await writeFile(path.join(prefix, "package.json"), '{"name":"prefix","private":true}');
-      const dir = path.join(prefix, "node_modules", "@example", "penguin-plugin-risky");
+      const dir = path.join(prefix, "node_modules", "@example", "wafh-plugin-risky");
       await mkdir(dir, { recursive: true });
       await writeFile(
         path.join(dir, "package.json"),
         JSON.stringify({
           name: entry.name,
           version: "1.0.0",
-          penguin: { short_description: "Risky." },
+          wafh: { short_description: "Risky." },
         }),
       );
       await writeFile(

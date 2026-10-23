@@ -20,8 +20,8 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement as h, useState } from "react";
-import type { PluginConfigEntry } from "@prismshadow/penguin-server/api";
-import { hasUnsaved, toastStore } from "@prismshadow/penguin-ui";
+import type { PluginConfigEntry } from "@waterford/waf-harness-server/api";
+import { hasUnsaved, toastStore } from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { UnsavedPrompt } from "../src/lib/unsaved/unsaved-prompt";

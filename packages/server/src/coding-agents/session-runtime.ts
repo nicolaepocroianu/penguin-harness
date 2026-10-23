@@ -1,5 +1,5 @@
 /**
- * A coding agent (Claude Code, Codex, OpenCode, ...) as an ordinary Penguin Session. The
+ * A coding agent (Claude Code, Codex, OpenCode, ...) as an ordinary WAF Harness Session. The
  * session manager drives any `RuntimeSession`; this one drives an ACP session and yields the
  * same OmniMessages a core Session does, so the sidebar, the chat view, approvals and the
  * Trace all work unchanged:
@@ -40,7 +40,7 @@ import {
   type OmniMessage,
   type TokenCounts,
   type ToolCallPayload,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   AgentPermissionOutcome,
   AgentPermissionRequest,
@@ -49,7 +49,7 @@ import type {
   AgentToolCall,
   AgentTurnUsage,
   CodingAgentManager,
-} from "@prismshadow/penguin-coding-agents";
+} from "@waterford/waf-harness-coding-agents";
 import type { RuntimeSession } from "../runtime/session-manager.js";
 
 /** The provider group every coding-agent model row and Session carries. */
@@ -193,7 +193,7 @@ export class AcpTurnTranslator {
   }
 }
 
-/** The ACP permission option a Penguin decision picks; cancelled when none fits. */
+/** The ACP permission option a WAF Harness decision picks; cancelled when none fits. */
 export function permissionOutcome(
   request: AgentPermissionRequest,
   decision: ApprovalDecision,
@@ -307,14 +307,14 @@ class EventQueue {
 
 export interface AcpRuntimeOptions {
   manager: CodingAgentManager;
-  /** The Penguin Session id (what the sidebar, routes and Trace are keyed by). */
+  /** The WAF Harness Session id (what the sidebar, routes and Trace are keyed by). */
   sessionId: string;
   /** The agent's own id for the same conversation. */
   acpSessionId: string;
   provider: string;
   modelId: string;
   workspace: string;
-  /** The owning Penguin Agent's state directory, recorded in session_meta like any Session. */
+  /** The owning WAF Harness Agent's state directory, recorded in session_meta like any Session. */
   agentState: string;
   writer: Writer;
   /** The Trace already has its session_meta (a reopened Session). */

@@ -56,7 +56,7 @@
  *   draft models, converges to ok:false with no credential, tests the draft (clearApiKey) rather
  *   than the stored key, and refuses a keyless gateway row or a Penguin Go probe without reaching
  *   for vendor environment keys or the network (a relay row with no endpoint anywhere included).
- *   Its request names PenguinHarness and its version as the whole User-Agent, whichever SDK
+ *   Its request names WAF Harness and its version as the whole User-Agent, whichever SDK
  *   the protocol runs on.
  * - A PUT invalidates the Project's cached Session runtimes (reads do not), tells the Project's
  *   open Session channels only, and GET/PUT report the file's updatedAt.
@@ -68,7 +68,7 @@ import type { AddressInfo } from "node:net";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { renderProjectConfigToml, userText, VERSION } from "@prismshadow/penguin-core";
+import { renderProjectConfigToml, userText, VERSION } from "@waterford/waf-harness-core";
 import {
   MODEL_CATALOG,
   PENGUIN_GO_BASE_URL,
@@ -96,7 +96,7 @@ import { jsonResponse, stubFetch } from "./fixtures/fetch.js";
 import { fakeSession, sessionRow } from "./fixtures/session.js";
 import { apiClient, createTestApp, loginAdmin, provisionUser, waitFor } from "./helpers.js";
 import type { TestApp } from "./helpers.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 
 /** Preset paired refs (config primary key = (provider, model_id)): retired catalog rows are not presets. */
 const catalogPairs = MODEL_CATALOG.filter((m) => m.retired !== true).map(
@@ -457,7 +457,7 @@ describe("models preset & catalog enrichment", () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test-secret-value-123456");
     vi.stubEnv("OPENAI_API_KEY", "sk-openai-test-secret-value-789");
     // A relay variable is nobody's: Penguin Go takes its key from the config alone.
-    vi.stubEnv("PENGUIN_GO_API_KEY", "sk-penguin-test-secret-value-456");
+    vi.stubEnv("PENGUIN_GO_API_KEY", "sk-wafh-test-secret-value-456");
     // Empty counts as absent — it would not authenticate either.
     vi.stubEnv("DEEPSEEK_API_KEY", "");
     // Vendor-group rows no PUT may add any more, stored as a table from before would hold them.
@@ -528,7 +528,7 @@ describe("models preset & catalog enrichment", () => {
       const text = await put.text();
       expect(text).not.toContain("sk-ant-test-secret-value-123456");
       expect(text).not.toContain("sk-openai-test-secret-value-789");
-      expect(text).not.toContain("sk-penguin-test-secret-value-456");
+      expect(text).not.toContain("sk-wafh-test-secret-value-456");
       const body = JSON.parse(text) as ModelsResponse;
       const anthropic = "sk-a…3456";
       expect(pick(body, "anthropic", "claude-sonnet-4-6")).toMatchObject({
@@ -1812,7 +1812,7 @@ describe("model-reference rekeying and the connectivity test", () => {
       ["ant-messages", ""],
       ["google-genai", ""],
       ["mmsp", ""],
-    ])("over %s names PenguinHarness and its version, and nothing else", async (clientType, at) => {
+    ])("over %s names WAF Harness and its version, and nothing else", async (clientType, at) => {
       agents.length = 0;
       const res = await api.post(testUrl(), {
         provider: "custom",
@@ -1823,7 +1823,7 @@ describe("model-reference rekeying and the connectivity test", () => {
       });
       expect(res.status).toBe(200);
       expect(agents.length).toBeGreaterThan(0);
-      expect(new Set(agents)).toEqual(new Set([`penguinharness/${VERSION}`]));
+      expect(new Set(agents)).toEqual(new Set([`waf-harness/${VERSION}`]));
     });
   });
 

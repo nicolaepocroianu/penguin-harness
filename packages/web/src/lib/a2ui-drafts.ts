@@ -4,7 +4,7 @@
  * conversation.
  *
  * The UI package decides what an entry holds and when it is read or written (its a2ui draft.ts);
- * this is only where entries live. A key is `penguin.a2uiDraft.<Session id>:<block hash>` and a
+ * this is only where entries live. A key is `wafh.a2uiDraft.<Session id>:<block hash>` and a
  * value `{ v: 1, at, state }`, `at` the time of the write in ms.
  *
  * A draft is a convenience, not a record. It is per browser, an entry a week old is dropped when
@@ -13,9 +13,9 @@
  * private window, blocked site data or a full quota turn every write into a no-op and every read
  * into nothing, and the form starts blank, as it did before drafts.
  */
-import type { A2uiDrafts } from "@prismshadow/penguin-ui";
+import type { A2uiDrafts } from "@waterford/waf-harness-ui";
 
-const PREFIX = "penguin.a2uiDraft.";
+const PREFIX = "wafh.a2uiDraft.";
 
 /** How long an entry lasts after its last write. */
 export const A2UI_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

@@ -1,33 +1,33 @@
 /**
- * A terminal's `penguin` is this harness's own: the CLI shim directory leads PATH once the
+ * A terminal's `wafh` is this harness's own: the CLI shim directory leads PATH once the
  * user's own startup files have run (src/terminal/shell-startup.ts).
  *
  * Real shells in real ptys, each against a fake HOME whose startup files do what users' do:
- * put their own bin directory (holding another `penguin`) first on PATH, define an alias,
+ * put their own bin directory (holding another `wafh`) first on PATH, define an alias,
  * set the prompt. Every shell installed on this machine is tried; the others are skipped.
  * The fake executables are `#!/bin/sh` scripts, so nothing depends on where `node` is.
  *
- * - Given a user rc that puts its own `penguin` first, `penguin` typed in the terminal runs
+ * - Given a user rc that puts its own `wafh` first, `wafh` typed in the terminal runs
  *   the shim's.
  * - The user's rc still counts: its alias works, and its directory is still on PATH.
  * - Nothing is printed before the user's prompt: no echoed command, no error.
- * - Given a user rc that puts its own `penguin` first AGAIN after startup — in a prompt hook
+ * - Given a user rc that puts its own `wafh` first AGAIN after startup — in a prompt hook
  *   (bash PROMPT_COMMAND as a string or an array, zsh precmd) or in zsh's .zlogin —
- *   `command -v penguin` is still the shim, at the first prompt and the next.
+ *   `command -v wafh` is still the shim, at the first prompt and the next.
  * - The prompt hook keeps the exit status of the user's last command, and the user's settings
  *   as they were: a `set -e` bash survives a failure set -e lets pass, an ERR / ZERR trap runs
  *   once per failed command, a bash started inside the terminal under the user's exported
  *   PROMPT_COMMAND prints no error, and a zsh under `setopt nounset` nothing above its prompt.
  * - zsh: once started, ZDOTDIR is what the user had (unset, or their own), so `exec zsh` and
  *   nested shells read the user's files.
- * - Without a shim directory the shell starts as before, and the user's rc decides `penguin`.
+ * - Without a shim directory the shell starts as before, and the user's rc decides `wafh`.
  * - Opening another terminal adds nothing to the startup directory.
- * - The shell gets none of the server process's PENGUIN_* / PORT / HOST, only what the caller
- *   passes — but keeps PENGUIN_HOME / PENGUIN_WEB_DB where no shim names the data root. A
+ * - The shell gets none of the server process's WAFH_* / PORT / HOST, only what the caller
+ *   passes — but keeps WAFH_HOME / WAFH_WEB_DB where no shim names the data root. A
  *   notice, when there is one, is the screen's first line, above the prompt.
  * - Through the server: a terminal opened over the API on a server with a CLI entry runs the
- *   server's `<root>/bin/penguin`; a development instance's terminal first says which CLI that
- *   is and on which data root, or, when the checkout's CLI cannot run, why — and `penguin`
+ *   server's `<root>/bin/wafh`; a development instance's terminal first says which CLI that
+ *   is and on which data root, or, when the checkout's CLI cannot run, why — and `wafh`
  *   then says the same and fails.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -90,7 +90,7 @@ interface Shell {
   user(home: string): Record<string, string>;
 }
 
-/** What every user rc below does: its own `penguin` first, an alias, a prompt. */
+/** What every user rc below does: its own `wafh` first, an alias, a prompt. */
 const RC_PATH = "$HOME/userbin";
 
 const SHELLS: Shell[] = [
@@ -167,14 +167,14 @@ const SHELLS: Shell[] = [
   },
 ];
 
-describePty("a terminal puts this harness's penguin first on PATH", () => {
+describePty("a terminal puts this harness's wafh first on PATH", () => {
   let tmp: string;
   let shimDir: string;
 
   beforeAll(() => {
-    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-terminal-path-"));
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-terminal-path-"));
     shimDir = path.join(tmp, "root", "bin");
-    writeScript(path.join(shimDir, "penguin"), "echo from-shim");
+    writeScript(path.join(shimDir, "wafh"), "echo from-shim");
   });
 
   afterAll(() => {
@@ -183,11 +183,11 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
 
   /**
    * A fresh HOME for one shell: the user's startup files plus `~/userbin`, which holds the
-   * user's own `penguin` and a tool only that directory has.
+   * user's own `wafh` and a tool only that directory has.
    */
   function homeFor(shell: Shell): { home: string; env: Record<string, string> } {
     const home = fs.mkdtempSync(path.join(tmp, `home-${shell.name}-`));
-    writeScript(path.join(home, "userbin", "penguin"), "echo from-user");
+    writeScript(path.join(home, "userbin", "wafh"), "echo from-user");
     writeScript(path.join(home, "userbin", "user-tool"), "echo user-tool-ok");
     const extra = shell.user(home);
     return {
@@ -271,12 +271,12 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
 
     describe.skipIf(shellPath === null)(shell.name, () => {
       it(
-        "runs the shim's penguin over the user's, keeping the user's alias and PATH entry",
+        "runs the shim's wafh over the user's, keeping the user's alias and PATH entry",
         async () => {
           const { env } = homeFor(shell);
           const session = await open(shellPath!, env, pathFirst());
           try {
-            const lines = await run(session, "penguin; pa; user-tool", "user-tool-ok");
+            const lines = await run(session, "wafh; pa; user-tool", "user-tool-ok");
             expect(lines).toContain("from-shim");
             expect(lines).not.toContain("from-user");
             expect(lines).toContain("alias-ok");
@@ -325,7 +325,7 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
       fs.renameSync(path.join(home, ".zshrc"), path.join(zdot, ".zshrc"));
       const session = await open(onPath("zsh")!, { ...env, ZDOTDIR: zdot }, pathFirst());
       try {
-        const lines = await run(session, 'echo "zd=$ZDOTDIR"; penguin; pa', "alias-ok");
+        const lines = await run(session, 'echo "zd=$ZDOTDIR"; wafh; pa', "alias-ok");
         expect(lines).toContain(`zd=${zdot}`);
         expect(lines).toContain("from-shim");
       } finally {
@@ -337,11 +337,11 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
   describe.skipIf(onPath("bash") === null)("without a shim directory", () => {
     const bash = SHELLS.find((shell) => shell.name === "bash")!;
 
-    it("starts the shell as before: the user's rc decides which penguin runs", async () => {
+    it("starts the shell as before: the user's rc decides which wafh runs", async () => {
       const { env } = homeFor(bash);
       const session = await open(onPath("bash")!, env, null);
       try {
-        const lines = await run(session, "penguin; pa", "alias-ok");
+        const lines = await run(session, "wafh; pa", "alias-ok");
         expect(lines).toContain("from-user");
       } finally {
         session.dispose();
@@ -365,7 +365,7 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
   });
 
   /**
-   * Users whose startup files put their own `penguin` first once more AFTER startup: in a
+   * Users whose startup files put their own `wafh` first once more AFTER startup: in a
    * prompt hook, which runs before every prompt (version managers and environment tools
    * install them), or in zsh's last startup file. Each case's files also do what the rc
    * above does — put the directory first and set the prompt — so only the late re-prepend
@@ -405,19 +405,19 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
     },
   ];
 
-  /** A fresh HOME with the user's `penguin` in ~/userbin and exactly these startup files. */
+  /** A fresh HOME with the user's `wafh` in ~/userbin and exactly these startup files. */
   function homeWith(files: Record<string, string>): Record<string, string> {
     const home = fs.mkdtempSync(path.join(tmp, "home-late-"));
-    writeScript(path.join(home, "userbin", "penguin"), "echo from-user");
+    writeScript(path.join(home, "userbin", "wafh"), "echo from-user");
     for (const [name, content] of Object.entries(files)) {
       fs.writeFileSync(path.join(home, name), content);
     }
     return { HOME: home, BASH_SILENCE_DEPRECATION_WARNING: "1" };
   }
 
-  /** The line `command -v penguin` printed, read off the screen above the marker after it. */
-  async function whichPenguin(session: TerminalSession, marker: string): Promise<string> {
-    const lines = await run(session, `command -v penguin; echo ${marker}`, marker);
+  /** The line `command -v wafh` printed, read off the screen above the marker after it. */
+  async function whichWafHarness(session: TerminalSession, marker: string): Promise<string> {
+    const lines = await run(session, `command -v wafh; echo ${marker}`, marker);
     return lines[lines.lastIndexOf(marker) - 1] ?? "";
   }
 
@@ -425,13 +425,13 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
     const shellPath = onPath(late.shell);
 
     describe.skipIf(shellPath === null)(`${late.shell} with ${late.what} that re-prepends`, () => {
-      it("still resolves penguin to the shim, at the first prompt and the next", async () => {
+      it("still resolves wafh to the shim, at the first prompt and the next", async () => {
         const session = await open(shellPath!, homeWith(late.files), pathFirst());
         try {
-          const shim = path.join(shimDir, "penguin");
-          expect(await whichPenguin(session, "first-prompt")).toBe(shim);
-          expect(await whichPenguin(session, "next-prompt")).toBe(shim);
-          expect(await run(session, "penguin", "from-shim")).not.toContain("from-user");
+          const shim = path.join(shimDir, "wafh");
+          expect(await whichWafHarness(session, "first-prompt")).toBe(shim);
+          expect(await whichWafHarness(session, "next-prompt")).toBe(shim);
+          expect(await run(session, "wafh", "from-shim")).not.toContain("from-user");
         } finally {
           session.dispose();
         }
@@ -517,7 +517,7 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
       const session = await open(onPath("zsh")!, zshWith("setopt nounset\n"), pathFirst());
       try {
         expect(screen(session)).toEqual([PROMPT]);
-        expect(await whichPenguin(session, "nounset-done")).toBe(path.join(shimDir, "penguin"));
+        expect(await whichWafHarness(session, "nounset-done")).toBe(path.join(shimDir, "wafh"));
       } finally {
         session.dispose();
       }
@@ -541,15 +541,15 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
     const bash = SHELLS.find((shell) => shell.name === "bash")!;
     /** What the server process carries: its own wiring, and context from whoever started it. */
     const SERVER_ONLY = {
-      PENGUIN_HOME: "/srv/penguin-root",
-      PENGUIN_WEB_DB: "/srv/penguin.db",
-      PENGUIN_API_URL: "http://localhost:1",
-      PENGUIN_CLI_ENTRY: "/opt/other/penguin.js",
+      WAFH_HOME: "/srv/wafh-root",
+      WAFH_WEB_DB: "/srv/wafh.db",
+      WAFH_API_URL: "http://localhost:1",
+      WAFH_CLI_ENTRY: "/opt/other/wafh.js",
       PORT: "7368",
       HOST: "127.0.0.1",
     };
     /** And the user's own settings, which reach the server the same way (a Windows `setx`). */
-    const USER_OWN = { PENGUIN_LANG: "zh", PENGUIN_UPDATE_CHECK: "off" };
+    const USER_OWN = { WAFH_LANG: "zh", WAFH_UPDATE_CHECK: "off" };
     const SERVER_ENV = { ...SERVER_ONLY, ...USER_OWN };
 
     /**
@@ -569,7 +569,7 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
           cwd: tmp,
           ownerUserId: "u1",
           shell: onPath("bash")!,
-          env: { ...env, PENGUIN_GIVEN: "given" },
+          env: { ...env, WAFH_GIVEN: "given" },
           cols: 400,
           ...options,
         });
@@ -578,7 +578,7 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
             () => screen(session).some((line) => line.startsWith(PROMPT)),
             () => `no prompt; screen: ${screen(session).join(" | ")}`,
           );
-          const keys = [...Object.keys(SERVER_ENV), "PENGUIN_GIVEN"];
+          const keys = [...Object.keys(SERVER_ENV), "WAFH_GIVEN"];
           const probe = keys.map((k) => `${k}=\${${k}-unset}`).join(" ");
           const line = keys.map((k) => `${k}=${expected[k] ?? "unset"}`).join(" ");
           const lines = await run(session, `echo "${probe}"`, line);
@@ -595,18 +595,18 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
       }
     }
 
-    it("has none of the server process's PENGUIN_* / PORT / HOST but the user's own settings, and what the caller passes", async () => {
-      await shellSees({}, { ...USER_OWN, PENGUIN_GIVEN: "given" });
+    it("has none of the server process's WAFH_* / PORT / HOST but the user's own settings, and what the caller passes", async () => {
+      await shellSees({}, { ...USER_OWN, WAFH_GIVEN: "given" });
     }, 30_000);
 
-    it("keeps the server's PENGUIN_HOME / PENGUIN_WEB_DB where no shim names the data root", async () => {
+    it("keeps the server's WAFH_HOME / WAFH_WEB_DB where no shim names the data root", async () => {
       await shellSees(
         { inheritDataRoot: true },
         {
-          PENGUIN_HOME: SERVER_ONLY.PENGUIN_HOME,
-          PENGUIN_WEB_DB: SERVER_ONLY.PENGUIN_WEB_DB,
+          WAFH_HOME: SERVER_ONLY.WAFH_HOME,
+          WAFH_WEB_DB: SERVER_ONLY.WAFH_WEB_DB,
           ...USER_OWN,
-          PENGUIN_GIVEN: "given",
+          WAFH_GIVEN: "given",
         },
       );
     }, 30_000);
@@ -667,9 +667,9 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
 
   /**
    * A development instance's first line, which the shell prints itself at its first prompt,
-   * once the user's startup files have run: the line as given while `penguin` there still
-   * targets this instance, and what it targets instead when those files set PENGUIN_API_URL or
-   * another PENGUIN_HOME.
+   * once the user's startup files have run: the line as given while `wafh` there still
+   * targets this instance, and what it targets instead when those files set WAFH_API_URL or
+   * another WAFH_HOME.
    */
   describe("a development instance's first line", () => {
     const ROOT = path.join(path.sep, "instance", "root");
@@ -681,26 +681,26 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
     const CASES: Array<{ what: string; vars: Record<string, string>; first: string }> = [
       { what: "nothing", vars: {}, first: devNotice.text },
       {
-        what: "PENGUIN_HOME to another root",
-        vars: { PENGUIN_HOME: "/somewhere/else" },
-        first: "Your shell sets PENGUIN_HOME=/somewhere/else, so not this instance.",
+        what: "WAFH_HOME to another root",
+        vars: { WAFH_HOME: "/somewhere/else" },
+        first: "Your shell sets WAFH_HOME=/somewhere/else, so not this instance.",
       },
       {
-        what: "PENGUIN_HOME to this root",
-        vars: { PENGUIN_HOME: `${ROOT}/` },
+        what: "WAFH_HOME to this root",
+        vars: { WAFH_HOME: `${ROOT}/` },
         first: devNotice.text,
       },
       {
-        what: "PENGUIN_API_URL",
-        vars: { PENGUIN_API_URL: "http://localhost:9" },
-        first: "Your shell sets PENGUIN_API_URL=http://localhost:9, so not this instance.",
+        what: "WAFH_API_URL",
+        vars: { WAFH_API_URL: "http://localhost:9" },
+        first: "Your shell sets WAFH_API_URL=http://localhost:9, so not this instance.",
       },
     ];
 
     for (const shell of ["bash", "zsh", "dash", "fish", "pwsh"]) {
       const shellPath = onPath(shell);
       it.skipIf(shellPath === null)(
-        `${shell}: says what the user's own files leave penguin aimed at`,
+        `${shell}: says what the user's own files leave wafh aimed at`,
         async () => {
           for (const c of CASES) {
             const session = await open(
@@ -752,9 +752,9 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
   });
 
   /**
-   * A prompt hook that puts the user's `penguin` first, registered only at the second prompt —
+   * A prompt hook that puts the user's `wafh` first, registered only at the second prompt —
    * what a lazy plugin loader does — runs after ours unless ours moves behind it again. From
-   * the second prompt on `penguin` stays the shim's, and nothing piles up in the hook lists.
+   * the second prompt on `wafh` stays the shim's, and nothing piles up in the hook lists.
    */
   const DEFERRED: Array<{ shell: string; what: string; home: (home: string) => void }> = [
     {
@@ -840,7 +840,7 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
   for (const deferred of DEFERRED) {
     const shellPath = onPath(deferred.shell);
     describe.skipIf(shellPath === null)(`${deferred.shell} with ${deferred.what}`, () => {
-      it("keeps penguin the shim's when a hook that puts another first is added at the second prompt", async () => {
+      it("keeps wafh the shim's when a hook that puts another first is added at the second prompt", async () => {
         const env = homeWith({});
         deferred.home(env.HOME!);
         const session = await open(
@@ -851,9 +851,9 @@ describePty("a terminal puts this harness's penguin first on PATH", () => {
         try {
           // Each line runs after the hooks of the prompt it is typed at: the hook is added at
           // the second, and runs from the third on.
-          const shim = path.join(shimDir, "penguin");
+          const shim = path.join(shimDir, "wafh");
           for (const prompt of ["first", "second", "third", "fourth"]) {
-            expect(await whichPenguin(session, `at-${prompt}-prompt`), prompt).toBe(shim);
+            expect(await whichWafHarness(session, `at-${prompt}-prompt`), prompt).toBe(shim);
           }
           // The hook lists hold what they held a prompt earlier: nothing is added per prompt.
           const size =
@@ -878,10 +878,10 @@ describePty("a terminal opened through the server", () => {
   const bash = onPath("bash");
 
   it.skipIf(bash === null)(
-    "runs the server's own penguin, from <root>/bin",
+    "runs the server's own wafh, from <root>/bin",
     async () => {
-      const entryDir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-cli-entry-"));
-      const entry = path.join(entryDir, "penguin.mjs");
+      const entryDir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-cli-entry-"));
+      const entry = path.join(entryDir, "wafh.mjs");
       fs.writeFileSync(entry, 'console.log("from-harness-cli");\n');
       const t = await createTestApp({ config: { cliEntry: entry } });
       try {
@@ -890,7 +890,7 @@ describePty("a terminal opened through the server", () => {
         const created = await api.post("/api/terminals", { cwd: "~", shell: bash });
         expect(created.status).toBe(201);
         const { id } = (await created.json()) as { id: string };
-        await api.post(`/api/terminals/${id}/keys`, { keys: "penguin", literal: true });
+        await api.post(`/api/terminals/${id}/keys`, { keys: "wafh", literal: true });
         await api.post(`/api/terminals/${id}/keys`, { keys: "Enter" });
 
         // Polls the screen until the CLI has answered, or the deadline passes.
@@ -918,7 +918,7 @@ describePty("a terminal opened through the server", () => {
    * prints itself on the way there.
    */
   async function withHome(fn: () => Promise<void>): Promise<void> {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-term-home-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-term-home-"));
     fs.writeFileSync(
       path.join(home, ".bash_profile"),
       '[ -r "$HOME/.bashrc" ] && . "$HOME/.bashrc"\n',
@@ -964,15 +964,12 @@ describePty("a terminal opened through the server", () => {
   }
 
   it.skipIf(bash === null)(
-    "on a dev instance, says first which penguin it runs, and runs it on this server's data root",
+    "on a dev instance, says first which wafh it runs, and runs it on this server's data root",
     () =>
       withHome(async () => {
-        const entryDir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-cli-entry-"));
-        const entry = path.join(entryDir, "penguin.mjs");
-        fs.writeFileSync(
-          entry,
-          'console.log(`penguin-home=${process.env.PENGUIN_HOME ?? "unset"}`);\n',
-        );
+        const entryDir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-cli-entry-"));
+        const entry = path.join(entryDir, "wafh.mjs");
+        fs.writeFileSync(entry, 'console.log(`wafh-home=${process.env.WAFH_HOME ?? "unset"}`);\n');
         const checkout = path.join(entryDir, "checkout");
         const t = await createTestApp({
           config: {
@@ -985,11 +982,11 @@ describePty("a terminal opened through the server", () => {
           const opened = await term(null, (lines) => lines.some((l) => l.startsWith(PROMPT)));
           expect(opened[0]).toContain(`the CLI of ${checkout} (built)`);
           expect(opened[0]).toContain(`on data root ${t.root}`);
-          // The shell itself is not handed the root: only the `penguin` the shim starts is.
-          const ran = await term('penguin; echo "shell-home=${PENGUIN_HOME-unset}"', (lines) =>
+          // The shell itself is not handed the root: only the `wafh` the shim starts is.
+          const ran = await term('wafh; echo "shell-home=${WAFH_HOME-unset}"', (lines) =>
             lines.includes("shell-home=unset"),
           );
-          expect(ran).toContain(`penguin-home=${t.root}`);
+          expect(ran).toContain(`wafh-home=${t.root}`);
           expect(ran).toContain("shell-home=unset");
         } finally {
           await t.cleanup();
@@ -1000,12 +997,12 @@ describePty("a terminal opened through the server", () => {
   );
 
   it.skipIf(bash === null)(
-    "when the checkout's CLI cannot run, says why first, and `penguin` fails saying it too",
+    "when the checkout's CLI cannot run, says why first, and `wafh` fails saying it too",
     () =>
       withHome(async () => {
         const reason =
-          "packages/cli/dist/penguin.js is not built in /work/penguin-harness. Run " +
-          "`pnpm --filter @prismshadow/penguin-cli build`, then restart the server.";
+          "packages/cli/dist/wafh.js is not built in /work/waf-harness. Run " +
+          "`pnpm --filter @waterford/waf-harness-cli build`, then restart the server.";
         const logs: string[] = [];
         const t = await createTestApp({
           log: (line) => logs.push(line),
@@ -1013,7 +1010,7 @@ describePty("a terminal opened through the server", () => {
             cliEntry: null,
             cliLaunch: {
               execArgs: [],
-              checkout: "/work/penguin-harness",
+              checkout: "/work/waf-harness",
               origin: null,
               unavailable: reason,
             },
@@ -1026,7 +1023,7 @@ describePty("a terminal opened through the server", () => {
           const term = await terminalOf(t.app);
           const opened = await term(null, (lines) => lines.some((l) => l.startsWith(PROMPT)));
           expect(opened[0]).toContain(reason);
-          const ran = await term('penguin --version; echo "rc=$?"', (lines) =>
+          const ran = await term('wafh --version; echo "rc=$?"', (lines) =>
             lines.some((l) => l.startsWith("rc=")),
           );
           expect(ran).toContain("rc=1");

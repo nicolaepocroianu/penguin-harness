@@ -4,7 +4,7 @@
  * group sets a Select beside an Input and a Button of the same rung: one row, one height.
  */
 import { useState } from "react";
-import type { ControlSize } from "@prismshadow/penguin-ui";
+import type { ControlSize } from "@waterford/waf-harness-ui";
 import {
   ACCENT_PRESETS,
   Button,
@@ -24,7 +24,7 @@ import {
   Switch,
   ToggleRow,
   menuPanelClass,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 

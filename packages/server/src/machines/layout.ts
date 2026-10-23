@@ -1,9 +1,9 @@
 /**
- * Where PenguinHarness lives on a machine, as a function of this instance's PROFILE.
+ * Where WAF Harness lives on a machine, as a function of this instance's PROFILE.
  *
  * The desktop shell runs as one of two profiles — release, or the dev instance that runs
  * beside it on its own data root (`packages/desktop/src/app-identity.ts`) — and the shell
- * hands that choice to its server as `PENGUIN_PROFILE`. A profile names a data-root family,
+ * hands that choice to its server as `WAFH_PROFILE`. A profile names a data-root family,
  * and it holds on every machine the instance touches: a dev instance installs to, starts,
  * probes and connects to a machine's DEV installation, never the release one there — so a
  * connect from the dev instance cannot stop the release server a person is using on that
@@ -18,36 +18,36 @@
  * The port is fixed per profile for the reason the release one is (core's ports.ts): a
  * forward's local port equals its remote port, so the two profiles need distinct numbers.
  *
- * One thing on a machine is NOT per profile: the `penguin` command a person types there
- * (`~/.local/bin/penguin`, or the user Path on Windows). It belongs to the release
+ * One thing on a machine is NOT per profile: the `wafh` command a person types there
+ * (`~/.local/bin/wafh`, or the user Path on Windows). It belongs to the release
  * installation, so only the release layout lets the installer register it.
  *
  * Pure, and the only place either path is spelled: every command in this directory takes a
- * layout rather than naming `~/.penguin` itself.
+ * layout rather than naming `~/.waf-harness` itself.
  */
-import { DEFAULT_DEV_SERVER_PORT, DEFAULT_SERVER_PORT } from "@prismshadow/penguin-core";
+import { DEFAULT_DEV_SERVER_PORT, DEFAULT_SERVER_PORT } from "@waterford/waf-harness-core";
 
 export type Profile = "release" | "dev";
 
 export interface RemoteLayout {
   profile: Profile;
-  /** The installer's target (`PENGUIN_INSTALL_DIR`), in each shell's own spelling. */
+  /** The installer's target (`WAFH_INSTALL_DIR`), in each shell's own spelling. */
   programDir: { posix: string; win: string };
-  /** The server's data root there (`PENGUIN_HOME`), in each shell's own spelling. */
+  /** The server's data root there (`WAFH_HOME`), in each shell's own spelling. */
   dataRoot: { posix: string; win: string };
   /** The port the server is started on when this side has not remembered one. */
   defaultPort: number;
-  /** Whether an install from this profile registers the machine's `penguin` command. */
+  /** Whether an install from this profile registers the machine's `wafh` command. */
   ownsCommand: boolean;
 }
 
-/** `PENGUIN_PROFILE=dev` selects the dev profile; anything else is release. */
+/** `WAFH_PROFILE=dev` selects the dev profile; anything else is release. */
 export function profileFromEnv(env: NodeJS.ProcessEnv): Profile {
-  return env.PENGUIN_PROFILE?.trim() === "dev" ? "dev" : "release";
+  return env.WAFH_PROFILE?.trim() === "dev" ? "dev" : "release";
 }
 
 export function remoteLayoutFor(profile: Profile): RemoteLayout {
-  const dir = profile === "dev" ? ".penguin-dev" : ".penguin";
+  const dir = profile === "dev" ? ".waf-harness-dev" : ".waf-harness";
   return {
     profile,
     programDir: { posix: `$HOME/${dir}`, win: `%USERPROFILE%\\${dir}` },

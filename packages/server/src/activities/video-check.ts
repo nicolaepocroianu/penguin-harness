@@ -11,7 +11,7 @@
  *
  * What it checks follows OpenMontage's final review of a render (`_run_final_review` in its
  * video_compose tool) as an idea only: a probe of the container, a look for black, and a listen
- * for silence and clipping; its thresholds are Penguin's own. The checker does not judge the
+ * for silence and clipping; its thresholds are WAF Harness's own. The checker does not judge the
  * picture's content; an author still watches the video.
  */
 import { ffmpegReport } from "./ffmpeg.js";

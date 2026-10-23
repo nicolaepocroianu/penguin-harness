@@ -29,7 +29,7 @@ const cards = (section) =>
   );
 
 test("models: a group's gear sorts its models and still opens its settings", async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem("penguin.lang", "en"));
+  await page.addInitScript(() => localStorage.setItem("wafh.lang", "en"));
   await provisionAndLogin(page.request, "modelsortuser", "password123");
   await page.goto(`${BASE}/models`);
 

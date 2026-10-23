@@ -3,7 +3,7 @@
  * of kept runs it may ask for, whether a dry run still answers the choice on screen and is fresh
  * enough to confirm, and what a report adds up to.
  */
-import type { RunCleanupOptions, RunCleanupReport } from "@prismshadow/penguin-server/api";
+import type { RunCleanupOptions, RunCleanupReport } from "@waterford/waf-harness-server/api";
 
 /** The server's own bounds and default (RUN_CLEANUP_KEEP_* in run-cleanup-types.ts). */
 export const KEEP_DEFAULT = 5;

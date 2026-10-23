@@ -84,7 +84,7 @@ import type {
   SessionInfo,
   SessionSource,
   SessionsResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   LISTING_CHANGE_DELAY_MS,
   applyUserEvent,

@@ -24,13 +24,13 @@ export function signedReport(file: string) {
 
 /** A Windows build output directory whose latest.yml describes the installer's bytes. */
 export async function artifactFixture() {
-  const root = await mkdtemp(path.join(os.tmpdir(), "penguin-windows-artifacts-"));
-  const installer = path.join(root, "penguin-desktop-win32-x64.exe");
+  const root = await mkdtemp(path.join(os.tmpdir(), "wafh-windows-artifacts-"));
+  const installer = path.join(root, "wafh-desktop-win32-x64.exe");
   const bytes = Buffer.from("final installer fixture");
   const sha512 = createHash("sha512").update(bytes).digest("base64");
   await mkdir(path.join(root, "win-unpacked/resources"), { recursive: true });
   await writeFile(installer, bytes);
-  await writeFile(path.join(root, "win-unpacked/PenguinHarness.exe"), "signed app fixture");
+  await writeFile(path.join(root, "win-unpacked/WAF Harness.exe"), "signed app fixture");
   await writeFile(path.join(root, "win-unpacked/resources/elevate.exe"), "signed helper fixture");
   await writeFile(path.join(root, "win-unpacked/resources/app-update.yml"), "provider: github\n");
   await buildBlockMap(installer, "gzip", `${installer}.blockmap`);

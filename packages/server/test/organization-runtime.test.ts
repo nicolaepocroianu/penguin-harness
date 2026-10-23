@@ -15,11 +15,11 @@
  */
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { parseOrgTriggerMessage, saveProjectConfig } from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import { parseOrgTriggerMessage, saveProjectConfig } from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import { openDatabase } from "../src/db/database.js";
 import { MembersRepo } from "../src/db/repos/members.js";
 import { OrgCacheRepo } from "../src/db/repos/organizations.js";
@@ -860,12 +860,12 @@ describe("organization runtime", () => {
       expect(handbook).toContain(ZH_MISSION);
       // Paths, commands and field names stay ASCII whatever the language is.
       expect(handbook).toContain("`org_chart.yaml`");
-      expect(handbook).toContain("penguin org ticket start <id>");
+      expect(handbook).toContain("wafh org ticket start <id>");
       expect(briefs.get(CEO)).toContain("# Employee brief");
       expect(briefs.get(CEO)).toContain(`<app_data_dir>/organizations/${ORG}/`);
       const parsed = parseOrgTriggerMessage(started[0]!.text);
       expect(parsed?.rest).toContain(`Mission: ${ZH_MISSION}`);
-      expect(parsed?.rest).toContain("penguin org ticket start <id>");
+      expect(parsed?.rest).toContain("wafh org ticket start <id>");
       expect(sessions.findById(started[0]!.sessionId)?.title).toBe(`Name of ${CEO}'s desk`);
       // Hires retain the working-language instruction in the shared English template.
       await service.hire(P, ORG, { newAgent: { agentId: HR }, title: "人事", reportsTo: CEO });
@@ -1718,7 +1718,7 @@ describe("organization runtime", () => {
           `- ${t.ticketId} (Launch the site): assigned to you`,
           `- ${t.ticketId} (Launch the site): done`,
           "",
-          'Decide on each: start a ticket session (`penguin org ticket start <id> -m "…"`), verify and unblock, or leave it — do not do the work at your desk.',
+          'Decide on each: start a ticket session (`wafh org ticket start <id> -m "…"`), verify and unblock, or leave it — do not do the work at your desk.',
         ].join("\n"),
       );
 
@@ -1994,7 +1994,7 @@ describe("organization runtime", () => {
         { userId: "alice" },
       );
       const ceoDesk = await service.desk(P, ORG, CEO, {});
-      // The CEO's desk ran the command, but PENGUIN_AGENT_ID says HR: the narrower fact wins.
+      // The CEO's desk ran the command, but WAFH_AGENT_ID says HR: the narrower fact wins.
       const withProgress = await service.progressTicket(P, ORG, t.ticketId, "looked at it", {
         userId: "alice",
         sessionId: ceoDesk.sessionId,

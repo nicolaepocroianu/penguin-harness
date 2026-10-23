@@ -100,7 +100,7 @@ describe("the footer", () => {
   it("opens an external link in a new tab and renders a route through the host's router", () => {
     const html = renderStatic(
       h(SiteFooter, {
-        brand: { name: "PenguinHarness", logo: "/logo.svg", tagline: "Tagline" },
+        brand: { name: "WAF Harness", logo: "/logo.svg", tagline: "Tagline" },
         columns: [
           {
             title: "Product",

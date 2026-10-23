@@ -5,7 +5,7 @@
  * the History.
  */
 import { useMemo, useRef, useState } from "react";
-import { Button, ConfirmModal, InfoPopover, Segmented } from "@prismshadow/penguin-ui";
+import { Button, ConfirmModal, InfoPopover, Segmented } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import {

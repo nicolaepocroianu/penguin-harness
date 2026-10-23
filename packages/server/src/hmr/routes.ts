@@ -12,14 +12,14 @@
  * its generation does not answer here (`admitsUpgradeRoute`).
  */
 import { Hono } from "hono";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { authMiddleware } from "../auth/middleware.js";
 import type { AppEnv } from "../auth/middleware.js";
 import type { Auth } from "../mechanisms/identity.js";
 import { HttpError } from "../http/errors.js";
 import { Channels, Config, Hmr, HmrControl } from "./capabilities.js";
 import { acceptsLeavingOut, answerPush, openPushSlip } from "./push-plugins.js";
-import type { Resources } from "@prismshadow/penguin-core/kernel";
+import type { Resources } from "@waterford/waf-harness-core/kernel";
 import type { ServerConfig } from "../config.js";
 import type { ChannelHub } from "../runtime/channel.js";
 import type { HmrControlApi } from "./capabilities.js";
@@ -51,7 +51,7 @@ export function hmrRoutes(deps: HmrRouteDeps): Hono<AppEnv> {
       // where the caller is not a trusted party). Only a request's own URL scheme (real
       // TLS terminated by this process) counts unless the deployment explicitly says a
       // reverse proxy is in front and strips/overwrites the header itself
-      // (PENGUIN_TRUST_PROXY=1 / config.trustProxy) — the same opt-in a real proxy setup
+      // (WAFH_TRUST_PROXY=1 / config.trustProxy) — the same opt-in a real proxy setup
       // requires anyway.
       const proto = deps.config.trustProxy
         ? (c.req.header("x-forwarded-proto") ?? new URL(c.req.url).protocol.replace(":", ""))

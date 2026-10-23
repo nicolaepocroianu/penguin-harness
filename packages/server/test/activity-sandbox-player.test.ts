@@ -29,7 +29,7 @@ const input: PlayerPageInput = {
 };
 
 function configuration(html: string): Record<string, unknown> {
-  const match = /<script type="application\/json" id="penguin-sandbox">([\s\S]*?)<\/script>/.exec(
+  const match = /<script type="application\/json" id="wafh-sandbox">([\s\S]*?)<\/script>/.exec(
     html,
   );
   return JSON.parse(match![1]!) as Record<string, unknown>;

@@ -44,7 +44,7 @@ const json = (status: number, body: unknown): Response => jsonResponse(body, sta
 
 const deliveryBody = {
   status: "claimed",
-  client: { id: "penguin-harness", displayName: "PenguinHarness" },
+  client: { id: "waf-harness", displayName: "WAF Harness" },
   user: { id: 7, username: "penguin-go-user", displayName: "Penguin Go User", avatarUrl: null },
   apiKey: "ignored-top-level-key",
   connection: {
@@ -207,20 +207,20 @@ describe("Penguin Go key authorization routes", () => {
 
   beforeEach(async () => {
     t = await createTestApp();
-    const ownerUser = await provisionUser(t.app, "penguin_api_owner");
+    const ownerUser = await provisionUser(t.app, "wafh_api_owner");
     owner = apiClient(t.app, ownerUser.cookie);
-    const memberUser = await provisionUser(t.app, "penguin_api_member");
+    const memberUser = await provisionUser(t.app, "wafh_api_member");
     member = apiClient(t.app, memberUser.cookie);
     projectId = (
       (await (
         await owner.post("/api/projects", {
-          projectId: "penguin_api_owner-project",
+          projectId: "wafh_api_owner-project",
           name: "Penguin Go Project",
         })
       ).json()) as ProjectCreateResponse
     ).project.projectId;
     expect(
-      (await owner.post(`/api/projects/${projectId}/members`, { userId: "penguin_api_member" }))
+      (await owner.post(`/api/projects/${projectId}/members`, { userId: "wafh_api_member" }))
         .status,
     ).toBe(201);
 
@@ -231,7 +231,7 @@ describe("Penguin Go key authorization routes", () => {
       const { pathname } = new URL(call.url);
       if (pathname === "/api/auth/desktop/start") {
         const body = JSON.parse(call.body) as Record<string, unknown>;
-        expect(body.client).toEqual({ id: "penguin-harness" });
+        expect(body.client).toEqual({ id: "waf-harness" });
         expect(String(body.code)).toMatch(/^[A-Za-z0-9_-]{43}$/);
         expect(String(body.deviceSecret)).toMatch(/^[A-Za-z0-9_-]{43}$/);
         return json(201, { expiresAt: new Date(Date.now() + 10 * 60_000).toISOString() });
@@ -282,7 +282,7 @@ describe("Penguin Go key authorization routes", () => {
 
   it("writes the delivered key once, as the group's key, adds the models the group lacks, and exposes no account state", async () => {
     const initial = await models();
-    const initialPenguinGoModels = initial.models.filter(
+    const initialWafHarnessGoModels = initial.models.filter(
       (model) => model.provider === "penguin-go",
     );
     const gemini = catalogEntryFor("penguin-go", "gemini-3.8-flash")!;
@@ -290,11 +290,11 @@ describe("Penguin Go key authorization routes", () => {
     // The delivery lands on top of it: the group ends up with the preset's models and the
     // delivered ones, whichever the preset already carried.
     const deliveredCount = new Set([
-      ...initialPenguinGoModels.map((model) => model.modelId),
+      ...initialWafHarnessGoModels.map((model) => model.modelId),
       ...deliveryBody.connection.models.map((model) => model.modelId),
     ]).size;
     expect(
-      initialPenguinGoModels.every(
+      initialWafHarnessGoModels.every(
         (model) => model.effective.baseUrl === "https://go.penguin.ooo/api/v1",
       ),
     ).toBe(true);
@@ -327,14 +327,14 @@ describe("Penguin Go key authorization routes", () => {
     ).json()) as PlatformAuthFlowStatusResponse;
     // Every model of the group uses the key: the presets and the delivered ones alike.
     expect(done).toEqual({ status: "completed", applied: deliveredCount });
-    expect(JSON.stringify(done)).not.toContain("sk-penguin");
+    expect(JSON.stringify(done)).not.toContain("sk-wafh");
 
     const after = await models();
-    const penguinGoModels = after.models.filter((model) => model.provider === "penguin-go");
-    expect(penguinGoModels).toHaveLength(deliveredCount);
+    const wafHarnessGoModels = after.models.filter((model) => model.provider === "penguin-go");
+    expect(wafHarnessGoModels).toHaveLength(deliveredCount);
     expect(after.providers["penguin-go"]?.apiKeyMasked).toBe("sk-p…0001");
     expect(
-      penguinGoModels.every(
+      wafHarnessGoModels.every(
         (model) =>
           model.effective.apiKeySource === "provider" &&
           model.credential?.apiKeyMasked === undefined,
@@ -342,7 +342,7 @@ describe("Penguin Go key authorization routes", () => {
     ).toBe(true);
     // A model the built-in catalog does not know arrives with the platform's facts, and with
     // its routing inherited from the group's shared MMSP connection.
-    const deepseekFuture = penguinGoModels.find((model) => model.modelId === "deepseek-future");
+    const deepseekFuture = wafHarnessGoModels.find((model) => model.modelId === "deepseek-future");
     expect(deepseekFuture).toMatchObject({
       displayName: "DeepSeek Future",
       contextWindow: 1_000_000,
@@ -360,7 +360,7 @@ describe("Penguin Go key authorization routes", () => {
     expect(deepseekFuture).not.toHaveProperty("discount");
     // A model the preset already held is not rewritten: its price and promotion stay what
     // the Project had, whatever the platform lists.
-    const heldGemini = penguinGoModels.find((model) => model.modelId === "gemini-3.8-flash");
+    const heldGemini = wafHarnessGoModels.find((model) => model.modelId === "gemini-3.8-flash");
     expect(heldGemini?.pricing).toEqual({
       cacheRead: gemini.pricing!.cache_read,
       cacheWrite: gemini.pricing!.cache_write,

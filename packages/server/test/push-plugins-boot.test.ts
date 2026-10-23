@@ -7,10 +7,10 @@
  * serving side (the route, the mechanism's refusal, the restore) is push-plugins.test.ts.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Instance, ModuleDef } from "@prismshadow/penguin-core/kernel";
-import { boot, initialDoc, parseManifest, upgrade } from "@prismshadow/penguin-core/kernel";
-import { HotResources } from "@prismshadow/penguin-hmr";
-import { HMR_INTERFACES_RESOURCE_ID, PENGUIN_FAMILY } from "../src/hmr/capabilities.js";
+import type { Instance, ModuleDef } from "@waterford/waf-harness-core/kernel";
+import { boot, initialDoc, parseManifest, upgrade } from "@waterford/waf-harness-core/kernel";
+import { HotResources } from "@waterford/waf-harness-hmr";
+import { HMR_INTERFACES_RESOURCE_ID, WAFH_FAMILY } from "../src/hmr/capabilities.js";
 import { packagedPlatform } from "../src/hmr/platform.js";
 import type { PlatformApi } from "../src/hmr/platform.js";
 import { openPushSlip, takePushSlip } from "../src/hmr/push-plugins.js";
@@ -44,7 +44,7 @@ const unmet: ModuleDef = {
 /** A bare kernel holding one plugin that is dropped from, and one that is left out. */
 function kernelWithUnsatisfied(): { resources: HotResources; host: PluginHost } {
   const resources = new HotResources();
-  resources.register(HMR_INTERFACES_RESOURCE_ID, { family: PENGUIN_FAMILY });
+  resources.register(HMR_INTERFACES_RESOURCE_ID, { family: WAFH_FAMILY });
   const host = new PluginHost();
   host.use({ specifier: "@acme/partial", modules: [stray], replaces: [] });
   host.use({ specifier: "@acme/unmet", modules: [unmet], replaces: [] });
@@ -141,7 +141,7 @@ describe("a boot that meets plugins its build cannot run", () => {
 
   it("a build every plugin fits takes the slip and leaves it empty", async () => {
     const resources = new HotResources();
-    resources.register(HMR_INTERFACES_RESOURCE_ID, { family: PENGUIN_FAMILY });
+    resources.register(HMR_INTERFACES_RESOURCE_ID, { family: WAFH_FAMILY });
     const { slip } = openPushSlip(resources, false);
     const inst = await bootOn(resources);
     try {

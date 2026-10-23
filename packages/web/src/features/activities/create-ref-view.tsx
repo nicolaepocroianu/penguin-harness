@@ -18,7 +18,7 @@ import type {
   RefNumberSuggestion,
   UploadedMedia,
   VoiceOption,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { ApiError } from "../../api/client";
 import {
   Button,
@@ -28,7 +28,7 @@ import {
   Input,
   Textarea,
   Select,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
 import {
   TABLE,

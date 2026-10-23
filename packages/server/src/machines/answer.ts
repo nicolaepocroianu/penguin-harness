@@ -1,7 +1,7 @@
 /**
  * Reading what a machine answered.
  *
- * Every command this side runs over ssh is now a `penguin` subcommand that prints one line of
+ * Every command this side runs over ssh is now a `wafh` subcommand that prints one line of
  * JSON, so there is one way to read one: find the line that is the answer, and ignore the
  * rest. The rest is real — sshd runs the command in a shell that may greet, warn about
  * pending updates, or print an MOTD, and none of that belongs to the machine's reply.

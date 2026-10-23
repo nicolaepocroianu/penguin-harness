@@ -24,7 +24,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import * as tar from "tar";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { agentDir, agentStateDir, agentVaultPath, snapshotsDir } from "@prismshadow/penguin-core";
+import { agentDir, agentStateDir, agentVaultPath, snapshotsDir } from "@waterford/waf-harness-core";
 import type { AgentImportResponse } from "../src/api/types.js";
 import { apiClient, canCreateSymlink, createTestApp, loginAdmin } from "./helpers.js";
 import type { TestApp } from "./helpers.js";

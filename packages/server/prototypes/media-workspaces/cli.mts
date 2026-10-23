@@ -14,7 +14,7 @@ node packages/server/prototypes/media-workspaces/cli.mts <command> [options]
   refresh  Fetch the base branch for FUTURE workspaces; existing branches stay pinned.
 
 All commands accept --root <scratch-directory>.
-Default: ~/.penguin/PROTOTYPE-media-workspaces
+Default: ~/.waf-harness/PROTOTYPE-media-workspaces
 Commands print progress to stderr and their result as JSON to stdout.
 Session IDs and names: lowercase letters, numbers and hyphens, up to 48 characters.
 No automatic commits, pushes, removal or production session registration.
@@ -26,7 +26,7 @@ try {
     options: {
       root: {
         type: "string",
-        default: path.join(os.homedir(), ".penguin", "PROTOTYPE-media-workspaces"),
+        default: path.join(os.homedir(), ".waf-harness", "PROTOTYPE-media-workspaces"),
       },
       remote: { type: "string" },
       branch: { type: "string", default: "main" },

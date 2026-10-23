@@ -1,5 +1,5 @@
-import { Component, Module, moduleDefOf, Use } from "@prismshadow/penguin-core/kernel";
-import type { ManifestTable, ModuleClass, ModuleDef } from "@prismshadow/penguin-core/kernel";
+import { Component, Module, moduleDefOf, Use } from "@waterford/waf-harness-core/kernel";
+import type { ManifestTable, ModuleClass, ModuleDef } from "@waterford/waf-harness-core/kernel";
 import table from "./ifaces.json" with { type: "json" };
 import type { HmrCapabilities, ReassemblyChange } from "./hmr/capabilities.js";
 import {

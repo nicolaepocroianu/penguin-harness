@@ -1,5 +1,5 @@
 /**
- * Render the app icon PNGs from the brand mark (packages/web/public/penguin-logo.svg,
+ * Render the app icon PNGs from the brand mark (packages/web/public/wafh-logo.svg,
  * treated as immutable — landing/docs carry byte-identical copies).
  *
  * Outputs (COMMITTED — regenerate only when the SVG changes):
@@ -16,9 +16,11 @@
  * - build/tray/trayTemplate.png
  *                             16×16 (+ @2x 32×32) macOS menu bar image: a black silhouette
  *                             on transparency, which the menu bar inverts with its own
- *                             appearance. Reduced to the penguin's outline alone, with the
- *                             belly solid and the arcs around it dropped — see penguinOutline
- *                             below for why the whole mark cannot survive 16 pixels.
+ *                             appearance. The tile solid with the W cut out of it — see
+ *                             TEMPLATE_SVG below for why the whole mark cannot be used.
+ * - ../browser-extension/icons/wafh-128.png
+ *                             128×128, the browser extension's source icon, which its build
+ *                             sizes and greys.
  *
  * Regenerate: node packages/desktop/scripts/render-icon.mjs
  * Rasterizes via the Playwright chromium already installed for packages/landing (no new
@@ -34,7 +36,7 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PKG_DIR = path.resolve(HERE, "..");
 const REPO_ROOT = path.resolve(PKG_DIR, "..", "..");
-const SVG_PATH = path.join(REPO_ROOT, "packages", "web", "public", "penguin-logo.svg");
+const SVG_PATH = path.join(REPO_ROOT, "packages", "web", "public", "wafh-logo.svg");
 const BUILD_DIR = path.join(PKG_DIR, "build");
 const ICON_SET_DIR = path.join(BUILD_DIR, "icons");
 const TRAY_DIR = path.join(BUILD_DIR, "tray");
@@ -49,51 +51,20 @@ const dataUrl = (svg) => `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").t
 const svgDataUrl = dataUrl(svgSource);
 
 /**
- * The penguin's own outline, lifted out of the brand mark for the macOS menu bar image.
- *
- * A template image is a mask: the menu bar paints every non-transparent pixel in its own colour
- * and throws the original away. Handing it the whole artwork gives up almost all of it — the
- * white backdrop flattens to a filled square, and the belly, which the artwork draws as a hole
- * letting that backdrop through, flattens to nothing. What survives at 16px is a wisp.
- *
- * So the mark is reduced to one shape before it is rasterized. The body path carries the penguin
- * as two subpaths, the outline and the belly cut out of it; taking the first alone gives the
- * outline with the belly solid. The two arcs sweeping around the penguin, its highlights and its
- * eye are separate paths and are simply not drawn — at this size they are noise.
- *
- * Matched on the body path's gradient reference rather than its geometry, so a reworked
- * illustration fails the render loudly instead of quietly shipping the wrong shape.
+ * The macOS menu bar image. A template image is a mask: the menu bar paints every
+ * non-transparent pixel in its own colour and throws the original away, so the colour that
+ * tells the five agents apart is lost and the faint ring is noise at 16px. What reads is the
+ * tile itself, solid, with the W and its five points cut out of it.
  */
-const BODY_FILL = 'fill="url(#a)"';
-function penguinOutline(source) {
-  const path = source.match(/<path\s+fill="url\(#a\)"\s+d="([^"]+)"/)?.[1];
-  if (path === undefined) return null;
-  // Subpaths start at M or m; the second one is the belly, cut out of the first.
-  const subpaths = path.match(/[Mm][^Mm]*/g) ?? [];
-  return subpaths.length === 2 ? subpaths[0] : null;
-}
-const outline = penguinOutline(svgSource);
-if (outline === null) {
-  console.error(
-    `[render-icon] could not take the penguin's outline out of ${path.relative(REPO_ROOT, SVG_PATH)}: ` +
-      `expected one ${BODY_FILL} path of exactly two subpaths (the outline and the belly cut from it). ` +
-      `Check the artwork and update penguinOutline().`,
-  );
-  process.exit(1);
-}
-
-/**
- * Wraps the outline in a square viewBox that its bounding box exactly inscribes, so the mark
- * fills the menu bar's width instead of sitting inside the artwork's rounded-square padding.
- *
- * It is a wide shape — about 4:3 — in a square canvas, so a band above and below is unavoidable;
- * cropping past the bounding box takes the beak off one side and the tail off the other. That
- * bounds the coverage at roughly a third of the canvas, which the icon test pins.
- */
-function squareAround({ x, y, width, height }) {
-  const side = Math.max(width, height);
-  return `${x + width / 2 - side / 2} ${y + height / 2 - side / 2} ${side} ${side}`;
-}
+const TEMPLATE_SVG =
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="2 2 60 60"><mask id="w">` +
+  `<rect x="2" y="2" width="60" height="60" fill="#fff"/>` +
+  `<path d="M15 23 23 43 32 28 41 43 49 23" fill="none" stroke="#000" stroke-width="5" ` +
+  `stroke-linecap="round" stroke-linejoin="round"/>` +
+  `<g fill="#000"><circle cx="15" cy="23" r="5"/><circle cx="23" cy="43" r="5"/>` +
+  `<circle cx="32" cy="28" r="5.5"/><circle cx="41" cy="43" r="5"/><circle cx="49" cy="23" r="5"/></g>` +
+  `</mask><rect x="2" y="2" width="60" height="60" rx="15" fill="#000" mask="url(#w)"/></svg>`;
+const templateDataUrl = dataUrl(TEMPLATE_SVG);
 
 /**
  * Apple's 1024px app-icon template keeps the full rounded-square artwork inside an
@@ -112,6 +83,11 @@ const targets = [
   { size: 128, outPath: path.join(ICON_SET_DIR, "128x128.png"), artworkRatio: 1 },
   { size: 32, outPath: path.join(TRAY_DIR, "tray.png"), artworkRatio: 1 },
   { size: 64, outPath: path.join(TRAY_DIR, "tray@2x.png"), artworkRatio: 1 },
+  {
+    size: 128,
+    outPath: path.join(REPO_ROOT, "packages", "browser-extension", "icons", "wafh-128.png"),
+    artworkRatio: 1,
+  },
   { size: 16, outPath: path.join(TRAY_DIR, "trayTemplate.png"), artworkRatio: 1, template: true },
   {
     size: 32,
@@ -126,22 +102,6 @@ mkdirSync(TRAY_DIR, { recursive: true });
 
 const browser = await chromium.launch();
 try {
-  // The bounding box comes from the renderer rather than a constant: it is a property of the
-  // artwork, and a hand-copied number is what goes stale when the artwork moves.
-  const measure = await browser.newPage();
-  await measure.setContent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254"><path d="${outline}"/></svg>`,
-  );
-  const box = await measure.evaluate(() => {
-    const { x, y, width, height } = document.querySelector("path").getBBox();
-    return { x, y, width, height };
-  });
-  await measure.close();
-  const templateDataUrl = dataUrl(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${squareAround(box)}">` +
-      `<path fill="#000" d="${outline}"/></svg>`,
-  );
-
   for (const { size, outPath, artworkRatio, template = false } of targets) {
     const artworkSize = size * artworkRatio;
     const page = await browser.newPage({

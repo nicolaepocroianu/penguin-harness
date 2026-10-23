@@ -5,9 +5,9 @@
  */
 import { Hono } from "hono";
 import type { AppEnv } from "../../auth/middleware.js";
-import { Interface, Bind, Module, Provide } from "@prismshadow/penguin-core/kernel";
+import { Interface, Bind, Module, Provide } from "@waterford/waf-harness-core/kernel";
 import type { ContributionsResponse, RendererRef, WebContribution } from "../../api/types.js";
-import type { ClassCtx } from "@prismshadow/penguin-core/kernel";
+import type { ClassCtx } from "@waterford/waf-harness-core/kernel";
 
 export interface ContributionsRouteDeps {
   web: WebShell;

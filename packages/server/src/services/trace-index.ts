@@ -44,14 +44,14 @@ import {
   isSessionMeta,
   normalizeSessionSource,
   tracesDir,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import type { TraceFileRow, TraceSessionRow } from "../db/repos/trace-index.js";
 import { TraceIndexRepo } from "../db/repos/trace-index.js";
 import { cacheable, statMtime } from "../internal/mtime-gate.js";
 import { readTraceHead } from "../internal/trace-head.js";
 import { fallbackTitle } from "../runtime/title-generator.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Paths } from "../hmr/capabilities.js";
 import type { TraceIndex, TraceIndexStore } from "../mechanisms/traces.js";
 import type { SessionOrigins } from "../mechanisms/sessions.js";

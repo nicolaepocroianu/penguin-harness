@@ -47,8 +47,8 @@ export interface ClassFields {
   bind: Map<string, string>;
 }
 
-const META = Symbol.for("@prismshadow/penguin-core/kernel:meta");
-const FIELDS = Symbol.for("@prismshadow/penguin-core/kernel:fields");
+const META = Symbol.for("@waterford/waf-harness-core/kernel:meta");
+const FIELDS = Symbol.for("@waterford/waf-harness-core/kernel:fields");
 
 /** The meta a class was decorated with, or undefined for an undecorated class. */
 export function metaOf(cls: ModuleClass): Meta | undefined {

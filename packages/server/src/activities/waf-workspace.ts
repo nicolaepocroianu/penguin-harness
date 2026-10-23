@@ -3,9 +3,9 @@
  * the navbar module, the media repository, the activity-data repository, and one repository
  * per product module — laid out as a WAF checkout is, so everything that reads one reads this.
  *
- * Penguin makes and keeps these itself under `<PENGUIN_HOME>/waf`, so nobody has to clone
+ * WAF Harness makes and keeps these itself under `<WAFH_HOME>/waf`, so nobody has to clone
  * and maintain a WAF checkout by hand. An admin may instead name an existing checkout (or the
- * server may be started with WAF_ROOT_DIR); then Penguin only reads its state and never
+ * server may be started with WAF_ROOT_DIR); then WAF Harness only reads its state and never
  * clones, installs or fetches into it.
  *
  * Product modules may also come from a monorepo's modules folder (the `modulesRoot` setting,
@@ -16,13 +16,13 @@
  * folders and gains a product's folder when that product needs it, fetching only that
  * folder's LFS objects (the approach of the media-workspaces prototype).
  *
- * git authenticates with the host's own SSH keys; Penguin stores no git credential. Every
+ * git authenticates with the host's own SSH keys; WAF Harness stores no git credential. Every
  * clone and npm call goes through `WafWorkspacePorts`, which a test replaces.
  */
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use } from "@waterford/waf-harness-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { Config } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
@@ -49,7 +49,7 @@ export type {
 /** The `server_settings` key the workspace settings are stored under. */
 export const WAF_WORKSPACE_SETTINGS_KEY = "wafWorkspace";
 
-/** The directory under PENGUIN_HOME a managed workspace lives in. */
+/** The directory under WAFH_HOME a managed workspace lives in. */
 export const WAF_WORKSPACE_DIR = "waf";
 
 /** How long one clone or install may take: a large history or dependency tree on a slow link. */
@@ -193,7 +193,7 @@ export abstract class WafWorkspacePorts extends Interface<{
   runProcess?: DeployProcess["run"];
   /**
    * Whether the server prepares a managed workspace that is not ready when it starts; true
-   * unless PENGUIN_WAF_AUTO_PREPARE is "0". Tests turn it off, so nothing clones at boot.
+   * unless WAFH_WAF_AUTO_PREPARE is "0". Tests turn it off, so nothing clones at boot.
    */
   autoPrepare?: boolean;
 }>() {}
@@ -344,7 +344,7 @@ export class WafWorkspaceService implements WafWorkspace {
     const external = this.external();
     if (external) return this.withModuleRoots(await findWafRoot(external, external));
     // Called on every request that needs the checkout, so only the disk is looked at; a
-    // clone of the wrong remote is caught by status() and prepare(), never made by Penguin.
+    // clone of the wrong remote is caught by status() and prepare(), never made by WAF Harness.
     const root = this.managedRoot();
     const checkout = new WafLayout(root);
     const has = (id: WafRepoId, entry: string) =>
@@ -439,7 +439,7 @@ export class WafWorkspaceService implements WafWorkspace {
       const status = await this.repoStatus(root, id, true);
       if (status.present && !status.remoteMatches)
         throw new Error(
-          `${WAF_REPO_PATHS[id]} is a clone of ${status.remote ?? "an unknown remote"}, not ${this.settings().repos[id].remote}. Move it aside to let Penguin clone it again.`,
+          `${WAF_REPO_PATHS[id]} is a clone of ${status.remote ?? "an unknown remote"}, not ${this.settings().repos[id].remote}. Move it aside to let WAF Harness clone it again.`,
         );
       if (!status.present) await this.serial(id, () => this.cloneShared(root, id));
       const switched =
@@ -533,7 +533,7 @@ export class WafWorkspaceService implements WafWorkspace {
 
   /** A managed workspace that is not ready is prepared in the background as the server starts. */
   setup() {
-    const enabled = this.ports.autoPrepare ?? process.env.PENGUIN_WAF_AUTO_PREPARE !== "0";
+    const enabled = this.ports.autoPrepare ?? process.env.WAFH_WAF_AUTO_PREPARE !== "0";
     if (!enabled || this.external()) return;
     void this.root()
       .then((root) => (root ? undefined : this.prepare()))

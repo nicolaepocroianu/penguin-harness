@@ -129,7 +129,7 @@ export interface ModelGroupSortStorage {
 }
 
 /** The sorts' single global key; holds ModelGroupSorts as a JSON object. */
-export const MODEL_GROUP_SORTS_KEY = "penguin.modelsGroupSort";
+export const MODEL_GROUP_SORTS_KEY = "wafh.modelsGroupSort";
 
 const isSort = (value: unknown): value is ModelGroupSort =>
   MODEL_GROUP_SORTS.includes(value as ModelGroupSort);

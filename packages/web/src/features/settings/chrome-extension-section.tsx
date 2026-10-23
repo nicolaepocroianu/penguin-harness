@@ -9,14 +9,14 @@
  * either way. A write that fails puts the knob back on the stored value and says why under it.
  */
 import { useEffect, useState } from "react";
-import type { ServerSettingsResponse } from "@prismshadow/penguin-server/api";
+import type { ServerSettingsResponse } from "@waterford/waf-harness-server/api";
 import {
   ConfirmModal,
   SettingsGroup,
   SettingsSection,
   ToggleRow,
   toastError,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";

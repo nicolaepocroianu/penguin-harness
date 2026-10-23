@@ -4,8 +4,8 @@
  * nothing else on the page to save; the selection is read by the next assembly.
  */
 import { useId, useState } from "react";
-import type { ImplementationFeature } from "@prismshadow/penguin-server/api";
-import { Badge, FieldLabel, InfoPopover, SkeletonList, Switch } from "@prismshadow/penguin-ui";
+import type { ImplementationFeature } from "@waterford/waf-harness-server/api";
+import { Badge, FieldLabel, InfoPopover, SkeletonList, Switch } from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";

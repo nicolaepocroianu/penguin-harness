@@ -20,9 +20,9 @@
  *      `Prism-Shadow/penguin-harness-community` repo, which is what the posts load from
  *      (the renderer resolves /blog-assets/<name> there — see src/lib/links.ts).
  *
- * Prereqs: `pnpm --filter @prismshadow/penguin-{skills,core,server,web} build` and
+ * Prereqs: `pnpm --filter @waterford/waf-harness-{skills,core,server,web} build` and
  * Playwright's chromium. Run: `node scripts/capture-blog-shots.mjs` (or
- * `pnpm --filter @prismshadow/penguin-landing blog-shots`).
+ * `pnpm --filter @waterford/waf-harness-landing blog-shots`).
  */
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
@@ -36,8 +36,8 @@ const ROOT = path.resolve(HERE, "../../..");
 // Gitignored staging dir: these images are hosted in the community repo, not committed here.
 const OUT_DIR = path.resolve(HERE, "../.blog-assets");
 const SRV_PORT = 8944; // Distinct from capture-shots.mjs (8940/8941) so both can run.
-// Pins the otherwise-random seeded admin password (PENGUIN_SEED_ADMIN_PASSWORD below).
-const ADMIN_PASSWORD = "penguin-0000";
+// Pins the otherwise-random seeded admin password (WAFH_SEED_ADMIN_PASSWORD below).
+const ADMIN_PASSWORD = "wafh-0000";
 // On loopback binds the App is canonically served on `localhost`; the 127.0.0.1
 // counterpart is the Workspace-preview host, where /api deliberately answers 401
 // (see server app.ts's canonical-host guard).
@@ -93,9 +93,9 @@ async function provisionUser(adminCookie, lang) {
   try {
     await api(cookie, "PUT", "/api/me/password", {
       oldPassword: initial,
-      newPassword: `penguin-${userId}-2026`,
+      newPassword: `wafh-${userId}-2026`,
     });
-    password = `penguin-${userId}-2026`;
+    password = `wafh-${userId}-2026`;
   } catch {}
   return { userId, password };
 }
@@ -104,18 +104,18 @@ async function provisionUser(adminCookie, lang) {
 // Main.
 // ---------------------------------------------------------------------------
 
-const dataRoot = mkdtempSync(path.join(os.tmpdir(), "penguin-blog-shots-"));
+const dataRoot = mkdtempSync(path.join(os.tmpdir(), "wafh-blog-shots-"));
 mkdirSync(OUT_DIR, { recursive: true });
 
 const srv = spawn("node", [path.join(ROOT, "packages/server/dist/index.js")], {
   env: {
     ...process.env,
-    PENGUIN_HOME: path.join(dataRoot, "home"),
-    PENGUIN_WEB_DB: path.join(dataRoot, "web.db"),
-    PENGUIN_WEB_DIST: path.join(ROOT, "packages/web/dist"),
+    WAFH_HOME: path.join(dataRoot, "home"),
+    WAFH_WEB_DB: path.join(dataRoot, "web.db"),
+    WAFH_WEB_DIST: path.join(ROOT, "packages/web/dist"),
     PORT: String(SRV_PORT),
     HOST: "127.0.0.1",
-    PENGUIN_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
+    WAFH_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -164,8 +164,8 @@ try {
     });
     await context.addInitScript(
       ([t, l]) => {
-        localStorage.setItem("penguin.theme", t);
-        localStorage.setItem("penguin.lang", l);
+        localStorage.setItem("wafh.theme", t);
+        localStorage.setItem("wafh.lang", l);
       },
       ["light", lang],
     );

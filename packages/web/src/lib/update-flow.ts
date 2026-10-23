@@ -4,8 +4,8 @@
  *
  * `release` mode is every ordinary server: the newer release comes from the server's
  * GitHub lookup (`use-version-info.ts`), the download is the admin self-update job
- * (`penguin update` in the background, `GET/POST /api/version/update`) and the restart is
- * `POST /api/version/restart`, honored when `penguin server|web` supervises the process.
+ * (`wafh update` in the background, `GET/POST /api/version/update`) and the restart is
+ * `POST /api/version/restart`, honored when `wafh server|web` supervises the process.
  * `client` mode is the desktop shell's own window: the shell's updater snapshot
  * (`use-desktop-update.ts`) carries every step, and the page only relays check / download
  * / install. `none` is a browser signed into a desktop-mode server, which can act on
@@ -27,9 +27,9 @@ import type {
   UpdateJobPhase,
   UpdateJobStatus,
   VersionResponse,
-} from "@prismshadow/penguin-server/api";
-import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
-import type { ReleaseIdentity } from "@prismshadow/penguin-core/release-identity";
+} from "@waterford/waf-harness-server/api";
+import { RELEASE_IDENTITY } from "@waterford/waf-harness-core/release-identity";
+import type { ReleaseIdentity } from "@waterford/waf-harness-core/release-identity";
 import type { AccountMenuSession } from "./account-menu";
 import { offersClientUpdate } from "./desktop-update";
 import { updateCheckOutcome } from "./use-version-info";
@@ -56,7 +56,7 @@ export type UpdateFlow =
   /** No check has answered yet. */
   | { kind: "unknown" }
   | { kind: "checking" }
-  /** Checks are turned off: PENGUIN_UPDATE_CHECK=off (the Releases page is the only way to look), or this build's repository publishes no releases. */
+  /** Checks are turned off: WAFH_UPDATE_CHECK=off (the Releases page is the only way to look), or this build's repository publishes no releases. */
   | { kind: "disabled" }
   | { kind: "up-to-date"; version: string | null }
   /** A newer release is offered; nothing has been fetched. `canInstall` is false for a non-admin on a server. */

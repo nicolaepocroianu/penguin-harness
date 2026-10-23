@@ -5,7 +5,7 @@
  * with (core kernel/decorators.ts: no imports, so a plugin's bundle carries them and
  * nothing else of the SDK) — and `sessionShell`, which a plugin reads from the host's copy
  * (see below). The host that drives a plugin lives in whatever embeds this SDK (for the
- * harness, `@prismshadow/penguin-server/plugin`); a plugin reaches THAT with `import type`
+ * harness, `@waterford/waf-harness-server/plugin`); a plugin reaches THAT with `import type`
  * only and stays a self-contained library that happens to satisfy an interface.
  *
  * A plugin is an npm package; what it carries is what it ships. Its MODULES — the same
@@ -23,7 +23,7 @@
  *   "files": ["dist", "ifaces.json"],
  *   "scripts": { "build": "node ../../scripts/gen-ifaces.mjs --project tsconfig.json --out ifaces.json && tsup" }
  *   // src/index.ts
- *   @Component({ contributes: { "SandboxModule.providers": [{ id: "sandbox-bwrap.provider", name: "penguin-bwrap", dimensions: ["fs-write", "network", "mask-paths"] }] } })
+ *   @Component({ contributes: { "SandboxModule.providers": [{ id: "sandbox-bwrap.provider", name: "wafh-bwrap", dimensions: ["fs-write", "network", "mask-paths"] }] } })
  *   export class SandboxBwrap {
  *     @Bind("sandbox-bwrap.provider") provider!: SandboxProviderSource;
  *     setup() { this.provider = createProvider(); }
@@ -34,7 +34,7 @@
  * packaged boot and each hot-swap boot alike — so what a module registers never
  * survives into a generation it did not register with. What it may require is what the
  * host publishes as interfaces (for the harness: everything under
- * `@prismshadow/penguin-server/plugin`); the requirement is checked structurally,
+ * `@waterford/waf-harness-server/plugin`); the requirement is checked structurally,
  * at signature level, before the module is created.
  */
 import type { ModuleClass } from "../kernel/decorators.js";

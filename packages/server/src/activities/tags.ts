@@ -51,7 +51,7 @@ function invalid(
 }
 
 /**
- * The tags Penguin keeps of someone else's list (Loom's): each one normalizeTags accepts, in
+ * The tags WAF Harness keeps of someone else's list (Loom's): each one normalizeTags accepts, in
  * order and once, up to TAGS_MAX. One it refuses is left out, never the whole list.
  */
 export function acceptedTags(value: readonly unknown[]): string[] {
@@ -61,7 +61,7 @@ export function acceptedTags(value: readonly unknown[]): string[] {
     try {
       kept.splice(0, kept.length, ...normalizeTags([...kept, entry]));
     } catch {
-      // Not a tag Penguin accepts.
+      // Not a tag WAF Harness accepts.
     }
   }
   return kept;

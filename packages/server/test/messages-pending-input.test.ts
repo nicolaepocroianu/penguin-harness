@@ -21,8 +21,8 @@ import {
   mcpConnectEnd,
   requestBegin,
   sessionMeta,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import type { MessagesResponse } from "../src/api/types.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";
 import { adoptSession, fakeSession, uniqueSessionId } from "./fixtures/session.js";

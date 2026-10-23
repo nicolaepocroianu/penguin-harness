@@ -6,8 +6,8 @@
  * chooses to write their own, which is then kept as written.
  */
 import { useState } from "react";
-import type { AssetManifest } from "@prismshadow/penguin-server/api";
-import { Button, GlyphIcon, Input, Textarea, ICON_SIZE } from "@prismshadow/penguin-ui";
+import type { AssetManifest } from "@waterford/waf-harness-server/api";
+import { Button, GlyphIcon, Input, Textarea, ICON_SIZE } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { cleanSounds, sameSounds, soundsProblem } from "./book-words";

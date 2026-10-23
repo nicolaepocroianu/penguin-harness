@@ -37,7 +37,7 @@ import {
   memoryScopeDir,
   parseMemoryFrontmatter,
   readWorkspaceMarker,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   MemoryFileInfo,
   MemoryFilesResponse,
@@ -51,7 +51,7 @@ import type {
 } from "../api/types.js";
 import { HttpError } from "../http/errors.js";
 import { badRequest } from "../http/validate.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Config, Paths } from "../hmr/capabilities.js";
 import type { AgentConfig, Memory } from "../mechanisms/agents.js";
 
@@ -59,7 +59,7 @@ import type { AgentConfig, Memory } from "../mechanisms/agents.js";
 const SCOPE_KEY_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
 
 /** The transfer document's format marker, checked before anything in it is believed. Typed against the DTO so the two literals cannot drift apart. */
-const SCOPE_FORMAT: MemoryScopeExport["format"] = "penguin-memory-scope";
+const SCOPE_FORMAT: MemoryScopeExport["format"] = "wafh-memory-scope";
 
 /** The document version this reader accepts. A later format bumps it and states its own compatibility. */
 const SCOPE_FORMAT_VERSION: MemoryScopeExport["version"] = 1;

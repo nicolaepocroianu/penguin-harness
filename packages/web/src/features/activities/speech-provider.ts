@@ -8,7 +8,7 @@ import type {
   SpeechProviderId,
   SpeechProviderStatus,
   VoiceOption,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { isNarration } from "./voice-catalogue";
 import { isBookWord } from "./book-words";

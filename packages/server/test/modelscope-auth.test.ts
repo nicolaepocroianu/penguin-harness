@@ -1,5 +1,5 @@
 /**
- * ModelScope key authorization: the harness starts a flow at the Penguin bridge, polls it, and
+ * ModelScope key authorization: the harness starts a flow at the WAF Harness bridge, polls it, and
  * writes the delivered token to the ModelScope group; later it refreshes that token.
  *
  * - The flow: the bridge's own authorize URL is passed through (never one a tab must not open),
@@ -92,7 +92,7 @@ describe("ModelScope key authorization service", () => {
       fetchImpl: fakeFetch(async ({ url: input, init }) => {
         if (pathOf(input) === "/modelscope/oauth/start") {
           const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
-          expect(body.client).toEqual({ id: "penguin-harness" });
+          expect(body.client).toEqual({ id: "waf-harness" });
           // The bridge rejects anything that is not base64url decoding to 16+ bytes.
           expect(String(body.code)).toMatch(/^[A-Za-z0-9_-]{43}$/);
           expect(String(body.deviceSecret)).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -576,7 +576,7 @@ describe("ModelScope key authorization routes", () => {
       // Every call carries the bridge's path prefix; a lost prefix is a 404 at the bridge.
       if (path === "/modelscope/oauth/start") {
         const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
-        expect(body.client).toEqual({ id: "penguin-harness" });
+        expect(body.client).toEqual({ id: "waf-harness" });
         return started();
       }
       if (path === "/modelscope/oauth/poll") {

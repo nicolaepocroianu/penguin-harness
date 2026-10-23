@@ -15,15 +15,15 @@
  */
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import type { AgentSummary, ProjectSummary } from "@prismshadow/penguin-server/api";
+import type { AgentSummary, ProjectSummary } from "@waterford/waf-harness-server/api";
 import { useStore } from "zustand/react";
 import { createStore } from "zustand/vanilla";
 import * as api from "../api/endpoints";
 import { isCurrentProject, scoped, scopedValue, type Scoped } from "../lib/project-scope";
 import { WORKBENCH_UPDATED_EVENT, type WorkbenchUpdatedDetail } from "../lib/workbench-tabs";
 
-const PROJECT_KEY = "penguin.lastProjectId";
-const agentKey = (projectId: string) => `penguin.lastAgentId.${projectId}`;
+const PROJECT_KEY = "wafh.lastProjectId";
+const agentKey = (projectId: string) => `wafh.lastAgentId.${projectId}`;
 
 /**
  * Remembers a Project and Agent the way the store does, for a surface that sits outside the

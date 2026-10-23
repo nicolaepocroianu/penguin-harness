@@ -14,7 +14,7 @@
  * Skills prescribe (an evaluator's request and its YAML result) stays English,
  * as the Skills write it; the person's and the agents' prose is English too.
  */
-import { buildSkillsMessage } from "@prismshadow/penguin-core/markers";
+import { buildSkillsMessage } from "@waterford/waf-harness-core/markers";
 import { IDS } from "./ids";
 import {
   approvalDecision,
@@ -34,9 +34,9 @@ import type { Lang } from "./types";
 const MIN = 60_000;
 const DAY = 86_400_000;
 
-const PROJECT_DIR = `/home/demo/.penguin/data/projects/${IDS.project}`;
+const PROJECT_DIR = `/home/demo/.waf-harness/data/projects/${IDS.project}`;
 /** The same directory as a shell writes it: what the commands `cd` into. */
-const PROJECT_SH = `~/.penguin/data/projects/${IDS.project}`;
+const PROJECT_SH = `~/.waf-harness/data/projects/${IDS.project}`;
 const DOCS_DIR = `${PROJECT_DIR}/agents/${IDS.agents.docs}`;
 /** The General Agent's temporary Workspace, where the round ran. */
 export const RSI_WORKSPACE = `${PROJECT_DIR}/agents/${IDS.agents.general}/workspaces/tmp-4be1c09d`;
@@ -163,7 +163,7 @@ function evaluatorResult(index: number): string {
   ].join("\n");
 }
 
-/** The prompt `penguin run` hands the Test Agent, the same for every case. */
+/** The prompt `wafh run` hands the Test Agent, the same for every case. */
 const TEST_MESSAGE =
   "Read README.md in the current Workspace and complete the task exactly as specified there.";
 
@@ -177,8 +177,8 @@ function launchCommand(index: number): string {
   return [
     `PROJECT_DIR=${PROJECT_DIR}`,
     'PROJECT_ID="$(basename "$PROJECT_DIR")"',
-    'export PENGUIN_HOME="$(dirname "$PROJECT_DIR")"',
-    `penguin run --message "${TEST_MESSAGE}" \\`,
+    'export WAFH_HOME="$(dirname "$PROJECT_DIR")"',
+    `wafh run --message "${TEST_MESSAGE}" \\`,
     '  --provider deepseek --model-id deepseek-flash --project-id "$PROJECT_ID" \\',
     `  --agent-id ${IDS.agents.docs} --workspace "${workspace}" \\`,
     "  --approve allow-all",

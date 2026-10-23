@@ -5,7 +5,7 @@
  * with no navigation — task management lives on the Agent settings page's "Scheduled Tasks"
  * tab). The task prompt body itself is rendered as usual by the caller.
  */
-import { TranscriptNote } from "@prismshadow/penguin-ui";
+import { TranscriptNote } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { formatDateTime } from "../../lib/format";
 import type { ScheduledOrigin } from "./agent-handoff";

@@ -21,7 +21,7 @@ import {
 import { WafLayout } from "../src/activities/waf-layout.js";
 import { FakeClones, type FakeRepo } from "./fake-clones.js";
 
-const HOME = path.resolve("/penguin-home");
+const HOME = path.resolve("/wafh-home");
 const WAF = path.join(HOME, "waf");
 const MODULE_REMOTE = "git@github.com:org/waf-module-words.git";
 const DATA_REMOTE = "git@github.com:org/data.git";

@@ -41,27 +41,27 @@ export const RSI_TOOLKITS = [
  */
 export const BENCHMARKS = [
   {
-    ids: ["penguinharness-benchmark-sec-a"],
+    ids: ["waf-harness-benchmark-sec-a"],
     href: "https://github.com/Prism-Shadow/rag-bench-essential",
   },
   {
-    ids: ["penguinharness-benchmark-sec-b"],
+    ids: ["waf-harness-benchmark-sec-b"],
     href: "https://github.com/datacurve-ai/deep-swe",
   },
   {
-    ids: ["penguinharness-benchmark-sec-c"],
+    ids: ["waf-harness-benchmark-sec-c"],
     href: "https://github.com/zapier/AutomationBench",
   },
   {
-    ids: ["penguinharness-benchmark-sec-d"],
+    ids: ["waf-harness-benchmark-sec-d"],
     href: "https://github.com/harbor-framework/terminal-bench-science",
   },
   {
-    ids: ["penguinharness-benchmark-sec-e"],
+    ids: ["waf-harness-benchmark-sec-e"],
     href: "https://github.com/harbor-framework/terminal-bench",
   },
   {
-    ids: ["penguinharness-benchmark-gdpevo-train", "penguinharness-benchmark-gdpevo-test"],
+    ids: ["waf-harness-benchmark-gdpevo-train", "waf-harness-benchmark-gdpevo-test"],
     href: "https://github.com/Prism-Shadow/GDPevo",
   },
 ] as const;

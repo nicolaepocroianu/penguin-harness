@@ -17,8 +17,8 @@ import type {
   TrimRange,
   TrimSource,
   TrimTarget,
-} from "@prismshadow/penguin-server/api";
-import { Button, toastSuccess, Textarea, Select } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { Button, toastSuccess, Textarea, Select } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk, toneSurface } from "../../lib/tone";
 import { ImagePreview } from "./image-preview";

@@ -4,7 +4,7 @@
  * and only a check of the very text on screen once the author has typed.
  */
 import { describe, expect, it } from "vitest";
-import type { StateMachineCheck, StateMachineDocument } from "@prismshadow/penguin-server/api";
+import type { StateMachineCheck, StateMachineDocument } from "@waterford/waf-harness-server/api";
 import {
   checkable,
   drawable,

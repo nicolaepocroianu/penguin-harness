@@ -20,7 +20,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { PluginItem } from "@prismshadow/penguin-server/api";
+import type { PluginItem } from "@waterford/waf-harness-server/api";
 import {
   DEFAULT_TOOLKIT_PLUGIN,
   EVALUATION_SKILL,
@@ -38,7 +38,7 @@ function toolkit(name: string, over: Partial<PluginItem> = {}, skills: string[] 
     name,
     description: "",
     version: "0.0.0",
-    package: `@penguinharness/${name}`,
+    package: `@waf-harness/${name}`,
     source: "builtin",
     skills: skills.map((skill) => ({ name: skill, description: "", version: "" })),
     hooks: [],
@@ -179,7 +179,7 @@ describe("the toolkits this repository ships", () => {
   function shipped(name: string): { category?: string; item: PluginItem } {
     const pkg = JSON.parse(readFileSync(join(PLUGINS, name, "package.json"), "utf8")) as {
       description?: string;
-      penguin?: {
+      wafh?: {
         category?: string;
         title?: string;
         title_zh?: string;
@@ -191,7 +191,7 @@ describe("the toolkits this repository ships", () => {
     const skills = existsSync(skillsDir)
       ? readdirSync(skillsDir).filter((s) => existsSync(join(skillsDir, s, "SKILL.md")))
       : [];
-    const m = pkg.penguin ?? {};
+    const m = pkg.wafh ?? {};
     return {
       ...(m.category !== undefined ? { category: m.category } : {}),
       item: toolkit(

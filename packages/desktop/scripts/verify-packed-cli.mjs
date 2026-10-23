@@ -1,13 +1,13 @@
 /**
- * The packed app carries a working `penguin`.
+ * The packed app carries a working `wafh`.
  *
  * Run after `electron-builder --dir` (CI's runtime job builds exactly that tree). An
  * installed desktop app puts the CLI on the user's PATH: the deb postinst links
- * /usr/bin/penguin at install time, and the other three forms install this same launcher
- * from the shell at launch (src/cli-install.ts). Every one of them resolves <app>/bin/penguin and
- * <app>/dist/penguin.js as plain files inside the packed tree, so `bin/` dropping out of
+ * /usr/bin/wafh at install time, and the other three forms install this same launcher
+ * from the shell at launch (src/cli-install.ts). Every one of them resolves <app>/bin/wafh and
+ * <app>/dist/wafh.js as plain files inside the packed tree, so `bin/` dropping out of
  * electron-builder's `files`, asar being switched on, or the bundled entry being renamed
- * would ship an app whose `penguin` command does not exist — with nothing else in the
+ * would ship an app whose `wafh` command does not exist — with nothing else in the
  * build failing. The unit tests pin those couplings in the config files; this checks the
  * tree they produced.
  *
@@ -34,9 +34,9 @@ const { FAR_SIDE_SCRIPTS } = await import(
 const outDir = path.join(pkgDir, "out");
 const ownPkg = JSON.parse(fs.readFileSync(path.join(pkgDir, "package.json"), "utf8"));
 const version = ownPkg.version;
-/** The plugin packages the bundled loader will look for: every @penguinharness/* in this package's dependencies (the one field the packaged manifest keeps). */
+/** The plugin packages the bundled loader will look for: every @waf-harness/* in this package's dependencies (the one field the packaged manifest keeps). */
 const pluginNames = Object.keys(ownPkg.dependencies ?? {}).filter((name) =>
-  name.startsWith("@penguinharness/"),
+  name.startsWith("@waf-harness/"),
 );
 
 /** Every `resources/app` directory under out/, in both platform layouts. */
@@ -59,7 +59,7 @@ function appDirs() {
 }
 
 /**
- * Whether `penguin --version` named this build. The CLI prints its identity rather than a
+ * Whether `wafh --version` named this build. The CLI prints its identity rather than a
  * bare version number: a release build prints `v<version>`, while a build from a checkout
  * prints git's description of it — `v<version>-3-g<sha>` when a tag is reachable, and
  * `v<version>-g<sha>` when none is, which is what a shallow CI checkout produces (core's
@@ -119,9 +119,9 @@ for (const app of dirs) {
     }
   }
   for (const rel of [
-    "bin/penguin",
-    "bin/penguin.cmd",
-    "dist/penguin.js",
+    "bin/wafh",
+    "bin/wafh.cmd",
+    "dist/wafh.js",
     "dist/server.js",
     ...FAR_SIDE_SCRIPTS.map(({ name }) => `dist/${name}`),
     "dist/install-image.gz",
@@ -134,10 +134,10 @@ for (const app of dirs) {
       problems.push(`${app}: ${rel} is missing from the packed app.`);
       continue;
     }
-    // The POSIX launcher is exec'd directly by the /usr/bin/penguin symlink a deb install
+    // The POSIX launcher is exec'd directly by the /usr/bin/wafh symlink a deb install
     // creates; writeFileSync's mode is masked by the umask, hence the explicit chmod in
     // scripts/build-assets.mjs that this pins.
-    if (process.platform !== "win32" && rel === "bin/penguin") {
+    if (process.platform !== "win32" && rel === "bin/wafh") {
       if ((fs.statSync(file).mode & 0o111) === 0)
         problems.push(`${app}: ${rel} is not executable.`);
     }
@@ -157,8 +157,8 @@ for (const app of dirs) {
 
   const launcher =
     process.platform === "win32"
-      ? path.join(app, "bin", "penguin.cmd")
-      : path.join(app, "bin", "penguin");
+      ? path.join(app, "bin", "wafh.cmd")
+      : path.join(app, "bin", "wafh");
   if (!fs.existsSync(launcher)) continue;
   // Node has refused to exec .cmd without a shell since the CVE-2024-27980 fix; the path
   // is this script's own, not user input.
@@ -179,16 +179,16 @@ for (const app of dirs) {
   }
   if (!namesThisBuild(printed)) {
     problems.push(
-      `${app}: penguin --version printed ${JSON.stringify(printed)}, want v${version} or v${version}-<git description>.`,
+      `${app}: wafh --version printed ${JSON.stringify(printed)}, want v${version} or v${version}-<git description>.`,
     );
     continue;
   }
   ran += 1;
-  console.log(`[verify-packed-cli] ${app}: penguin --version -> ${printed}`);
+  console.log(`[verify-packed-cli] ${app}: wafh --version -> ${printed}`);
 }
 
 if (ran === 0 && problems.length === 0) {
-  problems.push(`none of the ${dirs.length} packed app(s) produced a runnable penguin launcher.`);
+  problems.push(`none of the ${dirs.length} packed app(s) produced a runnable wafh launcher.`);
 }
 
 if (problems.length > 0) {

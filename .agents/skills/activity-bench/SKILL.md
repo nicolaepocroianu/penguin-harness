@@ -66,14 +66,14 @@ pnpm bench seal <private source> --bench <id>   # people only, see below
 
 ## A bench home
 
-A folder of its own (`PENGUIN_BENCH_HOME`, else `~/.penguin-bench`) — never inside `~/.penguin`,
+A folder of its own (`WAFH_BENCH_HOME`, else `~/.waf-harness-bench`) — never inside `~/.waf-harness`,
 a running server's data root, or this repository; the bench refuses those.
 
 ```
 <bench home>/
   bench.json        { "project": "<seed project id>", "vault": "vault/<id>.sealed",
                       "trialEstimateUsd": 3, "agent": "activity_agent", "mainRef": "origin/main" }
-  seed/             a Penguin home a person prepares once
+  seed/             a WAF Harness home a person prepares once
   claude-config/    CLAUDE_CONFIG_DIR for Claude Code trials
   vault/            sealed case files
   recipes/<sha>/    a worktree per compared commit, built once (remove with git worktree remove)
@@ -94,7 +94,7 @@ random loopback port) and, skipping each step already done: creates the Project 
 admin with the Activity Agent in it; lists the models the Project offers, takes the one named or
 picked, and asks for its API key **at the terminal, typed hidden** — the key goes to that
 loopback server's model table and nowhere else, never to a log, `bench.json`, argv or the
-environment; has Penguin prepare its own WAF workspace in the seed (never an existing checkout:
+environment; has WAF Harness prepare its own WAF workspace in the seed (never an existing checkout:
 every trial copies the seed, and a shared checkout would mix them — a `WAF_ROOT_DIR` or an
 `externalRoot` is refused) and says plainly when git cannot reach a repository; installs the test
 browser; writes `bench.json` (keeping its `vault`); stops the server; then runs the bench's own
@@ -126,7 +126,7 @@ passphrase) into `<bench home>/vault/<id>.sealed`. Folder layout: the comment at
 - Put real cases or hidden checks in this repository, a Benchmark folder or a run's workspace.
 - Edit the harness, the checks or this bench in a change you are scoring: that change is
   `out_of_surface`, and grading rests on them being the same on both sides.
-- Point the bench at `~/.penguin`, a dev server's data root, or the person's `~/.claude`.
+- Point the bench at `~/.waf-harness`, a dev server's data root, or the person's `~/.claude`.
 
 ## Limits of v0
 
@@ -139,10 +139,10 @@ passphrase) into `<bench home>/vault/<id>.sealed`. Folder layout: the comment at
 - Checks run under Node's permission model: they cannot write, start a process or a worker, or
   read files beyond playwright-core. The model has no network scope, so a check's own Node
   process still reaches the network freely: it can fetch services on loopback — the person's
-  Penguin dev server, say — and send what it gets anywhere. Only a dedicated OS account or a
+  WAF Harness dev server, say — and send what it gets anywhere. Only a dedicated OS account or a
   container closes that.
 - The browser a check drives runs unconfined, as this user. Left open, it would let a trial's own
-  tests read anything this user can — a Claude login, Penguin's vaults, the other side's trial
+  tests read anything this user can — a Claude login, WAF Harness's vaults, the other side's trial
   home — by opening a `file://` URL, and send it to any host. Two locks prevent it
   (`scripts/activity-bench/browser-guard.ts`): the browser starts with no route anywhere but the
   played module's own port (a proxy that leads nowhere for everything else, other loopback ports
@@ -152,6 +152,6 @@ passphrase) into `<bench home>/vault/<id>.sealed`. Folder layout: the comment at
   to this disk, raw DevTools, the browser's own HTTP client, tracing and artifacts. A test proves
   each escape fails with the locks.
 - Still, run the bench under a dedicated OS account that holds no credentials of its own (no
-  Claude or cloud login, no SSH keys, no Penguin vaults): that is the recommended way, and the
+  Claude or cloud login, no SSH keys, no WAF Harness vaults): that is the recommended way, and the
   only real read barrier on Windows.
 - A skill a recipe deletes stays in the trial from the seed's own install of the plugin.

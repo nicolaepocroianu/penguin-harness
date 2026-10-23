@@ -5,7 +5,7 @@
  * about the bytes rather than about the name.
  */
 
-import type { UploadedMedia, UploadKind } from "@prismshadow/penguin-server/api";
+import type { UploadedMedia, UploadKind } from "@waterford/waf-harness-server/api";
 import type { SceneAssetType } from "./scene-assets";
 
 /**

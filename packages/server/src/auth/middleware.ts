@@ -22,7 +22,7 @@ import type { SessionVia } from "./service.js";
 import type { Auth } from "../mechanisms/identity.js";
 
 /** Session cookie name. */
-export const SESSION_COOKIE = "penguin_session";
+export const SESSION_COOKIE = "wafh_session";
 
 /**
  * Session cookie attributes, shared by every path that sets one. `maxAge` comes from the
@@ -120,9 +120,9 @@ export function bearerToken(header: string | undefined): string | null {
 /**
  * Refuses the local API token and its exchanged Remote cookies on a write that only a person
  * may make: 403 `human_required`. AuthService preserves their common "token" authority. A
- * person's sign-in — a cookie session, from the Web App, `penguin auth login` or
- * `penguin auth token` — passes. Every tool subprocess of a server-driven Session holds that token
- * as `PENGUIN_API_TOKEN`, so these are the writes an Agent must not make from its own shell:
+ * person's sign-in — a cookie session, from the Web App, `wafh auth login` or
+ * `wafh auth token` — passes. Every tool subprocess of a server-driven Session holds that token
+ * as `WAFH_API_TOKEN`, so these are the writes an Agent must not make from its own shell:
  *
  * - who can reach an Agent from outside — its API switch, keyless access and approval mode, its
  *   keys, the API tab's Try it, and the admin's `agentApiEnabled` (http/routes/agent-api.ts,
@@ -132,7 +132,7 @@ export function bearerToken(header: string | undefined): string | null {
  *
  * This narrows the credential the harness hands an Agent; it is not a boundary. A process that
  * runs as the data root's OS user outside the sandbox can mint a sign-in of its own
- * (`penguin auth token`), or reset a password with the token and sign in. The sandbox is the
+ * (`wafh auth token`), or reset a password with the token and sign in. The sandbox is the
  * boundary. A per-Session credential (design PR #235) is the structural fix: when it lands, this
  * check becomes "a Session's credential is refused, a person's login is not", and the routes
  * calling it do not change.

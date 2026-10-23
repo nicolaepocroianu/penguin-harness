@@ -8,7 +8,7 @@
  * One store per document (a frame is a document), created on first use (in English, the one
  * language there is), and re-creatable for tests. Nothing here touches the DOM.
  */
-import type { ServerEvent, SessionInfo } from "@prismshadow/penguin-server/api";
+import type { ServerEvent, SessionInfo } from "@waterford/waf-harness-server/api";
 import { buildFixtures, DEFAULT_MODEL } from "./fixtures";
 import type { DemoFixtures } from "./fixtures";
 import { harnessTranscript, orgDeskTranscript } from "./harness-transcript";

@@ -48,7 +48,7 @@ jobs:
         with:
           oidc-provider-arn: ${{ vars.ALIYUN_OIDC_PROVIDER_ARN }}
           role-to-assume: ${{ vars.ALIYUN_ROLE_ARN }}
-          role-session-name: penguin-oss-staging-${{ github.run_id }}
+          role-session-name: wafh-oss-staging-${{ github.run_id }}
           role-session-expiration: 1800
           audience: github-actions
 

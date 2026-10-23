@@ -60,8 +60,8 @@ in the harness's environment and restart it:
 
 | Shell | Under the ACL runner | Setting |
 | --- | --- | --- |
-| PowerShell 7 (`pwsh`) | runs confined | `PENGUIN_SHELL=pwsh` |
-| Windows PowerShell 5.1 | runs confined | `PENGUIN_SHELL=powershell` — for hosts without PowerShell 7; it ships with Windows |
+| PowerShell 7 (`pwsh`) | runs confined | `WAFH_SHELL=pwsh` |
+| Windows PowerShell 5.1 | runs confined | `WAFH_SHELL=powershell` — for hosts without PowerShell 7; it ships with Windows |
 | bash / sh (Git for Windows, MinGit) | does not start | — |
 | Any other MSYS-runtime program (zsh, dash, `git-bash.exe`, anything in an MSYS2 or Git for Windows `usr\bin`) | refused | — |
 
@@ -81,7 +81,7 @@ older runtime) loads the backend as before.
 Each confined command is still checked on its own. A bash, sh or other MSYS-runtime program is
 refused before it reaches the runner: when it is the session shell, the error names the same
 settings; when it is something else — a stdio MCP Server launched through bash, which
-`PENGUIN_SHELL` does not choose — the error says only that the runner cannot start an
+`WAFH_SHELL` does not choose — the error says only that the runner cannot start an
 MSYS-runtime program. Nothing here changes on Linux or macOS, where bash runs confined as usual.
 
 ## Requirements
@@ -104,7 +104,7 @@ run it: the App re-assembles itself, no restart. Written by hand, it is a row of
 
 ```toml
 [plugins]
-"@penguinharness/sandbox-dsh" = "*"
+"@waf-harness/sandbox-dsh" = "*"
 ```
 
 Installing is an operator-side action: the harness resolves the package from the installation,

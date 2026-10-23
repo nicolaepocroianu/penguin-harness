@@ -28,7 +28,7 @@
  *   being pushed reloads nothing here. A change to the machines list tells every reader of it.
  */
 import { describe, expect, it } from "vitest";
-import type { ServerEvent, SessionInfo, SessionStatus } from "@prismshadow/penguin-server/api";
+import type { ServerEvent, SessionInfo, SessionStatus } from "@waterford/waf-harness-server/api";
 import { applyUserEvent, createSessionsStore } from "../src/state/sessions";
 import { subscribeMachinesChanged } from "../src/state/machines";
 import { isSessionUnread, markSessionSeen } from "../src/lib/session-seen";

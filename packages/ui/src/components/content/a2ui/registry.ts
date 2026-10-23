@@ -13,7 +13,7 @@
  */
 import { useSyncExternalStore } from "react";
 import type { ComponentType } from "react";
-import type { A2uiSpec } from "@prismshadow/penguin-core/a2ui";
+import type { A2uiSpec } from "@waterford/waf-harness-core/a2ui";
 import { CalloutBlock } from "./callout-block";
 import { ChoiceBlock } from "./choice-block";
 import { ClockBlock } from "./clock-block";

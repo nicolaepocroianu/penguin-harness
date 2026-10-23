@@ -11,8 +11,8 @@ import type { ProposalChange } from "./assist.js";
 import { validateBookSpec } from "./book.js";
 import path from "node:path";
 import { renameOver } from "../internal/rename-over.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
-import { projectDir } from "@prismshadow/penguin-core";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
+import { projectDir } from "@waterford/waf-harness-core";
 import type { Config, Db } from "../hmr/capabilities.js";
 import type { ActivityAuthoring } from "../mechanisms/activities.js";
 import { ActivityLocks, type ActivityLock } from "./activity-lock.js";
@@ -98,7 +98,7 @@ import type { WafWorkspace } from "./waf-workspace.js";
 import {
   ensureConfigurationFile,
   exists,
-  PENGUIN_FILE,
+  WAFH_FILE,
   readFeatureFile,
   readProductOwner,
   readProductTags,
@@ -568,7 +568,7 @@ export class ActivityService implements ActivityAuthoring {
       asset.generatedImage = { runId: result.runId, sha256: result.sha256 };
       await this.acceptCandidate(activity, result.runId, "png", asset.path, {
         text: asset.description,
-        model: "Penguin Harness",
+        model: "WAF Harness",
       });
       return { ...draft, mediaPlan: { ...plan, manifest } };
     });
@@ -1967,7 +1967,7 @@ export class ActivityService implements ActivityAuthoring {
         asset.path,
         {
           text: asset.script ?? "",
-          model: "Penguin Harness",
+          model: "WAF Harness",
           ...(asset.voice ? { voice: asset.voice } : {}),
           ...(fingerprint ? { generationFingerprint: fingerprint } : {}),
           ...(asset.wordTimings ? { wordTimings: asset.wordTimings } : {}),
@@ -2156,7 +2156,7 @@ export class ActivityService implements ActivityAuthoring {
     await previews.remove(token);
     return stored;
   }
-  /** One activity's unsaved trims, in Penguin's own data root rather than the media repository. */
+  /** One activity's unsaved trims, in WAF Harness's own data root rather than the media repository. */
   private trimPreviews(projectId: string, activityId: string): TrimPreviews {
     return new TrimPreviews(
       path.join(projectDir(this.config.root, projectId), "activity-audio-trims", activityId),
@@ -2531,8 +2531,8 @@ export class ActivityService implements ActivityAuthoring {
       moduleFolder: this.moduleFolderOf(activity),
       displayName: activity.displayName,
       stable: activity.stable,
-      // The runtime is the specification's: it goes when Penguin's specification goes, and a
-      // Loom ref Penguin has no specification for keeps Loom's.
+      // The runtime is the specification's: it goes when WAF Harness's specification goes, and a
+      // Loom ref WAF Harness has no specification for keeps Loom's.
       ...(draft.spec !== null || specCleared ? { runtime: draft.spec?.runtime } : {}),
     });
   }
@@ -2917,7 +2917,7 @@ export class ActivityService implements ActivityAuthoring {
   /**
    * Give a ref another number within its product.
    *
-   * Everything Penguin keeps for a ref is keyed by its id, so only the number itself, the
+   * Everything WAF Harness keeps for a ref is keyed by its id, so only the number itself, the
    * product's canonical number when this ref owns the module, and the media manifest's
    * address change. Module runs already assembled keep the old name as history; the next
    * assembly writes the new one.
@@ -3062,7 +3062,7 @@ export class ActivityService implements ActivityAuthoring {
           try {
             await this.writeDraft(moved, draft);
           } catch (error) {
-            // penguin.json is written last, so the files still name the old number; the
+            // wafh.json is written last, so the files still name the old number; the
             // index and the files go back to it.
             index({
               refNum: current.refNum,
@@ -3221,7 +3221,7 @@ export class ActivityService implements ActivityAuthoring {
               );
           }
           // The template's manifest is the new ref's to start from, so what Loom keeps there
-          // that Penguin does not hold (a book's intro, its page-turn sound) comes along, moved
+          // that WAF Harness does not hold (a book's intro, its page-turn sound) comes along, moved
           // to the new ref's media folder as the plan is (mergeLoomManifest).
           const templateManifest = await readText(
             path.join(await this.draftFilesDir(template), REF_MANIFEST_FILE),
@@ -3444,9 +3444,9 @@ export class ActivityService implements ActivityAuthoring {
   /**
    * Opens a product that is in the modules into this project, in place: the product and its
    * refs are indexed, the project is recorded as its owner, and each ref Loom authored gets
-   * Penguin's files beside Loom's. Loom's specification is used as it is (its module folder
+   * WAF Harness's files beside Loom's. Loom's specification is used as it is (its module folder
    * repaired), the media plan is made from it again and Loom's bindings carried onto it, and
-   * Loom's own specification and manifest are kept as `*.loom.json`. A ref Penguin already
+   * Loom's own specification and manifest are kept as `*.loom.json`. A ref WAF Harness already
    * wrote (this project's, before its index was lost) keeps its draft and ids.
    */
   async claimModuleProduct(
@@ -3572,9 +3572,9 @@ export class ActivityService implements ActivityAuthoring {
     const activityIds: string[] = [];
     for (const mapped of pending) {
       const specDir = module.refSpecDir(productCode, mapped.refNum);
-      const penguin = await readRefDraft(specDir).catch(() => null);
+      const wafh = await readRefDraft(specDir).catch(() => null);
       const activity: ActivityRecord = {
-        id: penguin?.activityId ?? newId("act"),
+        id: wafh?.activityId ?? newId("act"),
         collectionId: collection.collectionId,
         productId: product.productId,
         productCode,
@@ -3588,7 +3588,7 @@ export class ActivityService implements ActivityAuthoring {
         archived: false,
         tags: [],
       };
-      const draftId = penguin?.draftId ?? newId("draft");
+      const draftId = wafh?.draftId ?? newId("draft");
       this.db
         .prepare(
           "INSERT INTO activities (id, collection_id, product_id, product_code, ref_num, title, display_name, stable, activity_type, created_at, updated_at, archived) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
@@ -3613,11 +3613,11 @@ export class ActivityService implements ActivityAuthoring {
         .run(
           draftId,
           activity.id,
-          penguin?.contentRevision ?? contentRevision({ description: "", spec: null }),
-          penguin?.status ?? "draft",
+          wafh?.contentRevision ?? contentRevision({ description: "", spec: null }),
+          wafh?.status ?? "draft",
           now,
         );
-      if (penguin) {
+      if (wafh) {
         activityIds.push(activity.id);
         continue;
       }
@@ -3642,14 +3642,14 @@ export class ActivityService implements ActivityAuthoring {
   }
 
   /**
-   * A Loom ref whose opening failed, put back as Loom left it: its rows go, Penguin's
+   * A Loom ref whose opening failed, put back as Loom left it: its rows go, WAF Harness's
    * bookkeeping goes, and Loom's specification and manifest come back from their
    * `*.loom.json` copies. The product's next opening then finds it not yet open.
    */
   private async undoLoomRef(activityId: string, specDir: string): Promise<void> {
     this.db.prepare("DELETE FROM activity_drafts WHERE activity_id = ?").run(activityId);
     this.db.prepare("DELETE FROM activities WHERE id = ?").run(activityId);
-    await fs.rm(path.join(specDir, PENGUIN_FILE), { force: true, recursive: true });
+    await fs.rm(path.join(specDir, WAFH_FILE), { force: true, recursive: true });
     for (const name of ["activity_spec", "asset_manifest"]) {
       const kept = path.join(specDir, `${name}.loom.json`);
       if (await exists(kept)) await fs.copyFile(kept, path.join(specDir, `${name}.json`));
@@ -3657,7 +3657,7 @@ export class ActivityService implements ActivityAuthoring {
   }
 
   /**
-   * Gives one Loom-authored ref Penguin's files: Loom's specification and manifest are kept
+   * Gives one Loom-authored ref WAF Harness's files: Loom's specification and manifest are kept
    * as `*.loom.json`, an empty draft is written, and then the specification, media plan and
    * Loom's bindings are applied through the ordinary authoring calls, so an adopted ref is
    * checked exactly as one made here is.
@@ -3818,7 +3818,7 @@ export class ActivityService implements ActivityAuthoring {
         });
       }
       // An asset Loom bound that the plan does not make (one only a scene's own fields name,
-      // say) is carried as Loom had it, when Penguin's manifest can hold it. One it cannot
+      // say) is carried as Loom had it, when WAF Harness's manifest can hold it. One it cannot
       // stays in Loom's file all the same (loom-manifest.ts).
       for (const asset of manifest.assets[language]!)
         if (asset.sourceKey) present.add(asset.sourceKey);

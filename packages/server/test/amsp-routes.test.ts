@@ -78,10 +78,10 @@ import {
   partialText,
   requestBegin,
   requestEnd,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage, ToolCallPayload } from "@prismshadow/penguin-core";
-import { readSse } from "@prismshadow/amsp";
-import type { AmspEvent } from "@prismshadow/amsp";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage, ToolCallPayload } from "@waterford/waf-harness-core";
+import { readSse } from "@waterford/waf-harness-amsp";
+import type { AmspEvent } from "@waterford/waf-harness-amsp";
 import type {
   AgentApiKeyCreateResponse,
   AgentApiResponse,

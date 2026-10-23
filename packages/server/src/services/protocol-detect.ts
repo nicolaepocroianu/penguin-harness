@@ -54,7 +54,7 @@
  * Detection still works with no credential at all (a protocol-shaped 401 identifies the route),
  * and the user's vendor key never goes to a URL they typed.
  */
-import { userAgent } from "@prismshadow/penguin-core";
+import { userAgent } from "@waterford/waf-harness-core";
 import { clientEnvKey } from "../model-catalog/env-keys.js";
 import type {
   ModelProtocolDetectResponse,

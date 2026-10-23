@@ -8,7 +8,7 @@
  * means no budget (UNLIMITED_BUDGET).
  */
 
-import { ICONS } from "@prismshadow/penguin-ui";
+import { ICONS } from "@waterford/waf-harness-ui";
 
 /** Mirrors core's UNLIMITED_BUDGET (kept local: the constant is not part of the omnimessage bundle). */
 export const UNLIMITED_BUDGET = -1;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import type { WorkbenchInfo, WorkbenchVersion } from "@prismshadow/penguin-server/api";
+import type { WorkbenchInfo, WorkbenchVersion } from "@waterford/waf-harness-server/api";
 import {
   Button,
   ConfirmModal,
@@ -16,7 +16,7 @@ import {
   NoticeStrip,
   SkeletonList,
   toastError,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";

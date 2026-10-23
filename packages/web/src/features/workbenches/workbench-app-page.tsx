@@ -3,7 +3,7 @@
  * tab that key names, or the workbench's first tab without one.
  *
  * No sidebar, no chat, no tab strip — the page fills the window, which is what
- * `penguin web --app …` opens and what a tab's "fill the app" action navigates to. There is
+ * `wafh web --app …` opens and what a tab's "fill the app" action navigates to. There is
  * a floating exit control and the command palette (the `palette.toggle` chord, re-raised
  * from inside the page by forwardFrameKeys) both offer "Exit full page", which lands
  * on the same Agent’s workbench tab. The route sits outside the app shell (no ProjectProvider), so the exit
@@ -12,7 +12,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
-import { Button, type PaletteAction } from "@prismshadow/penguin-ui";
+import { Button, type PaletteAction } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { useShortcutLabel } from "../../lib/shortcuts/use-keymap";
 import { S } from "../../lib/strings";

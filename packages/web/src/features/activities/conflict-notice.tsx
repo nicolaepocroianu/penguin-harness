@@ -3,8 +3,8 @@
  * in conflict, a way to see the saved version where it is cheap, and per thing in conflict
  * the two ways out: keep the author's edit, or take the saved one.
  */
-import type { ActivityDraft, VideoTimeline } from "@prismshadow/penguin-server/api";
-import { Button } from "@prismshadow/penguin-ui";
+import type { ActivityDraft, VideoTimeline } from "@waterford/waf-harness-server/api";
+import { Button } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneStrip } from "../../lib/tone";
 import { conflictGroups, conflictParts, type ConflictGroup, type FieldId } from "./draft-merge";

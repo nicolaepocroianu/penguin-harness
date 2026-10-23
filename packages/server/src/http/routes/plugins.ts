@@ -51,8 +51,8 @@ import {
   loadPluginGroups,
   parsePluginPackage,
   uninstallMcpServer,
-} from "@prismshadow/penguin-core";
-import type { PluginPackageManifest } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { PluginPackageManifest } from "@waterford/waf-harness-core";
 import type {
   AgentMcpServersResponse,
   AgentPluginsInstallResponse,
@@ -68,8 +68,8 @@ import type { Config, Hmr } from "../../hmr/capabilities.js";
 import type { AgentConfig } from "../../mechanisms/agents.js";
 import type { Access } from "../../mechanisms/projects.js";
 import type { Sessions as ManagerIface } from "../../runtime/session-manager.js";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
-import type { ClassCtx, Json } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
+import type { ClassCtx, Json } from "@waterford/waf-harness-core/kernel";
 import { agentHooksRoutes } from "./hooks.js";
 import {
   BUILTIN_REGISTRY_SOURCE,
@@ -345,7 +345,7 @@ export interface PluginRoutesOptions {
  * The server modules an admin installed from a link or a zip: packages of the prefix carrying
  * an `ifaces.json` that no index lists. Their row is their own package.json's npm fields, read
  * by core's manifest reader; the listing then lets the package describe itself further (its
- * `penguin` block and its icon), as it does every package on this machine. A package.json that
+ * `wafh` block and its icon), as it does every package on this machine. A package.json that
  * will not read lists no row.
  */
 async function prefixEntries(
@@ -401,7 +401,7 @@ export function pluginRegistryRoutes(options: PluginRoutesOptions = {}): Hono<Ap
 
   app.get("/", async (c) => {
     const { entries, failures, pending } = await listing();
-    // A package on this machine describes itself: its own package.json `penguin` block and icon
+    // A package on this machine describes itself: its own package.json `wafh` block and icon
     // win over what an index row says, so an installed package's card shows its icon and both
     // languages even where its index row carries neither.
     const here = bases();

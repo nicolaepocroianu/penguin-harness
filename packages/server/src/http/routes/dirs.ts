@@ -42,7 +42,7 @@ import type { DirAccessResponse, DirEntryInfo, DirListResponse } from "../../api
 import type { AppEnv } from "../../auth/middleware.js";
 import { HttpError } from "../errors.js";
 import { requireValidId } from "../validate.js";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { directorySkillsRoutes } from "./directory-skills.js";
 import type { Desktop, DesktopApi } from "../../hmr/capabilities.js";
 import type { Access } from "../../mechanisms/projects.js";

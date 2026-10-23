@@ -15,7 +15,14 @@
  * folder's row, which is the order a phone shows it in — one column, the panel under the row,
  * as an accordion — and the order a screen reader walks.
  */
-import { Chevron, GlyphIcon, ICONS, NAV_FILL, ICON_GAP, ICON_SIZE } from "@prismshadow/penguin-ui";
+import {
+  Chevron,
+  GlyphIcon,
+  ICONS,
+  NAV_FILL,
+  ICON_GAP,
+  ICON_SIZE,
+} from "@waterford/waf-harness-ui";
 
 /** The examples block: one column on a phone, the folder column and the panel column beside. */
 export const exampleGridClass =

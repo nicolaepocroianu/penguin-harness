@@ -3,7 +3,7 @@
  * the service that runs them (see `acceptance-service.ts`).
  *
  * An acceptance test run turns each acceptance criterion of the specification
- * (`acceptance_criterias`) into a check an agent writes against Penguin's harness API, runs it
+ * (`acceptance_criterias`) into a check an agent writes against WAF Harness's harness API, runs it
  * in the test browser against the played activity, and keeps one report per run.
  */
 

@@ -13,7 +13,7 @@
  * current model first (always summarizing), then opens the next context on the target; a
  * Session that never ran switches inline.
  */
-import { DEFAULT_PROJECT_ID } from "@prismshadow/penguin-core";
+import { DEFAULT_PROJECT_ID } from "@waterford/waf-harness-core";
 import type { Messages } from "./i18n.js";
 
 /** A model reference as the server API spells it. */
@@ -43,7 +43,7 @@ export function formatModelLabel(provider: string, modelId: string): string {
 /**
  * The one line a 409 refusal of the switch prints, localized by its code; null for a code
  * this client does not know (the caller prints the server's own message instead).
- * `projectId` is the Session's Project: the `penguin config model` commands named for an
+ * `projectId` is the Session's Project: the `wafh config model` commands named for an
  * unconfigured target carry `--project-id` when it is not the default one.
  */
 export function switchModelRefusal(
@@ -63,8 +63,8 @@ export function switchModelRefusal(
     case "model_not_configured":
       return t.switchModelNotConfigured(
         label,
-        `penguin config model list${projectFlag}`,
-        `penguin config model add --provider ${target.provider} --model-id ${target.modelId}${projectFlag}`,
+        `wafh config model list${projectFlag}`,
+        `wafh config model add --provider ${target.provider} --model-id ${target.modelId}${projectFlag}`,
       );
     case "model_unavailable":
       return t.switchModelUnavailable(label, err.detail);

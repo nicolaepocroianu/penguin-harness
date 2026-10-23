@@ -55,8 +55,8 @@ import type {
   SessionSandbox,
   SkillMetadataItem,
   TaskInputPart,
-} from "@prismshadow/penguin-server/api";
-import { toastError } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { toastError } from "@waterford/waf-harness-ui";
 import { AgentSelect } from "../agents/agent-select";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
@@ -116,14 +116,14 @@ const DRAFT_SAVE_DEBOUNCE_MS = 300;
 type RouteStateField = "agentId" | "workspace" | "modelRef";
 function loadAppliedRouteKey(field: RouteStateField): string | null {
   try {
-    return sessionStorage.getItem(`penguin.chatRouteApplied.${field}`);
+    return sessionStorage.getItem(`wafh.chatRouteApplied.${field}`);
   } catch {
     return null;
   }
 }
 function saveAppliedRouteKey(field: RouteStateField, key: string): void {
   try {
-    sessionStorage.setItem(`penguin.chatRouteApplied.${field}`, key);
+    sessionStorage.setItem(`wafh.chatRouteApplied.${field}`, key);
   } catch {
     /* best-effort: the dedup marker falls back to the per-mount ref */
   }

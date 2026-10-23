@@ -1,6 +1,6 @@
 /**
  * Built-in browser smoke test on the runtime that hosts it: Electron itself, because what it
- * checks exists nowhere else — <webview> guests in the persist:penguin-browser partition, a
+ * checks exists nowhere else — <webview> guests in the persist:wafh-browser partition, a
  * guest's webContents.debugger beside its DevTools, and Electron's rule that only the main
  * frame of a window with `webviewTag` gets the <webview> element.
  *
@@ -42,7 +42,7 @@ const pkgDir = path.resolve(path.dirname(self), "..");
 
 if (!process.versions.electron) {
   const { build } = await import("esbuild");
-  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-bb-smoke-"));
+  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-bb-smoke-"));
   const bundle = path.join(outDir, "builtin-browser.mjs");
   await build({
     entryPoints: [path.join(pkgDir, "src", "builtin-browser.ts")],
@@ -61,7 +61,7 @@ if (!process.versions.electron) {
     ".bin",
     isWindows ? "electron.cmd" : "electron",
   );
-  const env = { ...process.env, PENGUIN_BB_SMOKE_BUNDLE: bundle };
+  const env = { ...process.env, WAFH_BB_SMOKE_BUNDLE: bundle };
   delete env.ELECTRON_RUN_AS_NODE;
   let status = 0;
   try {
@@ -78,9 +78,9 @@ if (!process.versions.electron) {
 
 const { app, BrowserWindow, Menu, webContents } = await import("electron");
 const { createBuiltinBrowserShell } = await import(
-  pathToFileURL(process.env.PENGUIN_BB_SMOKE_BUNDLE).href
+  pathToFileURL(process.env.WAFH_BB_SMOKE_BUNDLE).href
 );
-const profile = path.join(path.dirname(process.env.PENGUIN_BB_SMOKE_BUNDLE), "profile");
+const profile = path.join(path.dirname(process.env.WAFH_BB_SMOKE_BUNDLE), "profile");
 fs.mkdirSync(profile, { recursive: true });
 app.setPath("userData", profile);
 
@@ -162,7 +162,7 @@ async function run() {
   addEventListener("load", () => {
     const has = customElements.get("webview") !== undefined;
     const el = document.createElement("webview");
-    el.setAttribute("partition", "persist:penguin-browser");
+    el.setAttribute("partition", "persist:wafh-browser");
     el.setAttribute("src", "${appOrigin}/guest?from=iframe");
     el.style.cssText = "width:200px;height:100px";
     document.body.appendChild(el);
@@ -171,9 +171,9 @@ async function run() {
 </script></body>`;
   const appPage = `<!doctype html><title>App</title><body>
 <textarea id="composer"></textarea>
-<webview id="good" partition="persist:penguin-browser" src="${appOrigin}/guest" style="width:800px;height:400px"></webview>
+<webview id="good" partition="persist:wafh-browser" src="${appOrigin}/guest" style="width:800px;height:400px"></webview>
 <webview partition="persist:elsewhere" src="${appOrigin}/guest?wrong=partition" style="width:10px;height:10px"></webview>
-<webview partition="persist:penguin-browser" src="file:///etc/hostname" style="width:10px;height:10px"></webview>
+<webview partition="persist:wafh-browser" src="file:///etc/hostname" style="width:10px;height:10px"></webview>
 <iframe src="${otherOrigin}/frame" style="width:300px;height:150px"></iframe>
 <script>
   window.__smoke = { mainHasWebview: null, frame: null, child: null };
@@ -264,7 +264,7 @@ async function run() {
   const hello = await send({ op: "hello" });
   check(
     "hello",
-    hello.ok && hello.result.version === 1 && hello.result.partition === "persist:penguin-browser",
+    hello.ok && hello.result.version === 1 && hello.result.partition === "persist:wafh-browser",
     hello,
   );
   const tabs = await send({ op: "tabs" });
@@ -286,7 +286,7 @@ async function run() {
   const ua = await evaluate(tabId, "navigator.userAgent");
   check(
     "sites see a plain Chrome user agent",
-    !/Electron|PenguinHarness|penguin/i.test(ua) && /Chrome\//.test(ua),
+    !/Electron|WAF Harness|wafh/i.test(ua) && /Chrome\//.test(ua),
     ua,
   );
   check(
@@ -727,8 +727,8 @@ async function run() {
     cleared,
   );
 
-  const projectA = "persist:penguin-browser-project-" + "a".repeat(64);
-  const projectB = "persist:penguin-browser-project-" + "b".repeat(64);
+  const projectA = "persist:wafh-browser-project-" + "a".repeat(64);
+  const projectB = "persist:wafh-browser-project-" + "b".repeat(64);
   async function projectPage(name, partition) {
     return win.webContents.executeJavaScript(`new Promise((resolve, reject) => {
       const view = document.createElement("webview");

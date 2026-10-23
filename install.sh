@@ -1,32 +1,32 @@
 #!/bin/sh
-# PenguinHarness one-line installer.
+# WAF Harness one-line installer.
 #
 #   curl -fsSL https://github.com/Prism-Shadow/penguin-harness/releases/latest/download/install.sh | sh
 #
 # Options:
-#   PENGUIN_VERSION=vX.Y.Z    choose a version (same as --version vX.Y.Z); a published Release
+#   WAFH_VERSION=vX.Y.Z    choose a version (same as --version vX.Y.Z); a published Release
 #                              installer defaults to its own version, an unstamped source copy to latest
-#   PENGUIN_INSTALL_DIR=<dir> install dir; default ~/.penguin
-#   PENGUIN_ARCHIVE=<file>    install a local Release archive without network access (same as --archive <file>)
-#   PENGUIN_DOWNLOAD_SOURCE=auto|oss|github choose the online source; default auto (speed-probed,
+#   WAFH_INSTALL_DIR=<dir> install dir; default ~/.waf-harness
+#   WAFH_ARCHIVE=<file>    install a local Release archive without network access (same as --archive <file>)
+#   WAFH_DOWNLOAD_SOURCE=auto|oss|github choose the online source; default auto (speed-probed,
 #                              with the same-version other source as fallback)
-#   PENGUIN_DOWNLOAD_SPEED_PROBE=0 disable same-version OSS/GitHub probe timing in auto mode
-#   PENGUIN_DOWNLOAD_BASE_URL=<url> exact online asset directory selected by the stable forwarder
-#   PENGUIN_DOWNLOAD_FALLBACK_BASE_URL=<url> fallback for PENGUIN_DOWNLOAD_BASE_URL
+#   WAFH_DOWNLOAD_SPEED_PROBE=0 disable same-version OSS/GitHub probe timing in auto mode
+#   WAFH_DOWNLOAD_BASE_URL=<url> exact online asset directory selected by the stable forwarder
+#   WAFH_DOWNLOAD_FALLBACK_BASE_URL=<url> fallback for WAFH_DOWNLOAD_BASE_URL
 #   --universal               install the universal package (no bundled Node runtime; needs system Node >= 24)
-#   --no-modify-path          do not put `penguin` on PATH (no ~/.local/bin/penguin symlink); for a second
+#   --no-modify-path          do not put `wafh` on PATH (no ~/.local/bin/wafh symlink); for a second
 #                              installation beside the one the command belongs to
 #
-# Each Release attaches exactly one artifact per target: penguin-<target>.tar.gz, a shallow
+# Each Release attaches exactly one artifact per target: wafh-<target>.tar.gz, a shallow
 # installer bundle holding this script, the program payload (payload.tar.gz) and the payload's
 # checksum. Online installs download that bundle and verify it against its published .sha256;
 # offline installs transfer the same single file, extract it once and run the bundled
 # ./install.sh, which installs the sibling payload with no network access. Both paths verify
 # the payload checksum sealed inside the bundle before anything is staged. Releases up to
-# v0.1.5 shipped the program tree directly (top-level penguin/); such archives are still
+# v0.1.5 shipped the program tree directly (top-level wafh/); such archives are still
 # accepted, from --version pins and --archive files alike.
 #
-# The data dir (~/.penguin/data) sits under the install home but is never touched by reinstall/upgrade (which only replace bin/lib/web/node).
+# The data dir (~/.waf-harness/data) sits under the install home but is never touched by reinstall/upgrade (which only replace bin/lib/web/node).
 #
 # Docs: https://penguin.ooo/docs/quickstart-cli
 set -eu
@@ -36,16 +36,16 @@ OSS_ORIGIN="https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com"
 OSS_RELEASE_ROOT="$OSS_ORIGIN/releases"
 GITHUB_RELEASE_ROOT="$REPO/releases/download"
 GITHUB_LATEST_BASE="$REPO/releases/latest/download"
-VERSION="${PENGUIN_VERSION:-}"
-INSTALL_DIR="${PENGUIN_INSTALL_DIR:-$HOME/.penguin}"
+VERSION="${WAFH_VERSION:-}"
+INSTALL_DIR="${WAFH_INSTALL_DIR:-$HOME/.waf-harness}"
 BIN_DIR="$HOME/.local/bin"
 MODIFY_PATH=1
 UNIVERSAL=0
-ARCHIVE="${PENGUIN_ARCHIVE:-}"
-SOURCE_MODE="${PENGUIN_DOWNLOAD_SOURCE:-auto}"
-DOWNLOAD_BASE_URL="${PENGUIN_DOWNLOAD_BASE_URL:-}"
-DOWNLOAD_FALLBACK_BASE_URL="${PENGUIN_DOWNLOAD_FALLBACK_BASE_URL:-}"
-DOWNLOAD_SPEED_PROBE="${PENGUIN_DOWNLOAD_SPEED_PROBE:-1}"
+ARCHIVE="${WAFH_ARCHIVE:-}"
+SOURCE_MODE="${WAFH_DOWNLOAD_SOURCE:-auto}"
+DOWNLOAD_BASE_URL="${WAFH_DOWNLOAD_BASE_URL:-}"
+DOWNLOAD_FALLBACK_BASE_URL="${WAFH_DOWNLOAD_FALLBACK_BASE_URL:-}"
+DOWNLOAD_SPEED_PROBE="${WAFH_DOWNLOAD_SPEED_PROBE:-1}"
 # Auto-mode source selection, one rule shared by install.sh, install.ps1 and the download page on
 # penguin.ooo (packages/landing/src/lib/download-source.ts):
 #
@@ -73,7 +73,7 @@ SPEED_PROBE_STARTED_AT=0
 PAYLOAD_NAME="payload.tar.gz"
 # The release workflow replaces this token with the immutable tag before publishing both the
 # standalone installer and the copies sealed inside the Linux, macOS and universal bundles.
-EMBEDDED_RELEASE_VERSION="__PENGUIN_RELEASE_VERSION__"
+EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"
 
 fail() {
   echo "error: $1" >&2
@@ -152,21 +152,21 @@ if [ "$UNIVERSAL" -eq 0 ]; then
   esac
   TARGET="$os-$arch"
 fi
-ASSET="penguin-$TARGET.tar.gz"
+ASSET="wafh-$TARGET.tar.gz"
 
 if [ -n "$ARCHIVE" ] && [ -n "$VERSION" ]; then
-  fail "--archive/PENGUIN_ARCHIVE cannot be combined with --version/PENGUIN_VERSION"
+  fail "--archive/WAFH_ARCHIVE cannot be combined with --version/WAFH_VERSION"
 fi
 if [ -n "$VERSION" ]; then
   validate_release_tag "$VERSION"
 fi
 case "$SOURCE_MODE" in
   auto | oss | github) ;;
-  *) fail "PENGUIN_DOWNLOAD_SOURCE must be auto, oss, or github" ;;
+  *) fail "WAFH_DOWNLOAD_SOURCE must be auto, oss, or github" ;;
 esac
 case "$DOWNLOAD_SPEED_PROBE" in
   0 | 1) ;;
-  *) fail "PENGUIN_DOWNLOAD_SPEED_PROBE must be 0 or 1" ;;
+  *) fail "WAFH_DOWNLOAD_SPEED_PROBE must be 0 or 1" ;;
 esac
 RESOLVED_RELEASE_VERSION="$VERSION"
 if [ -z "$RESOLVED_RELEASE_VERSION" ] && is_release_tag "$EMBEDDED_RELEASE_VERSION"; then
@@ -174,10 +174,10 @@ if [ -z "$RESOLVED_RELEASE_VERSION" ] && is_release_tag "$EMBEDDED_RELEASE_VERSI
 fi
 if [ -n "$DOWNLOAD_BASE_URL" ]; then
   DOWNLOAD_BASE_URL="${DOWNLOAD_BASE_URL%/}"
-  validate_https_url PENGUIN_DOWNLOAD_BASE_URL "$DOWNLOAD_BASE_URL"
+  validate_https_url WAFH_DOWNLOAD_BASE_URL "$DOWNLOAD_BASE_URL"
   if [ -n "$DOWNLOAD_FALLBACK_BASE_URL" ]; then
     DOWNLOAD_FALLBACK_BASE_URL="${DOWNLOAD_FALLBACK_BASE_URL%/}"
-    validate_https_url PENGUIN_DOWNLOAD_FALLBACK_BASE_URL "$DOWNLOAD_FALLBACK_BASE_URL"
+    validate_https_url WAFH_DOWNLOAD_FALLBACK_BASE_URL "$DOWNLOAD_FALLBACK_BASE_URL"
   fi
 else
   DOWNLOAD_FALLBACK_BASE_URL=""
@@ -204,7 +204,7 @@ MOVED_NEW=""
 
 # Moves one directory to a new location even when the directory inode itself cannot be renamed
 # — a mount point, a process's CWD, or a filesystem that pins in-use directories (overlayfs
-# under Docker reports EBUSY when `penguin update` replaces the very lib/ its own process runs
+# under Docker reports EBUSY when `wafh update` replaces the very lib/ its own process runs
 # from). Strategies, in order: plain rename; per-entry renames into a fresh or existing
 # destination; per-entry copy with the source entry removed (POSIX keeps an unlinked-but-open
 # file valid for the process using it). A pinned, now-empty source directory is left in place
@@ -249,7 +249,7 @@ rollback_install() {
     echo "error: automatic rollback was incomplete; previous files remain in $OLD_DIR" >&2
     return 1
   fi
-  echo "Previous PenguinHarness installation restored." >&2
+  echo "Previous WAF Harness installation restored." >&2
 }
 
 cleanup() {
@@ -348,7 +348,7 @@ load_release_download_manifest() {
     return 1
   fi
 
-  lrdm_expected_header="$(printf 'penguin-release-download-manifest\t1\t%s' "$lrdm_tag")"
+  lrdm_expected_header="$(printf 'wafh-release-download-manifest\t1\t%s' "$lrdm_tag")"
   [ "$(sed -n '1p' "$lrdm_manifest")" = "$lrdm_expected_header" ] || return 1
 
   SPEED_PROBE_SMALL_PROBE="$(awk -F '\t' '$1 == "probe" && $2 == "small" { print $3; exit }' "$lrdm_manifest")"
@@ -560,10 +560,10 @@ get_oss_latest_tag() {
 # --- Resolve the program payload. Three entries converge on PAYLOAD_PATH:
 #     (a) bundled offline: this script sits next to payload.tar.gz in an extracted bundle;
 #     (b) --archive <file>: a local installer bundle, or a payload/legacy program archive;
-#     (c) online: download penguin-<target>.tar.gz and verify it, then open it.
+#     (c) online: download wafh-<target>.tar.gz and verify it, then open it.
 #     A bundle is recognized by containing payload.tar.gz at its top level; anything else is a
 #     program archive (payload.tar.gz itself, or a pre-0.1.6 release archive) whose top level
-#     is penguin/. ---
+#     is wafh/. ---
 LOCAL_ARCHIVE=0
 ARCHIVE_SHAPE=""
 ARCHIVE_PATH=""
@@ -585,7 +585,7 @@ fi
 if [ -n "$SIBLING_PAYLOAD" ]; then
   # (a) Extracted bundle: install the sibling payload; no network access at all.
   [ -z "$VERSION" ] \
-    || fail "--version/PENGUIN_VERSION cannot be combined with the bundled offline installer"
+    || fail "--version/WAFH_VERSION cannot be combined with the bundled offline installer"
   echo "Using bundled payload $SIBLING_PAYLOAD ..."
   [ -f "$SIBLING_PAYLOAD.sha256" ] \
     || fail "offline checksum file not found: $SIBLING_PAYLOAD.sha256"
@@ -693,8 +693,8 @@ fi
 #    swap keeps the previous dirs in .old.$$ until the installed command runs successfully; any
 #    move or launch failure restores them automatically. The data dir is never part of the swap. ---
 tar -xzf "$PAYLOAD_PATH" -C "$TMP"
-[ -d "$TMP/penguin" ] || fail "unexpected archive layout: top-level penguin/ missing."
-MANIFEST_PATH="$TMP/penguin/package-manifest.json"
+[ -d "$TMP/wafh" ] || fail "unexpected archive layout: top-level wafh/ missing."
+MANIFEST_PATH="$TMP/wafh/package-manifest.json"
 if [ -f "$MANIFEST_PATH" ]; then
   manifest_target="$(sed -n 's/.*"target"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST_PATH" | head -n 1)"
   [ -n "$manifest_target" ] || fail "package manifest is malformed: target missing."
@@ -710,19 +710,19 @@ rm -rf "$STAGING"
 rm -rf "$OLD_DIR"
 mkdir -p "$STAGING"
 for d in bin lib web node browsers; do
-  if [ -e "$TMP/penguin/$d" ]; then
-    mv "$TMP/penguin/$d" "$STAGING/$d"
+  if [ -e "$TMP/wafh/$d" ]; then
+    mv "$TMP/wafh/$d" "$STAGING/$d"
   fi
 done
-[ -x "$STAGING/bin/penguin" ] || fail "unexpected archive layout: bin/penguin missing."
+[ -x "$STAGING/bin/wafh" ] || fail "unexpected archive layout: bin/wafh missing."
 
 # The launcher resolves lib/, web/ and node/ relative to itself, so staging is a faithful
 # preflight that catches macOS execution policy and runtime/package failures before replacement.
-if candidate_version="$("$STAGING/bin/penguin" --version)"; then
-  [ -n "$candidate_version" ] || fail "candidate PenguinHarness returned an empty version."
+if candidate_version="$("$STAGING/bin/wafh" --version)"; then
+  [ -n "$candidate_version" ] || fail "candidate WAF Harness returned an empty version."
 else
   candidate_status=$?
-  fail "candidate PenguinHarness failed to run (exit status $candidate_status). See the error above."
+  fail "candidate WAF Harness failed to run (exit status $candidate_status). See the error above."
 fi
 
 mkdir -p "$OLD_DIR"
@@ -732,7 +732,7 @@ for d in bin lib web node browsers; do
     if relocate_dir "$INSTALL_DIR/$d" "$OLD_DIR/$d"; then
       MOVED_OLD="$MOVED_OLD $d"
     else
-      fail "could not move the existing $d directory aside (stop running penguin processes and retry); the previous installation will be restored."
+      fail "could not move the existing $d directory aside (stop running wafh processes and retry); the previous installation will be restored."
     fi
   fi
 done
@@ -745,15 +745,15 @@ for d in bin lib web node browsers; do
     fi
   fi
 done
-[ -x "$INSTALL_DIR/bin/penguin" ] || fail "install incomplete: $INSTALL_DIR/bin/penguin missing."
+[ -x "$INSTALL_DIR/bin/wafh" ] || fail "install incomplete: $INSTALL_DIR/bin/wafh missing."
 
 # Verify again from the final path before deleting the backup. Keep stderr visible so platform
 # policy, permission and runtime errors are not disguised as an "unknown" version.
-if installed_version="$("$INSTALL_DIR/bin/penguin" --version)"; then
-  [ -n "$installed_version" ] || fail "installed PenguinHarness returned an empty version."
+if installed_version="$("$INSTALL_DIR/bin/wafh" --version)"; then
+  [ -n "$installed_version" ] || fail "installed WAF Harness returned an empty version."
 else
   version_status=$?
-  fail "installed PenguinHarness failed to run (exit status $version_status); the previous installation will be restored. See the error above."
+  fail "installed WAF Harness failed to run (exit status $version_status); the previous installation will be restored. See the error above."
 fi
 
 SWAP_ACTIVE=0
@@ -765,23 +765,23 @@ rm -rf "$STAGING"
 STAGING=""
 
 # --- Symlink into ~/.local/bin and check PATH only after the install is known to work.
-#     --no-modify-path skips both: ~/.local/bin/penguin is one name, and a second
-#     installation that took it would hand its program to whoever types `penguin`. ---
+#     --no-modify-path skips both: ~/.local/bin/wafh is one name, and a second
+#     installation that took it would hand its program to whoever types `wafh`. ---
 PATH_MISSING=0
-PENGUIN_COMMAND="penguin"
+WAFH_COMMAND="wafh"
 if [ "$MODIFY_PATH" -eq 1 ]; then
   mkdir -p "$BIN_DIR"
-  ln -sf "$INSTALL_DIR/bin/penguin" "$BIN_DIR/penguin"
+  ln -sf "$INSTALL_DIR/bin/wafh" "$BIN_DIR/wafh"
   case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
     *) PATH_MISSING=1 ;;
   esac
 else
-  PENGUIN_COMMAND="$INSTALL_DIR/bin/penguin"
+  WAFH_COMMAND="$INSTALL_DIR/bin/wafh"
 fi
 
 echo ""
-echo "PenguinHarness $installed_version installed to $INSTALL_DIR"
+echo "WAF Harness $installed_version installed to $INSTALL_DIR"
 if [ "$PATH_MISSING" -eq 1 ]; then
   echo ""
   echo "note: installation succeeded, but $BIN_DIR is not on your PATH. Add it to your shell profile:"
@@ -794,6 +794,6 @@ if [ "$PATH_MISSING" -eq 1 ]; then
 fi
 echo ""
 echo "Get started:"
-echo "  $PENGUIN_COMMAND --help    # all commands"
-echo "  $PENGUIN_COMMAND web       # start the Web UI at http://127.0.0.1:7364 (a first-login link is printed on first start)"
-echo "  $PENGUIN_COMMAND server    # headless server (PORT / HOST to override)"
+echo "  $WAFH_COMMAND --help    # all commands"
+echo "  $WAFH_COMMAND web       # start the Web UI at http://127.0.0.1:7364 (a first-login link is printed on first start)"
+echo "  $WAFH_COMMAND server    # headless server (PORT / HOST to override)"

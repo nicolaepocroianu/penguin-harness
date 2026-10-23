@@ -19,7 +19,7 @@ import {
   ICON_SIZE,
   RetryStatus,
   toastError,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { machineLink } from "../../lib/machine-link";

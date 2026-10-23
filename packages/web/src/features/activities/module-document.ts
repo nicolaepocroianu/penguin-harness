@@ -3,7 +3,7 @@
  * without a DOM: how a document is shown as text, whether the text differs from it, and
  * what the text parses to before it is sent.
  */
-import type { ModuleDocument, ModuleDocuments } from "@prismshadow/penguin-server/api";
+import type { ModuleDocument, ModuleDocuments } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 
 export type ModuleDocumentKind = "configuration" | "assessment" | "definition";

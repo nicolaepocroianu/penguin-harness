@@ -16,7 +16,7 @@ import type {
   DeployRepo,
   DeployStateResponse,
   DeployStageState,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
 import { failingChecks, type ChecksFacts } from "./checks-model";

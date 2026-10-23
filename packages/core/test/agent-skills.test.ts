@@ -25,7 +25,7 @@ import {
 let tmpRoot: string;
 
 beforeEach(async () => {
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-skills-"));
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-skills-"));
 });
 
 afterEach(async () => {
@@ -46,17 +46,14 @@ const skillIcon = (name: string) => skillFile(name, "icon.svg");
 
 describe("installSkill / removeSkill", () => {
   it("writes skills/<name>/SKILL.md verbatim with a trailing newline", async () => {
-    const skill = librarySkill("penguin-config")!.skill;
+    const skill = librarySkill("wafh-config")!.skill;
     await install(skill.name, skill.content);
-    expect(await fs.readFile(skillMd("penguin-config"), "utf8")).toBe(skill.content);
+    expect(await fs.readFile(skillMd("wafh-config"), "utf8")).toBe(skill.content);
 
     // Content without a trailing newline gets one appended; reinstalling overwrites.
-    await install(
-      "penguin-config",
-      "---\nname: penguin-config\nversion: 2026.08.01.2\n---\n\nNew body",
-    );
-    expect(await fs.readFile(skillMd("penguin-config"), "utf8")).toBe(
-      "---\nname: penguin-config\nversion: 2026.08.01.2\n---\n\nNew body\n",
+    await install("wafh-config", "---\nname: wafh-config\nversion: 2026.08.01.2\n---\n\nNew body");
+    expect(await fs.readFile(skillMd("wafh-config"), "utf8")).toBe(
+      "---\nname: wafh-config\nversion: 2026.08.01.2\n---\n\nNew body\n",
     );
     expect((await list()).map((s) => s.version)).toEqual(["2026.08.01.2"]);
   });
@@ -65,14 +62,14 @@ describe("installSkill / removeSkill", () => {
     // Library skills carry no icon (the plugin owns it), but installSkill still accepts one —
     // for user-authored skills and zip imports. An install with an icon writes it to disk.
     const icon = "<svg><rect /></svg>";
-    await install("penguin-sdk", librarySkill("penguin-sdk")!.skill.content, icon);
-    expect(await fs.readFile(skillIcon("penguin-sdk"), "utf8")).toBe(icon);
+    await install("wafh-sdk", librarySkill("wafh-sdk")!.skill.content, icon);
+    expect(await fs.readFile(skillIcon("wafh-sdk"), "utf8")).toBe(icon);
 
     // Overwrite semantics: this install has no icon -> the old icon.svg is removed, and the
     // directory matches this install's content exactly.
-    await install("penguin-sdk", "---\nname: penguin-sdk\nversion: 2\n---\n\nNew body\n");
-    await expect(fs.access(skillIcon("penguin-sdk"))).rejects.toThrow();
-    expect(await fs.readFile(skillMd("penguin-sdk"), "utf8")).toContain("New body");
+    await install("wafh-sdk", "---\nname: wafh-sdk\nversion: 2\n---\n\nNew body\n");
+    await expect(fs.access(skillIcon("wafh-sdk"))).rejects.toThrow();
+    expect(await fs.readFile(skillMd("wafh-sdk"), "utf8")).toContain("New body");
   });
 
   it("rejects invalid skill names (path traversal safety)", async () => {
@@ -119,19 +116,19 @@ describe("installSkill / removeSkill", () => {
   });
 
   it("stages the install and leaves no staging directory behind", async () => {
-    const skill = librarySkill("penguin-sdk")!.skill;
+    const skill = librarySkill("wafh-sdk")!.skill;
     await install(skill.name, skill.content);
     const entries = await fs.readdir(skillsDir(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID));
-    expect(entries).toEqual(["penguin-sdk"]);
+    expect(entries).toEqual(["wafh-sdk"]);
   });
 
   it("removeSkill deletes the whole skill directory and is idempotent", async () => {
-    const skill = librarySkill("penguin-sdk")!.skill;
+    const skill = librarySkill("wafh-sdk")!.skill;
     await install(skill.name, skill.content);
-    await removeSkill(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID, "penguin-sdk");
-    await expect(fs.access(skillMd("penguin-sdk"))).rejects.toThrow();
+    await removeSkill(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID, "wafh-sdk");
+    await expect(fs.access(skillMd("wafh-sdk"))).rejects.toThrow();
     // Idempotent when it no longer exists: does not throw.
-    await removeSkill(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID, "penguin-sdk");
+    await removeSkill(tmpRoot, DEFAULT_PROJECT_ID, DEFAULT_AGENT_ID, "wafh-sdk");
     expect(await list()).toEqual([]);
   });
 });

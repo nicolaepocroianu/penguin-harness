@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
+import { RELEASE_IDENTITY } from "@waterford/waf-harness-core/release-identity";
 import { feedUrlOverride, updateSourceConfig, updateSupport } from "../src/update-support.js";
 
 describe("updateSupport", () => {
@@ -16,7 +16,7 @@ describe("updateSupport", () => {
   });
 
   it("supports Linux only when running as an AppImage", () => {
-    const env = { APPIMAGE: "/opt/PenguinHarness.AppImage" };
+    const env = { APPIMAGE: "/opt/WAF Harness.AppImage" };
     expect(
       updateSupport({ ...releases, isPackaged: true, profile: "release", platform: "linux", env }),
     ).toEqual({
@@ -68,7 +68,7 @@ describe("updateSupport", () => {
         isPackaged: true,
         profile: "release",
         platform: "linux",
-        env: { APPIMAGE: "/opt/PenguinHarness.AppImage" },
+        env: { APPIMAGE: "/opt/WAF Harness.AppImage" },
       },
       { isPackaged: true, profile: "release", platform: "linux", env: {} },
       { isPackaged: true, profile: "dev", platform: "win32", env: {} },
@@ -97,19 +97,19 @@ describe("updateSupport", () => {
 
 describe("feedUrlOverride", () => {
   it("accepts http(s) URLs and normalizes them", () => {
-    expect(feedUrlOverride({ PENGUIN_UPDATE_FEED_URL: "http://127.0.0.1:8080/feed" })).toBe(
+    expect(feedUrlOverride({ WAFH_UPDATE_FEED_URL: "http://127.0.0.1:8080/feed" })).toBe(
       "http://127.0.0.1:8080/feed",
     );
-    expect(feedUrlOverride({ PENGUIN_UPDATE_FEED_URL: " https://example.com/u " })).toBe(
+    expect(feedUrlOverride({ WAFH_UPDATE_FEED_URL: " https://example.com/u " })).toBe(
       "https://example.com/u",
     );
   });
 
   it("ignores unset, blank, non-http and unparseable values", () => {
     expect(feedUrlOverride({})).toBeNull();
-    expect(feedUrlOverride({ PENGUIN_UPDATE_FEED_URL: "   " })).toBeNull();
-    expect(feedUrlOverride({ PENGUIN_UPDATE_FEED_URL: "file:///etc/passwd" })).toBeNull();
-    expect(feedUrlOverride({ PENGUIN_UPDATE_FEED_URL: "not a url" })).toBeNull();
+    expect(feedUrlOverride({ WAFH_UPDATE_FEED_URL: "   " })).toBeNull();
+    expect(feedUrlOverride({ WAFH_UPDATE_FEED_URL: "file:///etc/passwd" })).toBeNull();
+    expect(feedUrlOverride({ WAFH_UPDATE_FEED_URL: "not a url" })).toBeNull();
   });
 });
 
@@ -124,23 +124,23 @@ describe("updateSourceConfig", () => {
   });
 
   it("accepts every source and the probe switch, trimming whitespace", () => {
-    expect(updateSourceConfig({ PENGUIN_UPDATE_SOURCE: " oss " })).toMatchObject({
+    expect(updateSourceConfig({ WAFH_UPDATE_SOURCE: " oss " })).toMatchObject({
       source: "oss",
       invalidSource: false,
     });
-    expect(updateSourceConfig({ PENGUIN_UPDATE_SOURCE: "github" })).toMatchObject({
+    expect(updateSourceConfig({ WAFH_UPDATE_SOURCE: "github" })).toMatchObject({
       source: "github",
       invalidSource: false,
     });
-    expect(updateSourceConfig({ PENGUIN_UPDATE_SOURCE: "auto" })).toMatchObject({
+    expect(updateSourceConfig({ WAFH_UPDATE_SOURCE: "auto" })).toMatchObject({
       source: "auto",
       invalidSource: false,
     });
-    expect(updateSourceConfig({ PENGUIN_UPDATE_SPEED_PROBE: "1" })).toMatchObject({
+    expect(updateSourceConfig({ WAFH_UPDATE_SPEED_PROBE: "1" })).toMatchObject({
       probe: true,
       invalidProbe: false,
     });
-    expect(updateSourceConfig({ PENGUIN_UPDATE_SPEED_PROBE: " 0 " })).toMatchObject({
+    expect(updateSourceConfig({ WAFH_UPDATE_SPEED_PROBE: " 0 " })).toMatchObject({
       probe: false,
       invalidProbe: false,
     });
@@ -148,7 +148,7 @@ describe("updateSourceConfig", () => {
 
   it("treats unsupported values as defaults and flags them", () => {
     expect(
-      updateSourceConfig({ PENGUIN_UPDATE_SOURCE: "mirror", PENGUIN_UPDATE_SPEED_PROBE: "2" }),
+      updateSourceConfig({ WAFH_UPDATE_SOURCE: "mirror", WAFH_UPDATE_SPEED_PROBE: "2" }),
     ).toEqual({ source: "auto", probe: true, invalidSource: true, invalidProbe: true });
   });
 });

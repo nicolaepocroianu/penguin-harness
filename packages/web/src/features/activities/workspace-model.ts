@@ -197,8 +197,8 @@ export function fitsComparison(editorWidth: number): boolean {
   return Number.isFinite(editorWidth) && editorWidth >= 640;
 }
 
-export const RAIL_WIDTH_KEY = "penguin.activityRailWidth";
-export const RAIL_COLLAPSED_KEY = "penguin.activityRailCollapsed";
+export const RAIL_WIDTH_KEY = "wafh.activityRailWidth";
+export const RAIL_COLLAPSED_KEY = "wafh.activityRailCollapsed";
 
 /** Reads the stored width; anything unreadable falls back to the default. */
 export function readRailWidth(storage?: Pick<Storage, "getItem">): number {
@@ -328,8 +328,8 @@ export function sidePanelWidthAfterKey(width: number, key: string, large = false
   return null;
 }
 
-export const SIDE_PANEL_WIDTH_KEY = "penguin.activitySidePanelWidth";
-export const SIDE_PANEL_EXPANDED_KEY = "penguin.activitySidePanelExpanded";
+export const SIDE_PANEL_WIDTH_KEY = "wafh.activitySidePanelWidth";
+export const SIDE_PANEL_EXPANDED_KEY = "wafh.activitySidePanelExpanded";
 
 export function readSidePanelWidth(storage?: Pick<Storage, "getItem">): number {
   try {
@@ -368,7 +368,7 @@ export function writeSidePanelExpanded(
   }
 }
 
-export const SIDE_PANEL_KEY = "penguin.activitySidePanel";
+export const SIDE_PANEL_KEY = "wafh.activitySidePanel";
 
 /** The panel left open last time, or none; anything unrecognised opens nothing. */
 export function readSidePanel(storage?: Pick<Storage, "getItem">): StudioPanel | null {

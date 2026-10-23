@@ -1,19 +1,19 @@
 /**
  * Getting a session on a machine by asking its own CLI for one.
  *
- * `penguin auth token` mints a short-lived session from the data root the ssh account
+ * `wafh auth token` mints a short-lived session from the data root the ssh account
  * already owns. What authorizes it is that access, not a secret — anyone who can run it can
  * already read every credential on that machine by hand — so it keeps working on a machine
  * whose admin password a person has set. One command over the shared connection.
  */
 import { execFailureText } from "./transport/index.js";
-import { remotePenguin } from "./commands.js";
+import { remoteWafHarness } from "./commands.js";
 import type { RemoteLayout } from "./layout.js";
 import type { RemoteTarget } from "./commands.js";
 import type { ExecResult } from "./transport/index.js";
 
 /** Precedes the token on its own line — the same mark the CLI prints (cli/commands/auth.ts). */
-const TOKEN_MARK = "---penguin-auth-token---";
+const TOKEN_MARK = "---wafh-auth-token---";
 
 type RemoteTokenOutcome =
   | { kind: "minted"; token: string }
@@ -29,7 +29,7 @@ export function authTokenCommand(layout: RemoteLayout, ttlSeconds = 3600): strin
   if (!Number.isInteger(ttlSeconds) || ttlSeconds < 1) throw new Error(`bad ttl ${ttlSeconds}`);
   // `--mark` is what makes the output parseable: without it the CLI prints the bare token,
   // and parseToken has no anchor to find it by in a shell that may print a banner of its own.
-  return `${remotePenguin("linux", layout)} auth token --ttl-seconds ${ttlSeconds} --mark 2>&1`;
+  return `${remoteWafHarness("linux", layout)} auth token --ttl-seconds ${ttlSeconds} --mark 2>&1`;
 }
 
 /**

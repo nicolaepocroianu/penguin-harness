@@ -21,7 +21,7 @@ import type {
   ImageUrlPayload,
   OmniMessage,
   ToolCallOutputPayload,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type { HistoryMessage, TracePosition } from "../api/types.js";
 
 /** Image types the trace-image route serves (core's own supported set). */

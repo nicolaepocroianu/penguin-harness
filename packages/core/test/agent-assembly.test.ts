@@ -16,7 +16,7 @@ afterEach(async () => {
 
 describe("AgentAssembly", () => {
   it("appends prompt sections under their headings, after the Agent's own prompt", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-assembly-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-assembly-"));
     roots.push(root);
     // The Project a host would have seeded: core itself carries no models.
     await seedProject(root);

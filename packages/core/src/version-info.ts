@@ -1,6 +1,6 @@
 /**
  * Identity of the running build and of this machine's harness store — what
- * `penguin version --json` prints and what GET /api/version returns.
+ * `wafh version --json` prints and what GET /api/version returns.
  *
  * Deliberately not part of the interface contracts: this says nothing about the LLM or the
  * Environment, and no boundary of the agent loop carries it. Core's `buildInfo()` produces
@@ -22,7 +22,7 @@ export interface BuildRuntimeInfo {
 }
 
 /**
- * Identity of the running build: everything `penguin version --json` prints and everything
+ * Identity of the running build: everything `wafh version --json` prints and everything
  * GET /api/version returns. Both render this object without adding facts of their own, so a
  * report gathered over HTTP and one gathered at a shell are the same report.
  *
@@ -34,7 +34,7 @@ export interface BuildInfo {
   /** Dotted release number, from core's VERSION constant. Never null, never prefixed. */
   version: string;
   /**
-   * The one-line human identity, and the whole of `penguin version`'s output: `v0.2.3` for a
+   * The one-line human identity, and the whole of `wafh version`'s output: `v0.2.3` for a
    * release, and git's own description for a source build — `v0.2.3-14-g9e8f7d6-dirty` reads
    * as fourteen commits past v0.2.3, at 9e8f7d6, with uncommitted changes. Always begins
    * `v` followed by a digit, so any form reads as a version.
@@ -79,8 +79,8 @@ export interface HarnessSource {
  * which a restart resumes. A property of the data root rather than of the running process:
  * it answers "which harness was pushed here", not "which code is executing".
  *
- * That distinction matters because the two can differ. `penguin` runs the packaged CLI
- * while `penguin-hmr` runs the store's; a server whose committed version failed to restore
+ * That distinction matters because the two can differ. `wafh` runs the packaged CLI
+ * while `wafh-hmr` runs the store's; a server whose committed version failed to restore
  * warns and falls back to its packaged platform. Null in {@link VersionReport} means
  * nothing was ever pushed to this root.
  */
@@ -117,7 +117,7 @@ export interface IfacesSummary {
 }
 
 /**
- * What `penguin version --json` prints and what GET /api/version returns: the running
+ * What `wafh version --json` prints and what GET /api/version returns: the running
  * build's identity, plus the harness this machine has in its HMR store.
  *
  * The two halves come from different places and neither can supply the other. {@link

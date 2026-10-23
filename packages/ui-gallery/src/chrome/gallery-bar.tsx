@@ -11,7 +11,7 @@
  * On a phone the page links scroll sideways if they do not fit, and the theme moves into the
  * popover.
  */
-import { THEME_IDS } from "@prismshadow/penguin-ui";
+import { THEME_IDS } from "@waterford/waf-harness-ui";
 import type { ReactNode } from "react";
 import { accentPresetsOf, accentSwatch, THEME_ACCENT } from "../lib/accents";
 import { BASE } from "../lib/location";

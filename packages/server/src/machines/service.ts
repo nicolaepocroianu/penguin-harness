@@ -33,8 +33,8 @@ import {
   VERSION,
   effectivePluginTable,
   loadProjectConfig,
-} from "@prismshadow/penguin-core";
-import type { ModelRef, ProjectConfig } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { ModelRef, ProjectConfig } from "@waterford/waf-harness-core";
 import type {
   SshHostSummary,
   MachineCheck,
@@ -122,9 +122,9 @@ import type { MachineApi } from "./machine-api.js";
 import { ADOPTED_AT_HEADER } from "../runtime/session-sources.js";
 import { startRemoteServer, stopRemoteServer } from "./server-control.js";
 import type { MachineRow } from "../db/repos/machines.js";
-import { Interface, Bind, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
+import { Interface, Bind, Module, Provide, Use } from "@waterford/waf-harness-core/kernel";
 import type { AppEnv } from "../auth/middleware.js";
-import type { ClassCtx } from "@prismshadow/penguin-core/kernel";
+import type { ClassCtx } from "@waterford/waf-harness-core/kernel";
 import { machinesRoutes } from "../http/routes/machines.js";
 import { machinesProxy } from "./proxy.js";
 import type { ProxyTarget } from "./proxy.js";

@@ -15,7 +15,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_UI_STRINGS } from "@prismshadow/penguin-ui";
+import { DEFAULT_UI_STRINGS } from "@waterford/waf-harness-ui";
 import { TokenPartsRows } from "../src/components/ui/stat-hint";
 import type { UsageParts } from "../src/components/ui/stat-hint";
 import {

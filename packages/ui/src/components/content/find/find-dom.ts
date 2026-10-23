@@ -44,11 +44,11 @@ const REGION_ATTR = "data-find-region";
 /** Attribute a region sets (any value) while it knows about content it has not loaded. */
 export const FIND_MORE_ATTR = "data-find-more";
 /** Event a region's owner listens for to load that content (dispatched on the region element). */
-export const FIND_LOAD_OLDER_EVENT = "penguin:find-load-older";
-/** Painted with `::highlight(penguin-find)` (find.css). */
-const HIGHLIGHT_ALL = "penguin-find";
-/** Painted with `::highlight(penguin-find-current)`. */
-const HIGHLIGHT_CURRENT = "penguin-find-current";
+export const FIND_LOAD_OLDER_EVENT = "wafh:find-load-older";
+/** Painted with `::highlight(wafh-find)` (find.css). */
+const HIGHLIGHT_ALL = "wafh-find";
+/** Painted with `::highlight(wafh-find-current)`. */
+const HIGHLIGHT_CURRENT = "wafh-find-current";
 /** The owner a caller paints as when it names none: the page's one find bar. */
 const PAGE_OWNER = "page";
 

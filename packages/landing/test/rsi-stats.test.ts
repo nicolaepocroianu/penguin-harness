@@ -17,19 +17,19 @@ import { en } from "../src/lib/strings-en";
 
 const pluginsRoot = join(__dirname, "..", "..", "..", "plugins");
 
-/** The `penguin` block of a plugin's package.json: the field this test reads. */
+/** The `wafh` block of a plugin's package.json: the field this test reads. */
 interface Manifest {
   category?: unknown;
 }
 
 const manifest = (plugin: string): Manifest => {
   const pkg = JSON.parse(readFileSync(join(pluginsRoot, plugin, "package.json"), "utf8")) as {
-    penguin?: Manifest;
+    wafh?: Manifest;
   };
-  return pkg.penguin ?? {};
+  return pkg.wafh ?? {};
 };
 
-/** Library plugins (directories with a package.json) whose `penguin.category` is `rsi`. */
+/** Library plugins (directories with a package.json) whose `wafh.category` is `rsi`. */
 const rsiPlugins = readdirSync(pluginsRoot, { withFileTypes: true })
   .filter(
     (entry) => entry.isDirectory() && existsSync(join(pluginsRoot, entry.name, "package.json")),

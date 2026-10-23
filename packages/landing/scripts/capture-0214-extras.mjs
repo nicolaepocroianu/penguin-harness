@@ -23,7 +23,7 @@ const SRV_PORT = Number(process.env.SRV_PORT || 19150);
 const MOCK_PORT = Number(process.env.MOCK_PORT || 19151);
 const BASE = `http://localhost:${SRV_PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
-const SEED = "penguin-2026";
+const SEED = "wafh-2026";
 const ONLY = (process.env.SHOT_ONLY || "themes,plugins").split(",");
 const LANGS = (process.env.SHOT_LANGS || "en").split(",");
 
@@ -299,7 +299,7 @@ async function setupUser(adminCookie, lang) {
     if (!String(e).includes("409")) throw e;
   });
   let cookie = await login(userId, initial);
-  const password = `penguin-${userId}-2026`;
+  const password = `wafh-${userId}-2026`;
   await api(cookie, "PUT", "/api/me/password", { oldPassword: initial, newPassword: password });
   cookie = await login(userId, password);
   await api(cookie, "PUT", "/api/me/profile", { displayName: nickname }).catch((e) =>
@@ -360,12 +360,12 @@ const mock = await startMock();
 const srv = spawn("node", [path.join(TREE, "packages/server/dist/index.js")], {
   env: {
     ...process.env,
-    PENGUIN_HOME: path.join(dataRoot, "home"),
-    PENGUIN_WEB_DB: path.join(dataRoot, "web.db"),
-    PENGUIN_WEB_DIST: path.join(TREE, "packages/web/dist"),
+    WAFH_HOME: path.join(dataRoot, "home"),
+    WAFH_WEB_DB: path.join(dataRoot, "web.db"),
+    WAFH_WEB_DIST: path.join(TREE, "packages/web/dist"),
     PORT: String(SRV_PORT),
     HOST: "127.0.0.1",
-    PENGUIN_SEED_ADMIN_PASSWORD: SEED,
+    WAFH_SEED_ADMIN_PASSWORD: SEED,
     TZ: "Asia/Shanghai",
   },
   stdio: ["ignore", "pipe", "pipe"],
@@ -399,7 +399,7 @@ try {
       await sleep(1000);
     }
   }
-  const adminPassword = "penguin-admin-2026";
+  const adminPassword = "wafh-admin-2026";
   await api(adminCookie, "PUT", "/api/me/password", {
     oldPassword: SEED,
     newPassword: adminPassword,
@@ -426,10 +426,10 @@ try {
     await context.addInitScript(
       ([t, l, p]) => {
         try {
-          localStorage.setItem("penguin.themeId", t);
-          localStorage.setItem("penguin.theme", "light");
-          localStorage.setItem("penguin.lang", l);
-          localStorage.setItem("penguin.lastProjectId", p);
+          localStorage.setItem("wafh.themeId", t);
+          localStorage.setItem("wafh.theme", "light");
+          localStorage.setItem("wafh.lang", l);
+          localStorage.setItem("wafh.lastProjectId", p);
         } catch {}
       },
       [themeId, lang, projectId],

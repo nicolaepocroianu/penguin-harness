@@ -37,7 +37,7 @@ import type {
   OrgTicketPriority,
   OrgTicketStatus,
   OrgTicketUpdateRequest,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import type { ReactNode } from "react";
 import {
   Button,
@@ -65,7 +65,7 @@ import {
   useFormDraft,
   useGuardedClose,
   useUnsavedChanges,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";

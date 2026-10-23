@@ -24,7 +24,7 @@ import {
   TableHead,
   TableHeaderCell,
   TableRow,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 
@@ -40,15 +40,15 @@ const SKILLS = ["pdf", "web-design", "continual-learning"];
 const MEMORIES = [
   { id: "local-proxy-noninteractive-shell-bypass", date: "2026-10-15" },
   {
-    id: "penguinharness-0215-gemini-fetch-mismatch-inside-the-bundled-server-process-only",
+    id: "waf-harness-0215-gemini-fetch-mismatch-inside-the-bundled-server-process-only",
     date: "2026-10-13",
   },
   { id: "verify-patents-and-literature-before-citing", date: "2026-10-15" },
 ];
-const ROOT = "~/.penguin/data";
+const ROOT = "~/.waf-harness/data";
 const MACHINE_ID = "m_7f3a9c21";
 const LOG = [
-  "Pulling penguin-harness 0.2.13",
+  "Pulling waf-harness 0.2.13",
   "Verifying the download",
   "Stopping the server",
   "Starting the server on port 8930",

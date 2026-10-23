@@ -33,7 +33,7 @@ import type {
   ManifestTable,
   ModuleDef,
   ModuleTree,
-} from "@prismshadow/penguin-core/kernel";
+} from "@waterford/waf-harness-core/kernel";
 import {
   closedShape,
   defineIface,
@@ -44,8 +44,8 @@ import {
   initialDoc,
   moduleDefOf,
   upgrade,
-} from "@prismshadow/penguin-core/kernel";
-import type { HmrHost, PlatformBundle } from "@prismshadow/penguin-hmr";
+} from "@waterford/waf-harness-core/kernel";
+import type { HmrHost, PlatformBundle } from "@waterford/waf-harness-hmr";
 import { TerminalManager } from "../terminal/manager.js";
 import type { TerminalSession } from "../terminal/session.js";
 import {
@@ -71,7 +71,7 @@ import { SandboxModule } from "../sandbox/service.js";
 import ifaceTable from "../ifaces.json" with { type: "json" };
 import { declined, seamHttp } from "./hono-seam.js";
 import {
-  PENGUIN_FAMILY,
+  WAFH_FAMILY,
   RESOURCE_IFACES_RESOURCE_ID,
   HMR_TEST_PLUGINS_RESOURCE_ID,
   claimHmrCapabilities,
@@ -85,7 +85,7 @@ import {
   useInstalledPluginPrefix,
   usePushedPluginLibrary,
   userText,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { pluginsPrefix } from "../plugin/install.js";
 import { pushedLibraryDir } from "./asset-archives.js";
 import { UnsatisfiedPluginsError, bootWithoutUnsatisfied } from "../plugin/unsatisfied.js";
@@ -99,7 +99,7 @@ import { MachinesRepo } from "../db/repos/machines.js";
 import type { Auth } from "../mechanisms/identity.js";
 
 /**
- * This server's hot host: the mechanism (@prismshadow/penguin-hmr) with the api ITS platforms
+ * This server's hot host: the mechanism (@waterford/waf-harness-hmr) with the api ITS platforms
  * expose. The mechanism is generic on purpose — it cannot name a route or a service — so the
  * product supplies the type here, once, and everything that holds a host uses this alias.
  */
@@ -248,7 +248,7 @@ interface HandedAgentState {
 /** Registry id of the handed-over Agent state — in the `agent:` group, so a build that does not declare the group stops the runs behind it. */
 const AGENT_STATE_RESOURCE_ID = "agent:state";
 /** The AgentState interface's key in the generated table. */
-const AGENT_STATE_IFACE = "@prismshadow/penguin-server#AgentState";
+const AGENT_STATE_IFACE = "@waterford/waf-harness-server#AgentState";
 /**
  * What a Session whose Task a swap had to stop is started again with. The stopped turn
  * itself comes back through core's carry-over (`[turn_aborted]`); this only says why.
@@ -276,7 +276,7 @@ const API_SOCKETS_RESOURCE_ID = "apiSockets:open";
 const RECONNECT_GRACE_MS = 2_000;
 
 export const DECLARED_RESOURCES: ParkedInterfaces = {
-  family: PENGUIN_FAMILY,
+  family: WAFH_FAMILY,
   // The predecessor's open API sockets, as the successor closes them (see the ID's doc).
   apiSockets: ["close"],
   // A parked pty, as its adopters use it — EVERY member reached after adoption, not a
@@ -908,5 +908,5 @@ export const packagedPlatform: PlatformBundle = {
   id: "packaged",
   iface: PlatformIface,
   impl: platformImpl,
-  context: { motd: "hello from the penguin hot platform" } satisfies PlatformCtx,
+  context: { motd: "hello from the wafh hot platform" } satisfies PlatformCtx,
 };

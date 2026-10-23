@@ -77,7 +77,7 @@ function moduleFolder(html = FIXTURE_MODULE): string {
 
 /** Folders the runner would have made if it wrote its files to disk. */
 function virtualFolders(): string[] {
-  return fs.readdirSync(os.tmpdir()).filter((name) => /^penguin-bench-[0-9a-f]{16}$/.test(name));
+  return fs.readdirSync(os.tmpdir()).filter((name) => /^wafh-bench-[0-9a-f]{16}$/.test(name));
 }
 
 describe.skipIf(!executable)("the evaluator's check runner, in a real browser", () => {
@@ -182,7 +182,7 @@ criterion(criteria[3], () => fs.readFileSync(${JSON.stringify(outside)}, "utf8")
     fs.writeFileSync(secretFile, "SECRET-FILE-CONTENT");
     // Two servers that let any page read them (CORS) and count every request that reaches
     // them: one on this machine's own network address, one on another port of loopback (a
-    // service such as a Penguin dev server). Reachable from here, never from the page.
+    // service such as a WAF Harness dev server). Reachable from here, never from the page.
     let reached = 0;
     const listen = async (host: string) => {
       const server = http.createServer((_request, response) => {

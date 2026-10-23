@@ -6,7 +6,7 @@
  * changing may release the hold.
  */
 import { describe, expect, it } from "vitest";
-import type { SessionInfo } from "@prismshadow/penguin-server/api";
+import type { SessionInfo } from "@waterford/waf-harness-server/api";
 import { heldRouteSession } from "../src/features/chat/session-project";
 
 const row = (sessionId: string) => ({ sessionId, projectId: "p1" }) as SessionInfo;

@@ -4,7 +4,7 @@
  * of its own so the dictionary is read during its own render — `S` is swapped on a language
  * switch, and props built in a parent that does not re-render would keep the old words.
  */
-import { UnsavedChangesHost } from "@prismshadow/penguin-ui";
+import { UnsavedChangesHost } from "@waterford/waf-harness-ui";
 import { S } from "../strings";
 
 export function UnsavedPrompt() {

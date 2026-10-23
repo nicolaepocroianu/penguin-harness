@@ -38,7 +38,7 @@ describe("desktop claim", () => {
       expect(res.status).toBe(302);
       expect(res.headers.get("location")).toBe("/");
       const cookie = res.headers.get("set-cookie");
-      expect(cookie).toContain("penguin_session=");
+      expect(cookie).toContain("wafh_session=");
 
       const me = await t.app.request("/api/me", {
         headers: { cookie: cookie!.split(";")[0]! },

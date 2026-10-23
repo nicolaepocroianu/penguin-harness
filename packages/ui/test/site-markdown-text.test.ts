@@ -59,7 +59,7 @@ describe("frontmatter", () => {
 describe("headings and contents", () => {
   it("slugs Latin lowercased and hyphenated, CJK kept, punctuation dropped", () => {
     expect(slugifyHeading("Tool Calls (streaming)")).toBe("tool-calls-streaming");
-    expect(slugifyHeading("为什么是 PenguinHarness")).toBe("为什么是-penguinharness");
+    expect(slugifyHeading("为什么是 WAF Harness")).toBe("为什么是-waf-harness");
   });
 
   it("lists ## and ### headings outside fenced code, with the rendered ids", () => {
@@ -136,8 +136,8 @@ describe("what the renderer reads off a node", () => {
   });
 
   it("hands over a fence's language and its text without the closing newline", () => {
-    expect(readFencedCode(fence(["language-bash"], "penguin web\n"))).toEqual({
-      code: "penguin web",
+    expect(readFencedCode(fence(["language-bash"], "wafh web\n"))).toEqual({
+      code: "wafh web",
       language: "bash",
     });
     expect(readFencedCode(fence(undefined, "plain"))).toEqual({ code: "plain", language: "" });
@@ -174,9 +174,9 @@ describe("stored preferences", () => {
   }
 
   it("prefers the shared key over a retired one, and reads a retired one alone", () => {
-    storage({ [SITE_THEME_KEY]: "dark", "penguin-landing.theme": "light" });
+    storage({ [SITE_THEME_KEY]: "dark", "wafh-landing.theme": "light" });
     expect(readSitePref(SITE_THEME_KEY, ["light", "dark", "system"])).toBe("dark");
-    storage({ "penguin-docs.lang": "en" });
+    storage({ "wafh-docs.lang": "en" });
     expect(readSitePref(SITE_LANG_KEY, ["zh", "en", "system"])).toBe("en");
   });
 

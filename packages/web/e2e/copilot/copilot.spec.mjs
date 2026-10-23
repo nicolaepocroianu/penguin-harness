@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-test.skip(!process.env.PENGUIN_COMPONENT_TEST, "Uses the isolated component Vite fixture.");
+test.skip(!process.env.WAFH_COMPONENT_TEST, "Uses the isolated component Vite fixture.");
 
 test("shows a device code, reports imported models and cancels on close", async ({
   page,
@@ -41,11 +41,11 @@ test("shows setup errors with retry, and fits a narrow viewport", async ({ page 
   await page.route("**/api/projects/fixture/model-oauth/start", (route) =>
     route.fulfill({
       status: 400,
-      json: { error: { code: "invalid_request", message: "Set PENGUIN_COPILOT_CLIENT_ID" } },
+      json: { error: { code: "invalid_request", message: "Set WAFH_COPILOT_CLIENT_ID" } },
     }),
   );
   await page.goto("/e2e/copilot/component.html");
-  await expect(page.getByText("Set PENGUIN_COPILOT_CLIENT_ID", { exact: true })).toBeVisible();
+  await expect(page.getByText("Set WAFH_COPILOT_CLIENT_ID", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start again" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

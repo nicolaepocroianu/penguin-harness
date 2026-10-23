@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { MediaAsset } from "@prismshadow/penguin-server/api";
+import type { MediaAsset } from "@waterford/waf-harness-server/api";
 import {
   boundAudioUrl,
   candidateId,

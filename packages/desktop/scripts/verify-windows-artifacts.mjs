@@ -13,8 +13,8 @@ const require = createRequire(import.meta.url);
 const builderRequire = createRequire(require.resolve("electron-builder"));
 const { buildBlockMap } = builderRequire("app-builder-lib/out/targets/blockmap/blockmap.js");
 
-const INSTALLER = "penguin-desktop-win32-x64.exe";
-const SIGNED = [INSTALLER, "win-unpacked/PenguinHarness.exe", "win-unpacked/resources/elevate.exe"];
+const INSTALLER = "wafh-desktop-win32-x64.exe";
+const SIGNED = [INSTALLER, "win-unpacked/WAF Harness.exe", "win-unpacked/resources/elevate.exe"];
 const REQUIRED = [
   ...SIGNED,
   `${INSTALLER}.blockmap`,
@@ -47,7 +47,7 @@ export async function verifyWindowsArtifacts(
   assert.ok(Array.isArray(metadata?.files) && metadata.files.length === 1, "latest.yml file count");
   assert.equal(metadata.files[0]?.url, INSTALLER, "latest.yml file URL");
 
-  const scratch = await mkdtemp(path.join(os.tmpdir(), "penguin-update-blockmap-"));
+  const scratch = await mkdtemp(path.join(os.tmpdir(), "wafh-update-blockmap-"));
   try {
     const rebuilt = path.join(scratch, "installer.blockmap");
     // An explicit output path keeps blockmap generation from appending to the signed bytes.

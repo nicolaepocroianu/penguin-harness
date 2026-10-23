@@ -1,6 +1,6 @@
 /**
  * WAF workspace (admin only, server-global): the checkouts activities are authored, played
- * and deployed from — framework, navbar, media and activity data — which Penguin clones and
+ * and deployed from — framework, navbar, media and activity data — which WAF Harness clones and
  * keeps under its data folder, or an existing checkout it only reads, and optionally a monorepo's
  * modules folder product modules are also opened from. Prepare clones what is
  * missing on the server and takes minutes, so the page asks again every couple of seconds
@@ -9,7 +9,7 @@
  * Save.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { WafWorkspaceSettings, WafWorkspaceStatus } from "@prismshadow/penguin-server/api";
+import type { WafWorkspaceSettings, WafWorkspaceStatus } from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
@@ -27,7 +27,7 @@ import {
   SettingsSection,
   useSaving,
   useUnsavedChanges,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { SETTINGS_SCOPE } from "../../lib/unsaved/scopes";
 import { useProject } from "../../state/project";
 import { WorkspaceSelect } from "../chat/workspace-select";

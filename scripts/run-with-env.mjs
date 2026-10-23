@@ -7,15 +7,15 @@
  * Each assignment sets VAR **only when it is unset or empty** in the current environment —
  * the JS equivalent of `VAR="${VAR:-value}" cmd`, which cmd.exe cannot parse (package.json
  * scripts run under cmd.exe on Windows). An inherited value therefore wins, which is what makes
- * `PENGUIN_HOME=/somewhere pnpm dev` work; a child cannot tell that apart from an exported one.
+ * `WAFH_HOME=/somewhere pnpm dev` work; a child cannot tell that apart from an exported one.
  * Because it wins, it says so: any default the environment displaced is named on stderr before
  * the command runs, so a shell-wide export cannot quietly redirect a dev script. A leading `~/` in the value expands to the user's
  * home directory (the `$HOME/...` defaults). Then the command runs with inherited stdio and
  * its exit code is propagated.
  *
  * `--unset=VAR` is the other way round: VAR reaches the command under no value at all, whatever
- * the environment had — for a variable a dev entry point must never inherit. PENGUIN_CLI_ENTRY
- * is one: a terminal of an installed PenguinHarness hands its CLI's path to everything started
+ * the environment had — for a variable a dev entry point must never inherit. WAFH_CLI_ENTRY
+ * is one: a terminal of an installed WAF Harness hands its CLI's path to everything started
  * there, and a dev server given it would offer the installed CLI as its own. What it clears is
  * named on stderr too. On Windows the name matches in any case, as the environment does there.
  *
@@ -69,10 +69,10 @@ for (const assignment of argv.slice(0, sep)) {
   if (!env[name]) {
     env[name] = value; // unset or empty -> default (the ${VAR:-value} rule)
   } else if (env[name] !== value) {
-    // An inherited value wins, and that is deliberate: `PENGUIN_HOME=/x pnpm dev` is the supported
+    // An inherited value wins, and that is deliberate: `WAFH_HOME=/x pnpm dev` is the supported
     // way to aim one command somewhere else, and a child process cannot tell that apart from an
     // exported one — both are just process.env. What is not deliberate is finding out later. An
-    // exported PENGUIN_HOME once sent `pnpm dev:server` at the release data root, where the
+    // exported WAFH_HOME once sent `pnpm dev:server` at the release data root, where the
     // desktop app already held the lock, and nothing said why the default had not applied.
     overridden.push(`${name}=${env[name]}  (default: ${value})`);
   }

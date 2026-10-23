@@ -1,7 +1,7 @@
 /**
- * Embedded server lifecycle: forks @prismshadow/penguin-server as an Electron
+ * Embedded server lifecycle: forks @waterford/waf-harness-server as an Electron
  * utilityProcess (same Node runtime, isolated from the main process), learns the actual
- * port from the PENGUIN_PORT_FILE announcement, probes HTTP readiness, and stops the
+ * port from the WAFH_PORT_FILE announcement, probes HTTP readiness, and stops the
  * server gracefully — shutdown endpoint first (the only graceful path on Windows, where
  * kill() is a hard TerminateProcess), then SIGTERM-equivalent kill as fallback.
  */
@@ -20,7 +20,7 @@ export interface EmbeddedServer {
   child: UtilityProcess;
   /** App origin, e.g. `http://localhost:53187` (always localhost — 127.0.0.1 is the preview host). */
   origin: string;
-  /** This launch's PENGUIN_DESKTOP_TOKEN: one-shot for the claim link, reusable for the shutdown endpoint. */
+  /** This launch's WAFH_DESKTOP_TOKEN: one-shot for the claim link, reusable for the shutdown endpoint. */
   token: string;
 }
 
@@ -35,7 +35,7 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * The server bundle — forked by path. tsup emits @prismshadow/penguin-server as one
+ * The server bundle — forked by path. tsup emits @waterford/waf-harness-server as one
  * self-contained file in this package's dist/, so a source run and a packaged app fork the
  * same artifact from the same app-path-relative location (asar is off, see
  * electron-builder.yml, so it is a plain file either way).
@@ -47,15 +47,15 @@ function serverEntryPath(): string {
 /**
  * Extra environment for the forked server. Windows packages carry MinGit under
  * resources/git (electron-builder extraResources): advertising its sh.exe as
- * PENGUIN_BUNDLED_SHELL gives the agent shell the same deterministic POSIX behavior as
+ * WAFH_BUNDLED_SHELL gives the agent shell the same deterministic POSIX behavior as
  * the npm-installed package (core's shell resolver prefers a user-installed Git for
  * Windows from PATH, then this bundle, before falling back to PowerShell). An existing
  * value is respected.
  */
 function bundledShellEnv(): Record<string, string> {
-  if (process.platform !== "win32" || process.env.PENGUIN_BUNDLED_SHELL) return {};
+  if (process.platform !== "win32" || process.env.WAFH_BUNDLED_SHELL) return {};
   const sh = path.join(process.resourcesPath, "git", "usr", "bin", "sh.exe");
-  return fs.existsSync(sh) ? { PENGUIN_BUNDLED_SHELL: sh } : {};
+  return fs.existsSync(sh) ? { WAFH_BUNDLED_SHELL: sh } : {};
 }
 
 async function waitForPortFile(file: string, exited: () => boolean): Promise<number> {
@@ -124,7 +124,7 @@ export async function startEmbeddedServer(opts: {
   fs.rmSync(opts.portFile, { force: true });
   const requestedPort = await choosePort(readPreferredPort(opts.preferredPortFile));
   const child = utilityProcess.fork(serverEntryPath(), [], {
-    serviceName: "penguin-server",
+    serviceName: "wafh-server",
     stdio: "pipe",
     env: {
       ...process.env,
@@ -133,14 +133,14 @@ export async function startEmbeddedServer(opts: {
       // proxy variables the environment leaves unset, never overriding existing values.
       // The server's "use system HTTP proxy" switch then governs whether they are used.
       ...(await osProxyEnv()),
-      PENGUIN_HOME: opts.dataRoot,
-      PENGUIN_PROFILE: opts.profile,
-      ...(opts.webDist !== null ? { PENGUIN_WEB_DIST: opts.webDist } : {}),
-      ...(opts.cliEntry !== null ? { PENGUIN_CLI_ENTRY: opts.cliEntry } : {}),
+      WAFH_HOME: opts.dataRoot,
+      WAFH_PROFILE: opts.profile,
+      ...(opts.webDist !== null ? { WAFH_WEB_DIST: opts.webDist } : {}),
+      ...(opts.cliEntry !== null ? { WAFH_CLI_ENTRY: opts.cliEntry } : {}),
       HOST: "127.0.0.1",
       PORT: String(requestedPort),
-      PENGUIN_DESKTOP_TOKEN: token,
-      PENGUIN_PORT_FILE: opts.portFile,
+      WAFH_DESKTOP_TOKEN: token,
+      WAFH_PORT_FILE: opts.portFile,
     },
   });
   child.stdout?.on("data", (chunk: Buffer) => opts.log(String(chunk), "stdout"));

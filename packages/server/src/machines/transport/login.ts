@@ -23,7 +23,7 @@ import type { RemoteTarget } from "../commands.js";
 import { explainSshFailure, sshFailureText } from "../ssh-failure.js";
 
 /** The variable the helper prints: set on the ssh child that needs it, and on nothing else. */
-export const PASSWORD_ENV = "PENGUIN_SSH_PASSWORD";
+export const PASSWORD_ENV = "WAFH_SSH_PASSWORD";
 
 /** The first OpenSSH that asks the helper whatever terminal it has (`SSH_ASKPASS_REQUIRE`). */
 const ASKPASS_REQUIRE_SINCE = { major: 8, minor: 4 };

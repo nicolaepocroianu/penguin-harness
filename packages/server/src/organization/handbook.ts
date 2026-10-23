@@ -44,10 +44,10 @@ written in it. Commands, file names, ids and field names stay ASCII.
   next calendar sweep, never sent on their own. The desk session schedules work; it does not do
   the ticket work itself.
 - Work is carried by **tickets** on the board. A ticket's owner opens a separate **ticket
-  session** for it from its desk (\`penguin org ticket start <id>\`), tracks it, checks the result
+  session** for it from its desk (\`wafh org ticket start <id>\`), tracks it, checks the result
   and writes progress back. Only the owner's desk — or a person — starts a ticket's sessions:
   work moves to another employee by reassigning the ticket
-  (\`penguin org ticket assign <id> --owner agent:<employee>\`), and that desk picks it up in its
+  (\`wafh org ticket assign <id> --owner agent:<employee>\`), and that desk picks it up in its
   next sweep. The owner may add \`--agent-id <colleague>\` to enlist a colleague on its own
   ticket. Several sessions and several employees may contribute to one ticket.
 - Talking happens in **channels**, each a directory under \`channels/\`. \`default_channel\` is the
@@ -71,13 +71,13 @@ written in it. Commands, file names, ids and field names stay ASCII.
 | Path | What it is | Who writes it |
 | --- | --- | --- |
 | \`org_config.toml\` | name, mission, status, timezone, working language, approval mode, mention-chain and budget thresholds | people, CEO — except the approval mode, which only the board changes, in the organization's settings |
-| \`org_chart.yaml\` | employee tree: title, reports_to, duties, workspace, budget, model | CEO, HR (\`penguin org hire\` / \`employee set\`) |
-| \`handbook/\` | the knowledge base: this index (\`README.md\`) and the documents it lists | CEO, HR, employees (\`penguin org handbook …\` or file tools) |
+| \`org_chart.yaml\` | employee tree: title, reports_to, duties, workspace, budget, model | CEO, HR (\`wafh org hire\` / \`employee set\`) |
+| \`handbook/\` | the knowledge base: this index (\`README.md\`) and the documents it lists | CEO, HR, employees (\`wafh org handbook …\` or file tools) |
 | \`desks.toml\` | employee → current desk session (fact file) | the server |
-| \`calendar/<agent_id>/<event>.toml\` | calendar events, one file each (same fields as scheduled tasks, no target) | employees (\`penguin org calendar …\`) |
-| \`tickets/<yyyy-mm>/<column>/<yyyy-mm-dd>-<slug>.md\` | tickets; the column directory is the status | anyone (\`penguin org ticket …\`) |
-| \`channels/<channel_id>/channel.toml\` | a channel: name, purpose, members (\`default_channel\` is everyone) | members (\`penguin org channel …\`) |
-| \`channels/<channel_id>/<yyyy-mm-dd>.jsonl\` | a channel's messages, one per line | the server (\`penguin org channel send\`) |
+| \`calendar/<agent_id>/<event>.toml\` | calendar events, one file each (same fields as scheduled tasks, no target) | employees (\`wafh org calendar …\`) |
+| \`tickets/<yyyy-mm>/<column>/<yyyy-mm-dd>-<slug>.md\` | tickets; the column directory is the status | anyone (\`wafh org ticket …\`) |
+| \`channels/<channel_id>/channel.toml\` | a channel: name, purpose, members (\`default_channel\` is everyone) | members (\`wafh org channel …\`) |
+| \`channels/<channel_id>/<yyyy-mm-dd>.jsonl\` | a channel's messages, one per line | the server (\`wafh org channel send\`) |
 | \`workspace/\` (or the \`workspace\` path in \`org_config.toml\`) | the shared workspace; its root holds the shared inputs and is nobody's desk — the CEO works in \`ceo/\`, a hire lands in a sub-directory named after its Agent id unless another one is assigned, and a relative sub-directory is created by the server as it is assigned (an absolute path must already exist) | employees |
 
 Paths in prompts use \`<app_data_dir>\` placeholders; resolve them from the Environment section
@@ -103,10 +103,10 @@ text \`@<id>\` is shorthand: employees resolve first, then Project members; writ
 - Anyone may propose. The CEO, the owner's manager or a person accepts (→ in_progress) or rejects.
 - The owner moves a finished ticket to \`review\`; the CEO or a person moves it to \`done\`.
   P2 tickets may go straight to \`done\` when the acceptance criteria are plainly met.
-- Before a ticket session ends it writes progress (\`penguin org ticket progress <id> -m …\`) and
+- Before a ticket session ends it writes progress (\`wafh org ticket progress <id> -m …\`) and
   moves the ticket if the work is complete. \`## Progress\` is plain sentences: what was done and
   where. No ids, no timestamps, no names — the server records who wrote each line and when.
-- Stuck (waiting for a decision, another ticket, a missing key): \`penguin org ticket block <id>
+- Stuck (waiting for a decision, another ticket, a missing key): \`wafh org ticket block <id>
   --reason … --by …\` and stop working on it. Blocked tickets are skipped by the sweep until unblocked.
 - Name every input you rely on and every deliverable you produce by its full path (absolute, or
   \`<app_data_dir>/…\`) in \`## Goal\`, \`## Acceptance criteria\`, your progress lines and \`## Result\`;
@@ -146,7 +146,7 @@ channel — and starts only on a clear yes:
 
 The ask is one message mentioning \`@user:${input.createdBy}\`: what will run, estimated duration
 and resources, how to stop it, the alternative if the answer is no. Then
-\`penguin org ticket block <id> --reason … --by user:${input.createdBy}\` and the end of the run;
+\`wafh org ticket block <id> --reason … --by user:${input.createdBy}\` and the end of the run;
 the answer comes back as a mention. Noticeable steps inside an accepted plan — a multi-minute
 build, a project-local install, a smaller download — are announced in a progress line and then
 done; routine work in one's own partition is simply done.
@@ -155,11 +155,11 @@ done; routine work in one's own partition is simply done.
 
 - Mention someone only for a decision, a blocker, or a completion report. Never \`@all\` for chatter.
 - Answer in the channel the trigger names (its \`channel:\` line):
-  \`penguin org channel send --channel <id> -m …\`. During your calendar sweep read the channels
-  you are in: \`penguin org channel ls\`, then \`penguin org channel tail --channel <id>\`.
+  \`wafh org channel send --channel <id> -m …\`. During your calendar sweep read the channels
+  you are in: \`wafh org channel ls\`, then \`wafh org channel tail --channel <id>\`.
 - Open a channel when a thread would drown the all-hands channel — one per stream or per big
-  ticket (\`penguin org channel create <id>\`), invite exactly the principals the work needs
-  (\`penguin org channel invite <id> <principal>\`), and say so once in the all-hands channel.
+  ticket (\`wafh org channel create <id>\`), invite exactly the principals the work needs
+  (\`wafh org channel invite <id> <principal>\`), and say so once in the all-hands channel.
 - You read and post only in channels you are a member of, and an employee joins one only when a
   member invites it. What the board must decide goes to the all-hands channel, where they read.
 - A message that mentions someone who is not in the channel is refused: invite them first.
@@ -188,7 +188,7 @@ the one file every run reads first. Keep durable knowledge here, one Markdown fi
 subject: decisions the board took (\`decisions/<yyyy-mm-dd>-<slug>.md\`), conventions,
 how-tos, product and market facts, anything the next run must not have to rediscover.
 List every document below with one line saying when it matters, so a run reads a document
-only when its line says so. \`penguin org handbook list | show <path> | write <path>\`
+only when its line says so. \`wafh org handbook list | show <path> | write <path>\`
 reads and writes documents; the index cannot be deleted.
 
 ## Documents
@@ -197,7 +197,7 @@ _None yet._
 
 ## Command reference
 
-See the \`company-employee\` skill for the full \`penguin org\` command surface. Inside a desk or
+See the \`company-employee\` skill for the full \`wafh org\` command surface. Inside a desk or
 ticket session \`--org-id\`, \`--project-id\`, \`--agent-id\` and the current session are already
 known from the environment.
 `;

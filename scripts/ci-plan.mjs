@@ -6,7 +6,7 @@ import { appendFileSync, readFileSync, realpathSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const prefix = "@prismshadow/penguin-";
+const prefix = "@waterford/waf-harness-";
 /**
  * Windows runs the server suite in this many jobs. The files are dealt out by their measured
  * Windows durations (packages/server/test/setup/weighted-shards.ts), not by vitest's path hash,
@@ -135,7 +135,7 @@ export function planCI({ cwd = process.cwd(), base, full = false, crossPlatform 
     return {
       shard: name,
       packages: names,
-      build: server ? `${build(names)},@penguinharness/sandbox-dsh` : build(names),
+      build: server ? `${build(names)},@waf-harness/sandbox-dsh` : build(names),
       tests: command(names, testTask(extra.split)),
       ...(server ? { browser: true } : {}),
       ...extra,

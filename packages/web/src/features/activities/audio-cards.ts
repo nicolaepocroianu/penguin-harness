@@ -8,7 +8,7 @@ import type {
   AssetManifest,
   MediaAsset,
   TrimSource,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { isUploadPath } from "./media-library";
 import type { RunsIndex } from "./runs-index";
 

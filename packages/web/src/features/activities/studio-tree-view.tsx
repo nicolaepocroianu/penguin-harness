@@ -12,7 +12,7 @@
  * the Storyboard never collapses the scenes under it.
  */
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Chevron, GlyphIcon, ICON_SIZE } from "@prismshadow/penguin-ui";
+import { Chevron, GlyphIcon, ICON_SIZE } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";
 import { MARK_PATH } from "./journey-header";

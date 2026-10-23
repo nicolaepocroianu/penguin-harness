@@ -12,8 +12,8 @@
  * is asked about, and installed on, over there.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AgentPluginsInstallResponse } from "@prismshadow/penguin-server/api";
-import { toastError } from "@prismshadow/penguin-ui";
+import type { AgentPluginsInstallResponse } from "@waterford/waf-harness-server/api";
+import { toastError } from "@waterford/waf-harness-ui";
 import { getAgentPlugins, installAgentPlugins } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 

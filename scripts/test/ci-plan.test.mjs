@@ -43,7 +43,7 @@ import { dirname, join } from "node:path";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { planCI } from "../ci-plan.mjs";
 
-const name = (short) => `@prismshadow/penguin-${short}`;
+const name = (short) => `@waterford/waf-harness-${short}`;
 const members = (matrix) => new Set(matrix.include.flatMap((shard) => shard.packages));
 const names = (...shorts) => new Set(shorts.map(name));
 
@@ -57,7 +57,7 @@ describe("affected CI", { concurrency: false }, () => {
     writeFileSync(join(cwd, file), contents);
   };
   const addPackage = (short, dependencies = [], root = "packages", scripts = true) => {
-    const packageName = root === "plugins" ? `@penguinharness/${short}` : name(short);
+    const packageName = root === "plugins" ? `@waf-harness/${short}` : name(short);
     write(
       `${root}/${short}/package.json`,
       JSON.stringify({
@@ -109,7 +109,7 @@ describe("affected CI", { concurrency: false }, () => {
     );
 
   before(() => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), "penguin-ci-plan-")));
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), "wafh-ci-plan-")));
     git("init", "--quiet");
     git("config", "user.name", "CI test");
     git("config", "user.email", "ci-test@example.invalid");
@@ -235,7 +235,7 @@ describe("affected CI", { concurrency: false }, () => {
     ]) {
       assert.ok(plan.packages.includes(name(consumer)), `${consumer} consumes core`);
     }
-    assert.ok(plan.packages.includes("@penguinharness/sandbox-example"));
+    assert.ok(plan.packages.includes("@waf-harness/sandbox-example"));
     assert.ok(!plan.packages.includes(name("docs")));
     for (const matrix of [plan.linux, plan.macos, plan.windows]) {
       for (const consumer of ["core", "server", "cli", "desktop"]) {
@@ -334,14 +334,11 @@ describe("affected CI", { concurrency: false }, () => {
   it("an undeclared plugin's file change checks the catalog readers and their consumers", () => {
     const plan = changed("plugins/catalog-only/src/index.js");
     assert.equal(plan.plugins, true);
-    assert.ok(plan.packages.includes("@penguinharness/catalog-only"));
+    assert.ok(plan.packages.includes("@waf-harness/catalog-only"));
     for (const reader of ["core", "docs", "landing", "server", "ui-gallery"]) {
       assert.ok(members(plan.linux).has(name(reader)), `${reader} reads plugin catalogs`);
     }
-    assert.ok(
-      !members(plan.linux).has("@penguinharness/catalog-only"),
-      "content has no test script",
-    );
+    assert.ok(!members(plan.linux).has("@waf-harness/catalog-only"), "content has no test script");
   });
 
   it("a rename between existing packages checks both the old and new owners", () => {
@@ -435,7 +432,7 @@ describe("affected CI", { concurrency: false }, () => {
     const expected = new Set([...allPackages, added]);
     assert.deepEqual(new Set(plan.packages), expected);
     assert.equal(plan.readme, false);
-    expected.delete("@penguinharness/catalog-only");
+    expected.delete("@waf-harness/catalog-only");
     for (const matrix of [plan.linux, plan.macos, plan.windows]) {
       assert.deepEqual(members(matrix), expected);
     }
@@ -499,7 +496,7 @@ describe("affected CI", { concurrency: false }, () => {
     // The server shard builds the default DSH backend and installs Chromium.
     const server = plan.linux.include.find((shard) => shard.shard === "server");
     if (server) {
-      assert.match(server.build, /@penguinharness\/sandbox-dsh/);
+      assert.match(server.build, /@waf-harness\/sandbox-dsh/);
       assert.equal(server.browser, true);
     }
   });

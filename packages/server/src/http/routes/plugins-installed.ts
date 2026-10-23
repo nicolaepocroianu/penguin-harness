@@ -52,7 +52,7 @@
  * restored on the previous list, and the answer is "did not take".
  */
 import { Hono } from "hono";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { AppEnv } from "../../auth/middleware.js";
@@ -71,7 +71,7 @@ import {
   PLUGIN_MACHINE_ID,
   type PluginRequirement,
   type PluginTables,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type { Config, Db, Hmr, Reassembly, ReassemblyChange } from "../../hmr/capabilities.js";
 import {
   discoverBuiltinPlugins,
@@ -386,7 +386,7 @@ export function installedPluginRoutes(deps: InstalledPluginsDeps): Hono<AppEnv> 
         installed.name,
         400,
         "not_a_plugin",
-        `${installed.name} is not a PenguinHarness plugin: it carries neither skills/ nor hooks/ nor workbenches/ nor MCP servers (\`penguin.mcp_servers\`) nor the ifaces.json of server modules.`,
+        `${installed.name} is not a WAF Harness plugin: it carries neither skills/ nor hooks/ nor workbenches/ nor MCP servers (\`wafh.mcp_servers\`) nor the ifaces.json of server modules.`,
       );
     }
     return kinds;

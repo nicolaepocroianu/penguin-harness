@@ -1,4 +1,4 @@
-import type { SessionInfo } from "@prismshadow/penguin-server/api";
+import type { SessionInfo } from "@waterford/waf-harness-server/api";
 import { ofProject } from "../../lib/project-scope";
 
 /**

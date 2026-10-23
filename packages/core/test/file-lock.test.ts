@@ -23,7 +23,7 @@ function gate(): { wait: Promise<void>; open: () => void } {
 let dir: string;
 
 beforeEach(async () => {
-  dir = await mkdtemp(path.join(tmpdir(), "penguin-filelock-"));
+  dir = await mkdtemp(path.join(tmpdir(), "wafh-filelock-"));
 });
 
 afterEach(async () => {

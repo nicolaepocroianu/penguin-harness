@@ -1,6 +1,6 @@
 /**
- * What PenguinHarness is made of, as a radiating diagram: PenguinHarness fans out into
- * OmniMessage / Penguin SDK / Agent State, and each concept drops into the card under it that
+ * What WAF Harness is made of, as a radiating diagram: WAF Harness fans out into
+ * OmniMessage / WAF Harness SDK / Agent State, and each concept drops into the card under it that
  * says what it is and links to its docs page. Arrow paths carry slow-moving dots (SMIL
  * animateMotion). The diagram is hidden on small screens, where the three cards stack.
  */
@@ -122,7 +122,7 @@ function RadialDiagram() {
         className="fill-brand-50 stroke-brand-200 dark:fill-brand-950 dark:stroke-brand-800"
       />
       <image
-        href={`${import.meta.env.BASE_URL}penguin-logo.svg`}
+        href={`${import.meta.env.BASE_URL}wafh-logo.svg`}
         x={288}
         y={22}
         width={22}

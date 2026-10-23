@@ -2,7 +2,7 @@
  * The Node a module asks for, against the Node that builds it.
  *
  * WAF modules pin their toolchain: `.nvmrc` names one version (a monorepo's sits at its root),
- * and `engines.node` in package.json a range. Penguin installs no Node and builds with the one
+ * and `engines.node` in package.json a range. WAF Harness installs no Node and builds with the one
  * the server runs, so when they disagree it says so, rather than build quietly with another.
  * Only what WAF writes is understood: versions, `>=`/`>`/`<=`/`<`/`=` comparators, `^`, `~`,
  * x-ranges and `||`. Anything else (an nvm alias such as `lts/*`) is not judged.
@@ -128,5 +128,5 @@ export function nodeRequirementNote(moduleRoot: string, running: string): string
   if (typeof engines === "string" && satisfiesNodeRange(running, engines) === false)
     wants.push(`${engines} (engines in package.json)`);
   if (!wants.length) return null;
-  return `Warning: this module asks for Node ${wants.join(" and ")}, but Penguin builds it with the server's Node ${running}. Penguin does not install Node; run the server on the Node the module asks for if the build fails or behaves differently.`;
+  return `Warning: this module asks for Node ${wants.join(" and ")}, but WAF Harness builds it with the server's Node ${running}. WAF Harness does not install Node; run the server on the Node the module asks for if the build fails or behaves differently.`;
 }

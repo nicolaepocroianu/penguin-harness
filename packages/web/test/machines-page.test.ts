@@ -59,9 +59,9 @@ import type {
   MachineJob,
   MachinesResponse,
   SshHostResponse,
-} from "@prismshadow/penguin-server/api";
-import * as ui from "@prismshadow/penguin-ui";
-import { Button, RuledSection } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import * as ui from "@waterford/waf-harness-ui";
+import { Button, RuledSection } from "@waterford/waf-harness-ui";
 import { MachineCard, machineMark } from "../src/features/machines/machine-card";
 import type { MachineCardProps } from "../src/features/machines/machine-card";
 import {
@@ -93,7 +93,7 @@ const remote = (alias: string, extra: Partial<MachineInfo> = {}): MachineInfo =>
   socket: null,
   api: null,
   status: { state: "stopped", checkedAt: CHECKED },
-  root: "/home/ubuntu/.penguin/data",
+  root: "/home/ubuntu/.waf-harness/data",
   ...extra,
 });
 const stopped = remote("lab-mac");
@@ -182,7 +182,7 @@ const fresh = remote("fresh", { status: null });
 /** Added to the Project, nothing installed there yet: no record, no id, never probed. */
 const added = remote("spare", { installed: null, machineId: null, status: null, member: true });
 const here: MachineInfo = {
-  ...remote("penguin-dev"),
+  ...remote("wafh-dev"),
   id: "local",
   local: true,
   status: { state: "running", checkedAt: CHECKED, port: 7364 },
@@ -220,7 +220,7 @@ const runningJob = (machine: MachineInfo): MachineJob =>
   job(machine, {
     running: true,
     phase: "install",
-    log: ["Downloading penguin-harness 0.2.13…"],
+    log: ["Downloading waf-harness 0.2.13…"],
   });
 const queuedJob = (machine: MachineInfo): MachineJob => job(machine, { queued: true });
 const doneJob = (machine: MachineInfo): MachineJob =>

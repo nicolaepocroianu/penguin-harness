@@ -111,7 +111,7 @@ function readAssets(dir: string): { files: Record<string, string>; exec: string[
  * platform and CLI bundles as content-named `.mjs` files, the web dist as one gzipped
  * artifact, the assets as real files with their exec bits, marked complete. A machine that
  * receives the directory therefore boots this version as if it had been pushed to it, and
- * its `penguin-hmr` finds this CLI.
+ * its `wafh-hmr` finds this CLI.
  *
  * Every name is the one the layer itself would give the same content, so a later push of
  * the same parts to that machine lands on these files rather than beside them. Blobs are not

@@ -143,7 +143,7 @@ describe("plainChromeUserAgent", () => {
   it("drops Electron's token and the app's", () => {
     expect(
       plainChromeUserAgent(
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) PenguinHarness/0.2.13 Chrome/140.0.7339.80 Electron/43.2.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) WAF Harness/0.2.13 Chrome/140.0.7339.80 Electron/43.2.0 Safari/537.36",
       ),
     ).toBe(
       "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.7339.80 Safari/537.36",
@@ -153,7 +153,7 @@ describe("plainChromeUserAgent", () => {
   it("copes with an app name that has a space in it", () => {
     expect(
       plainChromeUserAgent(
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) PenguinHarness Dev/0.2.13 Chrome/140.0.0.0 Electron/43.2.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) WAF Harness Dev/0.2.13 Chrome/140.0.0.0 Electron/43.2.0 Safari/537.36",
       ),
     ).toBe(
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
@@ -455,7 +455,7 @@ describe("load", () => {
 
 describe("Project partitions", () => {
   it("keeps an admitted Project partition through preference hardening", () => {
-    const partition = "persist:penguin-browser-project-" + "a".repeat(64);
+    const partition = "persist:wafh-browser-project-" + "a".repeat(64);
     expect(mayAttachGuest({ partition, src: "https://example.test" })).toBe(true);
     const prefs: Record<string, unknown> = {
       partition: "persist:elsewhere",
@@ -467,7 +467,7 @@ describe("Project partitions", () => {
   });
 
   it("targets cookie writes and clearing only at valid browser partitions", () => {
-    const partition = "persist:penguin-browser-project-" + "b".repeat(64);
+    const partition = "persist:wafh-browser-project-" + "b".repeat(64);
     for (const command of [
       { op: "set-cookies", cookies: [] },
       { op: "clear-data", storages: ["cookies"] },
@@ -478,7 +478,7 @@ describe("Project partitions", () => {
         command: { ...command, partition },
       });
       expect(parsed).toMatchObject({ command: { ...command, partition } });
-      for (const foreign of ["", "persist:app", "persist:penguin-browser-project-../app"]) {
+      for (const foreign of ["", "persist:app", "persist:wafh-browser-project-../app"]) {
         expect(
           parseBrowserCommand({
             type: "desktop-browser-command",

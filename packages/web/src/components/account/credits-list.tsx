@@ -16,9 +16,9 @@
  * screen away.
  */
 import { useId, useState } from "react";
-import { FONT_CREDITS, ICON_CREDITS } from "@prismshadow/penguin-ui/fonts-credits";
-import type { ThemeId } from "@prismshadow/penguin-ui";
-import { Chevron, ICON_GAP, Text } from "@prismshadow/penguin-ui";
+import { FONT_CREDITS, ICON_CREDITS } from "@waterford/waf-harness-ui/fonts-credits";
+import type { ThemeId } from "@waterford/waf-harness-ui";
+import { Chevron, ICON_GAP, Text } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 
 /** A theme id in the reader's words. */

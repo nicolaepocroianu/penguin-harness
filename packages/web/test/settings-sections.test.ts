@@ -20,7 +20,7 @@ import {
   visibleSettingsSections,
 } from "../src/lib/settings-sections";
 
-/** Admin signed into a plain `penguin server` through the login form. */
+/** Admin signed into a plain `wafh server` through the login form. */
 const admin = visibleSettingsSections({
   isAdmin: true,
   desktopMode: false,

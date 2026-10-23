@@ -113,14 +113,14 @@ describe("activity deploy release routes", () => {
   });
 
   async function setup(processOptions: { hang?: boolean; failLint?: boolean } = {}) {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-release-waf-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-release-waf-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
     await fs.mkdir(path.join(root, "framework", "src"), { recursive: true });
     await fs.writeFile(path.join(root, "framework", "package.json"), "{}");
     await fs.mkdir(path.join(root, "modules"), { recursive: true });
     const clones = new FakeClones();
     // The checkout's clones, the product's module among them (its owner cloned it, and
-    // Penguin writes the product's files into it); its media's sparse set has this
+    // WAF Harness writes the product's files into it); its media's sparse set has this
     // product's folder.
     for (const [folder, remote] of [
       ["waf-activity-data", DATA_REMOTE],
@@ -369,7 +369,7 @@ describe("activity deploy release routes", () => {
     expect(moduleCalls).toContainEqual(
       expect.objectContaining({
         op: "commitStaged",
-        args: ["Penguin Harness: words as authored", expect.anything()],
+        args: ["WAF Harness: words as authored", expect.anything()],
       }),
     );
     expect(

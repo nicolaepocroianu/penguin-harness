@@ -96,7 +96,7 @@ const STDERR_TAIL_LIMIT = 2048;
  * a top-level read would hit the temporal dead zone.
  */
 function clientInfo(): { name: string; version: string } {
-  return { name: "penguin-harness", version: VERSION };
+  return { name: "waf-harness", version: VERSION };
 }
 
 export interface McpToolProviderOptions {
@@ -117,7 +117,7 @@ export interface McpToolProviderOptions {
    * reference it cannot fill skips that server as "needs setup". Absent = an empty vault.
    */
   vault?: Readonly<Record<string, string>>;
-  /** Warning sink; defaults to a `[penguin]`-prefixed stderr line. */
+  /** Warning sink; defaults to a `[wafh]`-prefixed stderr line. */
   warn?: (message: string) => void;
 }
 
@@ -176,7 +176,7 @@ function redactError(err: unknown, values: VaultValues): unknown {
 
 /**
  * Wraps global fetch to add the configured headers to every request (stream GET and POSTs
- * alike), with PenguinHarness's User-Agent among them unless the entry configures its own.
+ * alike), with WAF Harness's User-Agent among them unless the entry configures its own.
  */
 function fetchWithHeaders(headers: Record<string, string> | undefined): FetchLike {
   return (url, init) => {
@@ -272,7 +272,7 @@ export class McpToolProvider {
     this.workspaceDir = options?.workspaceDir;
     this.confineSpawn = options?.confineSpawn;
     this.scratchpadDir = options?.scratchpadDir;
-    this.warn = options?.warn ?? ((message) => process.stderr.write(`[penguin] ${message}\n`));
+    this.warn = options?.warn ?? ((message) => process.stderr.write(`[wafh] ${message}\n`));
   }
 
   /** Connects the pending servers (once per phase) and returns the LLM-facing definitions of every discovered MCP tool. */
@@ -534,7 +534,7 @@ export class McpToolProvider {
         // subprocesses); a variable a server needs must be listed in the entry's env, where
         // a `${KEY}` reference names the vault value it takes (filled in by the resolver).
         // The SDK defaults are an allowlist (HOME/PATH/SHELL-class names only), so the
-        // harness's own configuration — every PENGUIN_* variable, PORT/HOST and the rest —
+        // harness's own configuration — every WAFH_* variable, PORT/HOST and the rest —
         // never reaches a server: the same outcome the command-session strip enforces,
         // by the opposite mechanism. Widening this base (e.g. to process.env) would undo
         // that; the "harness variables never reach a stdio server" test pins it. A

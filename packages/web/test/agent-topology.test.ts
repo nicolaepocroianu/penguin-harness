@@ -40,8 +40,8 @@ import {
   toolCallOutput,
   userText,
   withOrigin,
-} from "@prismshadow/penguin-core/omnimessage";
-import type { OmniMessage, SessionMetaPayload } from "@prismshadow/penguin-core/omnimessage";
+} from "@waterford/waf-harness-core/omnimessage";
+import type { OmniMessage, SessionMetaPayload } from "@waterford/waf-harness-core/omnimessage";
 import {
   agentIdFromStatePath,
   approvalKey,

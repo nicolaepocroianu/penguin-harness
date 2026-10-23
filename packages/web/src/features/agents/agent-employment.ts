@@ -9,7 +9,7 @@
  * happens in company mode, so an empty group of its own is clutter). The fact every surface
  * reads is `AgentSummary.employments`: absent or empty means the Agent is not an employee.
  */
-import type { AgentSummary, Employment } from "@prismshadow/penguin-server/api";
+import type { AgentSummary, Employment } from "@waterford/waf-harness-server/api";
 
 type Employable = Pick<AgentSummary, "employments">;
 

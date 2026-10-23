@@ -10,9 +10,9 @@
  * an account, not an error the user made on this page.
  */
 import { useEffect, useState } from "react";
-import type { ModelProviderInfo } from "@prismshadow/penguin-server/model-catalog";
-import { providerInfo } from "@prismshadow/penguin-server/model-catalog";
-import { ChevronDown, Dropdown, Menu, MenuItem, ProviderLogo } from "@prismshadow/penguin-ui";
+import type { ModelProviderInfo } from "@waterford/waf-harness-server/model-catalog";
+import { providerInfo } from "@waterford/waf-harness-server/model-catalog";
+import { ChevronDown, Dropdown, Menu, MenuItem, ProviderLogo } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { formatDateTime } from "../../lib/format";
 import { useProject } from "../../state/project";

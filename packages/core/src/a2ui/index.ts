@@ -1,5 +1,5 @@
 /**
- * `@prismshadow/penguin-core/a2ui`: the grammar of A2UI blocks — catalog types and limits, fence
+ * `@waterford/waf-harness-core/a2ui`: the grammar of A2UI blocks — catalog types and limits, fence
  * discovery, L1 validation, the mermaid checks, the STE-lite prose lint, the whole-reply check
  * with its score, the text fallback, the composer fill texts, the self-review rubric, and the
  * pure formatting helpers the widget renderers share with the fallback. Pure TypeScript with no

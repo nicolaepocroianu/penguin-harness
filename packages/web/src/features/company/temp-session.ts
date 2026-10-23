@@ -41,7 +41,7 @@ export function chatPath(sessionId: string): string {
   return `/chat/${sessionId}`;
 }
 
-const KEY_PREFIX = "penguin.orgTempSessions.";
+const KEY_PREFIX = "wafh.orgTempSessions.";
 
 /** The list's storage key: one per user, Project and organization. A signed-out browser gets its own bucket. */
 export function tempSessionsKey(userId: string | null, projectId: string, orgId: string): string {

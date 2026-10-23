@@ -28,10 +28,10 @@
  */
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ACCENT_PRESETS, THEME_OWN_ACCENTS } from "@prismshadow/penguin-ui";
-import type { ThemeId } from "@prismshadow/penguin-ui";
-import { applyThemeAttributes, THEME_STORAGE_KEYS } from "@prismshadow/penguin-ui/boot";
-import type { AccentChoice } from "@prismshadow/penguin-ui/boot";
+import { ACCENT_PRESETS, THEME_OWN_ACCENTS } from "@waterford/waf-harness-ui";
+import type { ThemeId } from "@waterford/waf-harness-ui";
+import { applyThemeAttributes, THEME_STORAGE_KEYS } from "@waterford/waf-harness-ui/boot";
+import type { AccentChoice } from "@waterford/waf-harness-ui/boot";
 import { readThemePrefs } from "./theme-prefs";
 import { syncThemeColor } from "../lib/theme-color";
 import type { FontCjk, FontLatin, TextSize } from "./theme-prefs";
@@ -58,9 +58,9 @@ const TEXT_SIZE_KEY = THEME_STORAGE_KEYS.textSize;
 const FONT_LATIN_KEY = THEME_STORAGE_KEYS.fontLatin;
 const FONT_CJK_KEY = THEME_STORAGE_KEYS.fontCjk;
 const ACCENT_KEY = THEME_STORAGE_KEYS.accent;
-const CURRENCY_KEY = "penguin.currency";
-const TERMINAL_KEY = "penguin.terminal.theme";
-const TOOL_ALIASES_KEY = "penguin.toolAliases";
+const CURRENCY_KEY = "wafh.currency";
+const TERMINAL_KEY = "wafh.terminal.theme";
+const TOOL_ALIASES_KEY = "wafh.toolAliases";
 
 interface ThemeContextValue {
   mode: ThemeMode;

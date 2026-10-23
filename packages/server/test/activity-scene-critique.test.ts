@@ -35,7 +35,7 @@ describe("scene critique", () => {
     for (const dir of dirs.splice(0)) await fs.rm(dir, { recursive: true, force: true });
   });
   async function workspace(): Promise<string> {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-critique-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-critique-"));
     dirs.push(dir);
     return dir;
   }

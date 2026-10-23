@@ -129,7 +129,7 @@ export class AcpConnection {
     });
     // Diagnostics can carry account secrets: drain without exposing them.
     proc.stderr.resume();
-    if (process.env.PENGUIN_CODING_AGENTS_DEBUG === "1") {
+    if (process.env.WAFH_CODING_AGENTS_DEBUG === "1") {
       proc.stderr.on("data", (chunk: Buffer) => console.error("[agent-stderr]", chunk.toString()));
     }
     const conn = buildClientApp(clientInfo, handlers).connect(
@@ -156,7 +156,7 @@ export class AcpConnection {
         protocolVersion: PROTOCOL_VERSION,
         clientInfo: {
           name: this.clientInfo.name,
-          title: "PenguinHarness",
+          title: "WAF Harness",
           version: this.clientInfo.version,
         },
         // The agent does the filesystem/terminal work itself; we only relay elicitation

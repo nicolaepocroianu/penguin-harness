@@ -13,8 +13,8 @@ import {
   FONT_LATIN_OPTIONS,
   TEXT_SIZE_PX,
   TEXT_SIZES,
-} from "@prismshadow/penguin-ui/boot";
-import type { FontCjk, FontLatin, TextSize } from "@prismshadow/penguin-ui/boot";
+} from "@waterford/waf-harness-ui/boot";
+import type { FontCjk, FontLatin, TextSize } from "@waterford/waf-harness-ui/boot";
 
 export { TEXT_SIZES };
 export type { FontCjk, FontLatin, TextSize };

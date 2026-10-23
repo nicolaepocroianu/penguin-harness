@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-PenguinHarness is pre-1.0 and ships from `main`. There are no maintenance branches and
+WAF Harness is pre-1.0 and ships from `main`. There are no maintenance branches and
 nothing is backported: a fix lands in the next release, and upgrading is the way to get it.
 
 | Version                 | Supported |
@@ -12,7 +12,7 @@ nothing is backported: a fix lands in the next release, and upgrading is the way
 
 The releases are listed in
 [CHANGELOG.md](https://github.com/Prism-Shadow/penguin-harness/blob/main/CHANGELOG.md);
-`penguin version` prints which build a machine is actually running.
+`wafh version` prints which build a machine is actually running.
 
 ## Reporting a vulnerability
 
@@ -27,7 +27,7 @@ private channel with you. Do not open a public issue, a discussion, or a pull re
 a security problem, and do not post the details to Discord or the WeChat group — those are
 public.
 
-A report is most useful with the affected version, how PenguinHarness was installed
+A report is most useful with the affected version, how WAF Harness was installed
 (desktop app, CLI, or a server run), the operating system, and the smallest sequence of
 steps that reproduces the problem. **Strip credentials before you send anything.** A data
 root holds provider API keys, messaging bot tokens and Vault entries in readable form, so a
@@ -40,7 +40,7 @@ rather than hours, and expect to be asked for more detail.
 
 ## What counts
 
-PenguinHarness runs an agent on your own machine, and that agent runs shell commands, reads
+WAF Harness runs an agent on your own machine, and that agent runs shell commands, reads
 and writes files, and talks to model providers with credentials you configured. Within that
 design, these are in scope:
 
@@ -55,7 +55,7 @@ design, these are in scope:
 - Remote input that gets to act: a web page, a file, an MCP server or an inbound chat
   message whose content is treated as instructions in a way the user could not see coming,
   or that reaches a tool without passing the approval boundary at all.
-- The installers and the update path: an install or `penguin update` that can be redirected
+- The installers and the update path: an install or `wafh update` that can be redirected
   to code the project did not publish.
 
 These are not, because they are the documented design rather than a defect:
@@ -67,9 +67,9 @@ These are not, because they are the documented design rather than a defect:
   permission or a confinement layer — see
   [Configuration → Command policy](https://penguin.ooo/docs/configuration). Real confinement
   (bubblewrap, dsh) is a separate layer.
-- A server deliberately exposed to a network it should not be on. PenguinHarness binds to
+- A server deliberately exposed to a network it should not be on. WAF Harness binds to
   `127.0.0.1` by default; putting it on a public address is a deployment decision.
 - Secrets readable on disk by someone who already has your user account or your data root.
 - Vulnerabilities in a model provider, an MCP server, or another third-party dependency —
   report those to whoever maintains them. If a dependency's flaw is reachable through
-  PenguinHarness in a way its own maintainers would not consider a bug, tell us as well.
+  WAF Harness in a way its own maintainers would not consider a bug, tell us as well.

@@ -1,5 +1,5 @@
 /**
- * OmniMessage — PenguinHarness's primary message protocol.
+ * OmniMessage — WAF Harness's primary message protocol.
  *
  * All messages share one envelope: `timestamp` (ISO 8601 UTC), `type`, and `payload`.
  * The outer `type` falls into three categories:
@@ -157,17 +157,17 @@ export interface SessionMetaPayload {
  * purposes.
  *
  * - `user`: a person's conversation, and the default when nothing names a source: the Web App
- *   composer, `penguin chat`, and forks.
+ *   composer, `wafh chat`, and forks.
  * - `api`: an external program opened it through the Agent API.
  * - `schedule`: a scheduled task opened it for one of its runs.
  * - `workbench`: an Agent Workbench opened it for a question or job; archived by default.
  * - `subagent`: a `run_subagent` child, whichever Session spawned it (a company Session's too).
- * - `cli`: `penguin run` created it, the Test Sessions an evaluation launches included.
+ * - `cli`: `wafh run` created it, the Test Sessions an evaluation launches included.
  * - `company`: company mode's organization runtime opened it, as an employee's desk or for a
  *   ticket. Only company mode's own views list it.
  *
  * Which program created the server's index row is a separate fact (the row's `client`); the two
- * can differ, as `penguin chat` (a `cli` client writing a `user` Session) shows.
+ * can differ, as `wafh chat` (a `cli` client writing a `user` Session) shows.
  */
 export type SessionSource =
   "user" | "api" | "schedule" | "subagent" | "cli" | "company" | "workbench";
@@ -181,7 +181,7 @@ export type SessionSource =
  * Provider-fidelity payload (mirrors MMSP's `Fidelity`): an arbitrary JSON-style object of
  * wire-level data the LLM client records to reproduce the original message on replay — thinking
  * signatures, phase labels, encrypted reasoning, the upstream reasoning field name, etc. Opaque
- * to PenguinHarness: written to the Trace as-is and passed back verbatim; some models **require**
+ * to WAF Harness: written to the Trace as-is and passed back verbatim; some models **require**
  * it when history is replayed (e.g. Claude thinking signatures, GPT-5 encrypted reasoning) —
  * losing it breaks Session resumption.
  */

@@ -1,14 +1,14 @@
 /**
  * Landing page styles: a Tailwind CSS 4 entry over the public sites' shared page base
  * (site-page.css) and components and article prose (site.css), both from
- * @prismshadow/penguin-ui, plus what is the landing page's own — section anchors, the scroll
+ * @waterford/waf-harness-ui, plus what is the landing page's own — section anchors, the scroll
  * reveal, the hero, the ambient backdrop and the home page's animations. GitHub-style
  * simplicity: solid backgrounds, 1px borders, one brand blue accent. Dark theme is toggled via
  * the html.dark class.
  */
 @import "tailwindcss";
-@import "@prismshadow/penguin-ui/site-page.css";
-@import "@prismshadow/penguin-ui/site.css";
+@import "@waterford/waf-harness-ui/site-page.css";
+@import "@waterford/waf-harness-ui/site.css";
 
 @source "../../ui/src/components/site";
 @source "../../ui/src/components/overlays/dropdown";

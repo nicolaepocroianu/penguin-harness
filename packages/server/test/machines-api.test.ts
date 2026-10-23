@@ -64,7 +64,7 @@
  *   goes at the next build after; the image outlives a restart; an installed server's own
  *   image wins.
  * - Given an installed release nothing was pushed to, an install puts the image the release
- *   ships: a whole store whose CLI the machine's `penguin-hmr` can load, under the release with
+ *   ships: a whole store whose CLI the machine's `wafh-hmr` can load, under the release with
  *   the image's suffix, laid down beside — never in — the server's own hmr store; the image is
  *   laid down once and outlives a restart, an upgrade's image replaces the old one, an image
  *   that cannot be read ends the job before any install, and a pushed server's own state wins.
@@ -76,7 +76,7 @@ import type { AddressInfo } from "node:net";
 import path from "node:path";
 import zlib from "node:zlib";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { VERSION } from "@prismshadow/penguin-core";
+import { VERSION } from "@waterford/waf-harness-core";
 import type {
   MachinesUseResponse,
   MachinesResponse,
@@ -169,7 +169,7 @@ function effects(over: Partial<MachinesEffects> = {}): Partial<MachinesEffects> 
     upgrade: async () => ({ kind: "upgraded", detail: "", persisted: true }),
     runOn: async () => ({
       code: 0,
-      stdout: "---penguin-auth-token---\nremote-token\n",
+      stdout: "---wafh-auth-token---\nremote-token\n",
       stderr: "",
       timedOut: false,
     }),
@@ -317,7 +317,7 @@ describe("machines API", () => {
           api: null,
           // The release profile's root over there, in the shell a machine of unknown
           // platform is assumed to speak.
-          root: "$HOME/.penguin/data",
+          root: "$HOME/.waf-harness/data",
           status: null,
         },
         {
@@ -331,7 +331,7 @@ describe("machines API", () => {
           api: null,
           // The release profile's root over there, in the shell a machine of unknown
           // platform is assumed to speak.
-          root: "$HOME/.penguin/data",
+          root: "$HOME/.waf-harness/data",
           status: null,
         },
       ]);
@@ -1845,11 +1845,11 @@ describe("machines API", () => {
       connected.add("ssh:nas");
     };
     const listing = (stdout: string) => async (_t: unknown, command: string) =>
-      command.includes("---penguin-dirs---")
+      command.includes("---wafh-dirs---")
         ? { code: 0, stdout, stderr: "", timedOut: false }
         : {
             code: 0,
-            stdout: "---penguin-auth-token---\nremote-token\n",
+            stdout: "---wafh-auth-token---\nremote-token\n",
             stderr: "",
             timedOut: false,
           };
@@ -1859,7 +1859,7 @@ describe("machines API", () => {
       await boot({
         runOn: async (_t, command) => {
           asked.push(command);
-          return listing("/home/deploy/work\n---penguin-dirs---\nsrc\nnotes\n")(_t, command);
+          return listing("/home/deploy/work\n---wafh-dirs---\nsrc\nnotes\n")(_t, command);
         },
       });
       connectedMachine();
@@ -1874,13 +1874,13 @@ describe("machines API", () => {
         ],
       });
       // The path went to the machine quoted, so a name with a space is one argument there.
-      expect(asked.find((c) => c.includes("---penguin-dirs---"))).toContain("'~/work'");
+      expect(asked.find((c) => c.includes("---wafh-dirs---"))).toContain("'~/work'");
     });
 
     it("404s a directory the machine does not have", async () => {
       await boot({
         runOn: async (_t, command) =>
-          command.includes("---penguin-dirs---")
+          command.includes("---wafh-dirs---")
             ? { code: 3, stdout: "", stderr: "", timedOut: false }
             : { code: 0, stdout: "", stderr: "", timedOut: false },
       });
@@ -1892,7 +1892,7 @@ describe("machines API", () => {
     it("403s a directory the machine has but refuses to list, with its own code", async () => {
       await boot({
         runOn: async (_t, command) =>
-          command.includes("---penguin-dirs---")
+          command.includes("---wafh-dirs---")
             ? { code: 4, stdout: "", stderr: "", timedOut: false }
             : { code: 0, stdout: "", stderr: "", timedOut: false },
       });
@@ -1924,7 +1924,7 @@ describe("machines API", () => {
       await boot({
         runOn: async (target, command) => {
           asked.push(target.alias);
-          return listing("/home/deploy\n---penguin-dirs---\n")(target, command);
+          return listing("/home/deploy\n---wafh-dirs---\n")(target, command);
         },
       });
       // Both aliases answered the same id; only build-box is connected.
@@ -2263,8 +2263,8 @@ describe("machines API", () => {
           code: 0,
           // The machine's probe: same release, a harness naming another CLI bundle.
           stdout: command.includes("uname -s -m")
-            ? 'Linux x86_64\n---penguin---\n{"version":"9.9.9"}\n---penguin---\n{"platform":{"bundle":"store/platform/cafe.mjs"},"cli":{"bundle":"store/cli/beef.mjs"}}\n'
-            : "---penguin-auth-token---\nremote-token\n",
+            ? 'Linux x86_64\n---wafh---\n{"version":"9.9.9"}\n---wafh---\n{"platform":{"bundle":"store/platform/cafe.mjs"},"cli":{"bundle":"store/cli/beef.mjs"}}\n'
+            : "---wafh-auth-token---\nremote-token\n",
           stderr: "",
           timedOut: false,
         }),
@@ -2698,7 +2698,7 @@ describe("machines API", () => {
         now: () => clock,
         passwordSignIn: async () => ({ ok: true, detached: false }),
         readConfig: () =>
-          "# Added by PenguinHarness on 2026-08-01T00:00:00.000Z\nHost nas\n  HostName 10.0.0.2\n",
+          "# Added by WAF Harness on 2026-08-01T00:00:00.000Z\nHost nas\n  HostName 10.0.0.2\n",
         writeConfig: () => {},
         probe: async (target) => {
           probes += 1;
@@ -2764,7 +2764,7 @@ describe("machines API", () => {
           far.said === null
             ? {
                 code: 0,
-                stdout: "---penguin-auth-token---\nremote-token\n",
+                stdout: "---wafh-auth-token---\nremote-token\n",
                 stderr: "",
                 timedOut: false,
               }
@@ -3075,7 +3075,7 @@ describe("machines API", () => {
       expect(res.status).toBe(201);
       expect(written).toEqual([
         [
-          "# Added by PenguinHarness on 2026-08-24T12:00:00.000Z",
+          "# Added by WAF Harness on 2026-08-24T12:00:00.000Z",
           "Host orchid-2",
           "  HostName 10.0.0.9",
           "  User k",
@@ -3100,7 +3100,7 @@ describe("machines API", () => {
     });
 
     const CONFIG = [
-      "# Added by PenguinHarness on 2026-08-01T00:00:00.000Z",
+      "# Added by WAF Harness on 2026-08-01T00:00:00.000Z",
       "Host nas",
       "  HostName 10.0.0.2",
       "",
@@ -3130,7 +3130,7 @@ describe("machines API", () => {
       expect(ok.status).toBe(200);
       expect(written).toHaveLength(1);
       expect(written[0]!.split("\n").slice(0, 6)).toEqual([
-        "# Added by PenguinHarness on 2026-08-24T12:00:00.000Z",
+        "# Added by WAF Harness on 2026-08-24T12:00:00.000Z",
         "Host nas",
         "  HostName 10.0.0.3",
         "  User deploy",
@@ -3549,7 +3549,7 @@ describe("machines API", () => {
     });
     /** A release's program, shipping `build` as its install image (what deploy.mjs --out writes). */
     const shipping = (build: PushedBuild) => {
-      const program = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-release-program-"));
+      const program = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-release-program-"));
       programs.push(program);
       fs.mkdirSync(path.join(program, "dist"));
       const body = path.join(program, "dist", "install-image.gz");
@@ -3587,7 +3587,7 @@ describe("machines API", () => {
       expect(version.startsWith("9.9.9+hmr.")).toBe(true);
       expect(plans[0]).toMatchObject({ baseVersion: "9.9.9", version });
       // The store an install replicates: the shipped build, in the layout a push leaves, whose
-      // CLI is what the machine's `penguin-hmr` runs every command this server sends through.
+      // CLI is what the machine's `wafh-hmr` runs every command this server sends through.
       const image = path.dirname(plans[0]!.hmrDir!);
       expect(image.startsWith(imageRoot())).toBe(true);
       expect(JSON.parse(zlib.gunzipSync(readPushedBuild(image)!).toString())).toMatchObject({

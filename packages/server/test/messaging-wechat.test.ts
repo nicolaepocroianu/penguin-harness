@@ -35,9 +35,9 @@
  *   conversations go with the last binding that references their bot.
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { assistantText } from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { assistantText } from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import type {
   MessagingBindingsResponse,
   WeChatBindingResponse,

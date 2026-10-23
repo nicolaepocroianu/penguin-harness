@@ -1,7 +1,7 @@
 /**
  * A paired server's link, as the server sees it on the wire.
  *
- * - Given a paired server, the extension dials its WebSocket path offering `penguin-browser.1`
+ * - Given a paired server, the extension dials its WebSocket path offering `wafh-browser.1`
  *   and `token.<token>`, and the token never appears in the URL.
  * - Given the server's `hello`, the reply is the extension's BrowserHello and the link counts as
  *   connected; no event goes out before that.
@@ -81,7 +81,7 @@ describe("dialling and the handshake", () => {
     connection.start();
     const socket = factory.last;
     expect(socket.url).toBe("wss://ph.example.com/api/builtin-browser/extension/ws");
-    expect(socket.protocols).toEqual(["penguin-browser.1", `token.${TOKEN}`]);
+    expect(socket.protocols).toEqual(["wafh-browser.1", `token.${TOKEN}`]);
     expect(socket.url).not.toContain(TOKEN);
   });
 

@@ -249,7 +249,7 @@ describe("local API token", () => {
       expect(res.headers.has("set-cookie")).toBe(false);
       const text = await res.text();
       expect(text.includes(remoteToken)).toBe(false);
-      expect(text.includes("penguinGo")).toBe(false);
+      expect(text.includes("wafHarnessGo")).toBe(false);
 
       const body = JSON.parse(text) as RemoteSessionResponse;
       expect(Object.keys(body).sort()).toEqual([

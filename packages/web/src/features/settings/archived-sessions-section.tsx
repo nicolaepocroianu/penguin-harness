@@ -1,6 +1,6 @@
 /**
  * Settings › Personal › Archived chats: the conversations that are not in the sidebar — the ones
- * the user archived, and the ones a program opened (the Agent API, a scheduled task, `penguin
+ * the user archived, and the ones a program opened (the Agent API, a scheduled task, `wafh
  * run`) that the user has not kept. An archived conversation shows only its title and its time;
  * unarchiving returns it to the sidebar, deleting removes it for good.
  *
@@ -21,7 +21,7 @@
  * The page's state and every request live in archived-sessions-state.ts; this renders it.
  */
 import { useEffect, useState } from "react";
-import type { ArchivedSessionGroup, SessionInfo } from "@prismshadow/penguin-server/api";
+import type { ArchivedSessionGroup, SessionInfo } from "@waterford/waf-harness-server/api";
 import {
   Pill,
   Button,
@@ -37,7 +37,7 @@ import {
   SkeletonList,
   Spinner,
   toastError,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { useStore } from "zustand/react";
 import { formatDateTime } from "../../lib/format";
 import { subscribeUserEvents } from "../../lib/omni/user-events";

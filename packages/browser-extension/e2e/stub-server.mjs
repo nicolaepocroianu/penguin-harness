@@ -1,4 +1,4 @@
-// A stand-in for the PenguinHarness server's extension routes, built from the extension's own
+// A stand-in for the WAF Harness server's extension routes, built from the extension's own
 // wire module (src/wire.ts, loaded through Node's type stripping): the pairing route with CORS
 // for extension origins only, and the WebSocket link with the token in Sec-WebSocket-Protocol.
 // It speaks the server's side of design § 3.1/3.5: hello on connect, then `tabs`, pings, close

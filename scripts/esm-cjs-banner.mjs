@@ -37,10 +37,10 @@
  * Two `var`s of one name are legal, and inside a bundle both spell the same path anyway.
  */
 export const ESM_CJS_BANNER = [
-  'import { createRequire as __penguinCreateRequire } from "node:module";',
-  'import { fileURLToPath as __penguinFileURLToPath } from "node:url";',
-  'import { dirname as __penguinDirname } from "node:path";',
-  "var require = __penguinCreateRequire(import.meta.url);",
-  "var __filename = __penguinFileURLToPath(import.meta.url);",
-  "var __dirname = __penguinDirname(__filename);",
+  'import { createRequire as __wafHarnessCreateRequire } from "node:module";',
+  'import { fileURLToPath as __wafHarnessFileURLToPath } from "node:url";',
+  'import { dirname as __wafHarnessDirname } from "node:path";',
+  "var require = __wafHarnessCreateRequire(import.meta.url);",
+  "var __filename = __wafHarnessFileURLToPath(import.meta.url);",
+  "var __dirname = __wafHarnessDirname(__filename);",
 ].join(" ");

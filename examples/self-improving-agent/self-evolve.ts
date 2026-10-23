@@ -31,7 +31,7 @@ import {
   userText,
   isCompleteModelMessage,
   type OmniMessage,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 
 const AGENT_ID = "self-improve-demo";
 const PROJECT_ID = "default_project";
@@ -71,7 +71,7 @@ Reviewed-by: Aurora Team
 `;
 
 function rootDir(): string {
-  return process.env.PENGUIN_HOME ?? path.join(os.homedir(), ".penguin", "data");
+  return process.env.WAFH_HOME ?? path.join(os.homedir(), ".waf-harness", "data");
 }
 function agentStateDir(): string {
   return path.join(rootDir(), PROJECT_ID, "agents", AGENT_ID, "agent_state");

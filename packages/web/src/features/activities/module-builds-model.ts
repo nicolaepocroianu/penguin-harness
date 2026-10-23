@@ -7,7 +7,7 @@ import type {
   ModuleBuild,
   ModuleBuildDiff,
   ModuleBuildList,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { fileSizeText } from "./media-library";
 

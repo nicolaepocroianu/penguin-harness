@@ -9,7 +9,7 @@ import type {
   CommandPolicyDto,
   CommandPolicyRuleDto,
   ProjectSummary,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { ADMIN_ME } from "./admin-settings";
 import { apiError, json, stubFetch } from "./fetch";
 import type { FakeFetch } from "./fetch";

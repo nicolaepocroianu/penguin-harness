@@ -54,9 +54,9 @@ import {
   toolCallOutput,
   userText,
   withOrigin,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage, TokenCounts } from "@prismshadow/penguin-core";
-import type { AmspEvent } from "@prismshadow/amsp";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage, TokenCounts } from "@waterford/waf-harness-core";
+import type { AmspEvent } from "@waterford/waf-harness-amsp";
 import type { ServerEvent } from "../src/api/types.js";
 import { AmspTranslator } from "../src/amsp/translate.js";
 

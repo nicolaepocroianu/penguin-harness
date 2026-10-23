@@ -3,7 +3,7 @@
  *
  * POST /api/version/update (packages/server/src/http/routes/version.ts) runs the update
  * job (packages/server/src/services/update-job.ts), which tells a refusal ("unsupported")
- * apart from a successful run by matching `penguin update` output against REFUSAL_MARKERS —
+ * apart from a successful run by matching `wafh update` output against REFUSAL_MARKERS —
  * six English fragments duplicated from this package's i18n catalog.
  * The server cannot import the CLI (the dependency runs the other way), so the fragments
  * are hardcoded here too, on purpose: editing a refusal message without updating
@@ -30,9 +30,9 @@ const MARKERS: ReadonlyArray<{ marker: string; name: string; message: string }> 
     message: en.sourceCheckout(),
   },
   {
-    marker: "Cannot tell how this penguin was installed",
+    marker: "Cannot tell how this wafh was installed",
     name: "unknownInstall",
-    message: en.unknownInstall("/opt/penguin/cli.js"),
+    message: en.unknownInstall("/opt/wafh/cli.js"),
   },
   {
     marker: "could not be identified",
@@ -47,7 +47,7 @@ const MARKERS: ReadonlyArray<{ marker: string; name: string; message: string }> 
   {
     marker: "cannot run your package manager for you",
     name: "windowsGlobalInstall",
-    message: en.windowsGlobalInstall("npm install -g @prismshadow/penguin-cli@1.2.3"),
+    message: en.windowsGlobalInstall("npm install -g @waterford/waf-harness-cli@1.2.3"),
   },
   {
     marker: "which publishes no releases",

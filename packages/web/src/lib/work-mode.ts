@@ -17,8 +17,8 @@ export interface WorkModeStorage {
   removeItem(key: string): void;
 }
 
-export const WORK_MODE_KEY = "penguin.workMode";
-export const LAST_ORG_KEY = "penguin.lastOrgKey";
+export const WORK_MODE_KEY = "wafh.workMode";
+export const LAST_ORG_KEY = "wafh.lastOrgKey";
 
 /** The remembered mode; only an explicit "company" switches — anything else (absent, unrecognized, throwing storage) is development, the default. */
 export function initialWorkMode(storage?: WorkModeStorage): WorkMode {

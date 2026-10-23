@@ -37,7 +37,7 @@ async function runHelper({
   existing?: Buffer;
   credential?: string;
 } = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-image-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-image-test-"));
   await fs.copyFile(
     new URL(
       "../../../plugins/agent-development/skills/unified-llm-api/scripts/generate-image.mjs",

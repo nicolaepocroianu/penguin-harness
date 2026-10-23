@@ -6,8 +6,8 @@
  * record shape is interpreted. Round boundaries are core's: an `isHookInput` that an
  * `isHookContinue` event announced.
  */
-import { isEventMessage } from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+import { isEventMessage } from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 
 /** The name the goal plugin's hook package answers under — and its directory under `hooks/`. */
 export const GOAL_HOOK_NAME = "goal";

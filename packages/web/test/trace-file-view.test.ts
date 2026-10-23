@@ -21,9 +21,9 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { OmniMessage } from "@prismshadow/penguin-core/omnimessage";
-import type { TraceAnalysisResponse, TraceTaskStats } from "@prismshadow/penguin-server/api";
-import { DEFAULT_UI_STRINGS } from "@prismshadow/penguin-ui";
+import type { OmniMessage } from "@waterford/waf-harness-core/omnimessage";
+import type { TraceAnalysisResponse, TraceTaskStats } from "@waterford/waf-harness-server/api";
+import { DEFAULT_UI_STRINGS } from "@waterford/waf-harness-ui";
 import {
   EMPTY_FILE,
   TraceFileBody,

@@ -10,7 +10,7 @@
  *     → { report }: what it removed of what the dry run listed, as things stand now; 409
  *       `run_cleanup_plan_expired` when that dry run can no longer be confirmed.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import { HttpError } from "../http/errors.js";

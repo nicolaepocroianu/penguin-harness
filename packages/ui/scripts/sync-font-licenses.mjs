@@ -1,16 +1,16 @@
 /**
- * Mirrors the licence text of every font package @prismshadow/penguin-ui depends on into
+ * Mirrors the licence text of every font package @waterford/waf-harness-ui depends on into
  * `src/fonts/LICENSES/<package>.txt` — verbatim except for whitespace: line endings become LF,
  * trailing spaces go and the file ends in one newline, because the repository stores text as LF
  * (.gitattributes) and a CRLF original would otherwise read as drift after every checkout.
  *
  * The texts are checked in so the licence a build ships is reviewable in the diff that changes a
- * font, and so the `penguinUi()` Vite plugin can emit them beside the fonts
+ * font, and so the `wafHarnessUi()` Vite plugin can emit them beside the fonts
  * (`fonts-licenses/<package>.txt` in every consumer's dist) without reaching into node_modules at
  * build time.
  *
- *   pnpm --filter @prismshadow/penguin-ui sync:font-licenses           rewrite the mirror
- *   pnpm --filter @prismshadow/penguin-ui sync:font-licenses --check   exit 1 on any drift, write nothing
+ *   pnpm --filter @waterford/waf-harness-ui sync:font-licenses           rewrite the mirror
+ *   pnpm --filter @waterford/waf-harness-ui sync:font-licenses --check   exit 1 on any drift, write nothing
  *
  * A font package is any `@fontsource/*` or `@fontsource-variable/*` dependency. Its file is named
  * after the package without its scope, so `@fontsource-variable/mona-sans` → `mona-sans.txt`.
@@ -106,7 +106,7 @@ if (check) {
   if (problems.length > 0) {
     console.error(
       `Font licence mirror is out of date:\n  ${problems.join("\n  ")}\n` +
-        "Run `pnpm --filter @prismshadow/penguin-ui sync:font-licenses`.",
+        "Run `pnpm --filter @waterford/waf-harness-ui sync:font-licenses`.",
     );
   }
   if (vendoredProblems.length > 0) {

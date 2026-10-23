@@ -1,5 +1,5 @@
 /** What a built-in agent's card offers in each state (Models → Built-in). */
-import type { BuiltinAgentInfo } from "@prismshadow/penguin-server/api";
+import type { BuiltinAgentInfo } from "@waterford/waf-harness-server/api";
 
 export function builtinActions(info: BuiltinAgentInfo) {
   const installed = info.installedVersion !== null;

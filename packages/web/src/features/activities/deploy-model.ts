@@ -20,7 +20,7 @@ import type {
   DeployStageError,
   DeployStageState,
   DeployStageStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { formatBytes } from "../../lib/format";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";

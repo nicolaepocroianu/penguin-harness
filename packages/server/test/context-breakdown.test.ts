@@ -22,8 +22,8 @@ import {
   toolCallOutput,
   toolListReady,
   userText,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage, SessionMetaPayload, ToolDefinition } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage, SessionMetaPayload, ToolDefinition } from "@waterford/waf-harness-core";
 import {
   buildContextBreakdown,
   compactionThresholdFor,

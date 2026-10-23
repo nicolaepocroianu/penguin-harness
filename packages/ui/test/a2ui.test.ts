@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { createElement } from "react";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
-import type { A2uiForm } from "@prismshadow/penguin-core/a2ui";
+import type { A2uiForm } from "@waterford/waf-harness-core/a2ui";
 import { A2uiActionsProvider } from "../src/components/content/a2ui/actions";
 import type { A2uiActions, A2uiDrafts } from "../src/components/content/a2ui/actions";
 import { A2uiBlock } from "../src/components/content/a2ui/a2ui-block";
@@ -264,7 +264,7 @@ describe("StepsBlock", () => {
           warning: "Deleted keys cannot be restored.",
           caution: "Running jobs fail until they restart.",
           note: "The new key works at once.",
-          code: "penguin keys rotate",
+          code: "wafh keys rotate",
           lang: "bash",
         },
       ],
@@ -277,7 +277,7 @@ describe("StepsBlock", () => {
     expect(html).toContain('data-tone="caution"');
     expect(html).toContain('data-tone="note"');
     expect(html).toContain("code-block");
-    expect(html).toContain("penguin keys rotate");
+    expect(html).toContain("wafh keys rotate");
     expect(html).toMatch(/<ol role="list"/);
     // A timeline: one rule from the first disc to the second, none after the last.
     expect(html.match(/after:w-px/g)).toHaveLength(1);

@@ -119,7 +119,7 @@ describe("state machine edits", () => {
   it("saves as Loom does, to the product's machine, and discards every file back exactly", async () => {
     const { read, put, discard, detail, files, original, machine, code } = await open("r1lt19L-v2");
     const before = (await detail()).draft;
-    const edit = describeIntro(machine, "Scene 1, edited in Penguin.");
+    const edit = describeIntro(machine, "Scene 1, edited in WAF Harness.");
 
     const saved = await put(edit, before.contentRevision);
     expect(saved.status, await saved.clone().text()).toBe(200);

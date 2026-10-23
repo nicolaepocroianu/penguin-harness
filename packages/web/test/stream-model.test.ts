@@ -65,12 +65,12 @@ import {
   toolCallOutput,
   userText,
   withOrigin,
-} from "@prismshadow/penguin-core/omnimessage";
+} from "@waterford/waf-harness-core/omnimessage";
 import type {
   OmniMessage,
   SessionMetaPayload,
   TokenCounts,
-} from "@prismshadow/penguin-core/omnimessage";
+} from "@waterford/waf-harness-core/omnimessage";
 import {
   approvalKey,
   buildDedupIndex,

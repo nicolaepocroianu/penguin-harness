@@ -36,7 +36,7 @@
  * (A fork is `user` whatever it was cut from: session-fork.test.ts.)
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { assistantText, sessionMeta, userText, withOrigin } from "@prismshadow/penguin-core";
+import { assistantText, sessionMeta, userText, withOrigin } from "@waterford/waf-harness-core";
 import type {
   ProjectCreateResponse,
   SessionCreateResponse,

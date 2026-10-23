@@ -50,7 +50,7 @@ import {
   parseUserSteeringText,
   tracesDir,
   userText,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   ApproveFn,
   BackgroundCommandInfo,
@@ -70,7 +70,7 @@ import type {
   TextPayload,
   ThinkingLevelName,
   ToolDetachResult,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   ModelRefDto,
   PendingFollowUpInfo,
@@ -95,9 +95,9 @@ import { unrunSource } from "./session-sources.js";
 import { StreamErrorWatcher } from "./stream-error-watcher.js";
 import type { TitleNotifier } from "./title-generator.js";
 import type { UsageContext } from "./usage-recorder.js";
-import { Component, Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Module, Provide, Use } from "@waterford/waf-harness-core/kernel";
 import type { SessionService as SessionServiceImpl } from "../services/session-service.js";
-import type { ClassCtx, Json, Opaque } from "@prismshadow/penguin-core/kernel";
+import type { ClassCtx, Json, Opaque } from "@waterford/waf-harness-core/kernel";
 import { Sandbox, SandboxModule } from "../sandbox/service.js";
 import { SANDBOX_GROUP } from "../sandbox/settings-store.js";
 import { sandboxEnabledOf, sandboxPresetsOf, sandboxStartOf } from "../sandbox/settings-policy.js";
@@ -2773,7 +2773,7 @@ export abstract class SessionServiceIface extends Interface<
 /**
  * The per-spawn policies every Session's command environment is built with. A Session working
  * in an activity run's folder is given no way to drive this server: controlEnv leaves out the
- * API address and token, and pathPrepend the `penguin` shim.
+ * API address and token, and pathPrepend the `wafh` shim.
  */
 @Interface()
 export abstract class SessionEnv {
@@ -2857,7 +2857,7 @@ export class SessionsModule {
     projectConfig.setModelApiKeyResolver(assembly.resolveModelApiKey!);
 
     // Whether a Session's commands are handed the means to drive this server: the API address,
-    // the token (the admin's authority) and the `penguin` shim. Not an activity run's: its
+    // the token (the admin's authority) and the `wafh` shim. Not an activity run's: its
     // agent works unattended on text it did not write (a Loom export, the WAF checkout, media
     // notes) and nothing it is asked to do needs the API, so it gets no way to switch its own
     // confinement off, change a draft or start a paid run. Judged by the Workspace, like the
@@ -2883,17 +2883,17 @@ export class SessionsModule {
         return {
           ...(reachesServer(ctx)
             ? {
-                PENGUIN_API_URL: `http://${host}:${config.port}`,
-                ...(token !== null ? { PENGUIN_API_TOKEN: token } : {}),
+                WAFH_API_URL: `http://${host}:${config.port}`,
+                ...(token !== null ? { WAFH_API_TOKEN: token } : {}),
               }
             : {}),
-          PENGUIN_PROJECT_ID: ctx.projectId,
-          PENGUIN_AGENT_ID: ctx.agentId,
-          PENGUIN_SESSION_ID: ctx.sessionId,
-          // A desk or ticket session also learns its organization, so `penguin org` needs no
+          WAFH_PROJECT_ID: ctx.projectId,
+          WAFH_AGENT_ID: ctx.agentId,
+          WAFH_SESSION_ID: ctx.sessionId,
+          // A desk or ticket session also learns its organization, so `wafh org` needs no
           // --org-id inside it. Looked up per spawn from the cache the ledger and the tickets
           // project into.
-          ...(orgId !== null ? { PENGUIN_ORG_ID: orgId } : {}),
+          ...(orgId !== null ? { WAFH_ORG_ID: orgId } : {}),
           // A confined Session can write only its Workspace, and npm keeps its cache in the
           // user profile: there it could not install anything, so its cache moves in.
           ...(ctx.sandboxMode !== undefined
@@ -2902,13 +2902,13 @@ export class SessionsModule {
         };
       },
       // The directory core puts at the FRONT of PATH for every command an Agent runs (and for
-      // its hook scripts): the shim directory bootAppDeps wrote this harness's own `penguin`
+      // its hook scripts): the shim directory bootAppDeps wrote this harness's own `wafh`
       // into. Derived from the config rather than passed along, so the platform half needs no
       // new capability — and read for truth rather than for null, because a runtime older than
       // this field publishes a config without it and wrote no shim either: no field, no
       // directory, feature off, rather than a push declined over a PATH entry. A checkout whose
       // CLI cannot run has a shim too — the stub that says why — and it leads PATH all the same,
-      // so no other installation's `penguin` answers in its place. A Session that may not reach
+      // so no other installation's `wafh` answers in its place. A Session that may not reach
       // this server (an activity run's) gets no shim at all.
       pathPrepend: (ctx?: ControlEnvContext): string[] =>
         (config.cliEntry || config.cliLaunch?.unavailable) &&

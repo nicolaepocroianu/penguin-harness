@@ -27,7 +27,7 @@ import {
   effectivePluginTable,
   parsePluginTables,
   projectConfigPath,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { findPackageJSON } from "node:module";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
@@ -38,12 +38,12 @@ import type {
   ModuleClass,
   ModuleDef,
   Resources,
-} from "@prismshadow/penguin-core/kernel";
-import { moduleDefOf, parseManifest } from "@prismshadow/penguin-core/kernel";
+} from "@waterford/waf-harness-core/kernel";
+import { moduleDefOf, parseManifest } from "@waterford/waf-harness-core/kernel";
 import { pluginsPrefix } from "./install.js";
 import { unpackedAssetsDir } from "../hmr/asset-archives.js";
 import { readManifest } from "../hmr/manifest.js";
-import type { Plugin } from "@prismshadow/penguin-core/plugin";
+import type { Plugin } from "@waterford/waf-harness-core/plugin";
 import type { LoadedPlugin } from "./host.js";
 import { PluginHost, pluginHostFrom } from "./host.js";
 import platformTable from "../ifaces.json" with { type: "json" };
@@ -139,7 +139,7 @@ export async function readProjectPluginList(
  * confinement unless an admin turns that off) would be refused until each Project opted in.
  * DSH because it is the one backend that works on Windows, macOS and Linux alike.
  */
-export const DEFAULT_PLUGINS: readonly string[] = ["@penguinharness/sandbox-dsh"];
+export const DEFAULT_PLUGINS: readonly string[] = ["@waf-harness/sandbox-dsh"];
 
 /**
  * The plugin sources of the repository this server runs from, when it runs from source (a
@@ -357,7 +357,7 @@ function resolvePlugin(
 
 /**
  * The plugins a set of bases SHIPS: every package under a builtin prefix's node_modules
- * (scoped or not) whose package.json declares `penguin`. Being shipped means installing one
+ * (scoped or not) whose package.json declares `wafh`. Being shipped means installing one
  * needs no download — it does not mean it is installed. Nothing here loads; the list is what
  * marks a catalogue row as available offline and lets an install skip npm.
  */

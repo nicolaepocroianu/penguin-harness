@@ -2,8 +2,8 @@
 # Wrap each program payload with its checksum and native installer into the canonical Release
 # artifact — the only package shape a Release publishes:
 #
-#   penguin-<target>.tar.gz  = install.sh + payload.tar.gz + payload.tar.gz.sha256
-#   penguin-win32-x64.zip    = install.cmd + install.ps1 + payload.zip + payload.zip.sha256
+#   wafh-<target>.tar.gz  = install.sh + payload.tar.gz + payload.tar.gz.sha256
+#   wafh-win32-x64.zip    = install.cmd + install.ps1 + payload.zip + payload.zip.sha256
 #
 # The same bundle serves online installs (downloaded, outer-verified and opened by install.sh /
 # install.ps1) and offline installs (transfer one file, extract once, run the bundled
@@ -12,16 +12,16 @@
 # inside its short staging directory.
 #
 # Before sealing, each platform payload gains the test browser: the Chromium that quality checks
-# and tests open an activity's player in, at penguin/browsers/ (the launchers name that directory
-# in PENGUIN_BUNDLED_BROWSERS, and the server uses it when its own PENGUIN_HOME/browsers has
+# and tests open an activity's player in, at wafh/browsers/ (the launchers name that directory
+# in WAFH_BUNDLED_BROWSERS, and the server uses it when its own WAFH_HOME/browsers has
 # none). It is Playwright's own install, for the target's platform rather than this machine's.
 # The universal payload names no platform, so it carries none; there an admin installs it from
 # System settings. The payload file is rewritten in place, so the sealed payload stays
 # byte-identical to the one in <payload-dir>.
-#   PENGUIN_TEST_BROWSER_INSTALLER  a command run as `<cmd> <browsers-dir> <playwright-platform>`
+#   WAFH_TEST_BROWSER_INSTALLER  a command run as `<cmd> <browsers-dir> <playwright-platform>`
 #                                   instead of Playwright's installer (the tests pass a stub, so
 #                                   nothing is downloaded)
-#   PENGUIN_SKIP_TEST_BROWSER=1     leave the payloads as they are
+#   WAFH_SKIP_TEST_BROWSER=1     leave the payloads as they are
 #
 # Usage: package-release-bundles.sh <payload-dir> [output-dir]
 # <payload-dir> must contain <target>.tar.gz for linux-x64, linux-arm64, darwin-x64,
@@ -92,21 +92,21 @@ playwright_platform() {
 # Playwright's installer, from the playwright-core the server depends on. --no-shell: the server
 # launches the full browser by its path, so the separate headless shell would be dead weight.
 install_test_browser() {
-  if [ -n "${PENGUIN_TEST_BROWSER_INSTALLER:-}" ]; then
-    $PENGUIN_TEST_BROWSER_INSTALLER "$1" "$2"
+  if [ -n "${WAFH_TEST_BROWSER_INSTALLER:-}" ]; then
+    $WAFH_TEST_BROWSER_INSTALLER "$1" "$2"
     return
   fi
   command -v node >/dev/null 2>&1 || {
     echo "error: node is required to install the test browser" >&2
     exit 1
   }
-  itb_core="$(PENGUIN_SERVER_PACKAGE="$ROOT_DIR/packages/server/package.json" node -p \
-    "require('module').createRequire(process.env.PENGUIN_SERVER_PACKAGE).resolve('playwright-core/package.json')")"
+  itb_core="$(WAFH_SERVER_PACKAGE="$ROOT_DIR/packages/server/package.json" node -p \
+    "require('module').createRequire(process.env.WAFH_SERVER_PACKAGE).resolve('playwright-core/package.json')")"
   PLAYWRIGHT_BROWSERS_PATH="$1" PLAYWRIGHT_HOST_PLATFORM_OVERRIDE="$2" \
     node "$(dirname "$itb_core")/cli.js" install --no-shell chromium
 }
 
-# Adds penguin/browsers/ to the payload file $1 (a .tar.gz or a .zip) for target $2, in place.
+# Adds wafh/browsers/ to the payload file $1 (a .tar.gz or a .zip) for target $2, in place.
 add_test_browser() {
   atb_payload="$1"
   atb_target="$2"
@@ -117,29 +117,29 @@ add_test_browser() {
     *.zip) unzip -q "$atb_payload" -d "$atb_work" ;;
     *) tar -xzf "$atb_payload" -C "$atb_work" ;;
   esac
-  [ -d "$atb_work/penguin" ] || {
-    echo "error: $atb_payload has no penguin/ directory" >&2
+  [ -d "$atb_work/wafh" ] || {
+    echo "error: $atb_payload has no wafh/ directory" >&2
     exit 1
   }
-  install_test_browser "$atb_work/penguin/browsers" "$(playwright_platform "$atb_target")"
+  install_test_browser "$atb_work/wafh/browsers" "$(playwright_platform "$atb_target")"
   # Fail here rather than ship a package whose test browser silently is not there.
-  ls -d "$atb_work/penguin/browsers"/chromium-* >/dev/null 2>&1 || {
+  ls -d "$atb_work/wafh/browsers"/chromium-* >/dev/null 2>&1 || {
     echo "error: the test browser was not installed for $atb_target" >&2
     exit 1
   }
   case "$atb_payload" in
     *.zip)
       rm -f "$atb_work/payload.zip"
-      (cd "$atb_work" && zip -qr payload.zip penguin)
+      (cd "$atb_work" && zip -qr payload.zip wafh)
       mv "$atb_work/payload.zip" "$atb_payload"
       ;;
-    *) tar -czf "$atb_payload" -C "$atb_work" penguin ;;
+    *) tar -czf "$atb_payload" -C "$atb_work" wafh ;;
   esac
   rm -rf "$atb_work"
   echo "Added the test browser to $(basename "$atb_payload")"
 }
 
-if [ "${PENGUIN_SKIP_TEST_BROWSER:-}" != 1 ]; then
+if [ "${WAFH_SKIP_TEST_BROWSER:-}" != 1 ]; then
   command -v unzip >/dev/null 2>&1 || {
     echo "error: unzip is required" >&2
     exit 1
@@ -154,7 +154,7 @@ fi
 
 for target in linux-x64 linux-arm64 darwin-x64 darwin-arm64 universal; do
   payload="$target.tar.gz"
-  output="$OUTPUT_DIR/penguin-$target.tar.gz"
+  output="$OUTPUT_DIR/wafh-$target.tar.gz"
   bundle="$WORK_DIR/$target"
   require_payload "$payload"
   mkdir -p "$bundle"
@@ -169,7 +169,7 @@ for target in linux-x64 linux-arm64 darwin-x64 darwin-arm64 universal; do
 done
 
 payload="win32-x64.zip"
-output="$OUTPUT_DIR/penguin-win32-x64.zip"
+output="$OUTPUT_DIR/wafh-win32-x64.zip"
 bundle="$WORK_DIR/win32-x64"
 require_payload "$payload"
 mkdir -p "$bundle"

@@ -1,5 +1,5 @@
 /**
- * The voices Penguin speaks narration with, described for the App's voice picker. Kept free
+ * The voices WAF Harness speaks narration with, described for the App's voice picker. Kept free
  * of Node-only imports so the Web App's type graph can re-export `VoiceOption` from here.
  *
  * Three providers speak: Gemini, with its five named voices, Kokoro on the server, and
@@ -52,7 +52,7 @@ export const SPEECH_CATALOGUE: readonly VoiceOption[] = SPEECH_VOICES.map((id) =
   description: STYLES[id],
 }));
 
-/** True for a voice Penguin can speak with. */
+/** True for a voice WAF Harness can speak with. */
 export function isSpeechVoice(value: unknown): value is SpeechVoice {
   return typeof value === "string" && (SPEECH_VOICES as readonly string[]).includes(value);
 }

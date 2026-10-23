@@ -20,7 +20,7 @@ describe("handing a build over to a machine", () => {
   let answer: { status: number; body: unknown };
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-handover-"));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-handover-"));
     const hmr = path.join(root, "hmr");
     fs.mkdirSync(hmr, { recursive: true });
     fs.writeFileSync(path.join(hmr, "platform.mjs"), "export const hotPlatform = {};\n");
@@ -56,7 +56,7 @@ describe("handing a build over to a machine", () => {
     upgradeRemote({
       agent: new http.Agent(),
       port: (server.address() as AddressInfo).port,
-      cookie: "penguin_session=x",
+      cookie: "wafh_session=x",
       dataRoot: root,
     });
 
@@ -66,7 +66,7 @@ describe("handing a build over to a machine", () => {
     expect(seen).toHaveLength(1);
     expect(seen[0]!.url).toBe("/api/hmr/upgrade");
     expect(seen[0]!.headers[UNSATISFIED_PLUGINS_HEADER]).toBe(LEAVE_OUT);
-    expect(seen[0]!.headers.cookie).toBe("penguin_session=x");
+    expect(seen[0]!.headers.cookie).toBe("wafh_session=x");
   });
 
   it("still reads a machine's refusal in its own words", async () => {

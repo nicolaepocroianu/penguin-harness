@@ -256,12 +256,12 @@ describe("Copilot AgentHub boundary", () => {
     expect(String(url)).toBe("https://api.githubcopilot.com/models");
     const headers = new Headers(init?.headers);
     expect(headers.get("authorization")).toBe("Bearer gho_test");
-    expect(headers.get("user-agent")).toBe("PenguinHarness");
+    expect(headers.get("user-agent")).toBe("WAF-Harness");
     expect(headers.get("copilot-integration-id")).toBe("agentic-workflows");
     expect(init?.redirect).toBe("error");
   });
 
-  it("lets Penguin classify a rejected request without hidden SDK retries", async () => {
+  it("lets WAF Harness classify a rejected request without hidden SDK retries", async () => {
     const fetcher = vi.fn<typeof fetch>(async () =>
       Response.json(
         { error: { message: "Account access rejected", type: "authentication_error" } },

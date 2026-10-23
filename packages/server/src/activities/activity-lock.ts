@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { Component, Interface } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface } from "@waterford/waf-harness-core/kernel";
 
 /** Serializes compare-and-publish operations within the server's single-writer lifetime. */
 export class ActivityLocks {

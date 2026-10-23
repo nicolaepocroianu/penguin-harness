@@ -4,7 +4,7 @@
  * offering one that cannot be reached would fail at the first click instead of the choice.
  */
 import { describe, expect, it } from "vitest";
-import type { MachineInfo, MachinesResponse } from "@prismshadow/penguin-server/api";
+import type { MachineInfo, MachinesResponse } from "@waterford/waf-harness-server/api";
 import {
   isElsewhere,
   machineLabel,
@@ -17,7 +17,7 @@ const machine = (over: Partial<MachineInfo> & { alias: string }): MachineInfo =>
   machineId: null,
   installed: null,
   local: false,
-  root: "$HOME/.penguin/data",
+  root: "$HOME/.waf-harness/data",
   connection: null,
   socket: null,
   api: null,

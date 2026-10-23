@@ -20,7 +20,7 @@ import {
   QWEN_OFF_PEAK,
   catalogEntryFor,
   effectivePricing,
-} from "@prismshadow/penguin-server/model-catalog";
+} from "@waterford/waf-harness-server/model-catalog";
 import {
   discountedPrice,
   filterGroupsByAccess,

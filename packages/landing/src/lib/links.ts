@@ -48,14 +48,14 @@ export const INSTALL_CMD_WINDOWS = "irm https://penguin.ooo/install.ps1 | iex";
  * one-liners above.
  */
 export const OFFLINE_INSTALL_CMDS: Record<"linux" | "macos" | "windows", string> = {
-  linux: `mkdir penguin-install
-tar -xzf penguin-linux-x64.tar.gz -C penguin-install
-./penguin-install/install.sh`,
-  macos: `mkdir penguin-install
-tar -xzf penguin-darwin-arm64.tar.gz -C penguin-install
-./penguin-install/install.sh`,
-  windows: `Expand-Archive penguin-win32-x64.zip -DestinationPath penguin-install
-cd penguin-install
+  linux: `mkdir wafh-install
+tar -xzf wafh-linux-x64.tar.gz -C wafh-install
+./wafh-install/install.sh`,
+  macos: `mkdir wafh-install
+tar -xzf wafh-darwin-arm64.tar.gz -C wafh-install
+./wafh-install/install.sh`,
+  windows: `Expand-Archive wafh-win32-x64.zip -DestinationPath wafh-install
+cd wafh-install
 .\\install.cmd`,
 };
 
@@ -69,18 +69,18 @@ export interface CliInstaller {
 /** Direct offline-install downloads shown under the selected command-line platform. */
 export const CLI_INSTALLERS: Record<"linux" | "macos" | "windows", CliInstaller[]> = {
   linux: [
-    { file: "penguin-linux-x64.tar.gz", variant: "x64" },
-    { file: "penguin-linux-arm64.tar.gz", variant: "arm64" },
+    { file: "wafh-linux-x64.tar.gz", variant: "x64" },
+    { file: "wafh-linux-arm64.tar.gz", variant: "arm64" },
   ],
   macos: [
-    { file: "penguin-darwin-arm64.tar.gz", variant: "Apple Silicon" },
-    { file: "penguin-darwin-x64.tar.gz", variant: "Intel" },
+    { file: "wafh-darwin-arm64.tar.gz", variant: "Apple Silicon" },
+    { file: "wafh-darwin-x64.tar.gz", variant: "Intel" },
   ],
-  windows: [{ file: "penguin-win32-x64.zip", variant: "x64" }],
+  windows: [{ file: "wafh-win32-x64.zip", variant: "x64" }],
 };
 
 /**
- * Heavy marketing media lives in the sibling `penguin-harness-community` repo rather than
+ * Heavy marketing media lives in the sibling `waf-harness-community` repo rather than
  * in this one, so that assets only the landing site ever renders stay out of the clone of
  * everyone who builds the product. Served by raw.githubusercontent with
  * `access-control-allow-origin: *` and a 5-minute cache; a GitHub outage degrades the site
@@ -140,18 +140,18 @@ export interface DesktopInstaller {
 
 /** Named separately: the first-launch FAQ's chmod command quotes this exact file name. */
 const LINUX_APPIMAGE: DesktopInstaller = {
-  file: "penguin-desktop-linux-x86_64.AppImage",
+  file: "wafh-desktop-linux-x86_64.AppImage",
   variant: "AppImage",
 };
 
 /** Installers per platform card, in display order. */
 export const DESKTOP_INSTALLERS: Record<"mac" | "windows" | "linux", DesktopInstaller[]> = {
   mac: [
-    { file: "penguin-desktop-darwin-arm64.dmg", variant: "Apple Silicon" },
-    { file: "penguin-desktop-darwin-x64.dmg", variant: "Intel" },
+    { file: "wafh-desktop-darwin-arm64.dmg", variant: "Apple Silicon" },
+    { file: "wafh-desktop-darwin-x64.dmg", variant: "Intel" },
   ],
-  windows: [{ file: "penguin-desktop-win32-x64.exe", variant: "x64" }],
-  linux: [LINUX_APPIMAGE, { file: "penguin-desktop-linux-amd64.deb", variant: "deb" }],
+  windows: [{ file: "wafh-desktop-win32-x64.exe", variant: "x64" }],
+  linux: [LINUX_APPIMAGE, { file: "wafh-desktop-linux-amd64.deb", variant: "deb" }],
 };
 
 /** Checksum list covering every desktop installer of a release. */

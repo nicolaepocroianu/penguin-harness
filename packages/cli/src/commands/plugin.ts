@@ -1,10 +1,10 @@
 /**
- * `penguin plugin` — the plugins installed on the server: what the Plugins page's admin does,
+ * `wafh plugin` — the plugins installed on the server: what the Plugins page's admin does,
  * for an Agent in a conversation or a script.
  *
- *   penguin plugin list [--project-id <id>] [--json] [--server <url>]
- *   penguin plugin install <specifier> [--overwrite] [--project-id <id>] [--json] [--server <url>]
- *   penguin plugin remove <name> [--project-id <id>] [--json] [--server <url>]
+ *   wafh plugin list [--project-id <id>] [--json] [--server <url>]
+ *   wafh plugin install <specifier> [--overwrite] [--project-id <id>] [--json] [--server <url>]
+ *   wafh plugin remove <name> [--project-id <id>] [--json] [--server <url>]
  *
  * `<specifier>` is an npm package name (`@scope/name`, `name@1.2.3`), an https link to a git
  * repository or a tarball (`https://github.com/o/r`, `github:o/r#tag`) — the server checks it and
@@ -18,7 +18,7 @@
  * never reads a path of its own disk.
  *
  * Installing and removing are an admin's: the CLI calls with the server's local API token, which
- * is the admin's — the authority an Agent's other `penguin` commands carry. A package of Skills,
+ * is the admin's — the authority an Agent's other `wafh` commands carry. A package of Skills,
  * hooks or MCP servers joins the plugin library (it is installed on Agents from there); a package
  * of server modules is also listed in the Project's plugins and loaded, which stops the agent runs
  * in progress on that server. After a directory install, each MCP server the package carries is
@@ -26,7 +26,7 @@
  *
  * `list` shows both: the server modules the Project lists, with their state on this server, and
  * the packages of Skills, hooks or MCP servers installed on the server.
- * Docs: /docs/cli § "penguin plugin".
+ * Docs: /docs/cli § "wafh plugin".
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -38,13 +38,13 @@ import {
   readLibraryPackage,
   readPluginPackage,
   resolveMCPServer,
-} from "@prismshadow/penguin-core";
-import type { PluginMcpServer } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { PluginMcpServer } from "@waterford/waf-harness-core";
 import type {
   InstalledPlugin,
   InstalledPluginsResponse,
   PluginLibraryResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { ApiError, resolveConnection, resolveProjectId, ServerClient } from "../client.js";
 import { renderTable } from "../table.js";
 import type { Messages } from "../i18n.js";

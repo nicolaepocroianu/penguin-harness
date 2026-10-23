@@ -171,7 +171,7 @@ describe("applyKernelUpdate", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-kernel-"));
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-kernel-"));
   });
 
   afterEach(async () => {
@@ -376,7 +376,7 @@ describe("kernel stamping on the materialization paths", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-kernel-stamp-"));
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-kernel-stamp-"));
   });
 
   afterEach(async () => {

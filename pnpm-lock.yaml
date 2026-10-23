@@ -12,21 +12,21 @@ overrides:
   nanoid: ^3.3.17
 
 patchedDependencies:
-  '@prismshadow/agenthub@0.4.15': c3fd919b64da90e3f40dbf4c57f8b0db2ef31e5f75f711b7d696d97d991a3124
+  '@prismshadow/agenthub@0.4.15': a870fbcd1cb9b72aeac5705a4d5da32dec6ff844a57afe2d0e6a2efc7f9f9afe
 
 importers:
 
   .:
     devDependencies:
-      '@prismshadow/penguin-cli':
-        specifier: workspace:*
-        version: file:packages/cli(supports-color@10.2.2)
-      '@prismshadow/penguin-core':
-        specifier: workspace:*
-        version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.3
+      '@waterford/waf-harness-cli':
+        specifier: workspace:*
+        version: file:packages/cli(supports-color@10.2.2)
+      '@waterford/waf-harness-core':
+        specifier: workspace:*
+        version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
       concurrently:
         specifier: ^10.0.4
         version: 10.0.4
@@ -66,12 +66,12 @@ importers:
       '@playwright/test':
         specifier: ^1.61.1
         version: 1.61.1
-      '@prismshadow/penguin-server':
-        specifier: workspace:*
-        version: file:packages/server(supports-color@10.2.2)
       '@types/chrome':
         specifier: ^0.3.4
         version: 0.3.4
+      '@waterford/waf-harness-server':
+        specifier: workspace:*
+        version: file:packages/server(supports-color@10.2.2)
       esbuild:
         specifier: ^0.28.1
         version: 0.28.1
@@ -90,82 +90,82 @@ importers:
       '@modelcontextprotocol/client':
         specifier: ^2.0.0
         version: 2.0.0
-      '@penguinharness/a2ui':
-        specifier: workspace:*
-        version: link:../../plugins/a2ui
-      '@penguinharness/ace-rsi-toolkit':
-        specifier: workspace:*
-        version: link:../../plugins/ace-rsi-toolkit
-      '@penguinharness/agent-company':
-        specifier: workspace:*
-        version: link:../../plugins/agent-company
-      '@penguinharness/agent-development':
-        specifier: workspace:*
-        version: link:../../plugins/agent-development
-      '@penguinharness/agent-evaluation':
-        specifier: workspace:*
-        version: link:../../plugins/agent-evaluation
-      '@penguinharness/ape-rsi-toolkit':
-        specifier: workspace:*
-        version: link:../../plugins/ape-rsi-toolkit
-      '@penguinharness/awm-rsi-toolkit':
-        specifier: workspace:*
-        version: link:../../plugins/awm-rsi-toolkit
-      '@penguinharness/browser-automation':
-        specifier: workspace:*
-        version: link:../../plugins/browser-automation
-      '@penguinharness/continual-learning':
-        specifier: workspace:*
-        version: link:../../plugins/continual-learning
-      '@penguinharness/data-analysis':
-        specifier: workspace:*
-        version: link:../../plugins/data-analysis
-      '@penguinharness/default-rsi-toolkit':
-        specifier: workspace:*
-        version: link:../../plugins/default-rsi-toolkit
-      '@penguinharness/goal':
-        specifier: workspace:*
-        version: link:../../plugins/goal
-      '@penguinharness/humanizer':
-        specifier: workspace:*
-        version: link:../../plugins/humanizer
-      '@penguinharness/model-development':
-        specifier: workspace:*
-        version: link:../../plugins/model-development
-      '@penguinharness/opro-rsi-toolkit':
-        specifier: workspace:*
-        version: link:../../plugins/opro-rsi-toolkit
-      '@penguinharness/penguin-support':
-        specifier: workspace:*
-        version: link:../../plugins/penguin-support
-      '@penguinharness/skill-porting':
-        specifier: workspace:*
-        version: link:../../plugins/skill-porting
-      '@penguinharness/software-development':
-        specifier: workspace:*
-        version: link:../../plugins/software-development
-      '@penguinharness/use-bento-slides':
-        specifier: workspace:*
-        version: link:../../plugins/use-bento-slides
-      '@penguinharness/use-claude-code':
-        specifier: workspace:*
-        version: link:../../plugins/use-claude-code
-      '@penguinharness/use-codex':
-        specifier: workspace:*
-        version: link:../../plugins/use-codex
-      '@penguinharness/use-firecrawl':
-        specifier: workspace:*
-        version: link:../../plugins/use-firecrawl
       '@prismshadow/agenthub':
         specifier: ^0.4.15
-        version: 0.4.15(patch_hash=c3fd919b64da90e3f40dbf4c57f8b0db2ef31e5f75f711b7d696d97d991a3124)(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
+        version: 0.4.15(patch_hash=a870fbcd1cb9b72aeac5705a4d5da32dec6ff844a57afe2d0e6a2efc7f9f9afe)(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
       '@prismshadow/mmsp':
         specifier: ^0.5.4
         version: 0.5.4(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
-      '@prismshadow/penguin-core':
+      '@waf-harness/a2ui':
+        specifier: workspace:*
+        version: link:../../plugins/a2ui
+      '@waf-harness/ace-rsi-toolkit':
+        specifier: workspace:*
+        version: link:../../plugins/ace-rsi-toolkit
+      '@waf-harness/agent-company':
+        specifier: workspace:*
+        version: link:../../plugins/agent-company
+      '@waf-harness/agent-development':
+        specifier: workspace:*
+        version: link:../../plugins/agent-development
+      '@waf-harness/agent-evaluation':
+        specifier: workspace:*
+        version: link:../../plugins/agent-evaluation
+      '@waf-harness/ape-rsi-toolkit':
+        specifier: workspace:*
+        version: link:../../plugins/ape-rsi-toolkit
+      '@waf-harness/awm-rsi-toolkit':
+        specifier: workspace:*
+        version: link:../../plugins/awm-rsi-toolkit
+      '@waf-harness/browser-automation':
+        specifier: workspace:*
+        version: link:../../plugins/browser-automation
+      '@waf-harness/continual-learning':
+        specifier: workspace:*
+        version: link:../../plugins/continual-learning
+      '@waf-harness/data-analysis':
+        specifier: workspace:*
+        version: link:../../plugins/data-analysis
+      '@waf-harness/default-rsi-toolkit':
+        specifier: workspace:*
+        version: link:../../plugins/default-rsi-toolkit
+      '@waf-harness/goal':
+        specifier: workspace:*
+        version: link:../../plugins/goal
+      '@waf-harness/humanizer':
+        specifier: workspace:*
+        version: link:../../plugins/humanizer
+      '@waf-harness/model-development':
+        specifier: workspace:*
+        version: link:../../plugins/model-development
+      '@waf-harness/opro-rsi-toolkit':
+        specifier: workspace:*
+        version: link:../../plugins/opro-rsi-toolkit
+      '@waf-harness/skill-porting':
+        specifier: workspace:*
+        version: link:../../plugins/skill-porting
+      '@waf-harness/software-development':
+        specifier: workspace:*
+        version: link:../../plugins/software-development
+      '@waf-harness/use-bento-slides':
+        specifier: workspace:*
+        version: link:../../plugins/use-bento-slides
+      '@waf-harness/use-claude-code':
+        specifier: workspace:*
+        version: link:../../plugins/use-claude-code
+      '@waf-harness/use-codex':
+        specifier: workspace:*
+        version: link:../../plugins/use-codex
+      '@waf-harness/use-firecrawl':
+        specifier: workspace:*
+        version: link:../../plugins/use-firecrawl
+      '@waf-harness/wafh-support':
+        specifier: workspace:*
+        version: link:../../plugins/wafh-support
+      '@waterford/waf-harness-core':
         specifier: workspace:*
         version: link:../core
-      '@prismshadow/penguin-server':
+      '@waterford/waf-harness-server':
         specifier: workspace:*
         version: file:packages/server(supports-color@10.2.2)(zod@4.4.3)
       commander:
@@ -224,81 +224,81 @@ importers:
       '@modelcontextprotocol/client':
         specifier: ^2.0.0
         version: 2.0.0
-      '@penguinharness/a2ui':
-        specifier: workspace:*
-        version: link:../../plugins/a2ui
-      '@penguinharness/ace-rsi-toolkit':
-        specifier: workspace:*
-        version: link:../../plugins/ace-rsi-toolkit
-      '@penguinharness/agent-company':
-        specifier: workspace:*
-        version: link:../../plugins/agent-company
-      '@penguinharness/agent-development':
-        specifier: workspace:*
-        version: link:../../plugins/agent-development
-      '@penguinharness/agent-evaluation':
-        specifier: workspace:*
-        version: link:../../plugins/agent-evaluation
-      '@penguinharness/ape-rsi-toolkit':
-        specifier: workspace:*
-        version: link:../../plugins/ape-rsi-toolkit
-      '@penguinharness/awm-rsi-toolkit':
-        specifier: workspace:*
-        version: link:../../plugins/awm-rsi-toolkit
-      '@penguinharness/browser-automation':
-        specifier: workspace:*
-        version: link:../../plugins/browser-automation
-      '@penguinharness/continual-learning':
-        specifier: workspace:*
-        version: link:../../plugins/continual-learning
-      '@penguinharness/data-analysis':
-        specifier: workspace:*
-        version: link:../../plugins/data-analysis
-      '@penguinharness/default-rsi-toolkit':
-        specifier: workspace:*
-        version: link:../../plugins/default-rsi-toolkit
-      '@penguinharness/goal':
-        specifier: workspace:*
-        version: link:../../plugins/goal
-      '@penguinharness/humanizer':
-        specifier: workspace:*
-        version: link:../../plugins/humanizer
-      '@penguinharness/model-development':
-        specifier: workspace:*
-        version: link:../../plugins/model-development
-      '@penguinharness/opro-rsi-toolkit':
-        specifier: workspace:*
-        version: link:../../plugins/opro-rsi-toolkit
-      '@penguinharness/penguin-support':
-        specifier: workspace:*
-        version: link:../../plugins/penguin-support
-      '@penguinharness/skill-porting':
-        specifier: workspace:*
-        version: link:../../plugins/skill-porting
-      '@penguinharness/software-development':
-        specifier: workspace:*
-        version: link:../../plugins/software-development
-      '@penguinharness/use-bento-slides':
-        specifier: workspace:*
-        version: link:../../plugins/use-bento-slides
-      '@penguinharness/use-claude-code':
-        specifier: workspace:*
-        version: link:../../plugins/use-claude-code
-      '@penguinharness/use-codex':
-        specifier: workspace:*
-        version: link:../../plugins/use-codex
-      '@penguinharness/use-firecrawl':
-        specifier: workspace:*
-        version: link:../../plugins/use-firecrawl
-      '@penguinharness/waf-authoring':
-        specifier: workspace:*
-        version: link:../../plugins/waf-authoring
       '@prismshadow/agenthub':
         specifier: 0.4.15
-        version: 0.4.15(patch_hash=c3fd919b64da90e3f40dbf4c57f8b0db2ef31e5f75f711b7d696d97d991a3124)(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
+        version: 0.4.15(patch_hash=a870fbcd1cb9b72aeac5705a4d5da32dec6ff844a57afe2d0e6a2efc7f9f9afe)(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
       '@prismshadow/mmsp':
         specifier: ^0.5.4
         version: 0.5.4(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
+      '@waf-harness/a2ui':
+        specifier: workspace:*
+        version: link:../../plugins/a2ui
+      '@waf-harness/ace-rsi-toolkit':
+        specifier: workspace:*
+        version: link:../../plugins/ace-rsi-toolkit
+      '@waf-harness/agent-company':
+        specifier: workspace:*
+        version: link:../../plugins/agent-company
+      '@waf-harness/agent-development':
+        specifier: workspace:*
+        version: link:../../plugins/agent-development
+      '@waf-harness/agent-evaluation':
+        specifier: workspace:*
+        version: link:../../plugins/agent-evaluation
+      '@waf-harness/ape-rsi-toolkit':
+        specifier: workspace:*
+        version: link:../../plugins/ape-rsi-toolkit
+      '@waf-harness/awm-rsi-toolkit':
+        specifier: workspace:*
+        version: link:../../plugins/awm-rsi-toolkit
+      '@waf-harness/browser-automation':
+        specifier: workspace:*
+        version: link:../../plugins/browser-automation
+      '@waf-harness/continual-learning':
+        specifier: workspace:*
+        version: link:../../plugins/continual-learning
+      '@waf-harness/data-analysis':
+        specifier: workspace:*
+        version: link:../../plugins/data-analysis
+      '@waf-harness/default-rsi-toolkit':
+        specifier: workspace:*
+        version: link:../../plugins/default-rsi-toolkit
+      '@waf-harness/goal':
+        specifier: workspace:*
+        version: link:../../plugins/goal
+      '@waf-harness/humanizer':
+        specifier: workspace:*
+        version: link:../../plugins/humanizer
+      '@waf-harness/model-development':
+        specifier: workspace:*
+        version: link:../../plugins/model-development
+      '@waf-harness/opro-rsi-toolkit':
+        specifier: workspace:*
+        version: link:../../plugins/opro-rsi-toolkit
+      '@waf-harness/skill-porting':
+        specifier: workspace:*
+        version: link:../../plugins/skill-porting
+      '@waf-harness/software-development':
+        specifier: workspace:*
+        version: link:../../plugins/software-development
+      '@waf-harness/use-bento-slides':
+        specifier: workspace:*
+        version: link:../../plugins/use-bento-slides
+      '@waf-harness/use-claude-code':
+        specifier: workspace:*
+        version: link:../../plugins/use-claude-code
+      '@waf-harness/use-codex':
+        specifier: workspace:*
+        version: link:../../plugins/use-codex
+      '@waf-harness/use-firecrawl':
+        specifier: workspace:*
+        version: link:../../plugins/use-firecrawl
+      '@waf-harness/waf-authoring':
+        specifier: workspace:*
+        version: link:../../plugins/waf-authoring
+      '@waf-harness/wafh-support':
+        specifier: workspace:*
+        version: link:../../plugins/wafh-support
       arktype:
         specifier: ^2.2.3
         version: 2.2.3
@@ -339,85 +339,85 @@ importers:
 
   packages/desktop:
     dependencies:
-      '@penguinharness/a2ui':
+      '@waf-harness/a2ui':
         specifier: workspace:*
         version: link:../../plugins/a2ui
-      '@penguinharness/ace-rsi-toolkit':
+      '@waf-harness/ace-rsi-toolkit':
         specifier: workspace:*
         version: link:../../plugins/ace-rsi-toolkit
-      '@penguinharness/agent-company':
+      '@waf-harness/agent-company':
         specifier: workspace:*
         version: link:../../plugins/agent-company
-      '@penguinharness/agent-development':
+      '@waf-harness/agent-development':
         specifier: workspace:*
         version: link:../../plugins/agent-development
-      '@penguinharness/agent-evaluation':
+      '@waf-harness/agent-evaluation':
         specifier: workspace:*
         version: link:../../plugins/agent-evaluation
-      '@penguinharness/ape-rsi-toolkit':
+      '@waf-harness/ape-rsi-toolkit':
         specifier: workspace:*
         version: link:../../plugins/ape-rsi-toolkit
-      '@penguinharness/awm-rsi-toolkit':
+      '@waf-harness/awm-rsi-toolkit':
         specifier: workspace:*
         version: link:../../plugins/awm-rsi-toolkit
-      '@penguinharness/browser-automation':
+      '@waf-harness/browser-automation':
         specifier: workspace:*
         version: link:../../plugins/browser-automation
-      '@penguinharness/continual-learning':
+      '@waf-harness/continual-learning':
         specifier: workspace:*
         version: link:../../plugins/continual-learning
-      '@penguinharness/data-analysis':
+      '@waf-harness/data-analysis':
         specifier: workspace:*
         version: link:../../plugins/data-analysis
-      '@penguinharness/default-rsi-toolkit':
+      '@waf-harness/default-rsi-toolkit':
         specifier: workspace:*
         version: link:../../plugins/default-rsi-toolkit
-      '@penguinharness/goal':
+      '@waf-harness/goal':
         specifier: workspace:*
         version: link:../../plugins/goal
-      '@penguinharness/humanizer':
+      '@waf-harness/humanizer':
         specifier: workspace:*
         version: link:../../plugins/humanizer
-      '@penguinharness/model-development':
+      '@waf-harness/model-development':
         specifier: workspace:*
         version: link:../../plugins/model-development
-      '@penguinharness/opro-rsi-toolkit':
+      '@waf-harness/opro-rsi-toolkit':
         specifier: workspace:*
         version: link:../../plugins/opro-rsi-toolkit
-      '@penguinharness/penguin-support':
-        specifier: workspace:*
-        version: link:../../plugins/penguin-support
-      '@penguinharness/skill-porting':
+      '@waf-harness/skill-porting':
         specifier: workspace:*
         version: link:../../plugins/skill-porting
-      '@penguinharness/software-development':
+      '@waf-harness/software-development':
         specifier: workspace:*
         version: link:../../plugins/software-development
-      '@penguinharness/use-bento-slides':
+      '@waf-harness/use-bento-slides':
         specifier: workspace:*
         version: link:../../plugins/use-bento-slides
-      '@penguinharness/use-claude-code':
+      '@waf-harness/use-claude-code':
         specifier: workspace:*
         version: link:../../plugins/use-claude-code
-      '@penguinharness/use-codex':
+      '@waf-harness/use-codex':
         specifier: workspace:*
         version: link:../../plugins/use-codex
-      '@penguinharness/use-firecrawl':
+      '@waf-harness/use-firecrawl':
         specifier: workspace:*
         version: link:../../plugins/use-firecrawl
+      '@waf-harness/wafh-support':
+        specifier: workspace:*
+        version: link:../../plugins/wafh-support
     devDependencies:
-      '@prismshadow/penguin-cli':
-        specifier: workspace:*
-        version: file:packages/cli(supports-color@10.2.2)
-      '@prismshadow/penguin-core':
-        specifier: workspace:*
-        version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
-      '@prismshadow/penguin-server':
-        specifier: workspace:*
-        version: file:packages/server(supports-color@10.2.2)
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.3
+      '@waterford/waf-harness-cli':
+        specifier: workspace:*
+        version: file:packages/cli(supports-color@10.2.2)
+      '@waterford/waf-harness-core':
+        specifier: workspace:*
+        version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
+      '@waterford/waf-harness-server':
+        specifier: workspace:*
+        version: file:packages/server(supports-color@10.2.2)
       electron:
         specifier: ^43.2.0
         version: 43.2.0(supports-color@10.2.2)
@@ -442,7 +442,7 @@ importers:
 
   packages/docs:
     dependencies:
-      '@prismshadow/penguin-ui':
+      '@waterford/waf-harness-ui':
         specifier: workspace:*
         version: link:../ui
       react:
@@ -485,7 +485,7 @@ importers:
 
   packages/hmr:
     dependencies:
-      '@prismshadow/penguin-core':
+      '@waterford/waf-harness-core':
         specifier: workspace:*
         version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
     devDependencies:
@@ -498,7 +498,7 @@ importers:
 
   packages/landing:
     dependencies:
-      '@prismshadow/penguin-ui':
+      '@waterford/waf-harness-ui':
         specifier: workspace:*
         version: link:../ui
       react:
@@ -559,16 +559,16 @@ importers:
       '@larksuiteoapi/node-sdk':
         specifier: ^1.73.0
         version: 1.73.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
-      '@prismshadow/amsp':
-        specifier: workspace:*
-        version: link:../amsp
       '@prismshadow/mmsp':
         specifier: ^0.5.4
         version: 0.5.4(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
-      '@prismshadow/penguin-coding-agents':
+      '@waterford/waf-harness-amsp':
+        specifier: workspace:*
+        version: link:../amsp
+      '@waterford/waf-harness-coding-agents':
         specifier: workspace:*
         version: link:../coding-agents
-      '@prismshadow/penguin-core':
+      '@waterford/waf-harness-core':
         specifier: workspace:*
         version: link:../core
       '@xterm/headless':
@@ -629,9 +629,6 @@ importers:
       '@agentclientprotocol/sdk':
         specifier: 1.4.0
         version: 1.4.0(zod@4.4.3)
-      '@prismshadow/penguin-hmr':
-        specifier: workspace:*
-        version: file:packages/hmr(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
@@ -644,6 +641,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^3.2.6
         version: 3.2.7(supports-color@10.2.2)(vitest@3.2.7(@types/debug@4.1.13)(@types/node@24.13.3)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(lightningcss@1.32.0)(sass@1.105.2)(supports-color@10.2.2)(tsx@4.22.4)(yaml@2.9.0))
+      '@waterford/waf-harness-hmr':
+        specifier: workspace:*
+        version: file:packages/hmr(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
       tsup:
         specifier: ^8.3.0
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.23)(supports-color@10.2.2)(tsx@4.22.4)(typescript@5.9.3)(yaml@2.9.0)
@@ -681,15 +681,15 @@ importers:
       '@fontsource/ibm-plex-sans-condensed':
         specifier: ^5.3.0
         version: 5.3.0
-      '@prismshadow/penguin-core':
-        specifier: workspace:*
-        version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
       '@shikijs/langs':
         specifier: ^4.3.1
         version: 4.3.1
       '@shikijs/themes':
         specifier: ^4.3.1
         version: 4.3.1
+      '@waterford/waf-harness-core':
+        specifier: workspace:*
+        version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
       katex:
         specifier: ^0.16.47
         version: 0.16.47
@@ -739,7 +739,7 @@ importers:
 
   packages/ui-gallery:
     dependencies:
-      '@prismshadow/penguin-ui':
+      '@waterford/waf-harness-ui':
         specifier: workspace:*
         version: link:../ui
       react:
@@ -752,12 +752,6 @@ importers:
       '@playwright/test':
         specifier: ^1.61.1
         version: 1.61.1
-      '@prismshadow/penguin-core':
-        specifier: workspace:*
-        version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
-      '@prismshadow/penguin-web':
-        specifier: workspace:*
-        version: link:../web
       '@tailwindcss/vite':
         specifier: ^4.1.0
         version: 4.3.2(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.105.2)(tsx@4.22.4)(yaml@2.9.0))
@@ -773,6 +767,12 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^4.5.0
         version: 4.7.0(supports-color@10.2.2)(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.105.2)(tsx@4.22.4)(yaml@2.9.0))
+      '@waterford/waf-harness-core':
+        specifier: workspace:*
+        version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
+      '@waterford/waf-harness-web':
+        specifier: workspace:*
+        version: link:../web
       tailwindcss:
         specifier: ^4.1.0
         version: 4.3.2
@@ -812,13 +812,13 @@ importers:
       '@lezer/highlight':
         specifier: ^1.2.5
         version: 1.2.5
-      '@prismshadow/amsp':
+      '@waterford/waf-harness-amsp':
         specifier: workspace:*
         version: link:../amsp
-      '@prismshadow/penguin-core':
+      '@waterford/waf-harness-core':
         specifier: workspace:*
         version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
-      '@prismshadow/penguin-ui':
+      '@waterford/waf-harness-ui':
         specifier: workspace:*
         version: link:../ui
       '@xterm/addon-clipboard':
@@ -858,9 +858,6 @@ importers:
       '@playwright/test':
         specifier: ^1.61.1
         version: 1.61.1
-      '@prismshadow/penguin-server':
-        specifier: workspace:*
-        version: file:packages/server(supports-color@10.2.2)
       '@tailwindcss/vite':
         specifier: ^4.1.0
         version: 4.3.2(vite@7.3.6(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(sass@1.105.2)(tsx@4.22.4)(yaml@2.9.0))
@@ -879,6 +876,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 3.2.7
         version: 3.2.7(supports-color@10.2.2)(vitest@3.2.7(@types/debug@4.1.13)(@types/node@24.13.3)(jiti@2.7.0)(jsdom@30.1.2(@noble/hashes@1.8.0))(lightningcss@1.32.0)(sass@1.105.2)(supports-color@10.2.2)(tsx@4.22.4)(yaml@2.9.0))
+      '@waterford/waf-harness-server':
+        specifier: workspace:*
+        version: file:packages/server(supports-color@10.2.2)
       jsdom:
         specifier: ^30.1.2
         version: 30.1.2(@noble/hashes@1.8.0)
@@ -925,11 +925,9 @@ importers:
 
   plugins/opro-rsi-toolkit: {}
 
-  plugins/penguin-support: {}
-
   plugins/sandbox-bwrap:
     devDependencies:
-      '@prismshadow/penguin-core':
+      '@waterford/waf-harness-core':
         specifier: workspace:*
         version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
       tsup:
@@ -957,7 +955,7 @@ importers:
       '@deepseek-ai/dsh-sandbox':
         specifier: 0.1.0-rc.7
         version: 0.1.0-rc.7(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1))(@deepseek-ai/dsh-llm@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-attachment@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)))(@deepseek-ai/dsh-brand@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)))(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1))(@deepseek-ai/dsh-timeout@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-invariants@0.1.0-rc.8(@deepseek-ai/cordis@4.0.1))))(@deepseek-ai/dsh-session@0.1.0-rc.8(fbdb1d988541b64ff002d18c4ded7293))
-      '@prismshadow/penguin-core':
+      '@waterford/waf-harness-core':
         specifier: workspace:*
         version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
       tsup:
@@ -969,7 +967,7 @@ importers:
 
   plugins/sandbox-seatbelt:
     devDependencies:
-      '@prismshadow/penguin-core':
+      '@waterford/waf-harness-core':
         specifier: workspace:*
         version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
       tsup:
@@ -981,7 +979,7 @@ importers:
 
   plugins/sandbox-wsl:
     devDependencies:
-      '@prismshadow/penguin-core':
+      '@waterford/waf-harness-core':
         specifier: workspace:*
         version: file:packages/core(supports-color@10.2.2)(ws@8.21.0)
       tsup:
@@ -1021,6 +1019,8 @@ importers:
   plugins/use-firecrawl: {}
 
   plugins/waf-authoring: {}
+
+  plugins/wafh-support: {}
 
 packages:
 
@@ -2312,76 +2312,6 @@ packages:
     resolution: {integrity: sha512-ODOov0sGMJMf3jPonOkgGqPknTsu+DdQ7kD++gz8aI+aFMOMHFbWAA2taqXXVTdP+OTOQR/znGvSpmkeI0WTYQ==}
     engines: {node: '>=14.18.0'}
 
-  '@penguinharness/a2ui@file:plugins/a2ui':
-    resolution: {directory: plugins/a2ui, type: directory}
-
-  '@penguinharness/ace-rsi-toolkit@file:plugins/ace-rsi-toolkit':
-    resolution: {directory: plugins/ace-rsi-toolkit, type: directory}
-
-  '@penguinharness/agent-company@file:plugins/agent-company':
-    resolution: {directory: plugins/agent-company, type: directory}
-
-  '@penguinharness/agent-development@file:plugins/agent-development':
-    resolution: {directory: plugins/agent-development, type: directory}
-
-  '@penguinharness/agent-evaluation@file:plugins/agent-evaluation':
-    resolution: {directory: plugins/agent-evaluation, type: directory}
-
-  '@penguinharness/ape-rsi-toolkit@file:plugins/ape-rsi-toolkit':
-    resolution: {directory: plugins/ape-rsi-toolkit, type: directory}
-
-  '@penguinharness/awm-rsi-toolkit@file:plugins/awm-rsi-toolkit':
-    resolution: {directory: plugins/awm-rsi-toolkit, type: directory}
-
-  '@penguinharness/browser-automation@file:plugins/browser-automation':
-    resolution: {directory: plugins/browser-automation, type: directory}
-
-  '@penguinharness/continual-learning@file:plugins/continual-learning':
-    resolution: {directory: plugins/continual-learning, type: directory}
-
-  '@penguinharness/data-analysis@file:plugins/data-analysis':
-    resolution: {directory: plugins/data-analysis, type: directory}
-
-  '@penguinharness/default-rsi-toolkit@file:plugins/default-rsi-toolkit':
-    resolution: {directory: plugins/default-rsi-toolkit, type: directory}
-
-  '@penguinharness/goal@file:plugins/goal':
-    resolution: {directory: plugins/goal, type: directory}
-
-  '@penguinharness/humanizer@file:plugins/humanizer':
-    resolution: {directory: plugins/humanizer, type: directory}
-
-  '@penguinharness/model-development@file:plugins/model-development':
-    resolution: {directory: plugins/model-development, type: directory}
-
-  '@penguinharness/opro-rsi-toolkit@file:plugins/opro-rsi-toolkit':
-    resolution: {directory: plugins/opro-rsi-toolkit, type: directory}
-
-  '@penguinharness/penguin-support@file:plugins/penguin-support':
-    resolution: {directory: plugins/penguin-support, type: directory}
-
-  '@penguinharness/skill-porting@file:plugins/skill-porting':
-    resolution: {directory: plugins/skill-porting, type: directory}
-
-  '@penguinharness/software-development@file:plugins/software-development':
-    resolution: {directory: plugins/software-development, type: directory}
-
-  '@penguinharness/use-bento-slides@file:plugins/use-bento-slides':
-    resolution: {directory: plugins/use-bento-slides, type: directory}
-
-  '@penguinharness/use-claude-code@file:plugins/use-claude-code':
-    resolution: {directory: plugins/use-claude-code, type: directory}
-
-  '@penguinharness/use-codex@file:plugins/use-codex':
-    resolution: {directory: plugins/use-codex, type: directory}
-    hasBin: true
-
-  '@penguinharness/use-firecrawl@file:plugins/use-firecrawl':
-    resolution: {directory: plugins/use-firecrawl, type: directory}
-
-  '@penguinharness/waf-authoring@file:plugins/waf-authoring':
-    resolution: {directory: plugins/waf-authoring, type: directory}
-
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
@@ -2394,32 +2324,8 @@ packages:
   '@prismshadow/agenthub@0.4.15':
     resolution: {integrity: sha512-4vWn+R8ck1ByNnljo1HS4r4s7LZRot9oNmBAduIgiQMdZyZrIEY1C23DVlMSFyCgzcxu2uuonFivPzETcKbEzA==}
 
-  '@prismshadow/amsp@file:packages/amsp':
-    resolution: {directory: packages/amsp, type: directory}
-    engines: {node: '>=24'}
-
   '@prismshadow/mmsp@0.5.4':
     resolution: {integrity: sha512-nuphggmADK8NIhYwCKpyWgD9WIHuH7FPx8UXpIzeNqvx6/9QiMdl604BQpPeyKFMxb/vR+lnH0PHqikUdcOPNg==}
-
-  '@prismshadow/penguin-cli@file:packages/cli':
-    resolution: {directory: packages/cli, type: directory}
-    engines: {node: '>=24'}
-    hasBin: true
-
-  '@prismshadow/penguin-coding-agents@file:packages/coding-agents':
-    resolution: {directory: packages/coding-agents, type: directory}
-    engines: {node: '>=24'}
-
-  '@prismshadow/penguin-core@file:packages/core':
-    resolution: {directory: packages/core, type: directory}
-    engines: {node: '>=24'}
-
-  '@prismshadow/penguin-hmr@file:packages/hmr':
-    resolution: {directory: packages/hmr, type: directory}
-
-  '@prismshadow/penguin-server@file:packages/server':
-    resolution: {directory: packages/server, type: directory}
-    engines: {node: '>=24'}
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -3122,6 +3028,100 @@ packages:
 
   '@vitest/utils@3.2.7':
     resolution: {integrity: sha512-x6BDOd7dyo3PFLY3I9/HJ25X/6OurhGXk2/B9gOZNPF7XDVjeBK4k01lQE5uvDpbuheErh91qYuE1E2OEjK3Rw==}
+
+  '@waf-harness/a2ui@file:plugins/a2ui':
+    resolution: {directory: plugins/a2ui, type: directory}
+
+  '@waf-harness/ace-rsi-toolkit@file:plugins/ace-rsi-toolkit':
+    resolution: {directory: plugins/ace-rsi-toolkit, type: directory}
+
+  '@waf-harness/agent-company@file:plugins/agent-company':
+    resolution: {directory: plugins/agent-company, type: directory}
+
+  '@waf-harness/agent-development@file:plugins/agent-development':
+    resolution: {directory: plugins/agent-development, type: directory}
+
+  '@waf-harness/agent-evaluation@file:plugins/agent-evaluation':
+    resolution: {directory: plugins/agent-evaluation, type: directory}
+
+  '@waf-harness/ape-rsi-toolkit@file:plugins/ape-rsi-toolkit':
+    resolution: {directory: plugins/ape-rsi-toolkit, type: directory}
+
+  '@waf-harness/awm-rsi-toolkit@file:plugins/awm-rsi-toolkit':
+    resolution: {directory: plugins/awm-rsi-toolkit, type: directory}
+
+  '@waf-harness/browser-automation@file:plugins/browser-automation':
+    resolution: {directory: plugins/browser-automation, type: directory}
+
+  '@waf-harness/continual-learning@file:plugins/continual-learning':
+    resolution: {directory: plugins/continual-learning, type: directory}
+
+  '@waf-harness/data-analysis@file:plugins/data-analysis':
+    resolution: {directory: plugins/data-analysis, type: directory}
+
+  '@waf-harness/default-rsi-toolkit@file:plugins/default-rsi-toolkit':
+    resolution: {directory: plugins/default-rsi-toolkit, type: directory}
+
+  '@waf-harness/goal@file:plugins/goal':
+    resolution: {directory: plugins/goal, type: directory}
+
+  '@waf-harness/humanizer@file:plugins/humanizer':
+    resolution: {directory: plugins/humanizer, type: directory}
+
+  '@waf-harness/model-development@file:plugins/model-development':
+    resolution: {directory: plugins/model-development, type: directory}
+
+  '@waf-harness/opro-rsi-toolkit@file:plugins/opro-rsi-toolkit':
+    resolution: {directory: plugins/opro-rsi-toolkit, type: directory}
+
+  '@waf-harness/skill-porting@file:plugins/skill-porting':
+    resolution: {directory: plugins/skill-porting, type: directory}
+
+  '@waf-harness/software-development@file:plugins/software-development':
+    resolution: {directory: plugins/software-development, type: directory}
+
+  '@waf-harness/use-bento-slides@file:plugins/use-bento-slides':
+    resolution: {directory: plugins/use-bento-slides, type: directory}
+
+  '@waf-harness/use-claude-code@file:plugins/use-claude-code':
+    resolution: {directory: plugins/use-claude-code, type: directory}
+
+  '@waf-harness/use-codex@file:plugins/use-codex':
+    resolution: {directory: plugins/use-codex, type: directory}
+    hasBin: true
+
+  '@waf-harness/use-firecrawl@file:plugins/use-firecrawl':
+    resolution: {directory: plugins/use-firecrawl, type: directory}
+
+  '@waf-harness/waf-authoring@file:plugins/waf-authoring':
+    resolution: {directory: plugins/waf-authoring, type: directory}
+
+  '@waf-harness/wafh-support@file:plugins/wafh-support':
+    resolution: {directory: plugins/wafh-support, type: directory}
+
+  '@waterford/waf-harness-amsp@file:packages/amsp':
+    resolution: {directory: packages/amsp, type: directory}
+    engines: {node: '>=24'}
+
+  '@waterford/waf-harness-cli@file:packages/cli':
+    resolution: {directory: packages/cli, type: directory}
+    engines: {node: '>=24'}
+    hasBin: true
+
+  '@waterford/waf-harness-coding-agents@file:packages/coding-agents':
+    resolution: {directory: packages/coding-agents, type: directory}
+    engines: {node: '>=24'}
+
+  '@waterford/waf-harness-core@file:packages/core':
+    resolution: {directory: packages/core, type: directory}
+    engines: {node: '>=24'}
+
+  '@waterford/waf-harness-hmr@file:packages/hmr':
+    resolution: {directory: packages/hmr, type: directory}
+
+  '@waterford/waf-harness-server@file:packages/server':
+    resolution: {directory: packages/server, type: directory}
+    engines: {node: '>=24'}
 
   '@xmldom/xmldom@0.8.13':
     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
@@ -7373,54 +7373,6 @@ snapshots:
       tslib: 2.8.1
       webcrypto-core: 1.9.2
 
-  '@penguinharness/a2ui@file:plugins/a2ui': {}
-
-  '@penguinharness/ace-rsi-toolkit@file:plugins/ace-rsi-toolkit': {}
-
-  '@penguinharness/agent-company@file:plugins/agent-company': {}
-
-  '@penguinharness/agent-development@file:plugins/agent-development': {}
-
-  '@penguinharness/agent-evaluation@file:plugins/agent-evaluation': {}
-
-  '@penguinharness/ape-rsi-toolkit@file:plugins/ape-rsi-toolkit': {}
-
-  '@penguinharness/awm-rsi-toolkit@file:plugins/awm-rsi-toolkit': {}
-
-  '@penguinharness/browser-automation@file:plugins/browser-automation': {}
-
-  '@penguinharness/continual-learning@file:plugins/continual-learning': {}
-
-  '@penguinharness/data-analysis@file:plugins/data-analysis': {}
-
-  '@penguinharness/default-rsi-toolkit@file:plugins/default-rsi-toolkit': {}
-
-  '@penguinharness/goal@file:plugins/goal': {}
-
-  '@penguinharness/humanizer@file:plugins/humanizer': {}
-
-  '@penguinharness/model-development@file:plugins/model-development': {}
-
-  '@penguinharness/opro-rsi-toolkit@file:plugins/opro-rsi-toolkit': {}
-
-  '@penguinharness/penguin-support@file:plugins/penguin-support': {}
-
-  '@penguinharness/skill-porting@file:plugins/skill-porting': {}
-
-  '@penguinharness/software-development@file:plugins/software-development': {}
-
-  '@penguinharness/use-bento-slides@file:plugins/use-bento-slides': {}
-
-  '@penguinharness/use-claude-code@file:plugins/use-claude-code': {}
-
-  '@penguinharness/use-codex@file:plugins/use-codex':
-    dependencies:
-      '@agentclientprotocol/codex-acp': 1.12.0
-
-  '@penguinharness/use-firecrawl@file:plugins/use-firecrawl': {}
-
-  '@penguinharness/waf-authoring@file:plugins/waf-authoring': {}
-
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
@@ -7428,7 +7380,7 @@ snapshots:
     dependencies:
       playwright: 1.61.1
 
-  '@prismshadow/agenthub@0.4.15(patch_hash=c3fd919b64da90e3f40dbf4c57f8b0db2ef31e5f75f711b7d696d97d991a3124)(supports-color@10.2.2)(ws@8.21.0)':
+  '@prismshadow/agenthub@0.4.15(patch_hash=a870fbcd1cb9b72aeac5705a4d5da32dec6ff844a57afe2d0e6a2efc7f9f9afe)(supports-color@10.2.2)(ws@8.21.0)':
     dependencies:
       '@anthropic-ai/bedrock-sdk': 0.26.4(zod@4.4.3)
       '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
@@ -7443,7 +7395,7 @@ snapshots:
       - ws
       - zod
 
-  '@prismshadow/agenthub@0.4.15(patch_hash=c3fd919b64da90e3f40dbf4c57f8b0db2ef31e5f75f711b7d696d97d991a3124)(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)':
+  '@prismshadow/agenthub@0.4.15(patch_hash=a870fbcd1cb9b72aeac5705a4d5da32dec6ff844a57afe2d0e6a2efc7f9f9afe)(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)':
     dependencies:
       '@anthropic-ai/bedrock-sdk': 0.26.4(zod@4.4.3)
       '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
@@ -7457,8 +7409,6 @@ snapshots:
       - utf-8-validate
       - ws
       - zod
-
-  '@prismshadow/amsp@file:packages/amsp': {}
 
   '@prismshadow/mmsp@0.5.4(supports-color@10.2.2)(ws@8.21.0)':
     dependencies:
@@ -7488,220 +7438,6 @@ snapshots:
       - supports-color
       - utf-8-validate
       - ws
-      - zod
-
-  '@prismshadow/penguin-cli@file:packages/cli(supports-color@10.2.2)':
-    dependencies:
-      '@modelcontextprotocol/client': 2.0.0
-      '@penguinharness/a2ui': file:plugins/a2ui
-      '@penguinharness/ace-rsi-toolkit': file:plugins/ace-rsi-toolkit
-      '@penguinharness/agent-company': file:plugins/agent-company
-      '@penguinharness/agent-development': file:plugins/agent-development
-      '@penguinharness/agent-evaluation': file:plugins/agent-evaluation
-      '@penguinharness/ape-rsi-toolkit': file:plugins/ape-rsi-toolkit
-      '@penguinharness/awm-rsi-toolkit': file:plugins/awm-rsi-toolkit
-      '@penguinharness/browser-automation': file:plugins/browser-automation
-      '@penguinharness/continual-learning': file:plugins/continual-learning
-      '@penguinharness/data-analysis': file:plugins/data-analysis
-      '@penguinharness/default-rsi-toolkit': file:plugins/default-rsi-toolkit
-      '@penguinharness/goal': file:plugins/goal
-      '@penguinharness/humanizer': file:plugins/humanizer
-      '@penguinharness/model-development': file:plugins/model-development
-      '@penguinharness/opro-rsi-toolkit': file:plugins/opro-rsi-toolkit
-      '@penguinharness/penguin-support': file:plugins/penguin-support
-      '@penguinharness/skill-porting': file:plugins/skill-porting
-      '@penguinharness/software-development': file:plugins/software-development
-      '@penguinharness/use-bento-slides': file:plugins/use-bento-slides
-      '@penguinharness/use-claude-code': file:plugins/use-claude-code
-      '@penguinharness/use-codex': file:plugins/use-codex
-      '@penguinharness/use-firecrawl': file:plugins/use-firecrawl
-      '@prismshadow/agenthub': 0.4.15(patch_hash=c3fd919b64da90e3f40dbf4c57f8b0db2ef31e5f75f711b7d696d97d991a3124)(supports-color@10.2.2)(ws@8.21.0)
-      '@prismshadow/mmsp': 0.5.4(supports-color@10.2.2)(ws@8.21.0)
-      '@prismshadow/penguin-core': file:packages/core(supports-color@10.2.2)(ws@8.21.0)
-      '@prismshadow/penguin-server': file:packages/server(supports-color@10.2.2)
-      commander: 13.1.0
-      dotenv: 17.4.2
-      fflate: 0.8.3
-      smol-toml: 1.6.1
-      yaml: 2.9.0
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - debug
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@prismshadow/penguin-coding-agents@file:packages/coding-agents(zod@4.4.3)':
-    dependencies:
-      '@agentclientprotocol/sdk': 1.4.0(zod@4.4.3)
-    transitivePeerDependencies:
-      - zod
-
-  '@prismshadow/penguin-core@file:packages/core(supports-color@10.2.2)(ws@8.21.0)':
-    dependencies:
-      '@modelcontextprotocol/client': 2.0.0
-      '@penguinharness/a2ui': file:plugins/a2ui
-      '@penguinharness/ace-rsi-toolkit': file:plugins/ace-rsi-toolkit
-      '@penguinharness/agent-company': file:plugins/agent-company
-      '@penguinharness/agent-development': file:plugins/agent-development
-      '@penguinharness/agent-evaluation': file:plugins/agent-evaluation
-      '@penguinharness/ape-rsi-toolkit': file:plugins/ape-rsi-toolkit
-      '@penguinharness/awm-rsi-toolkit': file:plugins/awm-rsi-toolkit
-      '@penguinharness/browser-automation': file:plugins/browser-automation
-      '@penguinharness/continual-learning': file:plugins/continual-learning
-      '@penguinharness/data-analysis': file:plugins/data-analysis
-      '@penguinharness/default-rsi-toolkit': file:plugins/default-rsi-toolkit
-      '@penguinharness/goal': file:plugins/goal
-      '@penguinharness/humanizer': file:plugins/humanizer
-      '@penguinharness/model-development': file:plugins/model-development
-      '@penguinharness/opro-rsi-toolkit': file:plugins/opro-rsi-toolkit
-      '@penguinharness/penguin-support': file:plugins/penguin-support
-      '@penguinharness/skill-porting': file:plugins/skill-porting
-      '@penguinharness/software-development': file:plugins/software-development
-      '@penguinharness/use-bento-slides': file:plugins/use-bento-slides
-      '@penguinharness/use-claude-code': file:plugins/use-claude-code
-      '@penguinharness/use-codex': file:plugins/use-codex
-      '@penguinharness/use-firecrawl': file:plugins/use-firecrawl
-      '@penguinharness/waf-authoring': file:plugins/waf-authoring
-      '@prismshadow/agenthub': 0.4.15(patch_hash=c3fd919b64da90e3f40dbf4c57f8b0db2ef31e5f75f711b7d696d97d991a3124)(supports-color@10.2.2)(ws@8.21.0)
-      '@prismshadow/mmsp': 0.5.4(supports-color@10.2.2)(ws@8.21.0)
-      arktype: 2.2.3
-      smol-toml: 1.6.1
-      yaml: 2.9.0
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@prismshadow/penguin-core@file:packages/core(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)':
-    dependencies:
-      '@modelcontextprotocol/client': 2.0.0
-      '@penguinharness/a2ui': file:plugins/a2ui
-      '@penguinharness/ace-rsi-toolkit': file:plugins/ace-rsi-toolkit
-      '@penguinharness/agent-company': file:plugins/agent-company
-      '@penguinharness/agent-development': file:plugins/agent-development
-      '@penguinharness/agent-evaluation': file:plugins/agent-evaluation
-      '@penguinharness/ape-rsi-toolkit': file:plugins/ape-rsi-toolkit
-      '@penguinharness/awm-rsi-toolkit': file:plugins/awm-rsi-toolkit
-      '@penguinharness/browser-automation': file:plugins/browser-automation
-      '@penguinharness/continual-learning': file:plugins/continual-learning
-      '@penguinharness/data-analysis': file:plugins/data-analysis
-      '@penguinharness/default-rsi-toolkit': file:plugins/default-rsi-toolkit
-      '@penguinharness/goal': file:plugins/goal
-      '@penguinharness/humanizer': file:plugins/humanizer
-      '@penguinharness/model-development': file:plugins/model-development
-      '@penguinharness/opro-rsi-toolkit': file:plugins/opro-rsi-toolkit
-      '@penguinharness/penguin-support': file:plugins/penguin-support
-      '@penguinharness/skill-porting': file:plugins/skill-porting
-      '@penguinharness/software-development': file:plugins/software-development
-      '@penguinharness/use-bento-slides': file:plugins/use-bento-slides
-      '@penguinharness/use-claude-code': file:plugins/use-claude-code
-      '@penguinharness/use-codex': file:plugins/use-codex
-      '@penguinharness/use-firecrawl': file:plugins/use-firecrawl
-      '@penguinharness/waf-authoring': file:plugins/waf-authoring
-      '@prismshadow/agenthub': 0.4.15(patch_hash=c3fd919b64da90e3f40dbf4c57f8b0db2ef31e5f75f711b7d696d97d991a3124)(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
-      '@prismshadow/mmsp': 0.5.4(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
-      arktype: 2.2.3
-      smol-toml: 1.6.1
-      yaml: 2.9.0
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@prismshadow/penguin-hmr@file:packages/hmr(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)':
-    dependencies:
-      '@prismshadow/penguin-core': file:packages/core(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@prismshadow/penguin-server@file:packages/server(supports-color@10.2.2)':
-    dependencies:
-      '@hono/node-server': 2.0.12(hono@4.12.34)
-      '@larksuiteoapi/node-sdk': 1.73.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
-      '@prismshadow/amsp': file:packages/amsp
-      '@prismshadow/mmsp': 0.5.4(supports-color@10.2.2)(ws@8.21.0)
-      '@prismshadow/penguin-coding-agents': file:packages/coding-agents(zod@4.4.3)
-      '@prismshadow/penguin-core': file:packages/core(supports-color@10.2.2)(ws@8.21.0)
-      '@xterm/headless': 5.5.0
-      axe-core: 4.14.0
-      dotenv: 17.4.2
-      fflate: 0.8.3
-      gsap: 3.15.0
-      hono: 4.12.34
-      node-pty: 1.1.0
-      playwright-core: 1.61.1
-      remark-gfm: 4.0.1(supports-color@10.2.2)
-      remark-parse: 11.0.0(supports-color@10.2.2)
-      sass: 1.105.2
-      smol-toml: 1.6.1
-      tar: 7.5.22
-      typescript: 5.9.3
-      undici: 7.29.0
-      unified: 11.0.5
-      ws: 8.21.0
-      yaml: 2.9.0
-    optionalDependencies:
-      '@huggingface/transformers': 3.8.1
-      ffmpeg-static: 5.3.0(supports-color@10.2.2)
-      kokoro-js: 1.2.1
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - debug
-      - supports-color
-      - utf-8-validate
-      - zod
-
-  '@prismshadow/penguin-server@file:packages/server(supports-color@10.2.2)(zod@4.4.3)':
-    dependencies:
-      '@hono/node-server': 2.0.12(hono@4.12.34)
-      '@larksuiteoapi/node-sdk': 1.73.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
-      '@prismshadow/amsp': file:packages/amsp
-      '@prismshadow/mmsp': 0.5.4(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
-      '@prismshadow/penguin-coding-agents': file:packages/coding-agents(zod@4.4.3)
-      '@prismshadow/penguin-core': file:packages/core(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
-      '@xterm/headless': 5.5.0
-      axe-core: 4.14.0
-      dotenv: 17.4.2
-      fflate: 0.8.3
-      gsap: 3.15.0
-      hono: 4.12.34
-      node-pty: 1.1.0
-      playwright-core: 1.61.1
-      remark-gfm: 4.0.1(supports-color@10.2.2)
-      remark-parse: 11.0.0(supports-color@10.2.2)
-      sass: 1.105.2
-      smol-toml: 1.6.1
-      tar: 7.5.22
-      typescript: 5.9.3
-      undici: 7.29.0
-      unified: 11.0.5
-      ws: 8.21.0
-      yaml: 2.9.0
-    optionalDependencies:
-      '@huggingface/transformers': 3.8.1
-      ffmpeg-static: 5.3.0(supports-color@10.2.2)
-      kokoro-js: 1.2.1
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - debug
-      - supports-color
-      - utf-8-validate
       - zod
 
   '@protobufjs/aspromise@1.1.2': {}
@@ -8458,6 +8194,270 @@ snapshots:
       '@vitest/pretty-format': 3.2.7
       loupe: 3.2.1
       tinyrainbow: 2.0.0
+
+  '@waf-harness/a2ui@file:plugins/a2ui': {}
+
+  '@waf-harness/ace-rsi-toolkit@file:plugins/ace-rsi-toolkit': {}
+
+  '@waf-harness/agent-company@file:plugins/agent-company': {}
+
+  '@waf-harness/agent-development@file:plugins/agent-development': {}
+
+  '@waf-harness/agent-evaluation@file:plugins/agent-evaluation': {}
+
+  '@waf-harness/ape-rsi-toolkit@file:plugins/ape-rsi-toolkit': {}
+
+  '@waf-harness/awm-rsi-toolkit@file:plugins/awm-rsi-toolkit': {}
+
+  '@waf-harness/browser-automation@file:plugins/browser-automation': {}
+
+  '@waf-harness/continual-learning@file:plugins/continual-learning': {}
+
+  '@waf-harness/data-analysis@file:plugins/data-analysis': {}
+
+  '@waf-harness/default-rsi-toolkit@file:plugins/default-rsi-toolkit': {}
+
+  '@waf-harness/goal@file:plugins/goal': {}
+
+  '@waf-harness/humanizer@file:plugins/humanizer': {}
+
+  '@waf-harness/model-development@file:plugins/model-development': {}
+
+  '@waf-harness/opro-rsi-toolkit@file:plugins/opro-rsi-toolkit': {}
+
+  '@waf-harness/skill-porting@file:plugins/skill-porting': {}
+
+  '@waf-harness/software-development@file:plugins/software-development': {}
+
+  '@waf-harness/use-bento-slides@file:plugins/use-bento-slides': {}
+
+  '@waf-harness/use-claude-code@file:plugins/use-claude-code': {}
+
+  '@waf-harness/use-codex@file:plugins/use-codex':
+    dependencies:
+      '@agentclientprotocol/codex-acp': 1.12.0
+
+  '@waf-harness/use-firecrawl@file:plugins/use-firecrawl': {}
+
+  '@waf-harness/waf-authoring@file:plugins/waf-authoring': {}
+
+  '@waf-harness/wafh-support@file:plugins/wafh-support': {}
+
+  '@waterford/waf-harness-amsp@file:packages/amsp': {}
+
+  '@waterford/waf-harness-cli@file:packages/cli(supports-color@10.2.2)':
+    dependencies:
+      '@modelcontextprotocol/client': 2.0.0
+      '@prismshadow/agenthub': 0.4.15(patch_hash=a870fbcd1cb9b72aeac5705a4d5da32dec6ff844a57afe2d0e6a2efc7f9f9afe)(supports-color@10.2.2)(ws@8.21.0)
+      '@prismshadow/mmsp': 0.5.4(supports-color@10.2.2)(ws@8.21.0)
+      '@waf-harness/a2ui': file:plugins/a2ui
+      '@waf-harness/ace-rsi-toolkit': file:plugins/ace-rsi-toolkit
+      '@waf-harness/agent-company': file:plugins/agent-company
+      '@waf-harness/agent-development': file:plugins/agent-development
+      '@waf-harness/agent-evaluation': file:plugins/agent-evaluation
+      '@waf-harness/ape-rsi-toolkit': file:plugins/ape-rsi-toolkit
+      '@waf-harness/awm-rsi-toolkit': file:plugins/awm-rsi-toolkit
+      '@waf-harness/browser-automation': file:plugins/browser-automation
+      '@waf-harness/continual-learning': file:plugins/continual-learning
+      '@waf-harness/data-analysis': file:plugins/data-analysis
+      '@waf-harness/default-rsi-toolkit': file:plugins/default-rsi-toolkit
+      '@waf-harness/goal': file:plugins/goal
+      '@waf-harness/humanizer': file:plugins/humanizer
+      '@waf-harness/model-development': file:plugins/model-development
+      '@waf-harness/opro-rsi-toolkit': file:plugins/opro-rsi-toolkit
+      '@waf-harness/skill-porting': file:plugins/skill-porting
+      '@waf-harness/software-development': file:plugins/software-development
+      '@waf-harness/use-bento-slides': file:plugins/use-bento-slides
+      '@waf-harness/use-claude-code': file:plugins/use-claude-code
+      '@waf-harness/use-codex': file:plugins/use-codex
+      '@waf-harness/use-firecrawl': file:plugins/use-firecrawl
+      '@waf-harness/wafh-support': file:plugins/wafh-support
+      '@waterford/waf-harness-core': file:packages/core(supports-color@10.2.2)(ws@8.21.0)
+      '@waterford/waf-harness-server': file:packages/server(supports-color@10.2.2)
+      commander: 13.1.0
+      dotenv: 17.4.2
+      fflate: 0.8.3
+      smol-toml: 1.6.1
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - debug
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@waterford/waf-harness-coding-agents@file:packages/coding-agents(zod@4.4.3)':
+    dependencies:
+      '@agentclientprotocol/sdk': 1.4.0(zod@4.4.3)
+    transitivePeerDependencies:
+      - zod
+
+  '@waterford/waf-harness-core@file:packages/core(supports-color@10.2.2)(ws@8.21.0)':
+    dependencies:
+      '@modelcontextprotocol/client': 2.0.0
+      '@prismshadow/agenthub': 0.4.15(patch_hash=a870fbcd1cb9b72aeac5705a4d5da32dec6ff844a57afe2d0e6a2efc7f9f9afe)(supports-color@10.2.2)(ws@8.21.0)
+      '@prismshadow/mmsp': 0.5.4(supports-color@10.2.2)(ws@8.21.0)
+      '@waf-harness/a2ui': file:plugins/a2ui
+      '@waf-harness/ace-rsi-toolkit': file:plugins/ace-rsi-toolkit
+      '@waf-harness/agent-company': file:plugins/agent-company
+      '@waf-harness/agent-development': file:plugins/agent-development
+      '@waf-harness/agent-evaluation': file:plugins/agent-evaluation
+      '@waf-harness/ape-rsi-toolkit': file:plugins/ape-rsi-toolkit
+      '@waf-harness/awm-rsi-toolkit': file:plugins/awm-rsi-toolkit
+      '@waf-harness/browser-automation': file:plugins/browser-automation
+      '@waf-harness/continual-learning': file:plugins/continual-learning
+      '@waf-harness/data-analysis': file:plugins/data-analysis
+      '@waf-harness/default-rsi-toolkit': file:plugins/default-rsi-toolkit
+      '@waf-harness/goal': file:plugins/goal
+      '@waf-harness/humanizer': file:plugins/humanizer
+      '@waf-harness/model-development': file:plugins/model-development
+      '@waf-harness/opro-rsi-toolkit': file:plugins/opro-rsi-toolkit
+      '@waf-harness/skill-porting': file:plugins/skill-porting
+      '@waf-harness/software-development': file:plugins/software-development
+      '@waf-harness/use-bento-slides': file:plugins/use-bento-slides
+      '@waf-harness/use-claude-code': file:plugins/use-claude-code
+      '@waf-harness/use-codex': file:plugins/use-codex
+      '@waf-harness/use-firecrawl': file:plugins/use-firecrawl
+      '@waf-harness/waf-authoring': file:plugins/waf-authoring
+      '@waf-harness/wafh-support': file:plugins/wafh-support
+      arktype: 2.2.3
+      smol-toml: 1.6.1
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@waterford/waf-harness-core@file:packages/core(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      '@modelcontextprotocol/client': 2.0.0
+      '@prismshadow/agenthub': 0.4.15(patch_hash=a870fbcd1cb9b72aeac5705a4d5da32dec6ff844a57afe2d0e6a2efc7f9f9afe)(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
+      '@prismshadow/mmsp': 0.5.4(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
+      '@waf-harness/a2ui': file:plugins/a2ui
+      '@waf-harness/ace-rsi-toolkit': file:plugins/ace-rsi-toolkit
+      '@waf-harness/agent-company': file:plugins/agent-company
+      '@waf-harness/agent-development': file:plugins/agent-development
+      '@waf-harness/agent-evaluation': file:plugins/agent-evaluation
+      '@waf-harness/ape-rsi-toolkit': file:plugins/ape-rsi-toolkit
+      '@waf-harness/awm-rsi-toolkit': file:plugins/awm-rsi-toolkit
+      '@waf-harness/browser-automation': file:plugins/browser-automation
+      '@waf-harness/continual-learning': file:plugins/continual-learning
+      '@waf-harness/data-analysis': file:plugins/data-analysis
+      '@waf-harness/default-rsi-toolkit': file:plugins/default-rsi-toolkit
+      '@waf-harness/goal': file:plugins/goal
+      '@waf-harness/humanizer': file:plugins/humanizer
+      '@waf-harness/model-development': file:plugins/model-development
+      '@waf-harness/opro-rsi-toolkit': file:plugins/opro-rsi-toolkit
+      '@waf-harness/skill-porting': file:plugins/skill-porting
+      '@waf-harness/software-development': file:plugins/software-development
+      '@waf-harness/use-bento-slides': file:plugins/use-bento-slides
+      '@waf-harness/use-claude-code': file:plugins/use-claude-code
+      '@waf-harness/use-codex': file:plugins/use-codex
+      '@waf-harness/use-firecrawl': file:plugins/use-firecrawl
+      '@waf-harness/waf-authoring': file:plugins/waf-authoring
+      '@waf-harness/wafh-support': file:plugins/wafh-support
+      arktype: 2.2.3
+      smol-toml: 1.6.1
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@waterford/waf-harness-hmr@file:packages/hmr(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)':
+    dependencies:
+      '@waterford/waf-harness-core': file:packages/core(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
+
+  '@waterford/waf-harness-server@file:packages/server(supports-color@10.2.2)':
+    dependencies:
+      '@hono/node-server': 2.0.12(hono@4.12.34)
+      '@larksuiteoapi/node-sdk': 1.73.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
+      '@prismshadow/mmsp': 0.5.4(supports-color@10.2.2)(ws@8.21.0)
+      '@waterford/waf-harness-amsp': file:packages/amsp
+      '@waterford/waf-harness-coding-agents': file:packages/coding-agents(zod@4.4.3)
+      '@waterford/waf-harness-core': file:packages/core(supports-color@10.2.2)(ws@8.21.0)
+      '@xterm/headless': 5.5.0
+      axe-core: 4.14.0
+      dotenv: 17.4.2
+      fflate: 0.8.3
+      gsap: 3.15.0
+      hono: 4.12.34
+      node-pty: 1.1.0
+      playwright-core: 1.61.1
+      remark-gfm: 4.0.1(supports-color@10.2.2)
+      remark-parse: 11.0.0(supports-color@10.2.2)
+      sass: 1.105.2
+      smol-toml: 1.6.1
+      tar: 7.5.22
+      typescript: 5.9.3
+      undici: 7.29.0
+      unified: 11.0.5
+      ws: 8.21.0
+      yaml: 2.9.0
+    optionalDependencies:
+      '@huggingface/transformers': 3.8.1
+      ffmpeg-static: 5.3.0(supports-color@10.2.2)
+      kokoro-js: 1.2.1
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - debug
+      - supports-color
+      - utf-8-validate
+      - zod
+
+  '@waterford/waf-harness-server@file:packages/server(supports-color@10.2.2)(zod@4.4.3)':
+    dependencies:
+      '@hono/node-server': 2.0.12(hono@4.12.34)
+      '@larksuiteoapi/node-sdk': 1.73.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
+      '@prismshadow/mmsp': 0.5.4(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
+      '@waterford/waf-harness-amsp': file:packages/amsp
+      '@waterford/waf-harness-coding-agents': file:packages/coding-agents(zod@4.4.3)
+      '@waterford/waf-harness-core': file:packages/core(supports-color@10.2.2)(ws@8.21.0)(zod@4.4.3)
+      '@xterm/headless': 5.5.0
+      axe-core: 4.14.0
+      dotenv: 17.4.2
+      fflate: 0.8.3
+      gsap: 3.15.0
+      hono: 4.12.34
+      node-pty: 1.1.0
+      playwright-core: 1.61.1
+      remark-gfm: 4.0.1(supports-color@10.2.2)
+      remark-parse: 11.0.0(supports-color@10.2.2)
+      sass: 1.105.2
+      smol-toml: 1.6.1
+      tar: 7.5.22
+      typescript: 5.9.3
+      undici: 7.29.0
+      unified: 11.0.5
+      ws: 8.21.0
+      yaml: 2.9.0
+    optionalDependencies:
+      '@huggingface/transformers': 3.8.1
+      ffmpeg-static: 5.3.0(supports-color@10.2.2)
+      kokoro-js: 1.2.1
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - debug
+      - supports-color
+      - utf-8-validate
+      - zod
 
   '@xmldom/xmldom@0.8.13': {}
 

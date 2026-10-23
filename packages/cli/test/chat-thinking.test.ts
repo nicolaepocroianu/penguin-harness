@@ -13,7 +13,7 @@ import {
   partialToolCall,
   partialToolCallOutput,
   type OmniMessage,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { registerChatCommand } from "../src/commands/chat.js";
 import { getMessages } from "../src/i18n.js";
 import { FakeServer } from "./fake-server.js";
@@ -32,7 +32,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** Runs `penguin chat <argv>` end to end over a PassThrough stdin, feeding each line at the prompt (same driver as chat-clear.test.ts). */
+/** Runs `wafh chat <argv>` end to end over a PassThrough stdin, feeding each line at the prompt (same driver as chat-clear.test.ts). */
 async function driveChat(lines: string[], argv: string[] = []): Promise<string> {
   const stdin = new PassThrough();
   const realStdin = process.stdin;
@@ -59,7 +59,7 @@ async function driveChat(lines: string[], argv: string[] = []): Promise<string> 
     const program = new Command();
     program.exitOverride();
     registerChatCommand(program, t);
-    const done = program.parseAsync(["node", "penguin", "chat", ...argv]);
+    const done = program.parseAsync(["node", "wafh", "chat", ...argv]);
     for (let i = 0; i < lines.length; i++) {
       await Promise.race([waitForPrompt(i + 1), done]);
       stdin.write(`${lines[i]}\n`);
@@ -199,7 +199,7 @@ describe("chat /verbose (tool-output collapsing)", () => {
   });
 });
 
-describe("chat caller-context defaults (PENGUIN_SESSION_ID inheritance)", () => {
+describe("chat caller-context defaults (WAFH_SESSION_ID inheritance)", () => {
   it("a new chat inside an agent inherits workspace/model/approve and pins the caller's thinking", async () => {
     const caller = server.addSession({
       sessionId: "session-2026-08-25-10-00-00-ca11c0de",
@@ -209,7 +209,7 @@ describe("chat caller-context defaults (PENGUIN_SESSION_ID inheritance)", () => 
       approvalMode: "read-only",
       thinkingLevel: "xhigh",
     });
-    process.env.PENGUIN_SESSION_ID = caller.sessionId;
+    process.env.WAFH_SESSION_ID = caller.sessionId;
     // The values are read at start and shown by /thinking; the Session is created by "go".
     const out = await driveChat(["/thinking", "go", "/exit"]);
     const created = [...server.sessions.values()].find((x) => x.sessionId !== caller.sessionId)!;

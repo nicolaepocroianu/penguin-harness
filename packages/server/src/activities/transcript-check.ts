@@ -5,7 +5,7 @@
  * or reads punctuation aloud ("dot", "comma"), teaches the wrong thing; this finds both.
  *
  * The idea is the transcript check in OpenMontage's final review of a render
- * (github.com/calesthio/OpenMontage), as an idea only: its thresholds and wording are Penguin's.
+ * (github.com/calesthio/OpenMontage), as an idea only: its thresholds and wording are WAF Harness's.
  */
 
 /** Below this share of the script's words heard, the narration does not match its script. */

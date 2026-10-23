@@ -6,14 +6,14 @@
  * as one round and reports what the scoreboard holds.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ServerEvent } from "@prismshadow/penguin-server/api";
+import type { ServerEvent } from "@waterford/waf-harness-server/api";
 import {
   parseBackgroundTaskDoneMessage,
   parseHandoffMessage,
   parseOrgTriggerMessage,
   parseScheduledMessage,
   parseSkillsMessage,
-} from "@prismshadow/penguin-core/markers";
+} from "@waterford/waf-harness-core/markers";
 import { catalogEntryFor } from "../../server/dist/model-catalog.js";
 import { catalogDelta } from "../../web/src/features/models/catalog-sync";
 import { splitAttachments } from "../../web/src/lib/attachments";
@@ -316,7 +316,7 @@ describe("the self-evolution round", () => {
       .filter((e) => e.provider === kept!.provider && e.modelId === kept!.modelId)
       .map((e) => e.score);
     expect(line).toEqual([...line].sort((a, b) => a - b));
-    // The Test Sessions the scoreboard names exist, archived as `penguin run` Sessions are.
+    // The Test Sessions the scoreboard names exist, archived as `wafh run` Sessions are.
     expect(kept!.cases.map((c) => c.runs[0]!.sessionId)).toEqual([...IDS.sessions.tests]);
     for (const id of IDS.sessions.tests) {
       expect(store.session(id)).toMatchObject({ source: "cli", archived: true });

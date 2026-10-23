@@ -1,6 +1,6 @@
 /**
  * The driven-tab set (tab-set.ts) applied to Chrome: opening, closing and focusing a server's
- * tabs, keeping each server's Penguin group in each window, following Chrome's tab events, and
+ * tabs, keeping each server's WAF Harness group in each window, following Chrome's tab events, and
  * telling each server what changed for its tabs (and nothing about any other tab).
  */
 import { isRestrictedUrl } from "./policy.js";
@@ -19,7 +19,7 @@ import {
 } from "./tab-set.js";
 import type { BuiltinBrowserTab, DesktopBrowserEvent, TabReleaseReason } from "./wire.js";
 
-/** The group colour every Penguin group gets. */
+/** The group colour every WAF Harness group gets. */
 export const GROUP_COLOR = "blue";
 
 /** The longest favicon a tab event carries (the server drops longer ones the same way). */
@@ -39,7 +39,7 @@ export interface TabControllerOptions {
   send(server: string, event: DesktopBrowserEvent): void;
   /** Stops debugging a tab. */
   detach(tabId: number): void;
-  /** The title of a server's group: "Penguin", or "Penguin · <label>" beside other servers. */
+  /** The title of a server's group: "WAF Harness", or "WAF Harness · <label>" beside other servers. */
   groupTitle(server: string): string;
   /** Called with every new state (to persist it and refresh the toolbar). */
   onChange?(state: TabSetState): void;

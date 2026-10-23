@@ -1,6 +1,6 @@
 # Page recipes
 
-Scripts for the situations where plain `querySelector` and `click` are not enough. Each runs with `penguin browser exec <<'EOF' … EOF` unless it says `cdp`. Adapt the selectors to what a scan of the page shows.
+Scripts for the situations where plain `querySelector` and `click` are not enough. Each runs with `wafh browser exec <<'EOF' … EOF` unless it says `cdp`. Adapt the selectors to what a scan of the page shows.
 
 ## Fill a field a framework controls
 
@@ -15,7 +15,7 @@ el.dispatchEvent(new Event('change', { bubbles: true }));
 return el.value;
 ```
 
-When that still does not register, type for real: `penguin browser type 'usb c hub' --selector 'input[name="q"]'`.
+When that still does not register, type for real: `wafh browser type 'usb c hub' --selector 'input[name="q"]'`.
 
 ## Choose an option
 
@@ -28,7 +28,7 @@ select.dispatchEvent(new Event('change', { bubbles: true }));
 return select.value;
 ```
 
-A custom dropdown (a button that opens a list) needs trusted clicks, in two calls: `penguin browser click '<the dropdown button>'`, scan to find the option that appeared, then `penguin browser click '<the option>'`.
+A custom dropdown (a button that opens a list) needs trusted clicks, in two calls: `wafh browser click '<the dropdown button>'`, scan to find the option that appeared, then `wafh browser click '<the option>'`.
 
 ## Wait for content that loads late
 
@@ -89,9 +89,9 @@ return input.files.length;
 For a file on this machine, hand its path to the input through the DevTools Protocol, in three calls one right after the other (the node ids are valid until the page changes):
 
 ```bash
-penguin browser cdp DOM.getDocument --params '{"depth":1}'
-penguin browser cdp DOM.querySelector --params '{"nodeId":1,"selector":"input[type=file]"}'
-penguin browser cdp DOM.setFileInputFiles --params '{"nodeId":42,"files":["/home/me/report.pdf"]}'
+wafh browser cdp DOM.getDocument --params '{"depth":1}'
+wafh browser cdp DOM.querySelector --params '{"nodeId":1,"selector":"input[type=file]"}'
+wafh browser cdp DOM.setFileInputFiles --params '{"nodeId":42,"files":["/home/me/report.pdf"]}'
 ```
 
 Use the `root.nodeId` the first call returns and the `nodeId` the second returns. Check `input.accept` first, and when a page has several file inputs, pick by the container around them.
@@ -117,9 +117,9 @@ The desktop app asks the user where to save it.
 Same-origin iframes are part of the scan and reachable as `frame.contentDocument`. A cross-origin iframe (a payment form, an embedded widget) is not reachable from the page's JavaScript; evaluate inside it through the DevTools Protocol:
 
 ```bash
-penguin browser cdp Page.getFrameTree
-penguin browser cdp Page.createIsolatedWorld --params '{"frameId":"<frame id whose url matches>"}'
-penguin browser cdp Runtime.evaluate --params '{"contextId":7,"expression":"document.title","returnByValue":true}'
+wafh browser cdp Page.getFrameTree
+wafh browser cdp Page.createIsolatedWorld --params '{"frameId":"<frame id whose url matches>"}'
+wafh browser cdp Runtime.evaluate --params '{"contextId":7,"expression":"document.title","returnByValue":true}'
 ```
 
 An open shadow root is `host.shadowRoot`. A closed one is only visible to the protocol: `DOM.getDocument` with `{"depth":-1,"pierce":true}` walks through it, and `DOM.getBoxModel` gives the coordinates for a `click --at`.
@@ -128,7 +128,7 @@ An open shadow root is `host.shadowRoot`. A closed one is only visible to the pr
 
 - The largest image on a page: `return [...document.images].sort((a, b) => b.naturalWidth - a.naturalWidth)[0]?.src;`
 - A canvas as an image: `return document.querySelector('canvas').toDataURL('image/png');` (with `--save`, since it is long).
-- What the page looks like: `penguin browser screenshot -o page.png`, then look at the file. A captcha is for the user to solve in the Browser panel.
+- What the page looks like: `wafh browser screenshot -o page.png`, then look at the file. A captcha is for the user to solve in the Browser panel.
 
 ## Coordinates for a trusted click
 
@@ -139,4 +139,4 @@ const r = document.querySelector('#target').getBoundingClientRect();
 return `${Math.round(r.x + r.width / 2)},${Math.round(r.y + r.height / 2)}`;
 ```
 
-Scroll the element into view first (`el.scrollIntoView({ block: 'center' })`) and measure after; `penguin browser click '<selector>'` does both itself.
+Scroll the element into view first (`el.scrollIntoView({ block: 'center' })`) and measure after; `wafh browser click '<selector>'` does both itself.

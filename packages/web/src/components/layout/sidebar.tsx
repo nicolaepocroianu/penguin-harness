@@ -46,7 +46,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent as ReactDragEvent, ReactNode } from "react";
 import { Link, useLocation, useMatch, useNavigate } from "react-router";
-import type { SessionInfo } from "@prismshadow/penguin-server/api";
+import type { SessionInfo } from "@waterford/waf-harness-server/api";
 import {
   AgentAvatar,
   Badge,
@@ -86,8 +86,8 @@ import {
   toastInfo,
   toastSuccess,
   useArrived,
-} from "@prismshadow/penguin-ui";
-import type { SidebarDropTarget } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { SidebarDropTarget } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { formatRelativeShort } from "../../lib/format";
@@ -238,10 +238,10 @@ export const NEW_CHAT_ICON = ICONS.penLine;
  * mutates its value and fires `input` — a mis-aimed reorder would paste a session id
  * into the user's message. Nothing outside these rows reads this type.
  */
-const SESSION_DRAG_MIME = "application/x-penguin-session-id";
+const SESSION_DRAG_MIME = "application/x-wafh-session-id";
 
 /** Private drag payload type of a group reorder (same reasoning as SESSION_DRAG_MIME: never text/plain). */
-const GROUP_DRAG_MIME = "application/x-penguin-group-key";
+const GROUP_DRAG_MIME = "application/x-wafh-group-key";
 
 /**
  * Is the drag in flight one of our group reorders? `types` is readable during dragover
@@ -253,7 +253,7 @@ const GROUP_DRAG_MIME = "application/x-penguin-group-key";
 const isGroupDrag = (e: ReactDragEvent): boolean => e.dataTransfer.types.includes(GROUP_DRAG_MIME);
 
 /** Private drag payload type of a nav entry moved between the pinned and collapsible areas (never text/plain, as above). */
-const NAV_DRAG_MIME = "application/x-penguin-nav-entry";
+const NAV_DRAG_MIME = "application/x-wafh-nav-entry";
 
 /** Is the drag in flight a nav entry of ours? Authorizes a nav drop the way isGroupDrag authorizes a group drop. */
 const isNavDrag = (e: ReactDragEvent): boolean => e.dataTransfer.types.includes(NAV_DRAG_MIME);
@@ -281,8 +281,8 @@ const GROUP_ACTION_CLASS =
  * never collide); stray keys left by deleted Agents or Workspaces are harmless
  * (never matched) and the per-Project sets stay tiny.
  */
-const collapsedGroupsKey = (projectId: string) => `penguin.sidebarCollapsedGroups.${projectId}`;
-const pinnedGroupsKey = (projectId: string) => `penguin.sidebarPinnedGroups.${projectId}`;
+const collapsedGroupsKey = (projectId: string) => `wafh.sidebarCollapsedGroups.${projectId}`;
+const pinnedGroupsKey = (projectId: string) => `wafh.sidebarPinnedGroups.${projectId}`;
 /** Reads a persisted group-key set (no Project yet / corrupted storage degrade to empty). */
 function loadGroupSet(storageKey: string | null): ReadonlySet<string> {
   if (!storageKey) return new Set();

@@ -1,5 +1,5 @@
 #!/bin/sh
-# https://penguin.ooo/install.sh - PenguinHarness installer entry point.
+# https://penguin.ooo/install.sh - WAF Harness installer entry point.
 #
 # GitHub Pages cannot serve HTTP redirects, so this thin forwarder IS the
 # stable install URL. It selects an immutable OSS release when that mirror is
@@ -15,7 +15,7 @@ set -eu
 OSS_ORIGIN="https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com"
 OSS_RELEASE_ROOT="$OSS_ORIGIN/releases"
 GITHUB_RELEASE_ROOT="https://github.com/Prism-Shadow/penguin-harness/releases/download"
-SOURCE_MODE="${PENGUIN_DOWNLOAD_SOURCE:-auto}"
+SOURCE_MODE="${WAFH_DOWNLOAD_SOURCE:-auto}"
 
 fail() {
   echo "error: $1" >&2
@@ -46,10 +46,10 @@ validate_release_tag() {
 
 case "$SOURCE_MODE" in
   auto | oss | github) ;;
-  *) fail "PENGUIN_DOWNLOAD_SOURCE must be auto, oss, or github" ;;
+  *) fail "WAFH_DOWNLOAD_SOURCE must be auto, oss, or github" ;;
 esac
 
-REQUESTED_VERSION="${PENGUIN_VERSION:-}"
+REQUESTED_VERSION="${WAFH_VERSION:-}"
 expect_version=0
 for arg in "$@"; do
   if [ "$expect_version" -eq 1 ]; then
@@ -90,13 +90,13 @@ use_github() {
     || fail "could not download the installer from GitHub. Check your network, then retry."
 }
 
-EXPLICIT_BASE="${PENGUIN_DOWNLOAD_BASE_URL:-}"
+EXPLICIT_BASE="${WAFH_DOWNLOAD_BASE_URL:-}"
 if [ -n "$EXPLICIT_BASE" ]; then
   SELECTED_BASE="${EXPLICIT_BASE%/}"
-  FALLBACK_BASE="${PENGUIN_DOWNLOAD_FALLBACK_BASE_URL:-}"
+  FALLBACK_BASE="${WAFH_DOWNLOAD_FALLBACK_BASE_URL:-}"
   FALLBACK_BASE="${FALLBACK_BASE%/}"
-  validate_https_url PENGUIN_DOWNLOAD_BASE_URL "$SELECTED_BASE"
-  [ -z "$FALLBACK_BASE" ] || validate_https_url PENGUIN_DOWNLOAD_FALLBACK_BASE_URL "$FALLBACK_BASE"
+  validate_https_url WAFH_DOWNLOAD_BASE_URL "$SELECTED_BASE"
+  [ -z "$FALLBACK_BASE" ] || validate_https_url WAFH_DOWNLOAD_FALLBACK_BASE_URL "$FALLBACK_BASE"
   download_installer "$SELECTED_BASE" \
     || fail "could not download the installer from the configured mirror."
 elif [ "$SOURCE_MODE" = "github" ]; then
@@ -133,15 +133,15 @@ fi
 rc=0
 (
   if [ -n "$EXPLICIT_BASE" ]; then
-    export PENGUIN_DOWNLOAD_BASE_URL="$SELECTED_BASE"
+    export WAFH_DOWNLOAD_BASE_URL="$SELECTED_BASE"
     if [ -n "$FALLBACK_BASE" ]; then
-      export PENGUIN_DOWNLOAD_FALLBACK_BASE_URL="$FALLBACK_BASE"
+      export WAFH_DOWNLOAD_FALLBACK_BASE_URL="$FALLBACK_BASE"
     else
-      unset PENGUIN_DOWNLOAD_FALLBACK_BASE_URL
+      unset WAFH_DOWNLOAD_FALLBACK_BASE_URL
     fi
   else
-    unset PENGUIN_DOWNLOAD_BASE_URL
-    unset PENGUIN_DOWNLOAD_FALLBACK_BASE_URL
+    unset WAFH_DOWNLOAD_BASE_URL
+    unset WAFH_DOWNLOAD_FALLBACK_BASE_URL
   fi
   sh "$INSTALLER" "$@"
 ) || rc=$?

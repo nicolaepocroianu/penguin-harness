@@ -44,7 +44,7 @@ describe("Writer", () => {
   let tracesDir: string;
 
   beforeEach(async () => {
-    tracesDir = await mkdtemp(join(tmpdir(), "penguin-trace-"));
+    tracesDir = await mkdtemp(join(tmpdir(), "wafh-trace-"));
   });
 
   afterEach(async () => {

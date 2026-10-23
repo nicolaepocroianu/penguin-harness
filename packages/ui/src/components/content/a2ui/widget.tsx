@@ -15,7 +15,7 @@
  */
 import { createContext, useContext, useRef } from "react";
 import type { ReactNode } from "react";
-import { formatAsOf } from "@prismshadow/penguin-core/a2ui";
+import { formatAsOf } from "@waterford/waf-harness-core/a2ui";
 import { useUiStrings } from "../../../strings";
 import { useInView, useNow } from "./use-now";
 

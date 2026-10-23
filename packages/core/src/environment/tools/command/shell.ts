@@ -5,7 +5,7 @@
  * — Windows has none by default, and a POSIX box can be launched with a PATH that has none —
  * so the resolver picks the best available shell once per process:
  *
- * 1. `PENGUIN_SHELL` (explicit executable name or path) always wins, on every platform;
+ * 1. `WAFH_SHELL` (explicit executable name or path) always wins, on every platform;
  *    the argument shape is inferred from its basename (see below).
  * 2. Otherwise, non-Windows uses `bash -lc` — but only after confirming a `bash` exists.
  *    A GUI-launched app inherits the desktop session's PATH, not a login shell's, and a
@@ -21,7 +21,7 @@
  *    Git for Windows' installer by default puts only its `cmd` folder on PATH, which holds
  *    `git` but not `bash`, so the same install is also found through `git`: the `bash.exe`
  *    in the `bin` folder of the install that `git` resolves into.
- * 4. Then `PENGUIN_BUNDLED_SHELL` — the MinGit bash the Windows package ships (see the
+ * 4. Then `WAFH_BUNDLED_SHELL` — the MinGit bash the Windows package ships (see the
  *    release workflow), advertised by the launcher shims as an absolute path. It comes
  *    *after* the PATH probe on purpose: a user's own Git for Windows carries the full MSYS
  *    userland (curl, tar, less, perl …), while MinGit carries ~60 core tools, so when both
@@ -31,7 +31,7 @@
  * 5. Only then `pwsh` (PowerShell 7+), and finally `powershell` (Windows PowerShell 5.1,
  *    always present). These remain reachable for npm installs, which ship no bundle.
  *
- * Argument shapes by basename (also applied to `PENGUIN_SHELL` values):
+ * Argument shapes by basename (also applied to `WAFH_SHELL` values):
  * - `pwsh` / `powershell` -> `-NoLogo -NoProfile -Command <cmd>`
  * - `cmd`                 -> `/d /s /c <cmd>`
  * - anything else         -> `-lc <cmd>` (bash/zsh/sh-style login shell)
@@ -73,7 +73,7 @@ export interface ResolveShellOptions {
 
 /** Basename without a trailing .exe/.cmd/.bat/.ps1 extension, lowercased ("C:\...\pwsh.EXE" -> "pwsh"). */
 function shellBasename(command: string): string {
-  // path.win32 handles both separators, so PENGUIN_SHELL=/usr/bin/zsh still yields "zsh".
+  // path.win32 handles both separators, so WAFH_SHELL=/usr/bin/zsh still yields "zsh".
   return path.win32
     .basename(command)
     .replace(/\.(exe|cmd|bat|ps1)$/i, "")
@@ -193,7 +193,7 @@ export function resolveShell(opts: ResolveShellOptions = {}): ShellInvocation {
   const platform = opts.platform ?? process.platform;
   const env = opts.env ?? process.env;
 
-  const explicit = env.PENGUIN_SHELL?.trim();
+  const explicit = env.WAFH_SHELL?.trim();
   if (explicit) {
     const name = shellBasename(explicit);
     return { command: explicit, args: argsForShell(name), name };
@@ -229,7 +229,7 @@ export function resolveShell(opts: ResolveShellOptions = {}): ShellInvocation {
   // The bundled MinGit bash (installed-package layout only; absent for npm installs). Reported
   // to the model as "bash" rather than its filename: MinGit installs GNU bash under the name
   // `sh`, and the Skill ecosystem targets bash, so "sh" would understate what it can run.
-  const bundled = env.PENGUIN_BUNDLED_SHELL?.trim();
+  const bundled = env.WAFH_BUNDLED_SHELL?.trim();
   if (bundled && exists(bundled)) {
     return { command: bundled, args: ["-lc"], name: "bash" };
   }
@@ -248,7 +248,7 @@ const CONFINABLE_WINDOWS_SHELLS = new Set(["pwsh", "powershell", "cmd"]);
  * Git for Windows' and MinGit's bash run on the MSYS runtime, which cannot start under a
  * restricted-token sandbox (its per-user shared memory is refused, "CreateFileMapping ...
  * Win32 error 5"), and a bare `bash` there resolves to the WSL launcher in System32. So a
- * `PENGUIN_SHELL` naming PowerShell or cmd is honoured, and otherwise it is `pwsh`, then
+ * `WAFH_SHELL` naming PowerShell or cmd is honoured, and otherwise it is `pwsh`, then
  * `powershell` — by absolute path where PATH finds one, since a sandbox runner's
  * CreateProcess does not search PATH first.
  */
@@ -256,7 +256,7 @@ export function resolveConfinedShell(opts: ResolveShellOptions = {}): ShellInvoc
   const platform = opts.platform ?? process.platform;
   if (platform !== "win32") return resolveShell(opts);
   const env = opts.env ?? process.env;
-  const explicit = env.PENGUIN_SHELL?.trim();
+  const explicit = env.WAFH_SHELL?.trim();
   if (explicit && CONFINABLE_WINDOWS_SHELLS.has(shellBasename(explicit))) {
     const name = shellBasename(explicit);
     return { command: explicit, args: argsForShell(name), name };

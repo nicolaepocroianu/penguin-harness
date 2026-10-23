@@ -7,7 +7,7 @@
  *   renders.
  */
 import { describe, expect, it } from "vitest";
-import { DEFAULT_UI_STRINGS } from "@prismshadow/penguin-ui";
+import { DEFAULT_UI_STRINGS } from "@waterford/waf-harness-ui";
 import { uiStringsFor } from "../src/lib/ui-strings";
 
 /** Every leaf of a strings object, a nested group's keys as `group.key`. */

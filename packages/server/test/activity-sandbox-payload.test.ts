@@ -73,7 +73,7 @@ async function sandbox(options: {
   /** Whether activity agents are confined, and why nothing could confine them right now. */
   confinement?: { on?: boolean | (() => boolean); problem?: string | null };
 }) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-sandbox-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-sandbox-"));
   const runs = options.runs ?? [
     { runId: "run_new", status: "succeeded", kind: "module", createdAt: "2026-09-02" },
   ];
@@ -508,7 +508,7 @@ describe("the payload a preview serves", () => {
 
   it("sizes each bound asset from the draft's media, then the checkout's", async () => {
     const usage = [{ sceneId: "intro", sourceKey: "k", occurrence: 1, sceneOccurrenceCount: 1 }];
-    const checkout = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-"));
+    const checkout = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-waf-"));
     cleanups.push(() => fs.rm(checkout, { recursive: true, force: true }));
     const { service, root } = await build({
       wafRoot: checkout,

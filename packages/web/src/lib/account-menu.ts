@@ -6,7 +6,7 @@
  * nothing renders). The rule therefore lives here as a pure predicate that the menu
  * consumes — see test/account-menu.test.ts.
  */
-import type { MeResponse } from "@prismshadow/penguin-server/api";
+import type { MeResponse } from "@waterford/waf-harness-server/api";
 
 /** The two fields of `GET /api/me` that describe who is asking, and from where. */
 export interface AccountMenuSession {
@@ -23,7 +23,7 @@ export interface AccountMenuSession {
  * BOTH halves are required. `desktopMode` alone would also match a browser signed in
  * against the same desktop-mode server over loopback, which may be on another machine and
  * must not drive this one's GUI app. `sessionVia` alone would match a stale desktop cookie
- * replayed against a plain `penguin server` on the same data root, where no shell is
+ * replayed against a plain `wafh server` on the same data root, where no shell is
  * listening at all. The server enforces the same pair on every route behind these
  * controls.
  */
@@ -38,7 +38,7 @@ export function isDesktopShellWindow(session: AccountMenuSession): boolean {
  * in through the shell's one-shot token instead of a login form, and the seed password of
  * a desktop-created root is fully random and deliberately never printed, so its holder has
  * never seen one and has nothing to type. A root that later needs a usable password — to
- * be served by `penguin server` instead — is handled offline by `penguin server
+ * be served by `wafh server` instead — is handled offline by `wafh server
  * reset-admin-password` from the machine that owns it.
  *
  * BOTH halves are required, mirroring the server's own gate in `routes/me.ts`.
@@ -46,7 +46,7 @@ export function isDesktopShellWindow(session: AccountMenuSession): boolean {
  * same desktop-mode server over loopback: that session typed a real password and can still
  * change it (pinned by server/test/desktop.test.ts, "keeps requiring oldPassword for
  * password-established sessions in desktop mode"). `sessionVia` alone would strip it from a
- * stale desktop cookie replayed against a plain `penguin server` on the same shared data
+ * stale desktop cookie replayed against a plain `wafh server` on the same shared data
  * root, where the server requires the old password like any other session.
  */
 export function offersChangePassword(session: AccountMenuSession): boolean {
@@ -68,7 +68,7 @@ export function offersChangePassword(session: AccountMenuSession): boolean {
  * and there the server still requires the old password. Keeping the shorter test would hide a
  * field the request must carry, and the submit would fail on a form that looked complete.
  * That window has no way to set a password in the UI, which is the point: the account's
- * password is recovered from the machine with `penguin server reset-admin-password`.
+ * password is recovered from the machine with `wafh server reset-admin-password`.
  */
 /**
  * Whether to nag that the account still runs on its initial password.

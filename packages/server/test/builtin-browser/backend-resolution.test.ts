@@ -17,7 +17,7 @@
  *   and a prefs write cannot set the backend.
  * - The built-in browser's history, import and data are not Chrome's: 405 on chrome.
  */
-import { assistantText } from "@prismshadow/penguin-core";
+import { assistantText } from "@waterford/waf-harness-core";
 import { afterEach, describe, expect, it } from "vitest";
 import type {
   BrowserBackendResponse,
@@ -161,7 +161,7 @@ describe("the desktop", () => {
   it("never lets a member drive the built-in browser", async () => {
     const shell = new FakeShell();
     t = await createDesktopApp({ browserShellPort: shell.port });
-    // The desktop manages no accounts, but its data root may hold one `penguin web` created.
+    // The desktop manages no accounts, but its data root may hold one `wafh web` created.
     t.deps.tree.api<Users>("IdentityModule", "Users").insert({
       userId: "bob",
       passwordHash: await hashPassword("password-123", 2),

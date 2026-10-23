@@ -10,7 +10,7 @@ import { attachmentFileName, splitAttachments } from "../src/lib/attachments";
 describe("splitAttachments", () => {
   it("scratchpad path lines → session file endpoint, body kept", () => {
     const { text, images } = splitAttachments(
-      "Look at this image\n\n[attached image: /home/u/.penguin/data/p1/agents/a1/scratchpad/session-20260712-abc/upload-1752300000000-0.png]",
+      "Look at this image\n\n[attached image: /home/u/.waf-harness/data/p1/agents/a1/scratchpad/session-20260712-abc/upload-1752300000000-0.png]",
     );
     expect(text).toBe("Look at this image");
     expect(images).toEqual([
@@ -44,13 +44,13 @@ describe("splitAttachments", () => {
 
   it("file lines yield their paths, body kept", () => {
     const { text, images, files } = splitAttachments(
-      "Review these\n\n[attached file: /home/u/.penguin/data/p1/agents/a1/scratchpad/s1/report.pdf]\n[attached file: /home/u/.penguin/data/p1/agents/a1/scratchpad/s1/rows.csv]",
+      "Review these\n\n[attached file: /home/u/.waf-harness/data/p1/agents/a1/scratchpad/s1/report.pdf]\n[attached file: /home/u/.waf-harness/data/p1/agents/a1/scratchpad/s1/rows.csv]",
     );
     expect(text).toBe("Review these");
     expect(images).toEqual([]);
     expect(files).toEqual([
-      "/home/u/.penguin/data/p1/agents/a1/scratchpad/s1/report.pdf",
-      "/home/u/.penguin/data/p1/agents/a1/scratchpad/s1/rows.csv",
+      "/home/u/.waf-harness/data/p1/agents/a1/scratchpad/s1/report.pdf",
+      "/home/u/.waf-harness/data/p1/agents/a1/scratchpad/s1/rows.csv",
     ]);
   });
 

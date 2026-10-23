@@ -186,8 +186,10 @@ describe("PUT /api/me/profile in desktop mode", () => {
    */
   it("accepts the desktop shell's own token session", async () => {
     const cookie = await desktopLoginCookie(t.app);
-    const res = await apiClient(t.app, cookie).put("/api/me/profile", { displayName: "Penguin" });
+    const res = await apiClient(t.app, cookie).put("/api/me/profile", {
+      displayName: "WAF Harness",
+    });
     expect(res.status).toBe(200);
-    expect(((await res.json()) as UpdateProfileResponse).user.displayName).toBe("Penguin");
+    expect(((await res.json()) as UpdateProfileResponse).user.displayName).toBe("WAF Harness");
   });
 });

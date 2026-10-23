@@ -1,32 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getMessages, maskApiKey, resolveLanguage } from "../src/i18n.js";
 
-describe("resolveLanguage (env PENGUIN_LANG, default en)", () => {
+describe("resolveLanguage (env WAFH_LANG, default en)", () => {
   let prev: string | undefined;
   beforeEach(() => {
-    prev = process.env.PENGUIN_LANG;
+    prev = process.env.WAFH_LANG;
   });
   afterEach(() => {
-    if (prev === undefined) delete process.env.PENGUIN_LANG;
-    else process.env.PENGUIN_LANG = prev;
+    if (prev === undefined) delete process.env.WAFH_LANG;
+    else process.env.WAFH_LANG = prev;
   });
 
   it("defaults to en when unset", () => {
-    delete process.env.PENGUIN_LANG;
+    delete process.env.WAFH_LANG;
     expect(resolveLanguage()).toBe("en");
   });
   it("falls back to English for removed language preferences", () => {
-    process.env.PENGUIN_LANG = "zh";
+    process.env.WAFH_LANG = "zh";
     expect(resolveLanguage()).toBe("en");
-    process.env.PENGUIN_LANG = "  ZH  ";
+    process.env.WAFH_LANG = "  ZH  ";
     expect(resolveLanguage()).toBe("en");
   });
   it("falls back to en for non-exact zh prefixes and anything else", () => {
-    process.env.PENGUIN_LANG = "zh-CN"; // no longer prefix-matched -> en
+    process.env.WAFH_LANG = "zh-CN"; // no longer prefix-matched -> en
     expect(resolveLanguage()).toBe("en");
-    process.env.PENGUIN_LANG = "fr";
+    process.env.WAFH_LANG = "fr";
     expect(resolveLanguage()).toBe("en");
-    process.env.PENGUIN_LANG = "en";
+    process.env.WAFH_LANG = "en";
     expect(resolveLanguage()).toBe("en");
   });
 });
@@ -100,7 +100,7 @@ describe("getMessages", () => {
       expect(m.ls.empty("proj-x")).toContain("proj-x");
       expect(m.agent.created("helper", "proj-x")).toContain("helper");
       expect(m.client.autoStarted("http://localhost:1", "/log")).toContain("http://localhost:1");
-      expect(m.client.remoteNeedsToken("https://r")).toContain("PENGUIN_API_TOKEN");
+      expect(m.client.remoteNeedsToken("https://r")).toContain("WAFH_API_TOKEN");
       expect(m.client.noToken("http://l", "/root/api-token")).toContain("/root/api-token");
       expect(m.client.httpError(500, "boom", "detail")).toContain("500");
       expect(m.client.sessionAmbiguous("ab", ["s1", "s2"])).toContain("s1");
@@ -130,7 +130,7 @@ describe("getMessages", () => {
       expect(m.client.latestSession("session-x")).toContain("session-x");
       expect(m.client.noSessionsYet("ag", "proj-x")).toContain("ag");
       expect(m.client.noSessionsYet("ag", "proj-x")).toContain("proj-x");
-      expect(m.client.noSessionsYet("ag", "proj-x")).toContain("penguin chat");
+      expect(m.client.noSessionsYet("ag", "proj-x")).toContain("wafh chat");
       // Argument errors: each shape keeps the identifier commander quoted.
       expect(m.usage.missingArgument("sessionId")).toContain("sessionId");
       expect(m.usage.missingOption("--prompt <text>")).toContain("--prompt <text>");
@@ -138,14 +138,14 @@ describe("getMessages", () => {
       expect(m.usage.unknownOption("--nope")).toContain("--nope");
       expect(m.usage.unknownCommand("nosuch")).toContain("nosuch");
       expect(m.usage.other("too many arguments.")).toContain("too many arguments.");
-      const hint = m.usage.hint("penguin schedule add", "[options] <name>");
-      expect(hint).toContain("penguin schedule add [options] <name>");
-      expect(hint).toContain("penguin schedule add --help");
+      const hint = m.usage.hint("wafh schedule add", "[options] <name>");
+      expect(hint).toContain("wafh schedule add [options] <name>");
+      expect(hint).toContain("wafh schedule add --help");
       // The company-mode family: descriptions, the control-environment default, confirmations.
       expect(m.org.lsDesc.length).toBeGreaterThan(0);
       expect(m.org.ticketCreateDesc.length).toBeGreaterThan(0);
-      expect(m.org.orgId).toContain("PENGUIN_ORG_ID");
-      expect(m.org.orgIdMissing()).toContain("PENGUIN_ORG_ID");
+      expect(m.org.orgId).toContain("WAFH_ORG_ID");
+      expect(m.org.orgIdMissing()).toContain("WAFH_ORG_ID");
       expect(m.org.hireTargetConflict()).toContain("--new-agent");
       expect(m.org.statusInvalid("bogus")).toContain("bogus");
       expect(m.org.created("acme", "session-x")).toContain("session-x");
@@ -162,7 +162,7 @@ describe("getMessages", () => {
       expect(m.browser.errorLine("no_such_tab", "gone")).toContain("no_such_tab");
       expect(m.browser.errorLine("no_such_tab", "gone")).toContain("gone");
       for (const reason of [undefined, "not_desktop", "shell_unsupported", "no_window"]) {
-        expect(m.browser.unavailableHint(reason)).toContain("PenguinHarness");
+        expect(m.browser.unavailableHint(reason)).toContain("WAF Harness");
       }
       expect(m.browser.tabHead(12, "Orders", "https://a.example/", false)).toContain("12");
       expect(m.browser.sourceNotFound("safari", ["chrome"])).toContain("safari");

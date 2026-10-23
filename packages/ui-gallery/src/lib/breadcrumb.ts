@@ -9,8 +9,8 @@
  * it is not the default, and the phone frame, so one quote still means one view. The caller
  * passes every name already worded; this file only spells the address.
  */
-import { DEFAULT_TEXT_SIZE } from "@prismshadow/penguin-ui/boot";
-import type { TextSize } from "@prismshadow/penguin-ui/boot";
+import { DEFAULT_TEXT_SIZE } from "@waterford/waf-harness-ui/boot";
+import type { TextSize } from "@waterford/waf-harness-ui/boot";
 import { TEXT_SIZE_PX_NUMBER } from "./themes";
 
 export interface BreadcrumbParts {

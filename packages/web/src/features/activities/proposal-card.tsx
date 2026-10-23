@@ -5,7 +5,7 @@
  * accepted proposal is an ordinary draft change.
  */
 import { useMemo, useState } from "react";
-import { Button, ConfirmModal } from "@prismshadow/penguin-ui";
+import { Button, ConfirmModal } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneSurface } from "../../lib/tone";
 import {

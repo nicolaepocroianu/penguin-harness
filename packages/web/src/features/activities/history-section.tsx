@@ -12,8 +12,8 @@ import type {
   ActivityDraft,
   ActivityRun,
   ActivityRunSummary,
-} from "@prismshadow/penguin-server/api";
-import { Button, Pill, buttonClass } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { Button, Pill, buttonClass } from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneName, type Tone } from "../../lib/tone";

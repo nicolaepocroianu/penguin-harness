@@ -28,7 +28,7 @@ import { apiError, json, stubFetch } from "./helpers/fetch";
 import { stubLocalStorage } from "./helpers/storage";
 
 beforeEach(() => {
-  stubLocalStorage().setItem("penguin.lang", "en");
+  stubLocalStorage().setItem("wafh.lang", "en");
   setActiveStrings(en);
 });
 

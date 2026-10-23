@@ -11,7 +11,7 @@
  * that it ships, else its only Skill. A plugin none of these settles is not offered. The label and
  * the hint are the plugin's own display name and short description, in the reader's language.
  */
-import type { PluginItem, PluginLibraryResponse } from "@prismshadow/penguin-server/api";
+import type { PluginItem, PluginLibraryResponse } from "@waterford/waf-harness-server/api";
 import { localizedText } from "../chat/skill-use";
 
 /** The plugin library's category the self-evolution toolkits are filed under. */

@@ -17,7 +17,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement, isValidElement } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { BuiltinBrowserServerEvent, BuiltinBrowserTab } from "@prismshadow/penguin-server/api";
+import type {
+  BuiltinBrowserServerEvent,
+  BuiltinBrowserTab,
+} from "@waterford/waf-harness-server/api";
 import { normalizeAddress } from "../src/features/builtin-browser/address";
 import { BuiltinBrowserPanel } from "../src/features/builtin-browser/browser-panel";
 import {

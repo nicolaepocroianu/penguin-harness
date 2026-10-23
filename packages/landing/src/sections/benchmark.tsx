@@ -4,7 +4,7 @@
  * multiples (accuracy / Tokens / cost, one measure per axis) plus a five-column table of
  * suite totals (framework / model / accuracy % / Tokens M / cost $). Suite specifics
  * (case count, runs, thinking level, timeout, pricing) sit in a footnote under each table.
- * Emphasis form: PenguinHarness wears the brand hue, competitors the de-emphasis
+ * Emphasis form: WAF Harness wears the brand hue, competitors the de-emphasis
  * gray; per-bar identity comes from logo+name labels, every cap is value-labeled,
  * and the exact table relieves the sub-3:1 gray fills.
  */
@@ -41,7 +41,7 @@ const PLOT_TOP = 28;
 const BASELINE = 168;
 const BAR_W = 24;
 /**
- * Shortest a bar may render. At true scale the cost panels put PenguinHarness at ~1.6px
+ * Shortest a bar may render. At true scale the cost panels put WAF Harness at ~1.6px
  * against a 140px plot (the spread is ~70x), which reads as an empty slot rather than a
  * winning series. The floor keeps it visible while still plainly the smallest bar, and
  * every cap carries its exact value.

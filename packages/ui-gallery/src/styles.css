@@ -6,11 +6,11 @@
  * (src/app/app.css, src/library/library.css), which carry the app's stylesheet.
  */
 @import "tailwindcss";
-@import "@prismshadow/penguin-ui/theme.css";
-@import "@prismshadow/penguin-ui/themes/github.css";
-@import "@prismshadow/penguin-ui/themes/modern.css";
-@import "@prismshadow/penguin-ui/themes/geek.css";
-@import "@prismshadow/penguin-ui/fonts.css";
+@import "@waterford/waf-harness-ui/theme.css";
+@import "@waterford/waf-harness-ui/themes/github.css";
+@import "@waterford/waf-harness-ui/themes/modern.css";
+@import "@waterford/waf-harness-ui/themes/geek.css";
+@import "@waterford/waf-harness-ui/fonts.css";
 @import "./chrome.css";
 @import "./site/site.css";
 

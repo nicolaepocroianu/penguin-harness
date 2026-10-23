@@ -19,14 +19,14 @@
  * All of it is platform code on both sides, so it ships by push; a serving generation older
  * than this registers no slip, and the push it serves boots as one nobody is waiting on.
  */
-import type { Resources } from "@prismshadow/penguin-core/kernel";
+import type { Resources } from "@waterford/waf-harness-core/kernel";
 import type { ErrorBody, UnsatisfiedPlugin } from "../api/types.js";
 
 /** Registry key of the slip for the push in flight. */
 export const PUSH_SLIP_RESOURCE_ID = "platform.pushSlip";
 
 /** The request header by which a pusher accepts running without the plugins the build cannot satisfy. */
-export const UNSATISFIED_PLUGINS_HEADER = "x-penguin-unsatisfied-plugins";
+export const UNSATISFIED_PLUGINS_HEADER = "x-wafh-unsatisfied-plugins";
 /** Its one value. */
 export const LEAVE_OUT = "leave-out";
 

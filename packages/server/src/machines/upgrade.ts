@@ -62,7 +62,7 @@ export async function upgradeRemote(opts: {
   /** A dial through the machine's connection, and its server's port over there. */
   agent: http.Agent;
   port: number;
-  /** A session on that machine, as its own cookie (`penguin_session=…`). */
+  /** A session on that machine, as its own cookie (`wafh_session=…`). */
   cookie: string;
   dataRoot: string;
   onProgress?: (line: string) => void;

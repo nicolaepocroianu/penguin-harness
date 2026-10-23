@@ -22,8 +22,8 @@ import {
   toolCall,
   toolCallOutput,
   userText,
-} from "@prismshadow/penguin-core";
-import type { OmniMessage } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { OmniMessage } from "@waterford/waf-harness-core";
 import type { HistoryMessage, MessagesResponse } from "../src/api/types.js";
 import { sessionRow, uniqueSessionId } from "./fixtures/session.js";
 import { apiClient, createTestApp, provisionUser, writeTraceFile } from "./helpers.js";

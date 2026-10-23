@@ -17,7 +17,7 @@ import type {
   SpeechProviderId,
   SpeechProviderStatus,
   VoiceOption,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Badge,
   Button,
@@ -28,7 +28,7 @@ import {
   ICON_GAP,
   ICON_SIZE,
   ICONS,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";
@@ -482,7 +482,7 @@ export function SpeechCoverage({
                   <VoicePicker
                     options={bulkVoices}
                     // The voice the narrations share, or the default where none names one
-                    // Penguin can speak (generation falls back to the default for those).
+                    // WAF Harness can speak (generation falls back to the default for those).
                     value={mixedVoice(assets, bulkVoices) ?? (voice || null)}
                     label={S.activities.voicePicker.applyToAll}
                     showLabel={false}

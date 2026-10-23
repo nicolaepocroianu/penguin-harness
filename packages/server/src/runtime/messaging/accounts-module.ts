@@ -3,7 +3,7 @@
  * they read the stored bindings and ask the Project's machines, and never touch a connection.
  * A machine-free server serves them the same way, answering for itself alone.
  */
-import { Bind, Module, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Module, Use } from "@waterford/waf-harness-core/kernel";
 import type { Hono } from "hono";
 import type { AppEnv } from "../../auth/middleware.js";
 import {

@@ -1,9 +1,9 @@
 ---
 title: Configuration Reference
-description: Every PenguinHarness setting with its default and constraints, from environment variables to the Project, agent, memory, Vault and schedule files.
+description: Every WAF Harness setting with its default and constraints, from environment variables to the Project, agent, memory, Vault and schedule files.
 ---
 
-PenguinHarness configuration has three layers: environment variables shape the deployment, the Project config manages models and credentials, and the agent config defines one agent's behavior. Each agent also keeps state files for its [Memory](#memory), [Vault](#vault) and [Schedules](#schedules).
+WAF Harness configuration has three layers: environment variables shape the deployment, the Project config manages models and credentials, and the agent config defines one agent's behavior. Each agent also keeps state files for its [Memory](#memory), [Vault](#vault) and [Schedules](#schedules).
 
 ## Environment variables
 
@@ -11,57 +11,57 @@ The CLI and the server load a `.env` file from the working directory on startup.
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `PENGUIN_HOME` | Data root directory | `~/.penguin/data` |
+| `WAFH_HOME` | Data root directory | `~/.waf-harness/data` |
 | `PORT` | Web service listen port | `7364` |
 | `HOST` | Web service listen address | `127.0.0.1` |
-| `PENGUIN_WEB_DB` | Server SQLite database path | `<root>/web.db` |
-| `PENGUIN_WEB_DIST` | Front-end static assets directory | The server package's bundled `web-dist` (in a source checkout, `packages/web/dist`) |
-| `PENGUIN_PREVIEW_ORIGIN` | Origin that serves Workspace HTML previews, e.g. `https://preview.example.com` | Unset: the loopback counterpart is derived per request |
+| `WAFH_WEB_DB` | Server SQLite database path | `<root>/web.db` |
+| `WAFH_WEB_DIST` | Front-end static assets directory | The server package's bundled `web-dist` (in a source checkout, `packages/web/dist`) |
+| `WAFH_PREVIEW_ORIGIN` | Origin that serves Workspace HTML previews, e.g. `https://preview.example.com` | Unset: the loopback counterpart is derived per request |
 | `PENGUIN_GO_ORIGIN` | Trusted origin for Penguin Go key authorization and account balance queries | `https://go.penguin.ooo` |
 | `MODELSCOPE_BRIDGE_URL` | Address of the authorization bridge the server-side ModelScope key authorization calls | `https://go.penguin.ooo/modelscope` |
-| `PENGUIN_TRUST_PROXY` | `1` trusts the `x-forwarded-proto` header | Unset: the header is ignored |
-| `PENGUIN_SEED_ADMIN_PASSWORD` | Fixed initial password for the seeded built-in admin (automated tests / e2e) | Unset: a random password is generated |
-| `PENGUIN_LANG` | CLI language (`en`), set with `penguin config lang` | `en` |
-| `PENGUIN_UPDATE_CHECK` | `off` disables the Web App's new-release check | Enabled |
-| `PENGUIN_NO_LOGIN_SHELL_ENV` | Any non-empty value stops the desktop app from importing the login shell's environment on macOS/Linux GUI launches | Unset: the import runs |
-| `PENGUIN_SHELL` | The shell that runs agent commands (an executable name or path) | Unset: picked automatically, see [Tools & Approval](/tools#command-sessions) |
-| `PENGUIN_CLI_ENTRY` | The CLI entry script this installation offers the agents it runs (see [PATH launcher](#path-launcher)) | Set by `penguin server` / `penguin web` and by the desktop app |
+| `WAFH_TRUST_PROXY` | `1` trusts the `x-forwarded-proto` header | Unset: the header is ignored |
+| `WAFH_SEED_ADMIN_PASSWORD` | Fixed initial password for the seeded built-in admin (automated tests / e2e) | Unset: a random password is generated |
+| `WAFH_LANG` | CLI language (`en`), set with `wafh config lang` | `en` |
+| `WAFH_UPDATE_CHECK` | `off` disables the Web App's new-release check | Enabled |
+| `WAFH_NO_LOGIN_SHELL_ENV` | Any non-empty value stops the desktop app from importing the login shell's environment on macOS/Linux GUI launches | Unset: the import runs |
+| `WAFH_SHELL` | The shell that runs agent commands (an executable name or path) | Unset: picked automatically, see [Tools & Approval](/tools#command-sessions) |
+| `WAFH_CLI_ENTRY` | The CLI entry script this installation offers the agents it runs (see [PATH launcher](#path-launcher)) | Set by `wafh server` / `wafh web` and by the desktop app |
 
 Notes:
 
-- `PENGUIN_TRUST_PROXY`: set it behind a reverse proxy that terminates TLS and sets or strips the header itself. Session cookies are then marked `Secure`, and the hot-update network gate sees HTTPS.
-- `PENGUIN_SEED_ADMIN_PASSWORD`: without it, the seed generates a random password that is hashed and discarded unseen, and you claim the account through the first-login link.
+- `WAFH_TRUST_PROXY`: set it behind a reverse proxy that terminates TLS and sets or strips the header itself. Session cookies are then marked `Secure`, and the hot-update network gate sees HTTPS.
+- `WAFH_SEED_ADMIN_PASSWORD`: without it, the seed generates a random password that is hashed and discarded unseen, and you claim the account through the first-login link.
 - `PENGUIN_GO_ORIGIN`: server configuration, not an endpoint the browser can name. It must be a bare HTTPS origin; plain HTTP is accepted only for `localhost`, `127.0.0.1` and `[::1]`, for integration environments. A path, credentials, a query string or a fragment is rejected at startup. See [Connect an account](/models#connect-an-account).
 - `MODELSCOPE_BRIDGE_URL`: server configuration like `PENGUIN_GO_ORIGIN`, not an endpoint the browser can name. It must be an HTTPS address with no credentials, query string or fragment. Unlike `PENGUIN_GO_ORIGIN`, a path prefix **is** allowed, because the production bridge lives under `https://go.penguin.ooo/modelscope`. See [Connect an account](/models#connect-an-account).
-- `PENGUIN_UPDATE_CHECK`: `off` turns off the automatic release check, nothing else. Model requests, an enabled remote-control connection, provider key authorization and the proxy test still reach the network.
-- `PENGUIN_NO_LOGIN_SHELL_ENV`: without it, the import fills only variables the launch left unset. See [Desktop quickstart](/quickstart-desktop).
-- `PENGUIN_CLI_ENTRY`: without it, a server started from a source checkout offers that checkout's own CLI (see [PATH launcher](#path-launcher)). The dev entry points `pnpm dev`, `pnpm desktop` and `pnpm penguin` clear a value they inherit, such as one a terminal of the installed app hands on, and always use the checkout's CLI; a packaged or installed launch still honours it.
+- `WAFH_UPDATE_CHECK`: `off` turns off the automatic release check, nothing else. Model requests, an enabled remote-control connection, provider key authorization and the proxy test still reach the network.
+- `WAFH_NO_LOGIN_SHELL_ENV`: without it, the import fills only variables the launch left unset. See [Desktop quickstart](/quickstart-desktop).
+- `WAFH_CLI_ENTRY`: without it, a server started from a source checkout offers that checkout's own CLI (see [PATH launcher](#path-launcher)). The dev entry points `pnpm dev`, `pnpm desktop` and `pnpm wafh` clear a value they inherit, such as one a terminal of the installed app hands on, and always use the checkout's CLI; a packaged or installed launch still honours it.
 
 ### Environment of agent-run commands
 
 Commands an agent runs with `exec_command` inherit the host environment, with these changes:
 
-- **Removed:** `PORT`, `HOST`, `FORCE_COLOR`, `CLICOLOR_FORCE` and every `PENGUIN_*` variable. They configure PenguinHarness itself, not the command. Without this, a dev server started by `exec_command` would read `PORT` and try to bind the port meant for PenguinHarness instead of choosing its own.
+- **Removed:** `PORT`, `HOST`, `FORCE_COLOR`, `CLICOLOR_FORCE` and every `WAFH_*` variable. They configure WAF Harness itself, not the command. Without this, a dev server started by `exec_command` would read `PORT` and try to bind the port meant for WAF Harness instead of choosing its own.
 - **Proxy:** in Sessions the server runs, the **Agent environment uses the proxy** switch in [Settings](/settings#proxy-options) decides the proxy variables. Off removes `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY`; on injects the configured proxy address, or passes the host's variables through when no address is set.
-- **Vault:** the agent's [Vault](#vault) is applied on top, so setting `PORT` or a `PENGUIN_*` variable there does reach commands.
-- **Control variables:** a server-driven Session then injects `PENGUIN_API_URL`, `PENGUIN_API_TOKEN`, `PENGUIN_PROJECT_ID`, `PENGUIN_AGENT_ID` and `PENGUIN_SESSION_ID` (plus `PENGUIN_ORG_ID` in company mode), so the agent's own `penguin` calls reach the server that runs it. These override Vault entries of the same name. A Session working in an activity run's folder gets the Session variables but not `PENGUIN_API_URL` or `PENGUIN_API_TOKEN`: nothing a run does needs the API, and the token carries the admin's authority. See [CLI Reference](/cli).
+- **Vault:** the agent's [Vault](#vault) is applied on top, so setting `PORT` or a `WAFH_*` variable there does reach commands.
+- **Control variables:** a server-driven Session then injects `WAFH_API_URL`, `WAFH_API_TOKEN`, `WAFH_PROJECT_ID`, `WAFH_AGENT_ID` and `WAFH_SESSION_ID` (plus `WAFH_ORG_ID` in company mode), so the agent's own `wafh` calls reach the server that runs it. These override Vault entries of the same name. A Session working in an activity run's folder gets the Session variables but not `WAFH_API_URL` or `WAFH_API_TOKEN`: nothing a run does needs the API, and the token carries the admin's authority. See [CLI Reference](/cli).
 - **Forced:** `GIT_EDITOR`, `GIT_TERMINAL_PROMPT`, `TERM`, `NO_COLOR`, `PAGER` and `GIT_PAGER` always get fixed values, so a command cannot hang waiting on an editor, a credential prompt or a pager. Nothing overrides them, the Vault included.
 
 ### PATH launcher
 
-This installation's own `penguin` is first on the PATH of every command an agent runs. At startup the server writes a launcher script at `<root>/bin/penguin`, which runs the CLI entry from `PENGUIN_CLI_ENTRY` on the server's own Node, and puts that directory at the front of PATH for each command. So `penguin` inside a command is the harness the agent is running in, whatever version is installed globally on the machine. It also talks to that harness: unless `PENGUIN_HOME` is already set, the launcher sets it to this server's data root for the CLI it starts, and for nothing else, along with `PENGUIN_WEB_DB` when the server keeps its database somewhere other than `<root>/web.db`. A Session working in an activity run's folder is the exception: its commands get no launcher, as they get no API token.
+This installation's own `wafh` is first on the PATH of every command an agent runs. At startup the server writes a launcher script at `<root>/bin/wafh`, which runs the CLI entry from `WAFH_CLI_ENTRY` on the server's own Node, and puts that directory at the front of PATH for each command. So `wafh` inside a command is the harness the agent is running in, whatever version is installed globally on the machine. It also talks to that harness: unless `WAFH_HOME` is already set, the launcher sets it to this server's data root for the CLI it starts, and for nothing else, along with `WAFH_WEB_DB` when the server keeps its database somewhere other than `<root>/web.db`. A Session working in an activity run's folder is the exception: its commands get no launcher, as they get no API token.
 
-A terminal opened from the Terminal panel puts the same directory first on PATH once your own shell startup files have run, so `penguin` typed there is this installation's too. In bash, zsh and fish it stays first before every prompt, after any prompt hook of your own, including one a plugin adds after startup. To run another `penguin` there, use its full path, or define an alias or function named `penguin` in your startup files: the shell looks those up before PATH. The terminal's environment carries none of the server's own `PENGUIN_*`, `PORT` and `HOST` variables, so neither `penguin` nor a server you start from it picks up this server's settings; your own startup files still set any you export. Your own settings among them stay: `PENGUIN_LANG`, `PENGUIN_UPDATE_CHECK`, `PENGUIN_NO_LOGIN_SHELL_ENV`, `PENGUIN_SHELL`, `PENGUIN_INSTALL_DIR`, the download and update source variables (`PENGUIN_DOWNLOAD_*`, `PENGUIN_UPDATE_SOURCE`, `PENGUIN_UPDATE_SPEED_PROBE`) and `PENGUIN_GO_API_KEY` / `PENGUIN_GO_BASE_URL`. Without a launcher, the terminal keeps the server's `PENGUIN_HOME` and `PENGUIN_WEB_DB`, since nothing else would point `penguin` at this server.
+A terminal opened from the Terminal panel puts the same directory first on PATH once your own shell startup files have run, so `wafh` typed there is this installation's too. In bash, zsh and fish it stays first before every prompt, after any prompt hook of your own, including one a plugin adds after startup. To run another `wafh` there, use its full path, or define an alias or function named `wafh` in your startup files: the shell looks those up before PATH. The terminal's environment carries none of the server's own `WAFH_*`, `PORT` and `HOST` variables, so neither `wafh` nor a server you start from it picks up this server's settings; your own startup files still set any you export. Your own settings among them stay: `WAFH_LANG`, `WAFH_UPDATE_CHECK`, `WAFH_NO_LOGIN_SHELL_ENV`, `WAFH_SHELL`, `WAFH_INSTALL_DIR`, the download and update source variables (`WAFH_DOWNLOAD_*`, `WAFH_UPDATE_SOURCE`, `WAFH_UPDATE_SPEED_PROBE`) and `PENGUIN_GO_API_KEY` / `PENGUIN_GO_BASE_URL`. Without a launcher, the terminal keeps the server's `WAFH_HOME` and `WAFH_WEB_DB`, since nothing else would point `wafh` at this server.
 
-On a server started from a checkout, each terminal opens with one line naming the CLI `penguin` runs and its data root. Your shell prints that line at its first prompt, after your startup files have run (anything they print comes above it), so it reflects what they set: when they export `PENGUIN_API_URL`, or a `PENGUIN_HOME` naming another data root, the line says instead that `penguin` there talks to that server, not this instance. In cmd, and in shells other than bash, zsh, fish, sh and PowerShell, the server writes the plain line before the shell starts.
+On a server started from a checkout, each terminal opens with one line naming the CLI `wafh` runs and its data root. Your shell prints that line at its first prompt, after your startup files have run (anything they print comes above it), so it reflects what they set: when they export `WAFH_API_URL`, or a `WAFH_HOME` naming another data root, the line says instead that `wafh` there talks to that server, not this instance. In cmd, and in shells other than bash, zsh, fish, sh and PowerShell, the server writes the plain line before the shell starts.
 
 The directory is prepended inside the shell as well as in the environment, because commands run through a login shell whose profile often rewrites PATH afterwards. This also puts it ahead of a `PATH` set in the [Vault](#vault), which otherwise replaces the inherited value outright.
 
-The launcher is rewritten at every start, so the next start picks up a moved installation. When there is no entry to point at, no launcher is written and `penguin` resolves as it would without one. A server started from a checkout whose own CLI cannot run writes a launcher that says why and fails instead, so another installation's `penguin` never answers in its place.
+The launcher is rewritten at every start, so the next start picks up a moved installation. When there is no entry to point at, no launcher is written and `wafh` resolves as it would without one. A server started from a checkout whose own CLI cannot run writes a launcher that says why and fails instead, so another installation's `wafh` never answers in its place.
 
 ### Workspace preview origin
 
-`PENGUIN_PREVIEW_ORIGIN` must differ from the app's origin by **hostname**, not just by port: cookies ignore ports, so a second port would still share the session cookie.
+`WAFH_PREVIEW_ORIGIN` must differ from the app's origin by **hostname**, not just by port: cookies ignore ports, so a second port would still share the session cookie.
 
 - **Local use:** leave it unset. The app is canonicalized onto `localhost` and previews are served from `127.0.0.1`, which needs no configuration and no DNS.
 - **LAN address or real domain:** set it. Otherwise previews fall back to a same-origin sandbox where `localStorage`, cookies and third-party embeds do not work. On a real domain, keep the session cookie host-only (no `Domain=`), or a sibling subdomain shares it.
@@ -70,7 +70,7 @@ An unparseable value stops the server at startup instead of falling back silentl
 
 ### Provider credential variables
 
-A model's base URL, protocol and API key each resolve from the Project config alone: the model's own value, else its group's `[providers.<id>]` value (see [Group connections](#group-connections)). PenguinHarness passes those values to the [MMSP](https://www.npmjs.com/package/@prismshadow/mmsp) client the model routes to, and the client decides what a missing key means. With no key, it reads its own `*_API_KEY` only when no base URL is set, or when the base URL is the client's own default endpoint (`https://api.deepseek.com` for DeepSeek, for example); with no base URL, the endpoint is its `*_BASE_URL`, else that default. A model with no key and any other base URL is refused before any request, whatever the environment holds; the one exception is a model on the `mmsp` client, an open MMSP server, which is sent no key. To use a vendor variable for a vendor's second host, a proxy or Bedrock, leave the base URL empty on the model and its group and set the vendor's `*_BASE_URL` beside the key (`ANTHROPIC_BASE_URL=bedrock://us-east-1`). To use any other base URL from the file, put the key in the file too. See [Set API keys](/models#set-api-keys).
+A model's base URL, protocol and API key each resolve from the Project config alone: the model's own value, else its group's `[providers.<id>]` value (see [Group connections](#group-connections)). WAF Harness passes those values to the [MMSP](https://www.npmjs.com/package/@prismshadow/mmsp) client the model routes to, and the client decides what a missing key means. With no key, it reads its own `*_API_KEY` only when no base URL is set, or when the base URL is the client's own default endpoint (`https://api.deepseek.com` for DeepSeek, for example); with no base URL, the endpoint is its `*_BASE_URL`, else that default. A model with no key and any other base URL is refused before any request, whatever the environment holds; the one exception is a model on the `mmsp` client, an open MMSP server, which is sent no key. To use a vendor variable for a vendor's second host, a proxy or Bedrock, leave the base URL empty on the model and its group and set the vendor's `*_BASE_URL` beside the key (`ANTHROPIC_BASE_URL=bedrock://us-east-1`). To use any other base URL from the file, put the key in the file too. See [Set API keys](/models#set-api-keys).
 
 | Group | API key | Base URL |
 | --- | --- | --- |
@@ -158,14 +158,14 @@ api_key = "sk-or-..."
 
 The deepseek row stores no key and uses the group's; the openrouter row reaches the proxy set on its group with its group's protocol and a key of its own. `pricing.unit` is currently always `usd_per_mtok` (USD per million Tokens). The three buckets map onto the three counters of `token_usage`.
 
-Edit this file with the CLI (`penguin config model …`) or on the Web App's Models page.
+Edit this file with the CLI (`wafh config model …`) or on the Web App's Models page.
 
 > [!WARNING]
 > Do not edit `.project_config.toml` by hand while the service is running. The model has no right to read or write it.
 
 ### Group connections
 
-`[providers.<id>]` holds one group's connection, keyed by provider id: a built-in group or one you created. A new Project's file holds one for every built-in group the catalog gives an endpoint or protocol: the gateways' base URL and protocol, Penguin Go's relay base URL, vLLM's protocol. The first-party groups and custom get none. The Models page's group settings and connecting a group write it, and so does `penguin config model add --provider <group>` without `--model-id`. A user-created group's table is removed together with the group's last model.
+`[providers.<id>]` holds one group's connection, keyed by provider id: a built-in group or one you created. A new Project's file holds one for every built-in group the catalog gives an endpoint or protocol: the gateways' base URL and protocol, Penguin Go's relay base URL, vLLM's protocol. The first-party groups and custom get none. The Models page's group settings and connecting a group write it, and so does `wafh config model add --provider <group>` without `--model-id`. A user-created group's table is removed together with the group's last model.
 
 | Key | Type | Description |
 | --- | --- | --- |
@@ -205,14 +205,14 @@ The Plugins page does not offer package-global Delete plugin, which would remove
 
 ```toml
 [plugins]
-"@penguinharness/sandbox-bwrap" = "*"
+"@waf-harness/sandbox-bwrap" = "*"
 "@scope/name" = "1.2.3"
 "@scope/other" = { version = "1.2" }
 ```
 
 - `"*"` asks for whatever version the deployment ships. A version string and the `{ version = "…" }` form are kept as the requirement; loading currently goes by the package name alone.
 - The server runs the union of every Project's table, so a plugin one Project asks for is loaded for all of them.
-- The DSH sandbox backend, `@penguinharness/sandbox-dsh`, is loaded whether or not a table names it; see [Server plugins](/skills#server-plugins). Naming it, by package name or by path, loads it once.
+- The DSH sandbox backend, `@waf-harness/sandbox-dsh`, is loaded whether or not a table names it; see [Server plugins](/skills#server-plugins). Naming it, by package name or by path, loads it once.
 - An entry of any other shape is dropped when the file is read, and the rest of the file still loads. A `plugins` key that is not a table asks for no plugins.
 - An empty table is written as an empty table: the Project asks for no plugins.
 
@@ -423,7 +423,7 @@ For developers:
 | `{{PLATFORM}}` | Runtime platform |
 | `{{OS_VERSION}}` | Operating system version |
 | `{{DATE}}` | Current date |
-| `{{PROJECT_DIR}}` | App Data Dir: the PenguinHarness app data root (the Project directory) |
+| `{{PROJECT_DIR}}` | App Data Dir: the WAF Harness app data root (the Project directory) |
 | `{{AGENT_ID}}` | Agent id |
 | `{{CWD}}` | Workspace path |
 | `{{PROVIDER}}` | Model provider group |
@@ -432,7 +432,7 @@ For developers:
 
 **Section placeholders.** The Vault, Skills, Memory and Schedules sections share one pattern: a placeholder, a switch and an editable prompt. The template holds only the `{{VAULT}}` / `{{SKILLS}}` / `{{MEMORY}}` / `{{SCHEDULES}}` placeholder, the section text lives in the matching `*.prompt` key (edited on its settings tab), and turning `*.enabled` off empties the whole block. A template without one of these placeholders injects no such section; the matching settings tab offers to insert the placeholder explicitly, or to migrate a legacy template. The four section placeholders are expanded last, in a single pass at assembly time. Expanded text is never rescanned, so placeholder-looking text inside a memory index or a section prompt stays literal.
 
-**App Data Dir.** `{{PROJECT_DIR}}` is shown to the model as the **App Data Dir**: PenguinHarness's application data root, which holds every agent's data files (`agents/<agent_id>/…`) and the Project-level data. It is deliberately not described as a project or task directory, so the model does not mistake it for the task's working directory (`CWD`).
+**App Data Dir.** `{{PROJECT_DIR}}` is shown to the model as the **App Data Dir**: WAF Harness's application data root, which holds every agent's data files (`agents/<agent_id>/…`) and the Project-level data. It is deliberately not described as a project or task directory, so the model does not mistake it for the task's working directory (`CWD`).
 
 **Windows paths.** On Windows, `{{PROJECT_DIR}}` and `{{CWD}}` are injected with forward slashes, like every other path core composes for the model (attachment lines, the goal-file line, truncated-output recovery paths). The model copies these spellings into JSON tool arguments and shell commands. Node's fs APIs and the package's (Git) Bash tool shell accept forward slashes, and they avoid JSON backslash-escaping mistakes.
 
@@ -473,7 +473,7 @@ A workspace memory key is `<safe-basename>-<8 hex of the real path's sha256>`.
 
 - `user` is a reserved directory name. It is safe because every generated key has the form `<base>-<8 hex>` and so always contains a hyphen.
 - Identity is the directory itself and has nothing to do with Git. Two symlinks to one directory resolve to one key, while moving or renaming a directory makes it a new Workspace; the old Memory stays on disk under the old key.
-- A temporary Workspace, one PenguinHarness allocated under `agents/<agent_id>/workspaces/`, gets no Workspace scope at all, including when a subagent inherits it. A temporary Workspace is allocated per Session, so no later Session would ever run there to read it back. Such a Session still gets the user scope, which is where anything it learns belongs anyway.
+- A temporary Workspace, one WAF Harness allocated under `agents/<agent_id>/workspaces/`, gets no Workspace scope at all, including when a subagent inherits it. A temporary Workspace is allocated per Session, so no later Session would ever run there to read it back. Such a Session still gets the user scope, which is where anything it learns belongs anyway.
 
 ### Topic files
 
@@ -537,7 +537,7 @@ A template without `{{MEMORY}}` injects no Memory; an agent created before Memor
 - Values are injected only into tool subprocess environments, and into an MCP server entry wherever it references a key as `${KEY}` (see [Vault references](/tools#vault-references)). They never enter the model context or the Trace.
 - Only key names are shown in the system prompt. The template's `{{VAULT}}` placeholder expands to `vault.prompt`, which carries the `{{VAULT_KEYS}}` key-name list and is editable on the **Vault** tab. With `vault.enabled` off the block is empty: values are still injected into subprocesses, and the model just does not see the key names. A legacy template's inline `{{VAULT_KEYS}}` is still substituted under the same switch, and the tab offers one-click migration (see [System prompt placeholders](#system-prompt-placeholders)).
 - A saved change reaches new Sessions at once and a running Session at its next compaction, like any other Agent State change. This is the same whether you save in the Web App, through the API or with the CLI.
-- Manage it with `penguin config vault set/list/remove` or on the **Vault** tab.
+- Manage it with `wafh config vault set/list/remove` or on the **Vault** tab.
 
 ## Schedules
 

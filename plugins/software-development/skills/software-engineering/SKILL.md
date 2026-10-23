@@ -6,7 +6,7 @@ version: 2026.10.04.1
 
 # Software Engineering
 
-This skill guides PenguinHarness through general software-engineering work, including code investigation, reviews, bug fixes, features, refactors, and verified handoff.
+This skill guides WAF Harness through general software-engineering work, including code investigation, reviews, bug fixes, features, refactors, and verified handoff.
 
 ## Before you start
 

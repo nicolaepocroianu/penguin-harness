@@ -17,9 +17,9 @@
  * a value that no longer parses, reads as nothing remembered — the editor then shows the notice
  * alone, which is what it did before there was a cache.
  */
-import type { MessagingBindingsResponse } from "@prismshadow/penguin-server/api";
+import type { MessagingBindingsResponse } from "@waterford/waf-harness-server/api";
 
-const PREFIX = "penguin.machineMessaging.";
+const PREFIX = "wafh.machineMessaging.";
 
 const keyFor = (projectId: string, machineId: string, sessionId: string) =>
   `${PREFIX}${projectId}:${machineId}:${sessionId}`;

@@ -153,7 +153,7 @@ Bindings are shared by your browsers and the desktop app, so the browser's notes
 
 ## Archived chats
 
-The **Archived chats** page is personal. It lists the archived conversations of every Project you own or are a member of: the ones you archived, and the ones a program opened that you have not unarchived, such as Agent API conversations, the new Sessions of scheduled tasks and the Sessions `penguin run` creates. See [Archived conversations](/chat#archived-conversations) in Chat. The page lists this server's conversations only, not those on connected machines.
+The **Archived chats** page is personal. It lists the archived conversations of every Project you own or are a member of: the ones you archived, and the ones a program opened that you have not unarchived, such as Agent API conversations, the new Sessions of scheduled tasks and the Sessions `wafh run` creates. See [Archived conversations](/chat#archived-conversations) in Chat. The page lists this server's conversations only, not those on connected machines.
 
 At the top are **Search archived chats**, which matches titles regardless of case, and two filters:
 
@@ -296,7 +296,7 @@ Turning it off stops the organization scheduler and every organization route, an
 
 ## Agent API
 
-The **Agent API** page (**Settings › Server › Agent API**) is admin-only and server-global. It holds the **Allow the Agent API** switch, on by default, over every agent's API: the HTTP API through which programs outside PenguinHarness talk to an agent (see [Agent API](/agent-api)).
+The **Agent API** page (**Settings › Server › Agent API**) is admin-only and server-global. It holds the **Allow the Agent API** switch, on by default, over every agent's API: the HTTP API through which programs outside WAF Harness talk to an agent (see [Agent API](/agent-api)).
 
 The switch applies the moment it is flipped. There is no Save button.
 

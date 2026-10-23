@@ -24,7 +24,7 @@ const REMOTE_ASK_TIMEOUT_MS = 30_000;
 const PATHS_BATCH_CHARS = 8_000;
 
 /** How the message of a stash a deploy made begins, as earlier versions wrote it too. */
-const SET_ASIDE = "penguin-harness deploy";
+const SET_ASIDE = "waf-harness deploy";
 
 /** A stash a deploy made, as `git stash list --format=%gs` lists it: "On <branch>: <message>". */
 const SET_ASIDE_ENTRY = new RegExp(`^On [^:]*: ${SET_ASIDE}(?::|$)`);

@@ -4,11 +4,14 @@
  * (`copilot-builtin`, over ACP) with the admin's PAT as COPILOT_GITHUB_TOKEN. Download state
  * lives here; the definition and its variables live with the other coding agents.
  */
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import { mkdirSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { sandboxedAgentEnv, type AgentServerDefinition } from "@prismshadow/penguin-coding-agents";
+import {
+  sandboxedAgentEnv,
+  type AgentServerDefinition,
+} from "@waterford/waf-harness-coding-agents";
 import type { BuiltinAgentInfo } from "../../api/types.js";
 import { Config } from "../../hmr/capabilities.js";
 import { BuiltinAgents } from "../../mechanisms/builtin-agents.js";
@@ -144,7 +147,7 @@ export class BuiltinAgentsService implements BuiltinAgents {
       mkdirSync(home, { recursive: true, mode: 0o700 });
       const runtime = await installRuntime({
         // Read at download time: tests (and operators) point it at another registry.
-        registry: (process.env.PENGUIN_NPM_REGISTRY ?? DEFAULT_REGISTRY).replace(/\/+$/u, ""),
+        registry: (process.env.WAFH_NPM_REGISTRY ?? DEFAULT_REGISTRY).replace(/\/+$/u, ""),
         packageName: this.packageName!,
         version: COPILOT_VERSION,
         runtimesDir: this.runtimesDir(),

@@ -16,7 +16,7 @@
  *   its own, nothing changes.
  */
 import { describe, expect, it } from "vitest";
-import { MODEL_PROVIDERS } from "@prismshadow/penguin-server/model-catalog";
+import { MODEL_PROVIDERS } from "@waterford/waf-harness-server/model-catalog";
 import {
   initialModelGroupPins,
   initialModelGroupsFolded,
@@ -96,11 +96,11 @@ describe("pinning and unpinning a group", () => {
 
   it("malformed choices or a throwing storage read as the defaults", () => {
     for (const raw of ["not json", "[]", "null", '"vllm"']) {
-      const storage = memoryStorage({ "penguin.modelsPinnedGroups": raw });
+      const storage = memoryStorage({ "wafh.modelsPinnedGroups": raw });
       expect(initialModelGroupPins(storage), raw).toEqual({});
     }
     const mixed = memoryStorage({
-      "penguin.modelsPinnedGroups": JSON.stringify({ vllm: true, custom: "yes", "": true }),
+      "wafh.modelsPinnedGroups": JSON.stringify({ vllm: true, custom: "yes", "": true }),
     });
     expect(initialModelGroupPins(mixed)).toEqual({ vllm: true });
     expect(initialModelGroupPins(blockedStorage())).toEqual({});

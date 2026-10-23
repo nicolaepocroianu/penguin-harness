@@ -16,7 +16,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { MachineInfo, MachineSocketFact } from "@prismshadow/penguin-server/api";
+import type { MachineInfo, MachineSocketFact } from "@waterford/waf-harness-server/api";
 import { MachineSocketDetails as MachineRecord } from "../src/features/machines/machine-detail-dialog";
 import { formatDateTime, formatRelativeShort } from "../src/lib/format";
 import { setActiveStrings } from "../src/lib/strings";
@@ -35,7 +35,7 @@ const machine = (socket: MachineSocketFact | null): MachineInfo => ({
   connection: { pid: 4242 },
   socket,
   api: null,
-  root: "$HOME/.penguin/data",
+  root: "$HOME/.waf-harness/data",
   status: { state: "running", checkedAt: NAS, port: 7364 },
 });
 

@@ -39,7 +39,7 @@ describe("time mode (excluded at the store)", () => {
     expect(s.map.size).toBe(0);
     // Hand-edited storage, or an older build: the gate is on the mode, so the read never
     // reaches the value.
-    s.map.set("penguin.groupOrder.p1.time", JSON.stringify(["\u0000time-earlier"]));
+    s.map.set("wafh.groupOrder.p1.time", JSON.stringify(["\u0000time-earlier"]));
     expect(loadGroupOrder("p1", "time", s)).toEqual([]);
     // And the workspace key of the same Project is unaffected either way.
     saveGroupOrder("p1", "workspace", ["/a"], s);
@@ -301,9 +301,9 @@ describe("group order and row order are independent axes", () => {
     const s = memoryStorage();
     // Same Project, same mode, different key namespaces.
     saveGroupOrder("p1", "workspace", ["/w2", "/w1"], s);
-    s.map.set("penguin.sessionOrder.p1.workspace", JSON.stringify(["s2", "s1"]));
+    s.map.set("wafh.sessionOrder.p1.workspace", JSON.stringify(["s2", "s1"]));
     saveGroupOrder("p1", "workspace", ["/w1", "/w2"], s);
-    expect(s.map.get("penguin.sessionOrder.p1.workspace")).toBe(JSON.stringify(["s2", "s1"]));
+    expect(s.map.get("wafh.sessionOrder.p1.workspace")).toBe(JSON.stringify(["s2", "s1"]));
     expect(loadGroupOrder("p1", "workspace", s)).toEqual(["/w1", "/w2"]);
   });
 

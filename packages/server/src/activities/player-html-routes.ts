@@ -11,7 +11,7 @@
  * A product is normally open in one project (the one that claimed it). Should it be open in
  * several the visitor can see, `project=<id>` picks one; without it the page names them.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono, type Context } from "hono";
 import { authMiddleware, type AppEnv } from "../auth/middleware.js";
 import type { Config } from "../hmr/capabilities.js";

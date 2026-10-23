@@ -114,7 +114,7 @@ describe("on a static host", () => {
 describe("the site navbar's links", () => {
   it("lead to the site the gallery is built into at <site>/gallery/", () => {
     expect(siteUrlOf("/gallery/")).toBe("/");
-    expect(siteUrlOf("/penguin-harness/gallery/")).toBe("/penguin-harness/");
+    expect(siteUrlOf("/waf-harness/gallery/")).toBe("/waf-harness/");
   });
 
   it("lead to the public site in dev, or from a build of the gallery alone", () => {

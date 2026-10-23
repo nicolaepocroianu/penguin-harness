@@ -27,9 +27,9 @@
  *      `Prism-Shadow/penguin-harness-community` repo, which is what the posts load from
  *      (the renderer resolves /blog-assets/<name> there — see src/lib/links.ts).
  *
- * Prereqs: `pnpm --filter @prismshadow/penguin-{skills,core,server,web} build` and
+ * Prereqs: `pnpm --filter @waterford/waf-harness-{skills,core,server,web} build` and
  * Playwright's chromium. Run: `node scripts/capture-blog-013-shots.mjs` (or
- * `pnpm --filter @prismshadow/penguin-landing blog-013-shots`).
+ * `pnpm --filter @waterford/waf-harness-landing blog-013-shots`).
  */
 import http from "node:http";
 import { spawn } from "node:child_process";
@@ -45,8 +45,8 @@ const ROOT = path.resolve(HERE, "../../..");
 const OUT_DIR = path.resolve(HERE, "../.blog-assets");
 const MOCK_PORT = 8953; // Distinct from capture-shots (8940/8941) and blog-shots (8944).
 const SRV_PORT = 8952;
-// Pins the otherwise-random seeded admin password (PENGUIN_SEED_ADMIN_PASSWORD below).
-const ADMIN_PASSWORD = "penguin-0000";
+// Pins the otherwise-random seeded admin password (WAFH_SEED_ADMIN_PASSWORD below).
+const ADMIN_PASSWORD = "wafh-0000";
 // The App is canonically served on `localhost` (127.0.0.1 is the Workspace-preview host).
 const BASE = `http://localhost:${SRV_PORT}`;
 const MOCK = `http://127.0.0.1:${MOCK_PORT}`;
@@ -173,7 +173,7 @@ const USERS = {
 function stageBenchWorkspace(dir) {
   mkdirSync(path.join(dir, "reports/runs"), { recursive: true });
   mkdirSync(path.join(dir, "scripts"), { recursive: true });
-  const baseline = { suite: "penguin-bench", period: "2026-07", cases: 128, accuracy: 0.842 };
+  const baseline = { suite: "wafh-bench", period: "2026-07", cases: 128, accuracy: 0.842 };
   writeFileSync(path.join(dir, "reports/july-baseline.json"), JSON.stringify(baseline, null, 2));
   const runs = {
     41: { date: "2026-07-24", suites: [38, 27, 24, 20] },
@@ -772,9 +772,9 @@ async function provisionUser(adminCookie, lang) {
   try {
     await api(cookie, "PUT", "/api/me/password", {
       oldPassword: initial,
-      newPassword: `penguin-${userId}-2026`,
+      newPassword: `wafh-${userId}-2026`,
     });
-    password = `penguin-${userId}-2026`;
+    password = `wafh-${userId}-2026`;
   } catch {}
   cookie = await login(userId, password);
 
@@ -832,7 +832,7 @@ async function warmup(user, sessionId, text, doneMarker, page) {
 // Main.
 // ---------------------------------------------------------------------------
 
-const dataRoot = mkdtempSync(path.join(os.tmpdir(), "penguin-blog013-"));
+const dataRoot = mkdtempSync(path.join(os.tmpdir(), "wafh-blog013-"));
 mkdirSync(OUT_DIR, { recursive: true });
 
 const mock = await startMock();
@@ -841,12 +841,12 @@ console.log(`[blog-013] mock LLM on ${MOCK}`);
 const srv = spawn("node", [path.join(ROOT, "packages/server/dist/index.js")], {
   env: {
     ...process.env,
-    PENGUIN_HOME: path.join(dataRoot, "home"),
-    PENGUIN_WEB_DB: path.join(dataRoot, "web.db"),
-    PENGUIN_WEB_DIST: path.join(ROOT, "packages/web/dist"),
+    WAFH_HOME: path.join(dataRoot, "home"),
+    WAFH_WEB_DB: path.join(dataRoot, "web.db"),
+    WAFH_WEB_DIST: path.join(ROOT, "packages/web/dist"),
     PORT: String(SRV_PORT),
     HOST: "127.0.0.1",
-    PENGUIN_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
+    WAFH_SEED_ADMIN_PASSWORD: ADMIN_PASSWORD,
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -894,9 +894,9 @@ try {
     });
     await context.addInitScript(
       ([t, l]) => {
-        localStorage.setItem("penguin.theme", t);
-        localStorage.setItem("penguin.lang", l);
-        localStorage.setItem("penguin.subagentsPanelWidth", "430");
+        localStorage.setItem("wafh.theme", t);
+        localStorage.setItem("wafh.lang", l);
+        localStorage.setItem("wafh.subagentsPanelWidth", "430");
       },
       [theme, lang],
     );
@@ -1016,7 +1016,7 @@ try {
 
     // ---- Scene 2: goal mode -----------------------------------------------------------
     {
-      const ws = path.join(wsRoot, "penguin-table");
+      const ws = path.join(wsRoot, "wafh-table");
       mkdirSync(ws, { recursive: true });
       stageTableWorkspace(ws);
       const sessionId = await createSession(user, ws);

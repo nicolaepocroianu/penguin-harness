@@ -10,16 +10,16 @@
  * only source: a field neither the row nor its group sets is the client's default, and the
  * catalog is never consulted.
  */
-import { effectiveConnection, groupKeyReaches } from "@prismshadow/penguin-core/model-connection";
+import { effectiveConnection, groupKeyReaches } from "@waterford/waf-harness-core/model-connection";
 import type {
   EffectiveConnection,
   ProviderConnectionShape,
-} from "@prismshadow/penguin-core/model-connection";
+} from "@waterford/waf-harness-core/model-connection";
 import type {
   CredentialInfo,
   ProviderConnectionDto,
   ProviderConnectionUpdate,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 /** Every group's stored connection, keyed by provider id (`ModelsResponse.providers`). */
 export type ProviderConnections = Readonly<Record<string, ProviderConnectionDto>>;

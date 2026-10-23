@@ -37,9 +37,9 @@ import {
   type DesktopBrowserEvent,
 } from "./wire.js";
 
-const RECONNECT_ALARM = "penguin-reconnect";
+const RECONNECT_ALARM = "wafh-reconnect";
 
-const log = (line: string) => console.debug(`[penguin] ${line}`);
+const log = (line: string) => console.debug(`[wafh] ${line}`);
 
 let servers: PairedServer[] = [];
 let paused = false;

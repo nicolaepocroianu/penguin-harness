@@ -9,12 +9,12 @@ import {
   DEFAULT_PROJECT_ID,
   defaultProjectConfig,
   saveProjectConfig,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import {
   PRESET_DEFAULT_MODEL,
   presetModelEntries,
   presetProviderTable,
-} from "@prismshadow/penguin-server/model-catalog";
+} from "@waterford/waf-harness-server/model-catalog";
 
 /** Writes the seeded Project's config under `root`. */
 export async function seedProject(root: string, projectId = DEFAULT_PROJECT_ID): Promise<void> {

@@ -3,7 +3,7 @@ title: Architecture
 description: How the SDK, Server, CLI and Web App divide responsibilities, and how the three-interface boundary and OmniMessage organize the system.
 ---
 
-PenguinHarness is a pnpm monorepo. Its center is the execution engine in `@prismshadow/penguin-core`. The Server ships with the product as the Human implementation of that engine: it runs every Task. SDK embedders can also drive the engine directly.
+WAF Harness is a pnpm monorepo. Its center is the execution engine in `@waterford/waf-harness-core`. The Server ships with the product as the Human implementation of that engine: it runs every Task. SDK embedders can also drive the engine directly.
 
 The Web App and the CLI are clients of the Server over HTTP and SSE, and the desktop app wraps the Server and the Web App in one window. This page covers the layers, the engine's three-interface boundary, the [data flow of one Task](#data-flow-of-one-task), where each responsibility lives, and the source layout.
 
@@ -14,7 +14,7 @@ The stack, top to bottom:
 ```text
 ┌─────────────┐  ┌─────────────────────────────┐
 │   CLI       │  │  Web App (React SPA)        │
-│  (penguin)  │  │                             │
+│  (wafh)  │  │                             │
 └──────┬──────┘  └──────────────┬──────────────┘
        │                        │   HTTP · OmniMessage over SSE
 ┌──────┴────────────────────────┴──────────────┐
@@ -37,7 +37,7 @@ The CLI and the Web App talk to the Server over HTTP and SSE. Among the shipped 
 | `packages/core` | SDK and engine: `context_engine`, OmniMessage, the LLM and Environment interfaces, hooks, state and Trace |
 | `packages/server` | The Human implementation: runs Tasks through core, takes input and approvals over HTTP, streams output over SSE |
 | `packages/amsp` | The [Agent API](/agent-api)'s protocol package: the [AMSP](/amsp) wire types, which the Server imports, and a zero-dependency client for Node and browsers |
-| `packages/cli` | Terminal client of the Server: REPL and one-shot runs over HTTP and SSE. It starts a local Server when none is running. Only `penguin config` reads and writes configuration files directly through the SDK |
+| `packages/cli` | Terminal client of the Server: REPL and one-shot runs over HTTP and SSE. It starts a local Server when none is running. Only `wafh config` reads and writes configuration files directly through the SDK |
 | `packages/web` | Rendering SPA: renders the OmniMessage stream and contains no engine logic |
 | `packages/desktop` | Desktop app: an Electron shell that runs the Server as a `utilityProcess` and opens its window on the local HTTP address |
 | `packages/hmr` | The hot-update mechanism: the version store, the atomic commit, the resource registry, and park → boot → swap |
@@ -71,7 +71,7 @@ To place a design in a layer, ask where its **source of truth** lives. One rule 
 | --- | --- | --- |
 | SDK (`core`) | Protocol and execution: everything that makes messages flow | persisted user state, multi-user, any rendering |
 | Server | The resident process and the multi-user runtime | engine logic, fully delegated to the SDK |
-| File layer (`~/.penguin/data`) | Everything editable and everything recorded | any computation |
+| File layer (`~/.waf-harness/data`) | Everything editable and everything recorded | any computation |
 | CLI / Web | Rendering and interaction | business state |
 
 Item by item, each design maps to an owner and to the file or module that carries it:
@@ -104,7 +104,7 @@ Item by item, each design maps to an owner and to the file or module that carrie
 
 ## The state layer
 
-Below the engine sits a purely file-based state layer. Its root is `~/.penguin/data` (override it with `PENGUIN_HOME`), organized as `<project>/agents/<agent>/`:
+Below the engine sits a purely file-based state layer. Its root is `~/.waf-harness/data` (override it with `WAFH_HOME`), organized as `<project>/agents/<agent>/`:
 
 | Component | Location | Contents |
 | --- | --- | --- |
@@ -147,7 +147,7 @@ packages/
 
 ```text
 packages/web/src
-├── api/          # fetch wrapper · one function per API (DTOs type-only from @prismshadow/penguin-server/api) · SSE wrapper
+├── api/          # fetch wrapper · one function per API (DTOs type-only from @waterford/waf-harness-server/api) · SSE wrapper
 ├── state/        # auth / project / sessions / company / theme / locale contexts
 ├── lib/omni/     # OmniMessage stream → view-model reducer; connect-first + dedup stream controller
 ├── components/   # ui primitives (modal / drawer / select …) and the app layout

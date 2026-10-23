@@ -10,7 +10,7 @@ Build a multi-Case Benchmark for one Test Agent, calibrate its difficulty with o
 
 This Skill changes the Benchmark, never the Test Agent. It does not run or score the Test Agent. Delegate every evaluation with `run_subagent`, and tell each worker to use `agent-evaluation`. Stop after the Baseline; do not begin optimization.
 
-A Benchmark whose Cases are run through Harbor (their statements say so; the built-in PenguinHarness Benchmarks) is a frozen upstream task set that ships with PenguinHarness: never create, refine, recalibrate or re-baseline one.
+A Benchmark whose Cases are run through Harbor (their statements say so; the built-in WAF Harness Benchmarks) is a frozen upstream task set that ships with WAF Harness: never create, refine, recalibrate or re-baseline one.
 
 To import an existing Benchmark, follow **Importing a package** in `reference/package.md`: fetch the selected package, read its files, and copy the manifest and cases directly into the Project's `benchmarks/<id>/` with an empty scoreboard. Preserve its version, record the source, and ask before replacing an existing directory. Importing does not run the design, calibration or evaluation workflow below.
 

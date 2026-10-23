@@ -2,8 +2,8 @@
  * Restarting into the installed release, done from inside the process with nothing claimed
  * from the runtime.
  *
- * The supervisor is `penguin server|web`: it runs the service as a child, announces itself
- * with PENGUIN_SUPERVISED=1 in the child's environment, and relaunches the child when it
+ * The supervisor is `wafh server|web`: it runs the service as a child, announces itself
+ * with WAFH_SUPERVISED=1 in the child's environment, and relaunches the child when it
  * exits with core's SERVER_RESTART_EXIT_CODE. Both halves of what the restart route needs
  * are therefore already here — the announcement is in this process's environment, and the
  * exit is the runtime's own graceful shutdown, the one it registers on SIGTERM. Under
@@ -22,7 +22,7 @@
  * with 75. The listener is the compatibility half: it can go once no supported runtime
  * forces 0 (see the changelog entry).
  */
-import { SERVER_RESTART_EXIT_CODE } from "@prismshadow/penguin-core";
+import { SERVER_RESTART_EXIT_CODE } from "@waterford/waf-harness-core";
 
 export interface RestartControl {
   /** Whether a supervisor relaunches this process on the restart exit code. */
@@ -45,7 +45,7 @@ export function processRestart(
   log: (line: string) => void = (line) => console.error(line),
 ): RestartControl {
   return {
-    supervised: () => env.PENGUIN_SUPERVISED === "1",
+    supervised: () => env.WAFH_SUPERVISED === "1",
     request: () => {
       const previous = proc.exitCode;
       const force = () => {

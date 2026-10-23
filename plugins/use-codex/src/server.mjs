@@ -7,12 +7,12 @@ import { CodexBridge, TOOLS } from "./bridge.mjs";
 const args = process.argv.slice(2);
 if (args.length !== 2 || args[0] !== "--project-dir" || !path.isAbsolute(args[1])) {
   process.stderr.write(
-    "Usage: penguin-codex-mcp --project-dir <absolute Penguin project data directory>\n",
+    "Usage: wafh-codex-mcp --project-dir <absolute WAF Harness project data directory>\n",
   );
   process.exit(1);
 }
 const bridge = new CodexBridge({ projectDir: args[1], cwd: process.cwd() });
-const server = new McpServer({ name: "penguin-codex", version: "0.2.13" });
+const server = new McpServer({ name: "wafh-codex", version: "0.2.13" });
 for (const { name, ...definition } of TOOLS)
   server.registerTool(name, definition, async (input, ctx) => {
     const abort = () => void bridge.close();

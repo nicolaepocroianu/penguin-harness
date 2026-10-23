@@ -184,7 +184,7 @@ describe("context compaction", () => {
   let traces: string;
 
   beforeEach(async () => {
-    traces = await mkdtemp(join(tmpdir(), "penguin-compaction-"));
+    traces = await mkdtemp(join(tmpdir(), "wafh-compaction-"));
   });
 
   afterEach(async () => {
@@ -2011,7 +2011,7 @@ describe("context compaction", () => {
       // What agent.resumeSession derives from the Trace: three completed turns of history.
       metaAlreadyWritten: true,
       initialEngineState: { sessionTurns: 3, lastRequestTotal: 80 },
-      imagesDir: "/tmp/penguin-test-scratch",
+      imagesDir: "/tmp/wafh-test-scratch",
       modelHasVision: true,
     });
 
@@ -2057,7 +2057,7 @@ describe("context compaction", () => {
       },
       openNextContext: () => ({ llm: new ScriptedLLM([]) }),
       compaction: settings(),
-      imagesDir: "/tmp/penguin-test-scratch",
+      imagesDir: "/tmp/wafh-test-scratch",
       modelHasVision: true,
     });
 
@@ -2110,7 +2110,7 @@ describe("compaction summary streaming (issue #290)", () => {
   let traces: string;
 
   beforeEach(async () => {
-    traces = await mkdtemp(join(tmpdir(), "penguin-compaction-s-"));
+    traces = await mkdtemp(join(tmpdir(), "wafh-compaction-s-"));
   });
 
   afterEach(async () => {

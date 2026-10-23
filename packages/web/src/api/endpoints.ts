@@ -1,6 +1,6 @@
 /**
  * API endpoint wrappers: one function per API.
- * DTO types come from @prismshadow/penguin-server/api (**type import only**, resolved via
+ * DTO types come from @waterford/waf-harness-server/api (**type import only**, resolved via
  * tsconfig paths to the server contract file types.ts; must not be a value import — server
  * code must not enter the browser bundle).
  */
@@ -284,9 +284,9 @@ import type {
   BrowserExtensionPairingResponse,
   BrowserExtensionsResponse,
   DesktopBrowserCommand,
-} from "@prismshadow/penguin-server/api";
-import type { MCPServerConfig } from "@prismshadow/penguin-core/interfaces";
-import type { RunRequest } from "@prismshadow/amsp";
+} from "@waterford/waf-harness-server/api";
+import type { MCPServerConfig } from "@waterford/waf-harness-core/interfaces";
+import type { RunRequest } from "@waterford/waf-harness-amsp";
 import { apiFetch, apiFetchStream, apiFetchWithMeta } from "./client";
 import { machineForSession, rememberSessionMachine } from "../lib/session-machines";
 import { apiUrl } from "../lib/server-context";
@@ -2514,7 +2514,7 @@ export const checkUpdate = (force = false) =>
 /** Admin only: the self-update job's status — polled while it runs. */
 export const getUpdateJob = () => apiFetch<UpdateJobStatus>("/api/version/update");
 
-/** Admin only: starts the self-update job (`penguin update` on the server host, in the background) and answers with its status. */
+/** Admin only: starts the self-update job (`wafh update` on the server host, in the background) and answers with its status. */
 export const startUpdateJob = () =>
   apiFetch<UpdateJobStatus>("/api/version/update", { method: "POST", body: {} });
 

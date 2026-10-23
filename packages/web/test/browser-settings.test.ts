@@ -19,8 +19,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement, isValidElement } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { BrowserExtensionRecord, ServerSettings } from "@prismshadow/penguin-server/api";
-import { Button } from "@prismshadow/penguin-ui";
+import type { BrowserExtensionRecord, ServerSettings } from "@waterford/waf-harness-server/api";
+import { Button } from "@waterford/waf-harness-ui";
 import { PairedChromes, RevokeConfirm } from "../src/features/settings/browser-section";
 import { ExtensionsOffConfirm } from "../src/features/settings/chrome-extension-section";
 import { S } from "../src/lib/strings";
@@ -29,8 +29,8 @@ import { escapeMarkup } from "./helpers/markup";
 
 const toasts = vi.hoisted(() => [] as string[]);
 
-vi.mock("@prismshadow/penguin-ui", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@prismshadow/penguin-ui")>();
+vi.mock("@waterford/waf-harness-ui", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@waterford/waf-harness-ui")>();
   return {
     ...actual,
     toastSuccess: (text: string) => toasts.push(`success: ${text}`),

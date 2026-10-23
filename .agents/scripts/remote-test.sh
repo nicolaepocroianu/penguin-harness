@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Run a package's tests on another machine, when the user has asked for that.
 #
-#   PENGUIN_TEST_HOST=<ssh-destination> \
+#   WAFH_TEST_HOST=<ssh-destination> \
 #     .agents/scripts/remote-test.sh <worktree> [--build "<pkg> <pkg>"] -- <pnpm args...>
 #
-#   PENGUIN_TEST_HOST=box .agents/scripts/remote-test.sh . -- --filter @prismshadow/penguin-web test
-#   PENGUIN_TEST_HOST=box .agents/scripts/remote-test.sh ~/dev/penguin-harness-wt/foo \
-#       --build "@prismshadow/penguin-core @prismshadow/penguin-server" -- \
-#       --filter @prismshadow/penguin-cli exec vitest run test/agent-porting.test.ts
+#   WAFH_TEST_HOST=box .agents/scripts/remote-test.sh . -- --filter @waterford/waf-harness-web test
+#   WAFH_TEST_HOST=box .agents/scripts/remote-test.sh ~/dev/waf-harness-wt/foo \
+#       --build "@waterford/waf-harness-core @waterford/waf-harness-server" -- \
+#       --filter @waterford/waf-harness-cli exec vitest run test/agent-porting.test.ts
 #
 # Tests run on the developer's own machine by default; this script exists for the times the user
 # asks for a different one, and it is never the automatic choice. The destination comes from the
@@ -22,8 +22,8 @@ set -euo pipefail
 
 usage() { sed -n '2,18p' "$0"; exit 2; }
 
-HOST="${PENGUIN_TEST_HOST:-}"
-[ -n "$HOST" ] || { echo "PENGUIN_TEST_HOST is unset: pass the ssh destination to use." >&2; exit 2; }
+HOST="${WAFH_TEST_HOST:-}"
+[ -n "$HOST" ] || { echo "WAFH_TEST_HOST is unset: pass the ssh destination to use." >&2; exit 2; }
 
 [ $# -ge 1 ] || usage
 WORKTREE=$(cd "$1" && pwd) || usage
@@ -42,7 +42,7 @@ NAME=$(basename "$WORKTREE")
 # destination, and a `~` inside double quotes is not expanded by the remote shell either — either
 # spelling silently creates a directory literally named after the variable.
 REMOTE_HOME=$(ssh "$HOST" 'printf %s "$HOME"')
-REMOTE="$REMOTE_HOME/penguin-remote-test/$NAME"
+REMOTE="$REMOTE_HOME/wafh-remote-test/$NAME"
 
 echo "== sync $NAME -> $HOST:$REMOTE =="
 ssh "$HOST" "mkdir -p '$REMOTE'"

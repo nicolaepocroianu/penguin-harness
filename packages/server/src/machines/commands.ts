@@ -102,23 +102,23 @@ function connectionOptions(target: RemoteTarget): string[] {
  * Run out of the layout's program directory by absolute path, because sshd's non-login
  * shell has no `~/.local/bin` on PATH — the symlink the installer drops there is for a
  * person at a terminal, not for us. The directory is laid out as bin/ lib/ web/ node/ by
- * install.sh (`PENGUIN_INSTALL_DIR`, which runInstallScriptCommand names), with the
- * launcher exec'ing `node/bin/node lib/dist/…` (scripts/launchers/penguin). The data root
- * rides along as PENGUIN_HOME: the CLI's `server status`, `server stop` and `auth token`
+ * install.sh (`WAFH_INSTALL_DIR`, which runInstallScriptCommand names), with the
+ * launcher exec'ing `node/bin/node lib/dist/…` (scripts/launchers/wafh). The data root
+ * rides along as WAFH_HOME: the CLI's `server status`, `server stop` and `auth token`
  * all act on the root they are given, and the profile's root is not the default one.
- * The profile rides along too, as PENGUIN_PROFILE: the server started by this command
+ * The profile rides along too, as WAFH_PROFILE: the server started by this command
  * reaches machines of its own, and it reads its layout from that variable (layout.ts) —
  * without it a dev-profile server would reach the NEXT machine's release installation.
  * Named for the release profile as well, so an account that exports the variable cannot
  * turn a release server into a dev one.
  *
- * `bin/penguin` is the released program, and a release only carries the subcommands this
+ * `bin/wafh` is the released program, and a release only carries the subcommands this
  * side asks for (`server status`, `auth token`, `server --detach`) once a release has
  * shipped them. Reaching a machine would then be impossible until the next release —
  * including for the build that introduces reaching machines at all.
  *
- * `dist/penguin-hmr.js` is the entry that loads the CLI out of that machine's own hmr store
- * (packages/cli/src/penguin-hmr.ts), which is the CLI this server pushed there. It has
+ * `dist/wafh-hmr.js` is the entry that loads the CLI out of that machine's own hmr store
+ * (packages/cli/src/wafh-hmr.ts), which is the CLI this server pushed there. It has
  * shipped in the archive since long before any of this, so a machine installed by any
  * release can run the current CLI. What it cannot do is run one that was never pushed: a
  * machine with an empty store answers `no CLI pushed to <root>`, and the remedy is to
@@ -132,19 +132,19 @@ function connectionOptions(target: RemoteTarget): string[] {
  *
  * Spelled in the dialect of the shell that will read it. A Windows sshd hands a command to
  * cmd.exe, where `$HOME` is four literal characters and the bundled runtime is
- * `node\node.exe` (scripts/launchers/penguin.cmd) — so the POSIX form is not "not found"
+ * `node\node.exe` (scripts/launchers/wafh.cmd) — so the POSIX form is not "not found"
  * there, it is a different sentence. `%USERPROFILE%` is what install.ps1 defaults to.
  */
-export function remotePenguin(platform: RemotePlatform, layout: RemoteLayout): string {
+export function remoteWafHarness(platform: RemotePlatform, layout: RemoteLayout): string {
   if (platform === "win32") {
     const dir = layout.programDir.win;
-    return `set "PENGUIN_HOME=${layout.dataRoot.win}" & set "PENGUIN_PROFILE=${layout.profile}" & "${dir}\\node\\node.exe" "${dir}\\lib\\dist\\penguin-hmr.js"`;
+    return `set "WAFH_HOME=${layout.dataRoot.win}" & set "WAFH_PROFILE=${layout.profile}" & "${dir}\\node\\node.exe" "${dir}\\lib\\dist\\wafh-hmr.js"`;
   }
   const dir = layout.programDir.posix;
   // `env`, not a bare `VAR=value` prefix: startServerCommand puts `nohup` in front of this,
   // and nohup takes the first word as the program — a bare assignment there is "no such
   // command", and the server never starts.
-  return `env PENGUIN_HOME="${layout.dataRoot.posix}" PENGUIN_PROFILE=${layout.profile} "${dir}/node/bin/node" "${dir}/lib/dist/penguin-hmr.js"`;
+  return `env WAFH_HOME="${layout.dataRoot.posix}" WAFH_PROFILE=${layout.profile} "${dir}/node/bin/node" "${dir}/lib/dist/wafh-hmr.js"`;
 }
 
 /** `ssh <options> <alias> <remote command>`. */
@@ -188,19 +188,19 @@ export function runInstallScriptCommand(
   const versionTag = typeof release === "string" ? release : null;
   // The program directory is named on every install, release profile included: the
   // installer's default happens to match that profile, but the far side's own override of
-  // PENGUIN_INSTALL_DIR would not be visible here, and the rest of these commands assume
+  // WAFH_INSTALL_DIR would not be visible here, and the rest of these commands assume
   // the layout they were given.
   //
-  // `--no-modify-path` for a layout that does not own the machine's `penguin` command: the
-  // installer would otherwise repoint `~/.local/bin/penguin` (or extend the user Path) at
-  // this program directory, and a person typing `penguin` there would run the dev program
+  // `--no-modify-path` for a layout that does not own the machine's `wafh` command: the
+  // installer would otherwise repoint `~/.local/bin/wafh` (or extend the user Path) at
+  // this program directory, and a person typing `wafh` there would run the dev program
   // against the release data root.
   if (where.platform === "win32") {
     if (versionTag === null) throw new Error("a carried package installs on POSIX machines only");
     const script = cmdQuote(where.scriptPath);
     return {
       command:
-        `set "PENGUIN_INSTALL_DIR=${layout.programDir.win}" & ` +
+        `set "WAFH_INSTALL_DIR=${layout.programDir.win}" & ` +
         `powershell -NoProfile -ExecutionPolicy Bypass -File ${script} -Version ${cmdQuote(versionTag)}` +
         (layout.ownsCommand ? "" : " -NoModifyPath") +
         ` & del /q ${script}`,
@@ -209,11 +209,11 @@ export function runInstallScriptCommand(
   }
   const source =
     versionTag === null
-      ? `PENGUIN_ARCHIVE=${shQuote((release as { archive: string }).archive)}`
-      : `PENGUIN_VERSION=${shQuote(versionTag)}`;
+      ? `WAFH_ARCHIVE=${shQuote((release as { archive: string }).archive)}`
+      : `WAFH_VERSION=${shQuote(versionTag)}`;
   return {
     command:
-      `PENGUIN_INSTALL_DIR="${layout.programDir.posix}" ${source} sh -s` +
+      `WAFH_INSTALL_DIR="${layout.programDir.posix}" ${source} sh -s` +
       (layout.ownsCommand ? "" : " -- --no-modify-path"),
     scriptOnStdin: true,
   };
@@ -255,7 +255,7 @@ export function startServerCommand(port: number, layout: RemoteLayout): string {
   // it is omitted, so a login shell carrying HOST=0.0.0.0 would put that machine's server on
   // every interface. This side only ever reaches it as a channel inside the ssh session, at
   // loopback on the far end, so binding wider is exposure with nothing asking for it.
-  return `mkdir -p "${root}" && nohup ${remotePenguin("linux", layout)} server --host 127.0.0.1 --port ${port} >> "${root}/server.log" 2>&1 < /dev/null & echo $!`;
+  return `mkdir -p "${root}" && nohup ${remoteWafHarness("linux", layout)} server --host 127.0.0.1 --port ${port} >> "${root}/server.log" 2>&1 < /dev/null & echo $!`;
 }
 
 /** The pid startServerCommand printed; null when the output holds none. */
@@ -276,7 +276,7 @@ export function isAliveCommand(pid: number): string {
  * program directory (`bin`, `lib`, `web`, `node`, and the staging and backup directories an
  * interrupted install can leave) — and, with `removeData`, the data root inside it. Nothing
  * else in that directory is touched, and the directory itself goes only if it is left empty.
- * The release layout also owns the machine's `penguin` command: its symlink goes when it still
+ * The release layout also owns the machine's `wafh` command: its symlink goes when it still
  * points into this program directory, and is left alone when something else has taken the name.
  *
  * Its server must be stopped first; this does not stop it. Prints one line per thing removed.
@@ -290,8 +290,8 @@ export function uninstallCommand(layout: RemoteLayout, removeData: boolean): str
   ];
   if (layout.ownsCommand) {
     parts.push(
-      `link="$HOME/.local/bin/penguin"`,
-      `if [ -L "$link" ] && [ "$(readlink "$link")" = "$dir/bin/penguin" ]; then rm -f "$link" && echo "removed $link"; fi`,
+      `link="$HOME/.local/bin/wafh"`,
+      `if [ -L "$link" ] && [ "$(readlink "$link")" = "$dir/bin/wafh" ]; then rm -f "$link" && echo "removed $link"; fi`,
     );
   }
   if (removeData) {
@@ -339,7 +339,7 @@ export function sessionArgs(target: RemoteTarget, socksPort: number): string[] {
 }
 
 /** Marker separating the resolved path from the entries in a directory listing. */
-export const DIR_LIST_MARK = "---penguin-dirs---";
+export const DIR_LIST_MARK = "---wafh-dirs---";
 
 /**
  * Lists the subdirectories of `dir` on the far side, plus the path it actually resolved to.

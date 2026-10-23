@@ -7,7 +7,7 @@
  * a channel message, a desk row and a ticket all name an employee by id only.
  */
 import * as api from "../../api/endpoints";
-import { AgentAvatar, CHANNEL_RUN_AVATAR_PX } from "@prismshadow/penguin-ui";
+import { AgentAvatar, CHANNEL_RUN_AVATAR_PX } from "@waterford/waf-harness-ui";
 import { useCompany } from "../../state/company";
 
 /**

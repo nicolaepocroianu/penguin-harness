@@ -15,11 +15,11 @@ import type {
   MemoryImportMode,
   MemoryScopeExport,
   MemoryTransferFile,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 
 /** Format marker of a scope document, typed against the DTO so this literal cannot drift from the server's. */
-const SCOPE_FORMAT: MemoryScopeExport["format"] = "penguin-memory-scope";
+const SCOPE_FORMAT: MemoryScopeExport["format"] = "wafh-memory-scope";
 const SCOPE_FORMAT_VERSION: MemoryScopeExport["version"] = 1;
 
 /** A picked file that is not a scope document. Its message is already localized, so callers toast it as is. */

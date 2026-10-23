@@ -12,21 +12,21 @@ import {
   INITIAL_THEME_ID,
   THEME_IDS,
   resolveAccent,
-} from "@prismshadow/penguin-ui";
-import type { ThemeId } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { ThemeId } from "@waterford/waf-harness-ui";
 import {
   FONT_CJK_OPTIONS,
   FONT_LATIN_OPTIONS,
   THEME_STORAGE_KEYS,
   readTextSize,
-} from "@prismshadow/penguin-ui/boot";
+} from "@waterford/waf-harness-ui/boot";
 import type {
   AccentChoice,
   FontCjk,
   FontLatin,
   TextSize,
   ThemeAttributes,
-} from "@prismshadow/penguin-ui/boot";
+} from "@waterford/waf-harness-ui/boot";
 
 export type { FontCjk, FontLatin, TextSize };
 
@@ -87,7 +87,7 @@ export function readThemePrefs(storage: PrefStorage): ThemePrefs {
   return {
     themeId: readThemeId(storage),
     accent: readAccent(storage),
-    // Migrates the three-step `penguin.fontScale` of earlier releases on the way: the package's
+    // Migrates the three-step `wafh.fontScale` of earlier releases on the way: the package's
     // reader maps it by pixels (sm → m, md → l, lg → xl), writes the new key and drops the old
     // one, so this happens once per browser and every later read is a plain lookup.
     textSize: readTextSize(storage),

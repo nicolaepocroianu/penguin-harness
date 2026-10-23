@@ -6,7 +6,7 @@
  * Every value is `undefined` while it is still being found out and `null` once it is known
  * that it cannot be, so the view can say "measuring" or show a dash rather than guess.
  */
-import type { AssetManifest, MediaStat, UploadedMedia } from "@prismshadow/penguin-server/api";
+import type { AssetManifest, MediaStat, UploadedMedia } from "@waterford/waf-harness-server/api";
 
 export type FormatKey = "wav" | "mp3" | "ogg" | "mp4" | "webm" | "other";
 

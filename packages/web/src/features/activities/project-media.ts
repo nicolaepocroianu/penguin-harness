@@ -3,7 +3,7 @@
  * project, narrowed by type, product and a search, ordered one of four ways, and the chosen
  * few turned into what the download asks the server for.
  */
-import type { BundleItem, LibraryFile, UploadKind } from "@prismshadow/penguin-server/api";
+import type { BundleItem, LibraryFile, UploadKind } from "@waterford/waf-harness-server/api";
 
 export type LibraryView = "grid" | "table";
 export type LibrarySort = "name" | "newest" | "size" | "activity";

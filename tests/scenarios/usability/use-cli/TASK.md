@@ -10,14 +10,14 @@ platforms: [linux, macos, windows]
 
 ## Goal
 
-Use the freshly installed `penguin` command the way a new user would, with nothing but its own
+Use the freshly installed `wafh` command the way a new user would, with nothing but its own
 help text to go on. First walk a fixed path, so that runs on different refs and platforms can be
 compared step by step; then explore freely and look for what a new user would trip over in the
 terminal.
 
 ## Steps
 
-Read `handover.md` first. Run every command with the `HOME` it names and the installed `penguin`,
+Read `handover.md` first. Run every command with the `HOME` it names and the installed `wafh`,
 never a CLI from a checkout. Keep `oplog.md` from the first command: one line per command, with the
 time, the command line, its exit code, and the first lines of its output. Save each command's full
 output under `evidence/` and screenshot the terminal where the layout matters (tables, colours,
@@ -25,26 +25,26 @@ wrapping).
 
 The fixed path:
 
-1. **Help and version.** `penguin --help`, `penguin --version`, `penguin version`. Every top-level
+1. **Help and version.** `wafh --help`, `wafh --version`, `wafh version`. Every top-level
    command listed, present or absent; whether the two version outputs agree with the ref.
-2. **Every command's help.** `penguin <command> --help` for each top-level command. Record any help
+2. **Every command's help.** `wafh <command> --help` for each top-level command. Record any help
    text that is empty, untranslated, or names an option the command then refuses.
-3. **Reach the server.** Sign in to the server from `handover.md` with `penguin auth`, as its help
+3. **Reach the server.** Sign in to the server from `handover.md` with `wafh auth`, as its help
    describes. Record each prompt and message.
-4. **Projects and Agents.** `penguin project` and `penguin agent` listings; the default Project and
+4. **Projects and Agents.** `wafh project` and `wafh agent` listings; the default Project and
    Agent a new install has.
-5. **Configuration.** `penguin config` as its help describes: read the current configuration, set
+5. **Configuration.** `wafh config` as its help describes: read the current configuration, set
    the model credential from the plan (skip with "none" and record what later steps say about the
    missing credential).
-6. **A task.** `penguin run` with a one-line prompt; then `penguin ls`, `penguin logs` and
-   `penguin cost` for the Session it made. A Session `penguin run` opens is archived: `ls` lists
+6. **A task.** `wafh run` with a one-line prompt; then `wafh ls`, `wafh logs` and
+   `wafh cost` for the Session it made. A Session `wafh run` opens is archived: `ls` lists
    it with `-a`, and the Web App shows it under Settings › Archived chats of the same Project,
    not in the sidebar. Record whether both hold.
 7. **Mistakes.** An unknown command, a missing required argument, a wrong option value. Each
    error must say what was wrong and what to do; quote it.
 
-Then explore freely for the rest of the budget: `penguin chat`, `penguin schedule`,
-`penguin browser`, output in a narrow terminal, the interface language. Every finding gets its own
+Then explore freely for the rest of the budget: `wafh chat`, `wafh schedule`,
+`wafh browser`, output in a narrow terminal, the interface language. Every finding gets its own
 evidence file.
 
 For every step, the counter-example is: a stack trace instead of a message, a command that hangs
@@ -63,7 +63,7 @@ its share of the budget, and every finding is in `issues.md`.
 
 ## Never
 
-- Run `penguin update`, `penguin server reset-admin-password`, or any command that deletes data,
+- Run `wafh update`, `wafh server reset-admin-password`, or any command that deletes data,
   other than through its `--help`.
 - Use real credentials of anyone; use only the credential the plan gives.
 - Point the CLI at any server other than the one in `handover.md`.

@@ -15,7 +15,7 @@
 import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
-import { partialText, toolCall } from "@prismshadow/penguin-core";
+import { partialText, toolCall } from "@waterford/waf-harness-core";
 import { registerChatCommand } from "../src/commands/chat.js";
 import { getMessages } from "../src/i18n.js";
 import { FakeServer, type FakeSessionState } from "./fake-server.js";
@@ -52,7 +52,7 @@ interface Tty {
   done: Promise<unknown>;
 }
 
-/** Starts `penguin chat` on a fake terminal: stdin claims a TTY, so raw mode and bracketed paste are on. */
+/** Starts `wafh chat` on a fake terminal: stdin claims a TTY, so raw mode and bracketed paste are on. */
 function startChat(): Tty {
   const stdin = new PassThrough() as PassThrough & {
     isTTY: boolean;
@@ -70,7 +70,7 @@ function startChat(): Tty {
   const program = new Command();
   program.exitOverride();
   registerChatCommand(program, getMessages("en"));
-  const done = program.parseAsync(["node", "penguin", "chat"]).finally(() => {
+  const done = program.parseAsync(["node", "wafh", "chat"]).finally(() => {
     Object.defineProperty(process, "stdin", { value: realStdin, configurable: true });
   });
   const session = (): FakeSessionState => {

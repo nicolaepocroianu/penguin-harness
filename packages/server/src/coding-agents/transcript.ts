@@ -8,10 +8,10 @@
  * Everything else in the event vocabulary (state changes, usage, config/mode bookkeeping,
  * permission plumbing, turn markers) is connection noise here and does not render.
  */
-import type { AgentModes, AgentToolCall } from "@prismshadow/penguin-coding-agents";
+import type { AgentModes, AgentToolCall } from "@waterford/waf-harness-coding-agents";
 import type { CodingAgentEvent, CodingAgentSessionDetailResponse } from "../api/types.js";
 
-/** A download-safe filename for one session's transcript (`penguin-coding-agent-<shortid>.md`). */
+/** A download-safe filename for one session's transcript (`wafh-coding-agent-<shortid>.md`). */
 export function transcriptFilename(sessionId: string): string {
   const short =
     sessionId
@@ -19,7 +19,7 @@ export function transcriptFilename(sessionId: string): string {
       .replace(/^[-.]+/, "")
       .slice(0, 40)
       .replace(/[-.]+$/, "") || "session";
-  return `penguin-coding-agent-${short}.md`;
+  return `wafh-coding-agent-${short}.md`;
 }
 
 /** Render one session's detail (info + config options + event log) as a Markdown document. */

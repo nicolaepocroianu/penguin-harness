@@ -5,7 +5,7 @@
  */
 import path from "node:path";
 import { expect } from "vitest";
-import { projectDir } from "@prismshadow/penguin-core";
+import { projectDir } from "@waterford/waf-harness-core";
 import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js";
 import type { VersionSaveResult, VersionSummary } from "../src/activities/version-types.js";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";

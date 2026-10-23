@@ -55,7 +55,7 @@ let root: string;
 let db: DatabaseSync;
 const browsers: BuiltinBrowser[] = [];
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-bb-chrome-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-bb-chrome-"));
   db = openDatabase(":memory:");
   db.exec(
     "INSERT INTO users (user_id, password_hash, is_admin, created_at) VALUES ('alice', 'h', 0, '2026-10-02T00:00:00.000Z')",

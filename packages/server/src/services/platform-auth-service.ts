@@ -8,11 +8,11 @@
  * fetched separately by the models balance route; authorization retains no account metadata.
  */
 import { randomBytes } from "node:crypto";
-import { userAgent } from "@prismshadow/penguin-core";
-import { Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
+import { userAgent } from "@waterford/waf-harness-core";
+import { Interface, Module, Provide, Use } from "@waterford/waf-harness-core/kernel";
 import { PENGUIN_GO_PROVIDER_ID } from "../model-catalog/catalog.js";
 import { HttpError } from "../http/errors.js";
-import { normalizePenguinGoOrigin } from "../config.js";
+import { normalizeWafHarnessGoOrigin } from "../config.js";
 import { Config } from "../hmr/capabilities.js";
 import type { ProjectConfigStore } from "../mechanisms/projects.js";
 import type { PlatformAuthFlowStatusResponse } from "../api/types.js";
@@ -394,7 +394,7 @@ export class PlatformAuthService {
     try {
       response = await this.request("/api/client/models", {
         method: "GET",
-        headers: { authorization: `Bearer ${apiKey}`, "x-penguin-protocol": "mmsp" },
+        headers: { authorization: `Bearer ${apiKey}`, "x-wafh-protocol": "mmsp" },
       });
     } catch {
       throw new HttpError(502, "platform_unreachable", "Penguin Go could not be reached.");
@@ -444,7 +444,7 @@ export class PlatformAuthService {
     try {
       response = await this.request("/api/auth/desktop/poll", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-penguin-protocol": "mmsp" },
+        headers: { "content-type": "application/json", "x-wafh-protocol": "mmsp" },
         body: JSON.stringify({ code: flow.code, deviceSecret: flow.deviceSecret }),
       });
     } catch {
@@ -594,7 +594,7 @@ export class PlatformAuthProvider {
   setup() {
     this.auth = new PlatformAuthService({
       // A runtime older than the field publishes none; the default is the production origin.
-      origin: this.config.penguinGoOrigin ?? normalizePenguinGoOrigin(undefined),
+      origin: this.config.wafHarnessGoOrigin ?? normalizeWafHarnessGoOrigin(undefined),
       getKey: (projectId) => this.projectConfig.getGroupApiKey(projectId, PENGUIN_GO_PROVIDER_ID),
       applyCatalog: (projectId, catalog, apiKey, applyKeyToExisting) =>
         this.projectConfig.mergePlatformModels(

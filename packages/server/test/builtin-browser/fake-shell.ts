@@ -135,7 +135,7 @@ export class FakeShell {
       case "hello":
         this.reply(msg.id, {
           ok: true,
-          result: { version: 1, partition: "persist:penguin-browser" },
+          result: { version: 1, partition: "persist:wafh-browser" },
         });
         return;
       case "tabs":

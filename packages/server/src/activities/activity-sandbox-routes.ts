@@ -5,7 +5,7 @@
  * turns it off, and from then on activity runs are neither confined nor refused for want of
  * a sandbox. A run already going keeps what it started with.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import { HttpError } from "../http/errors.js";

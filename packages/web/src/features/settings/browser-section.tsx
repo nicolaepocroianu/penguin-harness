@@ -17,7 +17,7 @@ import type {
   BrowserBackendResponse,
   BrowserExtensionRecord,
   BrowserExtensionsResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   ConfirmModal,
@@ -30,7 +30,7 @@ import {
   SettingsSection,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { formatDateTime } from "../../lib/format";

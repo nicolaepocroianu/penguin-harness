@@ -1,5 +1,5 @@
-import { Interface, Module, Provide } from "@prismshadow/penguin-core/kernel";
-import type { Opaque } from "@prismshadow/penguin-core/kernel";
+import { Interface, Module, Provide } from "@waterford/waf-harness-core/kernel";
+import type { Opaque } from "@waterford/waf-harness-core/kernel";
 /**
  * WeChat scan-to-connect: binding the official claw bot by scanning a QR code in WeChat.
  *
@@ -36,7 +36,7 @@ import type { Opaque } from "@prismshadow/penguin-core/kernel";
  * task is deleted, so nothing can resolve it twice.
  */
 import { randomBytes } from "node:crypto";
-import { userAgent } from "@prismshadow/penguin-core";
+import { userAgent } from "@waterford/waf-harness-core";
 import { WECHAT_API_BASE, WECHAT_BOT_TYPE, wechatFetchErrorText } from "./wechat-api.js";
 
 /** Overall deadline for `get_bot_qrcode`, which answers immediately. */

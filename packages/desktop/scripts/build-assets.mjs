@@ -8,7 +8,7 @@
  * - `dist/node_modules/node-pty` — the one dependency the bundler cannot absorb, because the
  *   server loads it as a native module through a runtime `require` and node-pty's own loader
  *   then resolves its binary package-relative. See src/pty-payload.ts. (The plugin library is
- *   not staged here: the @penguinharness/* packages are this package's `dependencies`, which
+ *   not staged here: the @waf-harness/* packages are this package's `dependencies`, which
  *   electron-builder collects into the packed app's node_modules and pnpm links for a source
  *   run, and core's bundled loader resolves them by name from the bundle's own location. The
  *   server's web-dist lookup is likewise satisfied by electron-builder's file mapping when
@@ -18,7 +18,7 @@
  * - `dist/icon.png`, `dist/tray/*.png` — the runtime window and tray icons, read
  *   app-path-relative (see src/app-icon.ts). build/ is electron-builder's buildResources
  *   directory and does not ship inside the app.
- * - `bin/penguin`, `bin/penguin.cmd` — the CLI launchers, whose script text lives in
+ * - `bin/wafh`, `bin/wafh.cmd` — the CLI launchers, whose script text lives in
  *   src/launcher.ts so it is unit-tested with the rest of the shell.
  * - `dist/install.sh`, `dist/install.ps1` — the release installers, which the Machines page
  *   feeds to an SSH host and runs there (packages/server/src/machines/install-server.ts
@@ -172,10 +172,10 @@ const { posixLauncherScript, windowsLauncherScript } = await import(
 );
 const binDir = path.join(pkgDir, "bin");
 fs.mkdirSync(binDir, { recursive: true });
-fs.writeFileSync(path.join(binDir, "penguin"), posixLauncherScript(), { mode: 0o755 });
+fs.writeFileSync(path.join(binDir, "wafh"), posixLauncherScript(), { mode: 0o755 });
 // Explicit chmod: the mode option only applies when writeFileSync creates the file.
-fs.chmodSync(path.join(binDir, "penguin"), 0o755);
-fs.writeFileSync(path.join(binDir, "penguin.cmd"), windowsLauncherScript());
+fs.chmodSync(path.join(binDir, "wafh"), 0o755);
+fs.writeFileSync(path.join(binDir, "wafh.cmd"), windowsLauncherScript());
 
 console.log(
   `[build-assets] done: plugins/ (${builtPlugins.plugins.length} builtin plugins), dist/icon.png, dist/tray/ (${trayIcons.length} icons), dist/install.{sh,ps1}, bin/, ${NODE_PTY_RELDIR.join("/")} (${ptyFiles.length} files, bindings: ${bindings.join(", ")}), dist/node_modules/ffmpeg-static (${ffmpegBinary})`,

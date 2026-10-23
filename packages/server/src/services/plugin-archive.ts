@@ -7,7 +7,7 @@
  * On the way in nothing is trusted that has not been checked: the caps are read from the
  * central directory before a byte inflates (as the Skill archive's are), every path is
  * zip-slip-checked, and the package must be a plugin — skills, a hook package or MCP servers
- * (`penguin.mcp_servers`) beside its package.json that the library would read as it is (checked
+ * (`wafh.mcp_servers`) beside its package.json that the library would read as it is (checked
  * with the library's own reader), or the `ifaces.json` of server modules. Installing it is then
  * npm's (plugin/install.ts).
  */
@@ -19,7 +19,7 @@ import {
   PLUGIN_NAME_PATTERN,
   declaresMcpServers,
   readLibraryPackage,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { HttpError } from "../http/errors.js";
 import { PACKAGE_NAME } from "../plugin/loader.js";
 import { assertSafeEntryPath } from "./skill-import-limits.js";
@@ -139,7 +139,7 @@ export async function parsePluginArchive(archive: Uint8Array): Promise<PluginArc
     rel.set(at, data);
   }
 
-  let manifest: { name?: unknown; version?: unknown; penguin?: unknown };
+  let manifest: { name?: unknown; version?: unknown; wafh?: unknown };
   try {
     manifest = JSON.parse(strFromU8(rel.get("package.json")!)) as typeof manifest;
   } catch {
@@ -166,7 +166,7 @@ export async function parsePluginArchive(archive: Uint8Array): Promise<PluginArc
   const modules = rel.has("ifaces.json");
   if (!library && !modules) {
     throw invalid(
-      "Not a PenguinHarness plugin: the package carries neither skills/ nor hooks/ nor workbenches/ nor MCP servers (`penguin.mcp_servers`) nor the ifaces.json of server modules.",
+      "Not a WAF Harness plugin: the package carries neither skills/ nor hooks/ nor workbenches/ nor MCP servers (`wafh.mcp_servers`) nor the ifaces.json of server modules.",
     );
   }
   if (library) await checkWithLibrary(rel);
@@ -179,7 +179,7 @@ export async function parsePluginArchive(archive: Uint8Array): Promise<PluginArc
  * inside the package; what it reads with a warning, it lists with that field missing.
  */
 async function checkWithLibrary(files: ReadonlyMap<string, Uint8Array>) {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-plugin-check-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-plugin-check-"));
   try {
     for (const [rel, bytes] of files) {
       const file = path.join(dir, ...rel.split("/"));

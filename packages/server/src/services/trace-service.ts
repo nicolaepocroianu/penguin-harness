@@ -28,8 +28,8 @@ import {
   resumeTrace,
   scratchpadDir,
   tracesDir,
-} from "@prismshadow/penguin-core";
-import type { CompactionMode, OmniMessage } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { CompactionMode, OmniMessage } from "@waterford/waf-harness-core";
 import type {
   AgentTraceSessionEntry,
   AgentTracesResponse,
@@ -85,7 +85,7 @@ import { listCategory, listingMarksOf, readRecordedSource } from "../runtime/ses
 import { TraceIndexService, traceFilePath } from "./trace-index.js";
 import { TraceLineIndex } from "./trace-line-index.js";
 import { traceRecordImage, withImagesByReference } from "./trace-images.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Paths } from "../hmr/capabilities.js";
 import type { TraceIndex, TraceIndexStore, Traces } from "../mechanisms/traces.js";
 import type { SessionIndex, SessionOrigins } from "../mechanisms/sessions.js";

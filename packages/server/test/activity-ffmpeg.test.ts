@@ -1,6 +1,6 @@
 /**
  * Which FFmpeg the server runs, and running it. What this proves: an admin's
- * `PENGUIN_FFMPEG_PATH` wins, then the bundled `ffmpeg-static` binary; an FFmpeg that cannot be
+ * `WAFH_FFMPEG_PATH` wins, then the bundled `ffmpeg-static` binary; an FFmpeg that cannot be
  * started is 503 `ffmpeg_missing`, and one that fails says why; and the bundled binary really
  * converts a WAV clip to MP3 and encodes PNG frames to an H.264 MP4.
  */
@@ -35,7 +35,7 @@ function silentWav(samples = 800): Buffer {
 
 describe("ffmpeg", () => {
   it("runs the admin's FFmpeg first, then the bundled one", () => {
-    expect(ffmpegPath({ PENGUIN_FFMPEG_PATH: " /opt/ffmpeg/bin/ffmpeg " })).toBe(
+    expect(ffmpegPath({ WAFH_FFMPEG_PATH: " /opt/ffmpeg/bin/ffmpeg " })).toBe(
       "/opt/ffmpeg/bin/ffmpeg",
     );
     const bundled = ffmpegPath({});
@@ -102,7 +102,7 @@ describe("ffmpeg", () => {
   }, 20_000);
 
   it("encodes PNG frames on stdin to an H.264 MP4", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-ffmpeg-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-ffmpeg-"));
     try {
       const file = path.join(dir, "out.mp4");
       const run = await startFfmpeg(encodeArgs(10, file), {

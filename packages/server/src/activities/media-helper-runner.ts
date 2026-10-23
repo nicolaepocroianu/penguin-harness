@@ -18,7 +18,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Component, Interface, type Opaque } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, type Opaque } from "@waterford/waf-harness-core/kernel";
 import { runProgram } from "./run-program.js";
 
 /** Provider calls time out at two minutes; an install on a slow network gets as long again. */

@@ -22,12 +22,12 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createElement as h } from "react";
-import { toastStore } from "@prismshadow/penguin-ui";
+import { toastStore } from "@waterford/waf-harness-ui";
 import type {
   MessagingAccountHoldersResponse,
   MessagingChannelState,
   SessionInfo,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { MessagingPanel } from "../src/features/messaging/messaging-panel";
 import { rememberBinding } from "../src/features/messaging/messaging-binding-cache";
 import { formatDateTime } from "../src/lib/format";
@@ -54,7 +54,7 @@ const session = (sessionId: string): SessionInfo =>
     agentId: AGENT_ID,
     provider: "custom",
     modelId: "m",
-    workspace: "/home/penguin",
+    workspace: "/home/wafh",
     approvalMode: "allow-all",
     sandbox: { mode: "danger-full-access", network: "open" },
     createdAt: "2026-10-19T09:00:00.000Z",

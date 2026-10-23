@@ -1,10 +1,10 @@
 {
-  "name": "@penguinharness/continual-learning",
+  "name": "@waf-harness/continual-learning",
   "version": "0.2.16",
   "description": "Continual learning: a stop hook that, when the task that just ended ran more than 30 completed turns, hands a condensed excerpt of that task to a background subagent, which folds the durable findings into the agent's own skills.",
   "keywords": [
-    "penguin-plugin",
-    "penguinharness",
+    "wafh-plugin",
+    "waf-harness",
     "hooks"
   ],
   "license": "Apache-2.0",
@@ -22,7 +22,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "penguin": {
+  "wafh": {
     "short_description": "Fold a long task's findings back into the agent's skills.",
     "category": "office-productivity",
     "icon": "icon.svg",

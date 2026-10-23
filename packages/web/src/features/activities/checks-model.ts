@@ -11,7 +11,7 @@ import type {
   AcceptanceResultStatus,
   PlayerCheckGap,
   PlayerCheckReport,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
 import type { QualityState } from "./quality-model";

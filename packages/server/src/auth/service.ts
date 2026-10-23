@@ -16,7 +16,7 @@ import type { SessionViaValue, AuthSessionsRepo } from "../db/repos/auth-session
 import type { AuthRuntimeState } from "./runtime-state.js";
 import { verifyAccountPassword, verifyPassword } from "./password.js";
 import type { PasswordHasher } from "./password.js";
-import { Component, Use, Interface } from "@prismshadow/penguin-core/kernel";
+import { Component, Use, Interface } from "@waterford/waf-harness-core/kernel";
 import type { AuthState, Clock, Config } from "../hmr/capabilities.js";
 import type { Auth, AuthSessions, Users } from "../mechanisms/identity.js";
 
@@ -141,7 +141,7 @@ export class AuthService implements Auth {
     // any insert, so a configuration typo cannot create a trivially weak privileged account.
     if (password.length < MIN_PASSWORD_LENGTH) {
       throw new Error(
-        `PENGUIN_SEED_ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+        `WAFH_SEED_ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters.`,
       );
     }
     const user: UserRow = {

@@ -14,7 +14,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { ConfirmModal } from "@prismshadow/penguin-ui";
+import { ConfirmModal } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import {
   UnsavedWork,

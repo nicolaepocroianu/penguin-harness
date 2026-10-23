@@ -2,7 +2,7 @@
 import type { Strings } from "./strings-types";
 
 export const en: Strings = {
-  siteName: "PenguinHarness",
+  siteName: "WAF Harness",
 
   announcement: {
     label: "Announcements",
@@ -10,7 +10,7 @@ export const en: Strings = {
     next: "Next announcement",
     geminiArgon: "Gemini 4 Argon is now available — see the 0.2.16 release notes",
     tokenDanceChallenge: "TokenDance Agent Challenge: ¥15,000 in token credits, through October 23",
-    penguinGo: "Penguin Go official Token packs are live: 50% off every Gemini model",
+    wafHarnessGo: "Penguin Go official Token packs are live: 50% off every Gemini model",
   },
 
   nav: {
@@ -62,7 +62,7 @@ export const en: Strings = {
     ],
     externalLink: {
       title: "You're about to open an external link",
-      body: "This link goes to a site outside PenguinHarness and opens in a new tab:",
+      body: "This link goes to a site outside WAF Harness and opens in a new tab:",
       cancel: "Cancel",
       open: "Open link",
     },
@@ -77,8 +77,8 @@ export const en: Strings = {
     offlineNote:
       "Every GitHub Release attaches one package per target (Linux / macOS in x64 and arm64, Windows in x64) and the same file serves online and offline installation. Each package seals the program payload, its SHA256 checksum and the installer: download that one file on a networked machine, copy it to the target, extract once and install with no network at all.",
     offlineHints: {
-      linux: "On arm64 machines, use penguin-linux-arm64.tar.gz.",
-      macos: "Apple silicon uses the arm64 package; on Intel, use penguin-darwin-x64.tar.gz.",
+      linux: "On arm64 machines, use wafh-linux-arm64.tar.gz.",
+      macos: "Apple silicon uses the arm64 package; on Intel, use wafh-darwin-x64.tar.gz.",
       windows: "After unzipping you can also just double-click install.cmd.",
     },
     offlineRelease: "Download offline packages from GitHub Releases",
@@ -158,7 +158,7 @@ export const en: Strings = {
     start: "Start page (live demo)",
     evolve: {
       title: "Start agent self-evolution with one sentence",
-      text: "Name the agent, the Benchmark and the target score. PenguinHarness edits the agent, evaluates it again, and keeps the version that scores higher.",
+      text: "Name the agent, the Benchmark and the target score. WAF Harness edits the agent, evaluates it again, and keeps the version that scores higher.",
       link: "How self-evolution works",
       frame: "A self-evolution round in a conversation (live demo)",
     },
@@ -207,7 +207,7 @@ export const en: Strings = {
   },
 
   quickstart: {
-    title: "Install PenguinHarness, then pick how to start it",
+    title: "Install WAF Harness, then pick how to start it",
     subtitle:
       "The desktop app works as soon as it is installed. After a command-line install, open the Web UI or use it in the terminal.",
     stepOne: "Step one",
@@ -226,12 +226,12 @@ export const en: Strings = {
       cta: "Choose your system and download",
       steps: [
         "Download the installer for your system",
-        "Open PenguinHarness and follow the model setup",
+        "Open WAF Harness and follow the model setup",
         "Describe your first AI app in one sentence",
       ],
     },
     install: {
-      title: "Install PenguinHarness with one command",
+      title: "Install WAF Harness with one command",
       desc: "Made for developer machines, servers, and private environments. The bundle includes its runtime and does not depend on system Node.js.",
       osLabel: "Choose an operating system",
       onlineTitle: "Online install",
@@ -243,29 +243,29 @@ export const en: Strings = {
     web: {
       title: "Use the full interface in your browser",
       desc: "This starts the local service and opens the Web UI, a good fit for servers and remote access.",
-      command: "penguin web   # opens http://127.0.0.1:7364",
+      command: "wafh web   # opens http://127.0.0.1:7364",
       steps: [
         "Complete the command-line install",
-        "Run penguin web",
+        "Run wafh web",
         "Follow the terminal prompt to sign in and configure a model",
       ],
     },
     cli: {
       title: "Run an agent directly from the terminal",
       desc: "Start an interactive conversation or connect a one-off task to scripts and automated workflows.",
-      command: `penguin chat
+      command: `wafh chat
 
 # Or run one task
-penguin run --message "Analyze data.csv and summarize quarterly sales"`,
+wafh run --message "Analyze data.csv and summarize quarterly sales"`,
     },
     localNote:
-      "Desktop, Web UI, and CLI share ~/.penguin/data; switching entry points never moves or copies your data.",
+      "Desktop, Web UI, and CLI share ~/.waf-harness/data; switching entry points never moves or copies your data.",
   },
 
   cases: {
     title: "One sentence and $0.10 build a legal agent app",
     subtitle:
-      "Describe what you need in one request. PenguinHarness builds a legal agent app that takes contract uploads, identifies risks and produces review reports to download.",
+      "Describe what you need in one request. WAF Harness builds a legal agent app that takes contract uploads, identifies risks and produces review reports to download.",
     prompt:
       "Build a legal review agent with a simple workspace where users upload contracts, track the review, and download a report with risky clauses, explanations, and suggested revisions.",
     caption:
@@ -276,9 +276,9 @@ penguin run --message "Analyze data.csv and summarize quarterly sales"`,
   pillars: {
     title: "A minimal, file-centric agent architecture",
     subtitle: "When an agent improves, its files change and the model does not.",
-    root: "PenguinHarness",
+    root: "WAF Harness",
     diagramLabel:
-      "PenguinHarness branches into OmniMessage, the Penguin SDK and Agent State, each leading to one card below",
+      "WAF Harness branches into OmniMessage, the WAF Harness SDK and Agent State, each leading to one card below",
     items: [
       {
         concept: "OmniMessage",
@@ -287,9 +287,9 @@ penguin run --message "Analyze data.csv and summarize quarterly sales"`,
         link: "The OmniMessage protocol",
       },
       {
-        concept: "Penguin SDK",
+        concept: "WAF Harness SDK",
         title: "Harness for building agents",
-        desc: "Every Task in PenguinHarness runs on @prismshadow/penguin-core. You can install the same package from npm. With the penguin-sdk Skill, an agent builds a standalone app on it, such as a RAG app that cites its sources.",
+        desc: "Every Task in WAF Harness runs on @waterford/waf-harness-core. You can install the same package from npm. With the wafh-sdk Skill, an agent builds a standalone app on it, such as a RAG app that cites its sources.",
         link: "SDK quick start",
       },
       {
@@ -310,8 +310,8 @@ penguin run --message "Analyze data.csv and summarize quarterly sales"`,
       mode: "You build each piece",
       note: "Write each part yourself, or wire in a separate product for it.",
     },
-    penguin: {
-      name: "PenguinHarness",
+    wafh: {
+      name: "WAF Harness",
       mode: "Already built",
       note: "A Web App, Traces, the Evaluation Center with built-in Benchmarks, self-evolution toolkits, a sandbox and the Agent API.",
     },
@@ -319,18 +319,17 @@ penguin run --message "Analyze data.csv and summarize quarterly sales"`,
 
   scenarios: {
     title: "From screening centers to factory floors",
-    subtitle:
-      "Two companies had PenguinHarness build their agents. Both now run them in production.",
+    subtitle: "Two companies had WAF Harness build their agents. Both now run them in production.",
     items: [
       {
         title: "Screening-report QC",
         alt: "A CT scanner room at a health screening center",
-        body: "A health-screening group used PenguinHarness to automatically build a report-QC agent and deploy it into its production environment on a local Qwen3 14B, so data never leaves the facility. A review round that took 30 minutes by hand now clears 30 reports a minute, with findings in line with medical experts and several times the review capacity.",
+        body: "A health-screening group used WAF Harness to automatically build a report-QC agent and deploy it into its production environment on a local Qwen3 14B, so data never leaves the facility. A review round that took 30 minutes by hand now clears 30 reports a minute, with findings in line with medical experts and several times the review capacity.",
       },
       {
         title: "Production-line inspection",
         alt: "An automated semiconductor production line",
-        body: "A manufacturer used PenguinHarness to automatically build a production-line inspection agent and deploy it across multiple live lines. The agent watches equipment around the clock and tries automated recovery first when something goes wrong; after deployment, downtime fell 65% and output roughly doubled.",
+        body: "A manufacturer used WAF Harness to automatically build a production-line inspection agent and deploy it across multiple live lines. The agent watches equipment around the clock and tries automated recovery first when something goes wrong; after deployment, downtime fell 65% and output roughly doubled.",
       },
     ],
   },
@@ -379,7 +378,7 @@ penguin run --message "Analyze data.csv and summarize quarterly sales"`,
   },
 
   cta: {
-    title: "Download PenguinHarness and run your first self-evolution round",
+    title: "Download WAF Harness and run your first self-evolution round",
     subtitle: "Every version is scored and snapshotted, so a worse one rolls back in one step.",
     download: "Download the desktop app",
     quickstart: "Get started",

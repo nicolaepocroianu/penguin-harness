@@ -3,7 +3,7 @@
  *
  * The image shows the RESULT of the example — a Claude Code docs-expert RAG app —
  * rather than the build conversation: rag-app-mockup.html is a static, dependency-free
- * mockup of the generated app's UI (per the web-design skill's Penguin visual language),
+ * mockup of the generated app's UI (per the web-design skill's WAF Harness visual language),
  * captured per language (English) and theme (light / dark) into assets/readme/ at the
  * repo root as rag-app-<lang>-<theme>.webp (README.md uses en).
  *

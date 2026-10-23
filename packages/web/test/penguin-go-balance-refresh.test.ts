@@ -8,7 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createElement as h } from "react";
-import { providerInfo } from "@prismshadow/penguin-server/model-catalog";
+import { providerInfo } from "@waterford/waf-harness-server/model-catalog";
 import { GroupBalance, PinnedBalanceBadge } from "../src/features/models/group-balance";
 import { ProjectProvider } from "../src/state/project";
 import { ThemeProvider } from "../src/state/theme";
@@ -21,7 +21,7 @@ describe("Penguin Go balance refresh", () => {
   beforeEach(() => {
     setActiveStrings(en);
     localStorage.clear();
-    localStorage.setItem("penguin.currency", "CNY");
+    localStorage.setItem("wafh.currency", "CNY");
     vi.stubGlobal("matchMedia", (media: string) => ({
       media,
       matches: false,

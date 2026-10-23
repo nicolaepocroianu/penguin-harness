@@ -49,4 +49,4 @@ packages/server/test/fixtures/loom-state-machine/
 
 # vendored verbatim from upstream (see the dev skill's reference/ai-slop.md); kept byte-identical
 # so a refresh is a plain copy
-.agents/skills/penguin-harness-dev/reference/ai-slop/
+.agents/skills/waf-harness-dev/reference/ai-slop/

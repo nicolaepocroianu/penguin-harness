@@ -12,7 +12,7 @@
  * The card's live status (what this machine enforces, which backends are not in use and why)
  * is `SandboxSettingsStatus`, in settings-status.ts.
  */
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import { PluginConfig } from "../plugin/config.js";
 import { Sandbox, SandboxModule } from "./service.js";
 import { sandboxStartOf } from "./settings-policy.js";

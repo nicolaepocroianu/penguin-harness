@@ -1,5 +1,5 @@
 /**
- * Module-code versions: the builds Penguin already keeps, one per succeeded assembly run.
+ * Module-code versions: the builds WAF Harness already keeps, one per succeeded assembly run.
  * Lists them with their file counts, compares two builds file by file, and pins the one the
  * preview plays ("Play this build") until it is unpinned.
  *
@@ -7,7 +7,7 @@
  * sandbox reads it to choose the module it serves. It is not part of the draft's revision, so
  * a pin never makes a candidate, a stage or a deploy out of date.
  */
-import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use } from "@waterford/waf-harness-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import { realFolder, type ActivityRuns } from "./run-store.js";

@@ -1,5 +1,5 @@
 /**
- * `penguin run` / `penguin chat`: a model reference is always an explicit
+ * `wafh run` / `wafh chat`: a model reference is always an explicit
  * (provider, model_id) pair. Commander can only mark each option required on its own, so
  * the "both or neither" rule is enforced inside the action — supplying exactly one of
  * --model-id / --provider is a usage error (never a lookup against the configured models),
@@ -15,19 +15,19 @@ import { registerRunCommand } from "../src/commands/run.js";
 import { getMessages } from "../src/i18n.js";
 
 // The --resume case below reaches createAgent, which initializes Agent state on disk; point
-// the data root at a throwaway directory so no test ever writes to the real ~/.penguin/data.
+// the data root at a throwaway directory so no test ever writes to the real ~/.waf-harness/data.
 let tmpHome: string;
 let prevHome: string | undefined;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-cli-pairing-"));
-  process.env.PENGUIN_HOME = tmpHome;
+  prevHome = process.env.WAFH_HOME;
+  tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-cli-pairing-"));
+  process.env.WAFH_HOME = tmpHome;
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.PENGUIN_HOME;
-  else process.env.PENGUIN_HOME = prevHome;
+  if (prevHome === undefined) delete process.env.WAFH_HOME;
+  else process.env.WAFH_HOME = prevHome;
   await fs.rm(tmpHome, { recursive: true, force: true });
 });
 
@@ -52,7 +52,7 @@ async function runCommand(
   const prevExitCode = process.exitCode;
   process.exitCode = undefined;
   try {
-    await program.parseAsync(["node", "penguin", ...args]);
+    await program.parseAsync(["node", "wafh", ...args]);
     return { out: out.join(""), err: err.join(""), code: Number(process.exitCode ?? 0) };
   } catch (e) {
     const exitCode = (e as { exitCode?: number }).exitCode;

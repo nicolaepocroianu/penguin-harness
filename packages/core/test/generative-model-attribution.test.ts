@@ -4,7 +4,7 @@
  * prove the model sends them, and keeps OpenCode's conversation id fixed per instance.
  *
  * - Given a model built for a Session on OpenCode, its client sends the Session's id beside the
- *   User-Agent that names PenguinHarness and its version.
+ *   User-Agent that names WAF Harness and its version.
  * - Given two models built outside any Session (the connectivity test, the vision probe), each
  *   sends a fresh id of its own — never nothing, and never one value shared between instances.
  * - Given an endpoint that reads no attribution header, or no base URL, only the User-Agent.
@@ -50,7 +50,7 @@ describe("GenerativeModel attribution headers", () => {
   it("names a Session's requests after the Session", () => {
     build({ baseUrl: OPENCODE_GO, sessionId: "session-2026-09-30-10-00-00-abcd1234" });
     expect(lastHeaders()).toEqual({
-      "User-Agent": `penguinharness/${VERSION}`,
+      "User-Agent": `waf-harness/${VERSION}`,
       "x-opencode-session": "session-2026-09-30-10-00-00-abcd1234",
     });
   });
@@ -67,9 +67,9 @@ describe("GenerativeModel attribution headers", () => {
 
   it("sends only the User-Agent to an endpoint that reads no attribution header", () => {
     build({ baseUrl: "https://api.deepseek.com" });
-    expect(lastHeaders()).toEqual({ "User-Agent": `penguinharness/${VERSION}` });
+    expect(lastHeaders()).toEqual({ "User-Agent": `waf-harness/${VERSION}` });
     build({});
-    expect(lastHeaders()).toEqual({ "User-Agent": `penguinharness/${VERSION}` });
+    expect(lastHeaders()).toEqual({ "User-Agent": `waf-harness/${VERSION}` });
   });
 
   it("keeps the id when a rotated credential rebuilds the client", async () => {

@@ -39,7 +39,7 @@ test("each Workspace group opens on its own page, and revealing one leaves the o
   page,
 }) => {
   // Real directories: a Workspace is validated by realpath and must exist.
-  const root = await mkdtemp(join(tmpdir(), "penguin-ws-"));
+  const root = await mkdtemp(join(tmpdir(), "wafh-ws-"));
   const alpha = join(root, "ws-alpha");
   const beta = join(root, "ws-beta");
   await Promise.all([mkdir(alpha), mkdir(beta)]);

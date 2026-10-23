@@ -39,7 +39,7 @@ import {
   CLIENT_PROTOCOLS,
   routedClientType,
   vendorClientType,
-} from "@prismshadow/penguin-server/model-catalog";
+} from "@waterford/waf-harness-server/model-catalog";
 
 /**
  * The protocol path appended to the base URL for a model entry. An explicit client type
@@ -53,7 +53,7 @@ import {
  * value.
  */
 export function protocolPathForModel(provider: string, clientType: string, modelId = ""): string {
-  // A ChatGPT subscription goes through Penguin's own Codex client, which MMSP does not know:
+  // A ChatGPT subscription goes through WAF Harness's own Codex client, which MMSP does not know:
   // it speaks the Responses API.
   const t = clientType.trim().toLowerCase();
   if (t === "chatgpt-codex" || (t === "" && provider === "chatgpt-codex")) return "/responses";

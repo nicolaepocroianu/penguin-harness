@@ -16,7 +16,7 @@
 import { useEffect } from "react";
 import { useBlocker } from "react-router";
 import type { BlockerFunction } from "react-router";
-import { confirmDiscard, discardUnsaved, hasUnsaved } from "@prismshadow/penguin-ui";
+import { confirmDiscard, discardUnsaved, hasUnsaved } from "@waterford/waf-harness-ui";
 
 /** Whether this navigation leaves the page while a form holds unsaved edits. */
 export const leavesUnsavedForm: BlockerFunction = ({ currentLocation, nextLocation }) =>

@@ -1,7 +1,7 @@
 /**
- * `penguin run` — send a single Task through the server and render its stream.
+ * `wafh run` — send a single Task through the server and render its stream.
  *
- *   penguin run -m <msg> [--project-id <id>] [--agent-id <id>] [--workspace <path>]
+ *   wafh run -m <msg> [--project-id <id>] [--agent-id <id>] [--workspace <path>]
  *               [--model-id <id> --provider <group>] [--approve <mode>]
  *               [--thinking <level>] [--session <session_id>] [--title <title>]
  *               [--background] [--goal [budget]] [--json] [--server <url>]
@@ -11,13 +11,13 @@
  * ends, then prints the stats line. Exit 0 on completed; a goal run exits 0 only when
  * the goal outcome is `complete`.
  *
- * - Defaults: project/agent from PENGUIN_PROJECT_ID / PENGUIN_AGENT_ID (else
+ * - Defaults: project/agent from WAFH_PROJECT_ID / WAFH_AGENT_ID (else
  *   default_project / default_agent); Workspace = the CLI's cwd (resolved locally —
  *   server and CLI share the machine in the default flow); model = the Project default;
  *   approval mode allow-all (the historical run default).
  * - Every Session it creates is recorded as a `cli` Session (`session_meta.source`), which is
  *   archived until the user unarchives it (the Web App's Settings › Archived chats, `session ls
- *   -a`); `penguin chat` creates `user` Sessions instead.
+ *   -a`); `wafh chat` creates `user` Sessions instead.
  * - `--session` accepts a full id or a unique fragment; it excludes `--workspace` and the
  *   model pair (neither can change after creation); `--approve` PATCHes the mode.
  * - `--title` names the Session (the manual rename the Web App's "Rename chat" does —
@@ -29,11 +29,11 @@
  *   where `text` joins the main session's assistant text messages of this task.
  * - Ctrl-C: during an approval prompt → deny that call; otherwise POST /abort and let
  *   the stream wind down (the abort event maps to exit code 1).
- * Docs: /docs/cli § "penguin run".
+ * Docs: /docs/cli § "wafh run".
  */
 import { Option } from "commander";
 import type { Command } from "commander";
-import { buildInfo } from "@prismshadow/penguin-core";
+import { buildInfo } from "@waterford/waf-harness-core";
 import { StreamRenderer, dim } from "../render.js";
 import { parseDurationMs } from "../duration.js";
 import { parseTokenBudget, UNLIMITED_BUDGET } from "../goal-command.js";
@@ -106,7 +106,7 @@ export function registerRunCommand(program: Command, t: Messages): void {
           return;
         }
       }
-      // compat(0.3.0): `--source` is gone, since every Session `penguin run` creates is `cli`.
+      // compat(0.3.0): `--source` is gone, since every Session `wafh run` creates is `cli`.
       // Installed copies of the agent-evaluation skill still pass `--source benchmark`, so that
       // value is accepted as a no-op with a note; any other value stays an error.
       if (opts.source !== undefined) {
@@ -205,8 +205,8 @@ export function registerRunCommand(program: Command, t: Messages): void {
       };
 
       if (opts.background === true) {
-        // POST and leave: the task runs on the server; the id is what `penguin session
-        // input` / `penguin session log` address later.
+        // POST and leave: the task runs on the server; the id is what `wafh session
+        // input` / `wafh session log` address later.
         await client.request("POST", `/api/sessions/${session.sessionId}/tasks`, taskBody);
         process.stdout.write(
           json ? `${JSON.stringify({ sessionId: session.sessionId })}\n` : `${session.sessionId}\n`,

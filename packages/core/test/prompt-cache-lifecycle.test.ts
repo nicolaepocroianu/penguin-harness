@@ -85,7 +85,7 @@ function makeSession(spec: SessionSpec): Session {
     meta: { ...META, ...(spec.sessionId ? { session_id: spec.sessionId } : {}) },
     bootstrap: async () => ({ llm: spec.llm }),
     environment: spec.environment,
-    imagesDir: "/tmp/penguin-prompt-cache/scratchpad",
+    imagesDir: "/tmp/wafh-prompt-cache/scratchpad",
     modelHasVision: true,
     ...(spec.trace ? { trace: spec.trace } : {}),
     ...(spec.compaction ? { compaction: spec.compaction } : {}),
@@ -114,7 +114,7 @@ const commandToolConfig = (names: string[]): ToolConfig => ({
 
 /** A real Environment over a scratch workspace, disposed after the test. */
 async function makeEnvironment(names: string[], services?: { subagentRunner: SubagentRunner }) {
-  const dir = await mkdtemp(path.join(tmpdir(), "penguin-prompt-cache-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "wafh-prompt-cache-"));
   const environment = new Environment({
     workspaceDir: dir,
     toolConfig: commandToolConfig(names),
@@ -644,7 +644,7 @@ async function* tagged(
  * object — the process restart, with the provider's cache untouched on the other side.
  */
 async function driveResume(onRequest: (request: RecordedRequest) => void): Promise<void> {
-  const traces = await mkdtemp(path.join(tmpdir(), "penguin-prompt-cache-trace-"));
+  const traces = await mkdtemp(path.join(tmpdir(), "wafh-prompt-cache-trace-"));
   cleanups.push(() => rm(traces, { recursive: true, force: true }));
 
   const live = recordingModel(

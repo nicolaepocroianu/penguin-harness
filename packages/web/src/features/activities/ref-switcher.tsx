@@ -9,7 +9,7 @@
  */
 import { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router";
-import type { ActivityDetail, ActivityRecord } from "@prismshadow/penguin-server/api";
+import type { ActivityDetail, ActivityRecord } from "@waterford/waf-harness-server/api";
 import { ApiError } from "../../api/client";
 import {
   Button,
@@ -31,7 +31,7 @@ import {
   ICON_SIZE,
   useGuardedClose,
   useUnsavedChanges,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";

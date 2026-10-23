@@ -4,8 +4,8 @@
  * not reach a Session that already exists.
  */
 import { describe, expect, it } from "vitest";
-import { wire } from "@prismshadow/penguin-core/kernel";
-import type { SandboxProvider, SandboxSettings } from "@prismshadow/penguin-core/plugin";
+import { wire } from "@waterford/waf-harness-core/kernel";
+import type { SandboxProvider, SandboxSettings } from "@waterford/waf-harness-core/plugin";
 import { openDatabase } from "../src/db/database.js";
 import { migrate } from "../src/db/migrations/index.js";
 import { stampThrough } from "./db-migrations-fixtures.js";
@@ -114,12 +114,9 @@ describe("picking a Session's sandbox from the composer", () => {
 
   it("names an enabled backend that failed its check, and leaves out one for another platform", async () => {
     const svc = new SandboxService([
-      [
-        "penguin-wsl",
-        () => Promise.reject(new Error("the sandbox distro is not set up; run Set up")),
-      ],
+      ["wafh-wsl", () => Promise.reject(new Error("the sandbox distro is not set up; run Set up"))],
       // Another platform's backend declines: nothing is wrong with it here.
-      ["penguin-seatbelt", () => null],
+      ["wafh-seatbelt", () => null],
     ]);
     await svc.whenReady();
     const dimensions = [...new Set(svc.backends().flatMap((b) => b.dimensions))];
@@ -128,7 +125,7 @@ describe("picking a Session's sandbox from the composer", () => {
       network: "open",
       ...NO_BACKEND,
       unavailableBackends: [
-        { name: "penguin-wsl", reason: "the sandbox distro is not set up; run Set up" },
+        { name: "wafh-wsl", reason: "the sandbox distro is not set up; run Set up" },
       ],
     });
   });

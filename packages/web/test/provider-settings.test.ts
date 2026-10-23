@@ -46,8 +46,8 @@ import {
   catalogGroupConnection,
   presetProviderTable,
   providerInfo,
-} from "@prismshadow/penguin-server/model-catalog";
-import type { ModelsResponse, ProviderConnectionDto } from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/model-catalog";
+import type { ModelsResponse, ProviderConnectionDto } from "@waterford/waf-harness-server/api";
 import {
   applyProviderUpdate,
   groupKeyMissesRow,

@@ -6,9 +6,9 @@
  * The probing itself is server-side (packages/server/src/services/protocol-detect.ts); these
  * only decide what the dialog shows and what is worth sending there.
  */
-import { modelEnvironment, providerInfo } from "@prismshadow/penguin-server/model-catalog";
-import type { ModelEnvironment } from "@prismshadow/penguin-server/model-catalog";
-import type { ProviderConnectionShape } from "@prismshadow/penguin-core/model-connection";
+import { modelEnvironment, providerInfo } from "@waterford/waf-harness-server/model-catalog";
+import type { ModelEnvironment } from "@waterford/waf-harness-server/model-catalog";
+import type { ProviderConnectionShape } from "@waterford/waf-harness-core/model-connection";
 
 /**
  * The protocols the in-field protocol menu offers, in its order: five of MMSP's compatible

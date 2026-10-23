@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { UploadedMedia } from "@prismshadow/penguin-server/api";
+import type { UploadedMedia } from "@waterford/waf-harness-server/api";
 import {
   UPLOAD_ACCEPT,
   boundUpload,

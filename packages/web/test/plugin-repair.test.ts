@@ -11,7 +11,7 @@
 import { createElement, type FunctionComponent } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
 import { aiChatRouteState, buildAiDraft } from "../src/features/ai-create/ai-bridge";
 import { repairChatRequest } from "../src/features/plugins/plugin-repair";
 import { PluginCard } from "../src/features/plugins/plugin-card";
@@ -77,7 +77,7 @@ describe("the chat a plugin repair opens", () => {
 
 describe("the row of a plugin the build cannot fully run", () => {
   beforeEach(() => {
-    stubLocalStorage().setItem("penguin.lang", "en");
+    stubLocalStorage().setItem("wafh.lang", "en");
   });
 
   const inLocale = <P extends object>(child: FunctionComponent<P>, props: P) =>

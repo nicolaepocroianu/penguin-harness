@@ -7,7 +7,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import { ActivityModuleSourceService } from "../src/activities/module-source.js";
 import { ActivityRunStore } from "../src/activities/run-store.js";
 import type { ActivityDetail } from "../src/activities/domain.js";
@@ -42,12 +42,12 @@ interface Setup {
 }
 
 async function setup(options: Setup = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-module-source-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-module-source-"));
   roots.push(root);
-  const penguin = path.join(root, "penguin");
+  const wafh = path.join(root, "wafh");
   const waf = path.join(root, "waf");
   const checkout = path.join(waf, "modules", FOLDER);
-  const runModule = (runId: string) => path.join(penguin, "activity-runs", runId, "module");
+  const runModule = (runId: string) => path.join(wafh, "activity-runs", runId, "module");
   const builds = options.builds ?? [];
   for (const runId of builds) await fs.mkdir(runModule(runId), { recursive: true });
   for (const runId of options.packaged ?? [])
@@ -81,11 +81,11 @@ async function setup(options: Setup = {}) {
         return { runId, ...run };
       },
     },
-    runs: wire(ActivityRunStore, { config: { root: penguin } }),
-    config: { root: penguin },
+    runs: wire(ActivityRunStore, { config: { root: wafh } }),
+    config: { root: wafh },
     wafWorkspace: { root: async () => (options.wafRoot === false ? null : waf) },
   });
-  return { source, activity, penguin, waf, checkout, runModule };
+  return { source, activity, wafh, waf, checkout, runModule };
 }
 
 describe("the module a purpose uses", () => {
@@ -113,12 +113,12 @@ describe("the module a purpose uses", () => {
   });
 
   it("previews the checkout's module without a build, and only when it holds one", async () => {
-    const { source, activity, penguin, checkout } = await setup();
+    const { source, activity, wafh, checkout } = await setup();
     expect(await source.resolve(PROJECT, activity, "preview")).toEqual({
       source: {
         kind: "checkout",
         root: checkout,
-        output: path.join(penguin, "activity-sandbox", "modules", FOLDER),
+        output: path.join(wafh, "activity-sandbox", "modules", FOLDER),
         moduleFolder: FOLDER,
       },
       documentRoots: [checkout],

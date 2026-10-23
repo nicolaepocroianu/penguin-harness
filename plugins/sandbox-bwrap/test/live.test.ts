@@ -4,7 +4,7 @@
  *
  * Host-gated — a package whose whole job is kernel confinement can only be proven on a
  * host that has bubblewrap; elsewhere the suite skips and profile.test.ts still pins
- * the profile and the fail-closed path (unless PENGUIN_MUST_RUN names it; see
+ * the profile and the fail-closed path (unless WAFH_MUST_RUN names it; see
  * scripts/must-run.mjs). The backend is driven DIRECTLY here (no
  * SandboxService): what a plugin package owes is that its own confinement works, and
  * routing/settings are the harness's behavior, tested there with fakes.
@@ -17,10 +17,10 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandSessionManager } from "@prismshadow/penguin-core";
-import type { SpawnConfiner } from "@prismshadow/penguin-core";
-import type { SandboxPolicy, SandboxProviderSource } from "@prismshadow/penguin-core/plugin";
-import { createPenguinBwrapProvider, loadPenguinBwrapProvider } from "../src/index.js";
+import { CommandSessionManager } from "@waterford/waf-harness-core";
+import type { SpawnConfiner } from "@waterford/waf-harness-core";
+import type { SandboxPolicy, SandboxProviderSource } from "@waterford/waf-harness-core/plugin";
+import { createWafHarnessBwrapProvider, loadWafHarnessBwrapProvider } from "../src/index.js";
 import { mustRun } from "../../../scripts/must-run.mjs";
 
 /** The slice of the server's SandboxService these cases drive. */
@@ -36,16 +36,16 @@ const { SandboxService } = (await import(
   ) => ServiceUnderTest;
 };
 
-const ws = mkdtempSync(path.join(tmpdir(), "penguin-bwrap-live-"));
-const outsideProbe = path.join(homedir(), `penguin-bwrap-live-${process.pid}.txt`);
-const provider = createPenguinBwrapProvider();
+const ws = mkdtempSync(path.join(tmpdir(), "wafh-bwrap-live-"));
+const outsideProbe = path.join(homedir(), `wafh-bwrap-live-${process.pid}.txt`);
+const provider = createWafHarnessBwrapProvider();
 
 /** null = spawn unconfined; otherwise confine under this policy (workspaceRoot filled per spawn). */
 let policy: Omit<SandboxPolicy, "workspaceRoot"> | null = null;
 
 const cannotOpen = await (async () => {
   try {
-    if ((await loadPenguinBwrapProvider()) === null) return "penguin-bwrap runs on Linux only";
+    if ((await loadWafHarnessBwrapProvider()) === null) return "wafh-bwrap runs on Linux only";
     provider.confine(["true"], { mode: "read-only", workspaceRoot: ws });
     return null;
   } catch (err) {
@@ -89,7 +89,7 @@ afterAll(() => {
   rmSync(outsideProbe, { force: true });
 });
 
-describe.skipIf(!usable)("penguin-bwrap live enforcement (host-gated)", () => {
+describe.skipIf(!usable)("wafh-bwrap live enforcement (host-gated)", () => {
   it("fs-write: the workspace is writable, the world outside it is not", async () => {
     policy = { mode: "workspace-write" };
     const inside = await run("echo confined-ok > inside.txt && cat inside.txt");
@@ -135,7 +135,7 @@ describe.skipIf(!usable)("penguin-bwrap live enforcement (host-gated)", () => {
     // Deliberately NOT under /tmp: workspace-write mounts a tmpfs over /tmp, which
     // already hides whatever the host had there — a secret placed in /tmp would make
     // the unmasked baseline fail and the masked assertion pass vacuously.
-    const secretDir = mkdtempSync(path.join(homedir(), "penguin-bwrap-secret-"));
+    const secretDir = mkdtempSync(path.join(homedir(), "wafh-bwrap-secret-"));
     const secretFile = path.join(secretDir, "token.txt");
     writeFileSync(secretFile, "super-secret");
     try {
@@ -162,12 +162,12 @@ describe.skipIf(!usable)("penguin-bwrap live enforcement (host-gated)", () => {
   });
 });
 
-describe.skipIf(!usable)("penguin-bwrap behind the sandbox service: the Session scratchpad", () => {
+describe.skipIf(!usable)("wafh-bwrap behind the sandbox service: the Session scratchpad", () => {
   it("a command writes to a scratchpad not created yet, or deleted mid-Session", async () => {
     // Under the read-only home, not /tmp: a file reaching the host came through the bind itself.
-    const agentScratchpad = mkdtempSync(path.join(homedir(), "penguin-bwrap-scratchpad-"));
+    const agentScratchpad = mkdtempSync(path.join(homedir(), "wafh-bwrap-scratchpad-"));
     const scratchpad = path.join(agentScratchpad, "session-1");
-    const svc = new SandboxService([["penguin-bwrap", provider]]);
+    const svc = new SandboxService([["wafh-bwrap", provider]]);
     await svc.whenReady();
     const confiner = svc.confinerFor(() => ({ mode: "workspace-write" }));
     const served = new CommandSessionManager({

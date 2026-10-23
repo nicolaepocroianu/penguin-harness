@@ -29,8 +29,8 @@ The model must fit the available VRAM — model size and context length drive th
 2. Pick the engine the user prefers: vLLM for high-throughput GPU serving; Ollama is the simple default and the choice on macOS or CPU-only machines.
 3. Serve on a free port, with the tool-calling flags whenever agents will call it (see below).
 4. Verify with `curl http://localhost:8000/v1/models`.
-5. Register the endpoint: `penguin config model add ... --client-type openai-chat --base-url http://localhost:8000/v1` — a served model is not visible to Penguin until added.
-6. Confirm the new entry with `penguin config model list`.
+5. Register the endpoint: `wafh config model add ... --client-type openai-chat --base-url http://localhost:8000/v1` — a served model is not visible to WAF Harness until added.
+6. Confirm the new entry with `wafh config model list`.
 
 ## Install
 
@@ -60,7 +60,7 @@ If the port is taken, pick a free one — never kill a process already listening
 
 ## Tool calling — required for agents
 
-Agent harnesses (PenguinHarness included) send `tools` with their requests. vLLM must opt in at startup:
+Agent harnesses (WAF Harness included) send `tools` with their requests. vLLM must opt in at startup:
 
 ```bash
 vllm serve Qwen/Qwen3.5-0.8B --enable-auto-tool-choice --tool-call-parser hermes
@@ -74,14 +74,14 @@ Choose the parser for the model family — e.g. `hermes` for Qwen models, `llama
 curl http://localhost:8000/v1/models
 ```
 
-## Register with PenguinHarness
+## Register with WAF Harness
 
-Model configuration is the penguin CLI's job — `penguin config model add` registers an endpoint and `penguin config model list` shows what has been registered. A served model is not visible to Penguin until you add it:
+Model configuration is the wafh CLI's job — `wafh config model add` registers an endpoint and `wafh config model list` shows what has been registered. A served model is not visible to WAF Harness until you add it:
 
 ```bash
-penguin config model add --provider custom --client-type openai-chat \
+wafh config model add --provider custom --client-type openai-chat \
   --base-url http://localhost:8000/v1 --model-id <served-model-name> --api-key <key>
-penguin config model list   # the new entry should now be listed
+wafh config model list   # the new entry should now be listed
 ```
 
 ## Troubleshooting

@@ -27,7 +27,7 @@ const GB = 1024 * 1024;
 let root: string;
 const browsers: BuiltinBrowser[] = [];
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-bb-resilience-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-bb-resilience-"));
 });
 afterEach(async () => {
   for (const b of browsers.splice(0)) {
@@ -138,7 +138,7 @@ describe("a crashed tab", () => {
       const { error } = await errorOf(res);
       expect(error.code).toBe("tab_crashed");
       expect(error.message).toContain("Tab 3's page crashed (oom)");
-      expect(error.message).toContain("penguin browser close 3");
+      expect(error.message).toContain("wafh browser close 3");
     }
     // Refused here: nothing went to the dead page.
     expect(h.shell.commands.filter((c) => c.op === "cdp").length).toBe(cdpBefore);

@@ -23,7 +23,7 @@ import type {
   ApproveFn,
   OmniMessage,
   ToolCallPayload,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 
 export interface PendingApproval {
   toolCall: OmniMessage<ToolCallPayload>;

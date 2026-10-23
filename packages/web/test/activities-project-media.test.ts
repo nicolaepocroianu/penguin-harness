@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LibraryFile } from "@prismshadow/penguin-server/api";
+import type { LibraryFile } from "@waterford/waf-harness-server/api";
 import { activityEndpointParts } from "../src/features/activities/media-library";
 import {
   bundleItems,

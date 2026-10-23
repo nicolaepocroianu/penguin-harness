@@ -36,7 +36,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { FocusEvent, MouseEvent, RefObject } from "react";
-import { Dot, Dropdown, GlyphIcon, ICONS } from "@prismshadow/penguin-ui";
+import { Dot, Dropdown, GlyphIcon, ICONS } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import type { OutlineEntry } from "./outline-model";
 import {

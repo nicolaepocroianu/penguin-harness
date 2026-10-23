@@ -18,8 +18,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement as h, useState } from "react";
 import type { ReactElement } from "react";
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
-import { hasUnsaved } from "@prismshadow/penguin-ui";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
+import { hasUnsaved } from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { draftKey, loadDraft } from "../src/features/chat/draft-cache";
@@ -208,6 +208,6 @@ describe("Benchmark import examples", () => {
     const text = loadDraft(draftKey(ADMIN_ME.user.userId, PROJECT_ID)).text as string;
     expect(text).toContain(SOURCE);
     expect(text).toContain("<app_data_dir>/benchmarks/<id>/");
-    expect(text).not.toContain("penguin benchmark");
+    expect(text).not.toContain("wafh benchmark");
   });
 });

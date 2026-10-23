@@ -6,7 +6,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestBegin, requestEnd } from "@prismshadow/penguin-core";
+import { requestBegin, requestEnd } from "@waterford/waf-harness-core";
 import type { ActivityDetail, ActivityDraft, ActivityRun } from "../src/activities/domain.js";
 import type { BookWordsRefresh } from "../src/activities/book-word-types.js";
 import type { ActivityGenerationService } from "../src/activities/generation.js";
@@ -200,7 +200,7 @@ describe("phonemes runs", () => {
       agentId: "default_agent",
       expectedRevision: refreshed.draft.contentRevision,
       language: "en-US",
-      words: ["penguin"],
+      words: ["wafh"],
     });
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({ error: { code: "phonemes_invalid" } });

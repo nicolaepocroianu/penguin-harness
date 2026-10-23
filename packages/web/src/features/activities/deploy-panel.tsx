@@ -11,8 +11,8 @@ import type {
   DeployContext,
   DeployRun,
   DeployStateResponse,
-} from "@prismshadow/penguin-server/api";
-import { Button, InfoPopover, SkeletonList } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { Button, InfoPopover, SkeletonList } from "@waterford/waf-harness-ui";
 import {
   TABLE,
   TABLE_HEAD_ROW,

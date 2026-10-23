@@ -4,7 +4,7 @@
  * hashes — the caller alone holds a key. Neither table is rebuildable from files: dropping them
  * turns every exposed Agent off and invalidates every key.
  */
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { ApprovalMode } from "../../api/types.js";
 import { DEFAULT_API_CONCURRENT_RUNS } from "../../mechanisms/agent-api.js";
 import type { Db } from "../../hmr/capabilities.js";

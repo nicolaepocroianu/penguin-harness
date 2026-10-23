@@ -79,7 +79,7 @@ export function Hero() {
       <div className="relative mx-auto max-w-6xl px-4 pt-12 pb-12 text-center sm:px-6 sm:pt-24 sm:pb-14">
         <h1 className="anim-rise flex items-center justify-center gap-2.5 sm:gap-3.5">
           <img
-            src={`${import.meta.env.BASE_URL}penguin-logo.svg`}
+            src={`${import.meta.env.BASE_URL}wafh-logo.svg`}
             alt=""
             className="h-12 w-12 sm:h-16 sm:w-16"
           />

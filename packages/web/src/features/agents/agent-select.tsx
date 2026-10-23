@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
-import { AgentAvatar, GlyphIcon, ICON_SIZE, ICONS, PickerDialog } from "@prismshadow/penguin-ui";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
+import { AgentAvatar, GlyphIcon, ICON_SIZE, ICONS, PickerDialog } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { agentDisplayName } from "../../state/project";
 import { pillClass } from "../chat/workspace-select";

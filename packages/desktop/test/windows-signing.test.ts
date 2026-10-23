@@ -35,8 +35,8 @@ function signature(report: unknown = valid) {
   vi.stubEnv("SystemRoot", process.env.SystemRoot || path.resolve("windows"));
   return vi.spyOn(childProcess, "execFileSync").mockReturnValue(JSON.stringify(report));
 }
-async function signer(name = "PenguinHarness.exe") {
-  const root = await mkdtemp(path.join(os.tmpdir(), "penguin-evsign-"));
+async function signer(name = "WAF Harness.exe") {
+  const root = await mkdtemp(path.join(os.tmpdir(), "wafh-evsign-"));
   dirs.push(root);
   const target = path.join(root, name);
   const client = path.join(root, "evsign.exe");
@@ -113,7 +113,7 @@ describe("build-time Authenticode acceptance", () => {
       path.join(process.env.SystemRoot!, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
     );
     expect(Buffer.from(args.at(-1)!, "base64").toString("utf16le")).not.toContain(target);
-    expect(options.env.PENGUIN_SIGNED_FILE).toBe(target);
+    expect(options.env.WAFH_SIGNED_FILE).toBe(target);
     expect(options.env.PSModulePath).toBe("");
     expect(Object.keys(options.env).some((key) => key.toLowerCase() === "evsign_key")).toBe(false);
     expect(options.shell).toBe(false);
@@ -156,9 +156,9 @@ describe("build-time Authenticode acceptance", () => {
 
 describe("EVSign signing hook", () => {
   it.each([
-    "PenguinHarness.exe",
+    "WAF Harness.exe",
     "elevate.exe",
-    "penguin-desktop-win32-x64.exe",
+    "wafh-desktop-win32-x64.exe",
     "candidate.__uninstaller.exe",
   ])("signs %s with the default CLI arguments, then verifies it", async (name) => {
     const { target, client, spawn, verify } = await signer(name);
@@ -168,14 +168,14 @@ describe("EVSign signing hook", () => {
       windowsHide: true,
     });
     expect(verify).toHaveBeenCalledOnce();
-    expect(verify.mock.calls[0]?.[2]).toMatchObject({ env: { PENGUIN_SIGNED_FILE: target } });
+    expect(verify.mock.calls[0]?.[2]).toMatchObject({ env: { WAFH_SIGNED_FILE: target } });
   });
 
   it.each([
-    ["git/PenguinHarness.exe", "sha256"],
+    ["git/WAF Harness.exe", "sha256"],
     ["unrelated.exe", "sha256"],
-    ["PenguinHarness.exe", "sha1"],
-    ["PenguinHarness.exe", ""],
+    ["WAF Harness.exe", "sha1"],
+    ["WAF Harness.exe", ""],
   ])("does not sign excluded target/hash %s %s", async (name, hash) => {
     const { target, spawn, verify } = await signer(name);
     await evsign({ path: target, hash });

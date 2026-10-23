@@ -606,47 +606,47 @@ const FIND_MAIN_LIST = String.raw`function findMainList(startElement = null) {
  * innerHTML) is a Trusted Types sink, and a page that enforces them would refuse every scan.
  * Python's soup of `str(root)` has that root as its one top-level tag, so the tree is the soup.
  */
-const POST_PROCESS = String.raw`const __PENGUIN_HINT = '[FAKE ELEMENT]';
-const __PENGUIN_KEEP_ATTRS = new Set(['id', 'class', 'name', 'src', 'href', 'alt', 'value', 'type', 'placeholder',
+const POST_PROCESS = String.raw`const __WAFH_HINT = '[FAKE ELEMENT]';
+const __WAFH_KEEP_ATTRS = new Set(['id', 'class', 'name', 'src', 'href', 'alt', 'value', 'type', 'placeholder',
   'disabled', 'checked', 'selected', 'readonly', 'required', 'multiple',
   'role', 'aria-label', 'aria-expanded', 'aria-hidden', 'contenteditable',
   'title', 'for', 'action', 'method', 'target', 'colspan', 'rowspan']);
 
-function __penguinTags(root) {
+function __wafHarnessTags(root) {
   return [root, ...root.querySelectorAll('*')];
 }
 // A Trusted Types page may refuse an attribute write (an <embed> src); that attribute stays.
-function __penguinSet(el, name, value) {
+function __wafHarnessSet(el, name, value) {
   try { el.setAttribute(name, value); } catch (e) {}
 }
 
 // optimize_html_for_tokens
-function __penguinOptimize(root) {
+function __wafHarnessOptimize(root) {
   for (const svg of Array.from(root.querySelectorAll('svg'))) {
     while (svg.firstChild) svg.removeChild(svg.firstChild);
     for (const a of Array.from(svg.attributes)) svg.removeAttribute(a.name);
   }
-  const tags = __penguinTags(root);
+  const tags = __wafHarnessTags(root);
   for (const tag of tags) tag.removeAttribute('style');
   for (const tag of tags) {
     const src = tag.getAttribute('src');
     if (src !== null) {
-      if (src.startsWith('data:')) __penguinSet(tag, 'src', '__img__');
-      else if (src.length > 30) __penguinSet(tag, 'src', '__url__');
+      if (src.startsWith('data:')) __wafHarnessSet(tag, 'src', '__img__');
+      else if (src.length > 30) __wafHarnessSet(tag, 'src', '__url__');
     }
     const href = tag.getAttribute('href');
-    if (href !== null && href.length > 30) __penguinSet(tag, 'href', '__link__');
+    if (href !== null && href.length > 30) __wafHarnessSet(tag, 'href', '__link__');
     const action = tag.getAttribute('action');
-    if (action !== null && action.length > 30) __penguinSet(tag, 'action', '__url__');
+    if (action !== null && action.length > 30) __wafHarnessSet(tag, 'action', '__url__');
     for (const a of ['value', 'title', 'alt']) {
       const v = tag.getAttribute(a);
-      if (v !== null && v.length > 100) __penguinSet(tag, a, v.slice(0, 50) + ' ...');
+      if (v !== null && v.length > 100) __wafHarnessSet(tag, a, v.slice(0, 50) + ' ...');
     }
     for (const attr of Array.from(tag.attributes).map((a) => a.name)) {
-      if (__PENGUIN_KEEP_ATTRS.has(attr)) continue;
+      if (__WAFH_KEEP_ATTRS.has(attr)) continue;
       if (attr.startsWith('data-v')) tag.removeAttribute(attr);
       else if (attr.startsWith('data-')) {
-        if (tag.getAttribute(attr).length > 20) __penguinSet(tag, attr, '__data__');
+        if (tag.getAttribute(attr).length > 20) __wafHarnessSet(tag, attr, '__data__');
       } else tag.removeAttribute(attr);
     }
   }
@@ -654,9 +654,9 @@ function __penguinOptimize(root) {
 
 // optHTML hands an iframe with content over as div[data-tag=iframe]; it is an iframe again here.
 // (A detached element loads nothing.) Returns the root, which is new when it was one of them.
-function __penguinIframes(root) {
+function __wafHarnessIframes(root) {
   let out = root;
-  for (const div of __penguinTags(root).filter((el) => el.matches('div[data-tag="iframe"]'))) {
+  for (const div of __wafHarnessTags(root).filter((el) => el.matches('div[data-tag="iframe"]'))) {
     const frame = div.ownerDocument.createElement('iframe');
     for (const a of Array.from(div.attributes)) if (a.name !== 'data-tag') frame.setAttribute(a.name, a.value);
     while (div.firstChild) frame.appendChild(div.firstChild);
@@ -667,24 +667,24 @@ function __penguinIframes(root) {
 }
 
 // get_html(cutlist=False): the simplified page as a tree, or null for a page with none.
-function __penguinSimplified() {
+function __wafHarnessSimplified() {
   if (!document.body) return null;
   optHTML.lastRoot = null;
   optHTML(false);
   const root = optHTML.lastRoot;
   if (!root) return null;
-  __penguinOptimize(root);
-  return __penguinIframes(root);
+  __wafHarnessOptimize(root);
+  return __wafHarnessIframes(root);
 }
 
 // str(soup). A text node serializes '>' as '&gt;', which would hand the reader a selector that
 // does not match ("#list &gt; li"); inside a hint it is written out, which is still valid HTML.
-function __penguinSerialize(root) {
+function __wafHarnessSerialize(root) {
   return root.outerHTML.replace(/\[FAKE ELEMENT\][^<]*/g, (hint) => hint.replace(/&gt;/g, '>'));
 }
 
 // BeautifulSoup's get_text(" ", strip=True)
-function __penguinText(el) {
+function __wafHarnessText(el) {
   const out = [];
   const walker = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   let node;
@@ -696,7 +696,7 @@ function __penguinText(el) {
 }
 
 // BeautifulSoup's .string: the text of a tag whose only descendant chain ends in one string
-function __penguinStringOf(el) {
+function __wafHarnessStringOf(el) {
   let node = el;
   while (node.childNodes.length === 1) {
     const only = node.firstChild;
@@ -706,14 +706,14 @@ function __penguinStringOf(el) {
   }
   return null;
 }
-function __penguinIsHint(el) {
-  const s = __penguinStringOf(el);
-  return s !== null && s.includes(__PENGUIN_HINT);
+function __wafHarnessIsHint(el) {
+  const s = __wafHarnessStringOf(el);
+  return s !== null && s.includes(__WAFH_HINT);
 }
 
 // get_html's cutlist: each long main list keeps 3 items (or up to 6 that contain the
 // instruction), and a hint names the selector that finds the rest.
-function __penguinCutlist(root, lists, instruction) {
+function __wafHarnessCutlist(root, lists, instruction) {
   for (const entry of lists) {
     const sel = entry && typeof entry === 'object' ? entry.selector : null;
     if (!sel) continue;
@@ -723,15 +723,15 @@ function __penguinCutlist(root, lists, instruction) {
     const total = items.reduce((n, it) => n + it.outerHTML.length, 0);
     const avg = total / items.length;
     if (avg < 200 || (avg < 700 && total < 2500)) continue;
-    const hit = instruction && instruction.trim() ? items.filter((it) => __penguinText(it).includes(instruction)) : [];
+    const hit = instruction && instruction.trim() ? items.filter((it) => __wafHarnessText(it).includes(instruction)) : [];
     const keep = hit.length ? hit.slice(0, 6) : items.slice(0, 3);
     const removed = items.filter((it) => !keep.includes(it));
     const samples = [];
     for (const rm of removed.slice(0, 5)) {
-      const t = Array.from(__penguinText(rm)).slice(0, 40).join('');
+      const t = Array.from(__wafHarnessText(rm)).slice(0, 40).join('');
       if (t) samples.push(t);
     }
-    let hint = __PENGUIN_HINT + ' ' + removed.length + ' more items hidden, selector: "' + sel + '"';
+    let hint = __WAFH_HINT + ' ' + removed.length + ' more items hidden, selector: "' + sel + '"';
     if (samples.length) hint += ' Hidden items: ' + samples.map((t) => '"' + t + '"').join(',');
     const div = root.ownerDocument.createElement('div');
     div.textContent = hint;
@@ -744,14 +744,14 @@ function __penguinCutlist(root, lists, instruction) {
 // first fork; there, if the three largest children can absorb the excess they share it in
 // proportion (recursing into big ones, cutting small ones), otherwise children go from the end.
 // A list's [FAKE ELEMENT] hint is never cut.
-function __penguinSmartTruncate(root, budget) {
+function __wafHarnessSmartTruncate(root, budget) {
   const CUT_THRESHOLD = 8000;
   const doc = root.ownerDocument;
   const cut = (ele, keep) => {
     let s = ele.outerHTML.length;
     let over = s - keep;
     if (over <= 0) return;
-    const kept = Array.from(ele.querySelectorAll('*')).filter(__penguinIsHint);
+    const kept = Array.from(ele.querySelectorAll('*')).filter(__wafHarnessIsHint);
     for (const p of kept) p.remove();
     s = ele.outerHTML.length;
     over = s - keep;
@@ -772,7 +772,7 @@ function __penguinSmartTruncate(root, budget) {
   const walk = (node, budget) => {
     const total = node.outerHTML.length;
     if (total <= budget) return;
-    const kids = Array.from(node.children).filter((c) => !__penguinIsHint(c)).map((c) => [c, c.outerHTML.length]);
+    const kids = Array.from(node.children).filter((c) => !__wafHarnessIsHint(c)).map((c) => [c, c.outerHTML.length]);
     if (!kids.length) return;
     const kidsTotal = kids.reduce((n, k) => n + k[1], 0);
     const remaining = Math.max(budget - (total - kidsTotal), 0);
@@ -807,7 +807,7 @@ function __penguinSmartTruncate(root, budget) {
 
 // web_scan: get_html(cutlist=True, maxchars) or its text form, which keeps the head and the
 // tail of an over-long text around an omission marker.
-function __penguinScan(opts) {
+function __wafHarnessScan(opts) {
   if (!document.body) return { content: '', truncated: false };
   if (opts.textOnly) {
     let page = optHTML(true);
@@ -819,14 +819,14 @@ function __penguinScan(opts) {
   }
   let lists = [];
   try { lists = findMainList(document.body) || []; } catch (e) { lists = []; }
-  const root = __penguinSimplified();
+  const root = __wafHarnessSimplified();
   if (!root) return { content: '', truncated: false };
-  if (Array.isArray(lists) && lists.length) __penguinCutlist(root, lists, opts.instruction || '');
-  let content = __penguinSerialize(root);
+  if (Array.isArray(lists) && lists.length) __wafHarnessCutlist(root, lists, opts.instruction || '');
+  let content = __wafHarnessSerialize(root);
   let truncated = false;
   if (content.length > opts.maxChars) {
-    __penguinSmartTruncate(root, opts.maxChars);
-    content = __penguinSerialize(root);
+    __wafHarnessSmartTruncate(root, opts.maxChars);
+    content = __wafHarnessSerialize(root);
     truncated = true;
   }
   // smart_truncate cannot shorten one element whose bulk is its own text; no page reaches the
@@ -853,5 +853,5 @@ export function scanScript(opts: ScanScriptOptions): string {
     maxChars: opts.maxChars,
     instruction: opts.instruction ?? "",
   };
-  return `${SIMPLIFY_LIBRARY}\nreturn __penguinScan(${JSON.stringify(args)});`;
+  return `${SIMPLIFY_LIBRARY}\nreturn __wafHarnessScan(${JSON.stringify(args)});`;
 }

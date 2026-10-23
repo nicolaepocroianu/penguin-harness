@@ -70,7 +70,7 @@ const read = (dir: string, file: string) => fs.readFile(path.join(dir, file), "u
  * `push` commits more files to origin's `branch` from a clone of its own.
  */
 async function origin(files: Record<string, string> = { "README.md": "hello\n" }) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-clone-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-clone-"));
   dirs.push(root);
   const bare = path.join(root, "origin.git");
   git(root, "init", "--bare", "--initial-branch=main", bare);
@@ -262,7 +262,7 @@ describe("putting a clone on a branch as origin has it", () => {
     expect(failure).toBeInstanceOf(CloneError);
     expect((failure as CloneError).command).toBe("git stash pop");
     expect(git(dir, "stash", "list")).toBe(
-      "stash@{0}: On main: penguin-harness deploy: work set aside to bring main up to origin",
+      "stash@{0}: On main: waf-harness deploy: work set aside to bring main up to origin",
     );
     expect(await clone.stashedWork()).toBe(1);
   }, 30_000);
@@ -273,9 +273,9 @@ describe("putting a clone on a branch as origin has it", () => {
     const clone = clones.open(dir);
     expect(await clone.stashedWork()).toBe(0);
     for (const [file, message] of [
-      ["one.txt", "penguin-harness deploy"],
-      ["two.txt", "my own notes about penguin-harness deploy"],
-      ["three.txt", "penguin-harness deployment"],
+      ["one.txt", "waf-harness deploy"],
+      ["two.txt", "my own notes about waf-harness deploy"],
+      ["three.txt", "waf-harness deployment"],
     ] as const) {
       await write(dir, file, "work");
       git(dir, "stash", "push", "--include-untracked", "-m", message);
@@ -303,7 +303,7 @@ describe("putting a clone on a branch as origin has it", () => {
   }, 30_000);
 
   it("starts main where a new repository is when origin has none", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-clone-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-clone-"));
     dirs.push(root);
     const bare = path.join(root, "empty.git");
     git(root, "init", "--bare", "--initial-branch=main", bare);

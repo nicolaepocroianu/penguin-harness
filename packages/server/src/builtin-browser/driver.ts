@@ -76,7 +76,7 @@ export function tabCrashedError(tabId: number, reason?: string): HttpError {
     409,
     "tab_crashed",
     `Tab ${tabId}'s page crashed${reason !== undefined && reason !== "crashed" ? ` (${reason})` : ""}. ` +
-      `Reload it in the Browser panel, or close it (penguin browser close ${tabId}) and open the page in a new tab.`,
+      `Reload it in the Browser panel, or close it (wafh browser close ${tabId}) and open the page in a new tab.`,
   );
 }
 
@@ -144,7 +144,7 @@ export function mapLinkError(
         return new HttpError(
           503,
           "browser_unavailable",
-          "The user paused the PenguinHarness Browser extension in Chrome; ask them to resume it.",
+          "The user paused the WAF Harness Browser extension in Chrome; ask them to resume it.",
         );
       }
       return new HttpError(422, "cdp_error", err.message);

@@ -10,7 +10,7 @@
  * title goes into the hover tooltip, taking no space in the body).
  */
 import { useNavigate } from "react-router";
-import { TranscriptNote } from "@prismshadow/penguin-ui";
+import { TranscriptNote } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import type { HandoffOrigin, ModelSwitchOrigin } from "./agent-handoff";
 

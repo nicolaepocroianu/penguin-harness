@@ -27,7 +27,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
-import type { HookItem } from "@prismshadow/penguin-server/api";
+import type { HookItem } from "@waterford/waf-harness-server/api";
 import {
   Badge,
   Button,
@@ -50,7 +50,7 @@ import {
   useCopied,
   useFormDraft,
   useGuardedClose,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";

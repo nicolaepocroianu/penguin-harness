@@ -5,7 +5,7 @@
  * it), and POST .../settings/test/:target makes one read-only GET to that Jenkins with the
  * stored credentials and says only whether it answered with success.
  */
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
 import { HttpError } from "../http/errors.js";

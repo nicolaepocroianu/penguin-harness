@@ -1,10 +1,10 @@
 {
-  "name": "@penguinharness/use-bento-slides",
+  "name": "@waf-harness/use-bento-slides",
   "version": "0.2.16",
   "description": "Create and edit Bento presentations — self-contained .bento.html decks whose document is JSON. Use whenever the user wants a slide deck or presentation: from scratch, from source material, or by improving an existing file.",
   "keywords": [
-    "penguin-plugin",
-    "penguinharness",
+    "wafh-plugin",
+    "waf-harness",
     "skills"
   ],
   "license": "Apache-2.0",
@@ -22,12 +22,12 @@
   "publishConfig": {
     "access": "public"
   },
-  "penguin": {
+  "wafh": {
     "short_description": "Author Bento slide decks.",
     "category": "office-productivity",
     "icon": "icon.svg",
     "quick_start": {
-      "prompt": "Make a three-slide Bento deck in this Workspace introducing PenguinHarness: a title slide, what it does, and how to get started.",
+      "prompt": "Make a three-slide Bento deck in this Workspace introducing WAF Harness: a title slide, what it does, and how to get started.",
       "skills": [
         "bento-slides"
       ]

@@ -15,8 +15,8 @@
  * does nothing until it answers; an instant control's write holds nothing.
  */
 import { useEffect, useState } from "react";
-import { ICONS, PagedDialog, guardLeave, useGuardedClose } from "@prismshadow/penguin-ui";
-import type { PagedDialogGroup } from "@prismshadow/penguin-ui";
+import { ICONS, PagedDialog, guardLeave, useGuardedClose } from "@waterford/waf-harness-ui";
+import type { PagedDialogGroup } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import {
   resolveSettingsSection,

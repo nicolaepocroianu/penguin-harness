@@ -33,7 +33,7 @@ describe("the outcome ledger's read route", () => {
     const t = await createTestApp({
       activityOutcomePorts: {
         library: () => [],
-        build: () => ({ penguin: "9.9.9", commit: null }),
+        build: () => ({ wafh: "9.9.9", commit: null }),
       },
     });
     cleanups.push(t.cleanup);
@@ -108,7 +108,7 @@ describe("the outcome ledger's read route", () => {
       {
         runId: run.runId,
         kind: "spec",
-        recipe: { runtime: "agent:custom/m", library: [], penguin: "9.9.9" },
+        recipe: { runtime: "agent:custom/m", library: [], wafh: "9.9.9" },
       },
     ]);
     expect(runs[0]!.facts.map((fact) => fact.fact)).toEqual(["opened", "started", "settled"]);

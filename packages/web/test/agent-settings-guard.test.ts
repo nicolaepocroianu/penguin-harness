@@ -16,7 +16,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement as h } from "react";
-import { hasUnsaved } from "@prismshadow/penguin-ui";
+import { hasUnsaved } from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { AgentSettingsPage } from "../src/features/agents/agent-settings-page";

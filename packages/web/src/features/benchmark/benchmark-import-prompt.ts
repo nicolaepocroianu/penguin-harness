@@ -7,7 +7,7 @@
  * conversation the user starts by sending the draft. Reads S at call time (live binding), so the
  * prompt follows a language switch like every other string consumer.
  */
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { composeAiPrompt, pickDefaultAgent } from "../ai-create";
 import type { AiChatRequest } from "../ai-create";

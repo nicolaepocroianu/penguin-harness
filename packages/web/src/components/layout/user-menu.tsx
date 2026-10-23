@@ -25,8 +25,8 @@ import {
   Menu,
   MenuItem,
   UserAvatar,
-} from "@prismshadow/penguin-ui";
-import type { DropdownPortal } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { DropdownPortal } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { useAuth } from "../../state/auth";
 import { AppInfoRow } from "../account/app-info-row";

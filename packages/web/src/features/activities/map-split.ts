@@ -5,8 +5,8 @@
  */
 import type { PlayerInteractable } from "./player-bridge";
 
-export const MAP_WIDTH_KEY = "penguin.activityMapWidth";
-export const MAP_VISIBLE_KEY = "penguin.activityMapVisible";
+export const MAP_WIDTH_KEY = "wafh.activityMapWidth";
+export const MAP_VISIBLE_KEY = "wafh.activityMapVisible";
 
 /** The map's width bounds, in pixels. */
 export const MAP_MIN = 260;

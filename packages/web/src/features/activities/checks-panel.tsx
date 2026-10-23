@@ -3,8 +3,8 @@
  * the playing build ran when it was assembled, then the acceptance tests, then the quality
  * checks, each with its own Run, since a run of one waits for any other run to end.
  */
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
-import { InfoPopover } from "@prismshadow/penguin-ui";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
+import { InfoPopover } from "@waterford/waf-harness-ui";
 import {
   TABLE,
   TABLE_HEAD_ROW,

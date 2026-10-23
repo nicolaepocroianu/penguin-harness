@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityRunSummary, PipelineState } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary, PipelineState } from "@waterford/waf-harness-server/api";
 import { settledPipeline, settledRuns } from "../src/features/activities/run-toasts";
 
 const run = (runId: string, status: ActivityRunSummary["status"], extra = {}) =>

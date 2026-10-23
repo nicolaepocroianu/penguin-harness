@@ -13,7 +13,7 @@ const credentials = {
   expiresAt: 1,
 };
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-chatgpt-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-chatgpt-"));
   await saveProjectConfig(root, "project", {
     models: ["a", "b"].map((model_id) => ({
       provider: "chatgpt-codex",

@@ -8,7 +8,7 @@ import type {
   QualityReport,
   QualityResults,
   QualityStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
 import type { DraftBlock } from "./studio-draft";

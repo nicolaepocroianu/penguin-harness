@@ -6,21 +6,21 @@ import {
   backgroundLayerStyle,
   isBackgroundImage,
   readBackground,
-} from "@prismshadow/penguin-ui/boot";
-import type { BackgroundSettings } from "@prismshadow/penguin-ui/boot";
+} from "@waterford/waf-harness-ui/boot";
+import type { BackgroundSettings } from "@waterford/waf-harness-ui/boot";
 
-// The keys, the vocabulary and the reader are the shared package's (`@prismshadow/penguin-ui/boot`):
+// The keys, the vocabulary and the reader are the shared package's (`@waterford/waf-harness-ui/boot`):
 // the pre-paint script reads the same store, so a reload paints the image from the first frame.
 export {
   BACKGROUND_MODES,
   BACKGROUND_POSITIONS,
   isBackgroundImage,
-} from "@prismshadow/penguin-ui/boot";
+} from "@waterford/waf-harness-ui/boot";
 export type {
   BackgroundMode,
   BackgroundPosition,
   BackgroundSettings,
-} from "@prismshadow/penguin-ui/boot";
+} from "@waterford/waf-harness-ui/boot";
 
 export const BACKGROUND_IMAGE_KEY = BACKGROUND_STORAGE_KEYS.image;
 export const BACKGROUND_SETTINGS_KEY = BACKGROUND_STORAGE_KEYS.settings;

@@ -70,8 +70,8 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import zlib from "node:zlib";
 import { pathToFileURL } from "node:url";
-import type { Instance, Json, AnyIface, AnyImpl, Park } from "@prismshadow/penguin-core/kernel";
-import { boot, initialDoc, upgrade } from "@prismshadow/penguin-core/kernel";
+import type { Instance, Json, AnyIface, AnyImpl, Park } from "@waterford/waf-harness-core/kernel";
+import { boot, initialDoc, upgrade } from "@waterford/waf-harness-core/kernel";
 import { HotResources } from "./resources.js";
 import type { Manifest } from "./manifest.js";
 import { MATERIALIZED } from "./manifest.js";
@@ -712,7 +712,7 @@ export class HmrHost<Api extends Park = Park> {
         ...(assetsDir === null
           ? {}
           : { assets: { dir: path.relative(this.hmrDir, assetsDir).split(path.sep).join("/") } }),
-        // Provenance travels with the version it describes, so `penguin version` on this
+        // Provenance travels with the version it describes, so `wafh version` on this
         // machine can name the revision a pushed harness came from — the bundles are
         // content-addressed and say nothing about their origin on their own.
         ...(source === null ? {} : { source }),

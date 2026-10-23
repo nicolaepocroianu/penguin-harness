@@ -19,8 +19,8 @@ import {
   partialToolCall,
   partialToolCallOutput,
   withOrigin,
-} from "@prismshadow/penguin-core";
-import type { MessageOrigin } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { MessageOrigin } from "@waterford/waf-harness-core";
 import {
   StreamRenderer,
   formatAbort,
@@ -983,7 +983,7 @@ describe("StreamRenderer — nested (origin-tagged) subagent messages", () => {
 describe("renderHistory (resume)", () => {
   it("renders complete messages statically with interruption markers", async () => {
     const { renderHistory } = await import("../src/render.js");
-    const { userText } = await import("@prismshadow/penguin-core");
+    const { userText } = await import("@waterford/waf-harness-core");
     const { stream, text } = collector();
     renderHistory(
       [
@@ -1067,7 +1067,7 @@ describe("tool-output collapsing (chat display; the Trace keeps the full text)",
     expect(s).not.toContain("/verbose");
   });
 
-  it("default renderer (penguin run) never collapses", () => {
+  it("default renderer (wafh run) never collapses", () => {
     const { stream, text } = collector();
     const r = new StreamRenderer(stream, t);
     streamExec(r, 40);

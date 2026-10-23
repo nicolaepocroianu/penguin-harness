@@ -1,13 +1,13 @@
 /**
  * A word's sounds (phonemes), from espeak-ng.
  *
- * espeak-ng is GPL-3.0 and Penguin is Apache-2.0, so it is never bundled: Penguin runs it as
+ * espeak-ng is GPL-3.0 and WAF Harness is Apache-2.0, so it is never bundled: WAF Harness runs it as
  * a host program when it is there, `espeak-ng` on PATH or the program an admin named, and
  * says it is unavailable when it is not. It is started without a shell, one word at a time,
  * with a time limit, and nothing it prints is trusted beyond sounds that pass the word
  * asset's own check. A word it cannot sound out is left for a model run the author accepts.
  */
-import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use } from "@waterford/waf-harness-core/kernel";
 import type { Settings } from "../mechanisms/settings.js";
 import { HttpError } from "../http/errors.js";
 import { cleanPhonemes } from "./book-words.js";

@@ -1,5 +1,5 @@
 /**
- * The source mark of a Session a program opened (the Agent API, a scheduled task or `penguin
+ * The source mark of a Session a program opened (the Agent API, a scheduled task or `wafh
  * run`), as a registry glyph and the tooltip that names it — the mark a sidebar row carries once
  * the user has unarchived such a Session. The archive page and the archived stub name the source
  * in words instead, in a pill (programSource gives the source, `S.chat.sessionSource` the word).
@@ -8,8 +8,8 @@
  * of a scheduled task still to fire into a conversation (the row's `scheduledLabel`), and one
  * row must never show two alarms that mean different things.
  */
-import type { SessionInfo, SessionSource } from "@prismshadow/penguin-server/api";
-import { ICONS } from "@prismshadow/penguin-ui";
+import type { SessionInfo, SessionSource } from "@waterford/waf-harness-server/api";
+import { ICONS } from "@waterford/waf-harness-ui";
 import { S } from "./strings";
 
 /** The sources a program opens a Session for: a person's, a subagent and a company Session are none of them. */

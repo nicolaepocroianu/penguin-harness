@@ -93,7 +93,7 @@ describe("a program's outcome", () => {
   });
 
   it("recognises a missing program, started directly or through the Windows shell", async () => {
-    const missing = "penguin-no-such-program-here";
+    const missing = "wafh-no-such-program-here";
     const direct = await runProgram({ command: missing, timeoutMs: 10_000 });
     expect(direct.outcome).toBe("not_found");
     expect(direct.error).toContain("ENOENT");
@@ -113,7 +113,7 @@ describe("a program's outcome", () => {
 
   it("does not mistake a missing working folder for a missing program", async () => {
     const result = await runProgram(
-      node("", { cwd: path.join(os.tmpdir(), "penguin-no-such-folder-here") }),
+      node("", { cwd: path.join(os.tmpdir(), "wafh-no-such-folder-here") }),
     );
     expect(result.outcome).toBe("failed_to_start");
   });

@@ -16,7 +16,7 @@ import type {
   DirEntryInfo,
   DirListResponse,
   DirLocation,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   TEMP_WORKSPACE_GROUP_KEY,
   isTempWorkspace,
@@ -360,7 +360,7 @@ export interface QuickAccessStorage {
  * machine shares.
  */
 export const quickAccessKey = (machineId: string | null): string =>
-  `penguin.finderQuickAccess.${machineId ?? "local"}`;
+  `wafh.finderQuickAccess.${machineId ?? "local"}`;
 
 /** One machine's edits; nothing stored, or anything unreadable, is no edits at all. */
 export function loadQuickAccess(

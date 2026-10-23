@@ -4,7 +4,7 @@
  * names the Session — a bot binding, a company desk, an activity run, the Session's own routes — still finds
  * it afterwards.
  */
-import { findLatestTraceFile, tracesDir, userText } from "@prismshadow/penguin-core";
+import { findLatestTraceFile, tracesDir, userText } from "@waterford/waf-harness-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityDetail } from "../src/activities/domain.js";
 import type { ActivityRuns } from "../src/activities/run-store.js";

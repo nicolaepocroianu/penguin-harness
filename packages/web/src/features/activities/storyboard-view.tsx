@@ -6,7 +6,7 @@
  * Choosing a card makes it the scene the conversation is about; opening it opens its media.
  */
 import type { SceneAssetLeaf } from "./scene-assets";
-import { Button, Dot, EmptyState, GlyphIcon, ICON_GAP, ICON_SIZE } from "@prismshadow/penguin-ui";
+import { Button, Dot, EmptyState, GlyphIcon, ICON_GAP, ICON_SIZE } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneName, toneStrip, toneSurface } from "../../lib/tone";
 import type { MediaPreview } from "./media-preview";

@@ -8,7 +8,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { hooksDir } from "@prismshadow/penguin-core";
+import { hooksDir } from "@waterford/waf-harness-core";
 import { HttpError } from "../http/errors.js";
 import { GOAL_HOOK_NAME } from "./goal-events.js";
 

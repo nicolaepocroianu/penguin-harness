@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make Activities feel native to Penguin Harness — house components and tones, a grouped home page with status, a studio that owns the page, and links that never strand the user between the studio, chat, runs and settings.
+**Goal:** Make Activities feel native to WAF Harness — house components and tones, a grouped home page with status, a studio that owns the page, and links that never strand the user between the studio, chat, runs and settings.
 
 **Architecture:** Four slices on `feat/activity-studio-shell`, each shippable: (1) style fixes, (2) home page with a server-computed per-activity summary, (3) studio shell, (4) cross-links. Every new decision is a pure function in its own module with a vitest unit test; React components stay thin over those functions. The server adds one kernel component (`ActivitySummaryService`) and one session-list field (`activityId`).
 
-**Tech Stack:** React 19, react-router 8, Tailwind 4, zustand (vanilla stores), Vitest 3 (node env, pure logic only), Playwright e2e (`packages/web/e2e/*.spec.mjs`), Hono server with the Penguin kernel (`@Component`, `@Use`, `Interface`, `gen-ifaces`).
+**Tech Stack:** React 19, react-router 8, Tailwind 4, zustand (vanilla stores), Vitest 3 (node env, pure logic only), Playwright e2e (`packages/web/e2e/*.spec.mjs`), Hono server with the WAF Harness kernel (`@Component`, `@Use`, `Interface`, `gen-ifaces`).
 
 **Spec:** `docs/superpowers/specs/2026-09-28-activities-ui-integration-design.md`
 
@@ -17,10 +17,10 @@
 - Controls use `size="sm"`.
 - Icons render through `GlyphIcon` (`components/ui/glyph-icon.tsx`) with path constants from `components/ui/icons.tsx`.
 - Stacking: chrome creates no stacking context; menus `z-40`; modal and drawer overlays `z-50`; portaled panels `z-[60]`. Nothing else.
-- Any new `penguin.*` localStorage key is registered in `packages/web/src/lib/install-scope.ts`; storage access is injectable (`Pick<Storage, "getItem" | "setItem">`) and wrapped in try/catch, like `layout-presets.ts`.
+- Any new `wafh.*` localStorage key is registered in `packages/web/src/lib/install-scope.ts`; storage access is injectable (`Pick<Storage, "getItem" | "setItem">`) and wrapped in try/catch, like `layout-presets.ts`.
 - Server: stateful logic is a kernel `@Component` behind an `Interface` class, registered in `packages/server/src/platform.ts`; types the web imports go in small type-only modules re-exported from `packages/server/src/api/types.ts` (never re-export from a service module — see the `sandbox-paths.ts` note).
 - Web unit tests: `packages/web/test/<name>.test.ts`, pure logic only (vitest `environment: "node"`); no `.tsx` tests.
-- Commands: web tests `pnpm --filter @prismshadow/penguin-web test`; web typecheck `pnpm --filter @prismshadow/penguin-web typecheck`; server tests `pnpm --filter @prismshadow/penguin-server test` (runs gen-ifaces first); server typecheck `pnpm --filter @prismshadow/penguin-server typecheck`; e2e `pnpm --filter @prismshadow/penguin-web test:e2e`.
+- Commands: web tests `pnpm --filter @waterford/waf-harness-web test`; web typecheck `pnpm --filter @waterford/waf-harness-web typecheck`; server tests `pnpm --filter @waterford/waf-harness-server test` (runs gen-ifaces first); server typecheck `pnpm --filter @waterford/waf-harness-server typecheck`; e2e `pnpm --filter @waterford/waf-harness-web test:e2e`.
 - Known pre-existing server failures, not caused by this work: `skills.test.ts`, flaky `model-oauth.test.ts`, `project-command-policy` PUT 400. Check the parent commit before believing either.
 - Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
@@ -39,7 +39,7 @@
 1. **An activity with no product row (predates the product level)** — the home page must still show it, in its own group keyed by product code, and the server must call it canonical (as `isCanonicalRef` does). Test in Task 4 and Task 6.
 2. **An imported Loom activity whose module exists only in the checkout** — must show as built, not "Module next". Test in Task 5 via `hasModule` returning true for a checkout source.
 3. **Leaving an activity with unsaved edits via the new breadcrumb or the sidebar** — must ask once through `ConfirmModal`; confirming navigates, cancelling stays with the edits intact. Covered by the e2e step in Task 2.
-4. **The user expanded the app sidebar inside an activity, then left** — their stored preference is what they return to; the auto-collapse never writes `penguin.sidebarCollapsed`. Test in Task 9.
+4. **The user expanded the app sidebar inside an activity, then left** — their stored preference is what they return to; the auto-collapse never writes `wafh.sidebarCollapsed`. Test in Task 9.
 5. **A session belonging to another project's activity run** — never gets an `activityId` in this project's list. Test in Task 13.
 
 ---
@@ -123,8 +123,8 @@ Run: `rg -n "segment-styles" packages/web/src` — Expected: no output.
 
 - [ ] **Step 4: Typecheck and run the e2e specs that press these chips**
 
-Run: `pnpm --filter @prismshadow/penguin-web typecheck` — Expected: exit 0.
-Run: `pnpm --filter @prismshadow/penguin-web test:e2e -- activities.spec.mjs` — Expected: same pass count as before the change (record the baseline first with `git stash`).
+Run: `pnpm --filter @waterford/waf-harness-web typecheck` — Expected: exit 0.
+Run: `pnpm --filter @waterford/waf-harness-web test:e2e -- activities.spec.mjs` — Expected: same pass count as before the change (record the baseline first with `git stash`).
 
 - [ ] **Step 5: Commit**
 
@@ -277,12 +277,12 @@ test("leaving with unsaved edits asks through the app's dialog", async ({ page }
 ```
 (`ConfirmModal`'s dismiss button is labelled Cancel. Task 12 keeps the back link's name "All activities", so this test survives it.)
 
-Run: `pnpm --filter @prismshadow/penguin-web test:e2e -- activities.spec.mjs -g "unsaved edits"` — Expected: PASS.
+Run: `pnpm --filter @waterford/waf-harness-web test:e2e -- activities.spec.mjs -g "unsaved edits"` — Expected: PASS.
 
 - [ ] **Step 6: Typecheck, commit**
 
 ```bash
-pnpm --filter @prismshadow/penguin-web typecheck
+pnpm --filter @waterford/waf-harness-web typecheck
 git add packages/web/src packages/web/e2e/activities.spec.mjs
 git commit -m "fix(activities): ask before discarding edits with the app's own dialog
 
@@ -322,8 +322,8 @@ In `deploy-panel.tsx` delete the local `HEAD/TH/TD` and import these (`HEAD` →
 - [ ] **Step 5: Verify**
 
 Run: `rg -n "z-30" packages/web/src/features/activities` — Expected: no output.
-Run: `pnpm --filter @prismshadow/penguin-web typecheck` — Expected: exit 0.
-Run: `pnpm --filter @prismshadow/penguin-web test:e2e -- activities.spec.mjs` — Expected: baseline pass count. Any test that asserted the old empty/loading `<p>` text still finds it (EmptyState renders the title as text; the status wrapper keeps the loading name).
+Run: `pnpm --filter @waterford/waf-harness-web typecheck` — Expected: exit 0.
+Run: `pnpm --filter @waterford/waf-harness-web test:e2e -- activities.spec.mjs` — Expected: baseline pass count. Any test that asserted the old empty/loading `<p>` text still finds it (EmptyState renders the title as text; the status wrapper keeps the loading name).
 
 - [ ] **Step 6: Commit**
 
@@ -424,7 +424,7 @@ describe("summarize", () => {
   });
 
   it("counts an imported module without a plan as built only once the plan exists", () => {
-    // A Loom import can play from the checkout before Penguin planned its media.
+    // A Loom import can play from the checkout before WAF Harness planned its media.
     const summary = summarize({ ...fresh, specValid: true, hasModule: true });
     expect(summary).toMatchObject({ done: 2, status: { kind: "next", milestone: "mediaPlan" } });
   });
@@ -437,7 +437,7 @@ describe("summarize", () => {
 
 - [ ] **Step 2: Run it — fails**
 
-Run: `pnpm --filter @prismshadow/penguin-server exec vitest run test/activity-summary.test.ts`
+Run: `pnpm --filter @waterford/waf-harness-server exec vitest run test/activity-summary.test.ts`
 Expected: FAIL — cannot find module `activity-summary.js`.
 
 - [ ] **Step 3: Implement**
@@ -515,7 +515,7 @@ export type {
 
 - [ ] **Step 4: Run — passes**
 
-Run: `pnpm --filter @prismshadow/penguin-server exec vitest run test/activity-summary.test.ts` — Expected: 6 passed.
+Run: `pnpm --filter @waterford/waf-harness-server exec vitest run test/activity-summary.test.ts` — Expected: 6 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -593,7 +593,7 @@ describe("activity list summaries", () => {
 
 - [ ] **Step 2: Run — fails**
 
-Run: `pnpm --filter @prismshadow/penguin-server exec vitest run test/activities-summary-api.test.ts`
+Run: `pnpm --filter @waterford/waf-harness-server exec vitest run test/activities-summary-api.test.ts`
 Expected: FAIL — `withSummary.summaries` is undefined.
 
 - [ ] **Step 3: `hasModule` on the sandbox.** Interface (`sandbox-service.ts`, inside `ActivitySandbox extends Interface<{ … }>`):
@@ -621,7 +621,7 @@ Class (`ActivitySandboxService`, next to `status`):
  * activity of a list. A few reads per activity (its draft, its runs, whether a module
  * exists); a project holds tens of refs, not thousands.
  */
-import { Component, Interface, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface, Use } from "@waterford/waf-harness-core/kernel";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
 import { contentRevision, type ActivityRecord } from "./domain.js";
@@ -692,8 +692,8 @@ export class ActivitySummaryService implements ActivitySummaries {
 
 - [ ] **Step 6: Run — passes; typecheck**
 
-Run: `pnpm --filter @prismshadow/penguin-server test -- activities-summary-api` — Expected: PASS (this runs gen-ifaces first, which registers the new interface).
-Run: `pnpm --filter @prismshadow/penguin-server typecheck` — Expected: exit 0.
+Run: `pnpm --filter @waterford/waf-harness-server test -- activities-summary-api` — Expected: PASS (this runs gen-ifaces first, which registers the new interface).
+Run: `pnpm --filter @waterford/waf-harness-server typecheck` — Expected: exit 0.
 
 - [ ] **Step 7: Commit**
 
@@ -712,7 +712,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Test: `packages/web/test/activities-groups.test.ts`
 
 **Interfaces:**
-- Consumes: `ActivityRecord`, `ActivitySummary` from `@prismshadow/penguin-server/api`.
+- Consumes: `ActivityRecord`, `ActivitySummary` from `@waterford/waf-harness-server/api`.
 - Produces:
 ```ts
 export type GroupSort = "recent" | "code";
@@ -725,7 +725,7 @@ export interface ActivityGroup {
   latest: string;                     // max updatedAt
 }
 export function groupByProduct(items: readonly ActivityRecord[], summaries: Readonly<Record<string, ActivitySummary>>, options: { sort: GroupSort; search: string; tag: string | null }): ActivityGroup[];
-export const COLLAPSED_GROUPS_KEY = "penguin.activities.collapsedGroups";
+export const COLLAPSED_GROUPS_KEY = "wafh.activities.collapsedGroups";
 export function readCollapsed(projectId: string, storage?: Pick<Storage, "getItem">): Set<string>;
 export function writeCollapsed(projectId: string, collapsed: ReadonlySet<string>, storage?: Pick<Storage, "getItem" | "setItem">): void;
 ```
@@ -735,7 +735,7 @@ export function writeCollapsed(projectId: string, collapsed: ReadonlySet<string>
 ```ts
 // packages/web/test/activities-groups.test.ts
 import { describe, expect, it } from "vitest";
-import type { ActivityRecord, ActivitySummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRecord, ActivitySummary } from "@waterford/waf-harness-server/api";
 import {
   groupByProduct,
   readCollapsed,
@@ -828,7 +828,7 @@ describe("collapsed groups", () => {
   });
   it("reads garbage as nothing collapsed", () => {
     const storage = memory();
-    storage.setItem("penguin.activities.collapsedGroups", "{not json");
+    storage.setItem("wafh.activities.collapsedGroups", "{not json");
     expect(readCollapsed("p1", storage).size).toBe(0);
   });
 });
@@ -836,7 +836,7 @@ describe("collapsed groups", () => {
 
 - [ ] **Step 2: Run — fails**
 
-Run: `pnpm --filter @prismshadow/penguin-web exec vitest run test/activities-groups.test.ts`
+Run: `pnpm --filter @waterford/waf-harness-web exec vitest run test/activities-groups.test.ts`
 Expected: FAIL — cannot resolve `activity-groups`.
 
 - [ ] **Step 3: Implement.** Search/tag filtering reuses the list's existing rules, `filterByTag` (`./activity-tags`) and `filterActivities` (`./preview`), rather than re-implementing them.
@@ -847,7 +847,7 @@ Expected: FAIL — cannot resolve `activity-groups`.
  * The Activities home's groups: one per product code, its refs as cards. A product's refs
  * belong together (one product has ten), and a product code is what authors search by.
  */
-import type { ActivityRecord, ActivitySummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRecord, ActivitySummary } from "@waterford/waf-harness-server/api";
 import { filterByTag } from "./activity-tags";
 import { filterActivities } from "./preview";
 
@@ -895,7 +895,7 @@ export function groupByProduct(
   );
 }
 
-export const COLLAPSED_GROUPS_KEY = "penguin.activities.collapsedGroups";
+export const COLLAPSED_GROUPS_KEY = "wafh.activities.collapsedGroups";
 
 type CollapsedStore = Record<string, string[]>;
 
@@ -932,11 +932,11 @@ export function writeCollapsed(
   }
 }
 ```
-In `install-scope.ts`, beside the `penguin.activities.recent` entry (L256-261), add:
+In `install-scope.ts`, beside the `wafh.activities.recent` entry (L256-261), add:
 ```ts
   {
     kind: "exact",
-    key: "penguin.activities.collapsedGroups",
+    key: "wafh.activities.collapsedGroups",
     scope: "install",
     why: "Product groups each Project folded on the Activities home, keyed by Project id; a new root has none.",
   },
@@ -944,8 +944,8 @@ In `install-scope.ts`, beside the `penguin.activities.recent` entry (L256-261), 
 
 - [ ] **Step 4: Run — passes**
 
-Run: `pnpm --filter @prismshadow/penguin-web exec vitest run test/activities-groups.test.ts` — Expected: 6 passed.
-Run: `pnpm --filter @prismshadow/penguin-web test` — Expected: no new failures (install-scope has its own test that checks registrations).
+Run: `pnpm --filter @waterford/waf-harness-web exec vitest run test/activities-groups.test.ts` — Expected: 6 passed.
+Run: `pnpm --filter @waterford/waf-harness-web test` — Expected: no new failures (install-scope has its own test that checks registrations).
 
 - [ ] **Step 5: Commit**
 
@@ -1183,8 +1183,8 @@ function SummaryStatus({ status }: { status: ActivitySummary["status"] }) {
 
 - [ ] **Step 4: Typecheck and unit tests**
 
-Run: `pnpm --filter @prismshadow/penguin-web typecheck` — Expected: exit 0.
-Run: `pnpm --filter @prismshadow/penguin-web test` — Expected: all pass (the deleted recent test is gone; install-scope test still passes).
+Run: `pnpm --filter @waterford/waf-harness-web typecheck` — Expected: exit 0.
+Run: `pnpm --filter @waterford/waf-harness-web test` — Expected: all pass (the deleted recent test is gone; install-scope test still passes).
 
 - [ ] **Step 5: e2e.** In `activities.spec.mjs`, replace assertions on "Recently opened"/"All activities" section headings (search: `rg -n "Recently opened" packages/web/e2e`) and add:
 
@@ -1201,7 +1201,7 @@ test("the home page groups refs under their product code", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Expand ants" })).toBeVisible();
 });
 ```
-Run: `pnpm --filter @prismshadow/penguin-web test:e2e -- activities.spec.mjs` — Expected: PASS.
+Run: `pnpm --filter @waterford/waf-harness-web test:e2e -- activities.spec.mjs` — Expected: PASS.
 
 - [ ] **Step 6: Look at it.** Start the app (`/run` skill or the project's dev command), open `/activities` at desktop width and at 375px; compare against `.superpowers/brainstorm/3504-1790586830/content/activity-list-v4.html`. Expected: groups, one status per card, no horizontal scroll at 375px.
 
@@ -1269,7 +1269,7 @@ In `activities-studio-tree.test.ts`, add:
 ```
 (Reuse the file's existing `full` state and empty scene tree fixture — read the top of the test file for their names.)
 
-Run: `pnpm --filter @prismshadow/penguin-web exec vitest run test/activities-workspace-model.test.ts test/activities-studio-tree.test.ts`
+Run: `pnpm --filter @waterford/waf-harness-web exec vitest run test/activities-workspace-model.test.ts test/activities-studio-tree.test.ts`
 Expected: FAIL — `phaseOf`/`phaseOfNode` not exported; order differs.
 
 - [ ] **Step 2: Model.** Reorder the array in `workspaceSections` (keep each entry's comment and `enabled` rule, move them): description, specification, features, scenes, speech, library, module, configuration, assessment, deploy, stats, history, newRef. Then add:
@@ -1348,9 +1348,9 @@ export function phaseOfNode(node: StudioNode): StudioPhase | null {
 
 - [ ] **Step 5: Run — pass; update presets test if it depends on order**
 
-Run: `pnpm --filter @prismshadow/penguin-web test` — Expected: all pass. If `activities-layout-presets.test.ts` asserts a section order, update it to the new order.
+Run: `pnpm --filter @waterford/waf-harness-web test` — Expected: all pass. If `activities-layout-presets.test.ts` asserts a section order, update it to the new order.
 
-- [ ] **Step 6: e2e.** Run `pnpm --filter @prismshadow/penguin-web test:e2e -- activities.spec.mjs`. Tests that count treeitems (L1685-1712) are unaffected (labels are not treeitems); fix any that assumed "Module Definition" sits before "Scenes" by position.
+- [ ] **Step 6: e2e.** Run `pnpm --filter @waterford/waf-harness-web test:e2e -- activities.spec.mjs`. Tests that count treeitems (L1685-1712) are unaffected (labels are not treeitems); fix any that assumed "Module Definition" sits before "Scenes" by position.
 
 - [ ] **Step 7: Commit**
 
@@ -1397,7 +1397,7 @@ describe("sidebar auto-collapse", () => {
   });
 });
 ```
-Run: `pnpm --filter @prismshadow/penguin-web exec vitest run test/sidebar-auto-collapse.test.ts` — Expected: FAIL (module missing).
+Run: `pnpm --filter @waterford/waf-harness-web exec vitest run test/sidebar-auto-collapse.test.ts` — Expected: FAIL (module missing).
 
 - [ ] **Step 2: Implement**
 
@@ -1428,7 +1428,7 @@ export function effectiveCollapsed(
 - [ ] **Step 3: Wire `app-layout.tsx`.** Replace L435-444 with:
 ```tsx
 const [storedCollapsed, setStoredCollapsed] = useState(
-  () => localStorage.getItem("penguin.sidebarCollapsed") === "1",
+  () => localStorage.getItem("wafh.sidebarCollapsed") === "1",
 );
 const { pathname } = useLocation();
 const focus = wantsFocus(pathname);
@@ -1442,7 +1442,7 @@ const toggleCollapsed = () => {
   if (focus) return setOverride(!collapsed);
   setStoredCollapsed((v) => {
     const next = !v;
-    localStorage.setItem("penguin.sidebarCollapsed", next ? "1" : "0");
+    localStorage.setItem("wafh.sidebarCollapsed", next ? "1" : "0");
     return next;
   });
 };
@@ -1451,9 +1451,9 @@ const toggleCollapsed = () => {
 
 - [ ] **Step 4: Run tests, typecheck, e2e layout**
 
-Run: `pnpm --filter @prismshadow/penguin-web test` — Expected: pass.
-Run: `pnpm --filter @prismshadow/penguin-web typecheck` — Expected: exit 0.
-Run: `pnpm --filter @prismshadow/penguin-web test:e2e -- layout.spec.mjs activities.spec.mjs` — Expected: pass. Any activities test that clicks the full sidebar (project switcher, session list) while on `/activities/:id` must first click the rail's expand button (`CollapsedRail`'s `onExpand` button — use its accessible name).
+Run: `pnpm --filter @waterford/waf-harness-web test` — Expected: pass.
+Run: `pnpm --filter @waterford/waf-harness-web typecheck` — Expected: exit 0.
+Run: `pnpm --filter @waterford/waf-harness-web test:e2e -- layout.spec.mjs activities.spec.mjs` — Expected: pass. Any activities test that clicks the full sidebar (project switcher, session list) while on `/activities/:id` must first click the rail's expand button (`CollapsedRail`'s `onExpand` button — use its accessible name).
 
 - [ ] **Step 5: Add an e2e for the Review Focus #4 case** in `layout.spec.mjs`:
 ```js
@@ -1463,7 +1463,7 @@ test("an activity collapses the sidebar without changing the stored choice", asy
   await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeHidden();
   await page.goto("/agents");
   await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem("penguin.sidebarCollapsed"))).not.toBe("1");
+  expect(await page.evaluate(() => localStorage.getItem("wafh.sidebarCollapsed"))).not.toBe("1");
 });
 ```
 Run it — Expected: PASS.
@@ -1515,8 +1515,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - [ ] **Step 4: Update e2e.** In `activities.spec.mjs`: buttons found by name "Conversation" (L3187, 3251) → "Chat"; complementary regions named "Conversation" (L3188, 3252 and any other) → "Chat"; "Agent sessions" → "Sessions". The panel buttons are now `aria-pressed` toggle buttons in the header — same role, so `getByRole("button", { name })` still works. Run: `rg -n '"Conversation"|"Agent sessions"' packages/web/e2e` — Expected after edits: no output.
 - [ ] **Step 5: Verify**
 
-Run: `pnpm --filter @prismshadow/penguin-web test && pnpm --filter @prismshadow/penguin-web typecheck` — Expected: pass.
-Run: `pnpm --filter @prismshadow/penguin-web test:e2e -- activities.spec.mjs` — Expected: pass.
+Run: `pnpm --filter @waterford/waf-harness-web test && pnpm --filter @waterford/waf-harness-web typecheck` — Expected: pass.
+Run: `pnpm --filter @waterford/waf-harness-web test:e2e -- activities.spec.mjs` — Expected: pass.
 Look at the studio at desktop width and 375px: tabs visible in the header, panel opens beside the editor on desktop and over it on a phone.
 
 - [ ] **Step 6: Commit**
@@ -1627,12 +1627,12 @@ await panel.getByRole("button", { name: "Show" }).first().click();
 await expect(panel.getByRole("link", { name: /Open full page/ })).toBeVisible();
 await expect(page).toHaveURL(/\/activities\//);
 ```
-Run: `pnpm --filter @prismshadow/penguin-web test:e2e -- activities.spec.mjs` — Expected: pass.
+Run: `pnpm --filter @waterford/waf-harness-web test:e2e -- activities.spec.mjs` — Expected: pass.
 
 - [ ] **Step 5: Typecheck, commit**
 
 ```bash
-pnpm --filter @prismshadow/penguin-web typecheck
+pnpm --filter @waterford/waf-harness-web typecheck
 git add packages/web/src packages/web/e2e
 git commit -m "feat(activities): read a run's session without leaving the studio
 
@@ -1677,7 +1677,7 @@ Keep `backToActivities: "All activities"` — it becomes the first crumb's text,
 ```
 with `const runningRun = runs.find((run) => run.status === "running");` above. Keep the collection line only as the `title` attribute of the product code span (`title={\`${S.activities.collection}: ${detail.collectionId}\`}`); keep the dirty/draft-status `<p aria-live>` and the Reload button as they are.
 
-- [ ] **Step 3: Verify.** Run: `pnpm --filter @prismshadow/penguin-web typecheck` and `pnpm --filter @prismshadow/penguin-web test:e2e -- activities.spec.mjs` — Expected: pass (the "All activities" link keeps its name; tests that read the title via `heading` still find an `h2`). Look at the studio at desktop and 375px: the crumb truncates the title, never wraps the chip under it at desktop width.
+- [ ] **Step 3: Verify.** Run: `pnpm --filter @waterford/waf-harness-web typecheck` and `pnpm --filter @waterford/waf-harness-web test:e2e -- activities.spec.mjs` — Expected: pass (the "All activities" link keeps its name; tests that read the title via `heading` still find an `h2`). Look at the studio at desktop and 375px: the crumb truncates the title, never wraps the chip under it at desktop width.
 
 - [ ] **Step 4: Commit**
 
@@ -1729,7 +1729,7 @@ describe("session -> activity", () => {
   });
 });
 ```
-Run: `pnpm --filter @prismshadow/penguin-server exec vitest run test/session-activity-id.test.ts` — Expected: FAIL (methods missing).
+Run: `pnpm --filter @waterford/waf-harness-server exec vitest run test/session-activity-id.test.ts` — Expected: FAIL (methods missing).
 
 - [ ] **Step 2: Implement in `SessionsRepo`** (and declare both in `SessionIndex`'s `Interface<{…}>`):
 ```ts
@@ -1773,8 +1773,8 @@ Run: `pnpm --filter @prismshadow/penguin-server exec vitest run test/session-act
 `api/types.ts` beside `orgId?: string;`: `/** The activity whose generation run this Session is; absent for every other Session. */ activityId?: string;`
 - [ ] **Step 4: Run — pass; full server suite; typecheck**
 
-Run: `pnpm --filter @prismshadow/penguin-server test` — Expected: new test passes; only the known pre-existing failures remain.
-Run: `pnpm --filter @prismshadow/penguin-server typecheck` — Expected: exit 0.
+Run: `pnpm --filter @waterford/waf-harness-server test` — Expected: new test passes; only the known pre-existing failures remain.
+Run: `pnpm --filter @waterford/waf-harness-server typecheck` — Expected: exit 0.
 
 - [ ] **Step 5: Commit**
 
@@ -1805,7 +1805,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```ts
 // packages/web/test/activity-sessions.test.ts
 import { describe, expect, it } from "vitest";
-import type { SessionInfo } from "@prismshadow/penguin-server/api";
+import type { SessionInfo } from "@waterford/waf-harness-server/api";
 import { sessionHref, settledActivityRuns, withoutActivityRuns } from "../src/lib/activity-sessions";
 
 const s = (sessionId: string, status: string, activityId?: string) =>
@@ -1826,7 +1826,7 @@ describe("activity sessions", () => {
   });
 });
 ```
-Run: `pnpm --filter @prismshadow/penguin-web exec vitest run test/activity-sessions.test.ts` — Expected: FAIL.
+Run: `pnpm --filter @waterford/waf-harness-web exec vitest run test/activity-sessions.test.ts` — Expected: FAIL.
 
 - [ ] **Step 2: Implement**
 
@@ -1836,7 +1836,7 @@ Run: `pnpm --filter @prismshadow/penguin-web exec vitest run test/activity-sessi
  * Sessions that are an activity's generation runs belong to that activity: they live in
  * its studio, not in the global session list, and opening one goes back to the activity.
  */
-import type { SessionInfo } from "@prismshadow/penguin-server/api";
+import type { SessionInfo } from "@waterford/waf-harness-server/api";
 
 export function withoutActivityRuns(sessions: readonly SessionInfo[]): SessionInfo[] {
   return sessions.filter((session) => session.activityId === undefined);
@@ -1891,8 +1891,8 @@ useEffect(() => {
 ```
 - [ ] **Step 4: Verify**
 
-Run: `pnpm --filter @prismshadow/penguin-web test && pnpm --filter @prismshadow/penguin-web typecheck` — Expected: pass.
-Run: `pnpm --filter @prismshadow/penguin-web test:e2e -- activities.spec.mjs layout.spec.mjs` — Expected: pass. Any e2e that found a run in the global sidebar must now find it in the studio's Sessions tab.
+Run: `pnpm --filter @waterford/waf-harness-web test && pnpm --filter @waterford/waf-harness-web typecheck` — Expected: pass.
+Run: `pnpm --filter @waterford/waf-harness-web test:e2e -- activities.spec.mjs layout.spec.mjs` — Expected: pass. Any e2e that found a run in the global sidebar must now find it in the studio's Sessions tab.
 
 - [ ] **Step 5: Commit**
 
@@ -1944,7 +1944,7 @@ Update the `id` doc comment to list `activity:<id>`. In `quick-switcher.tsx`, wh
 - [ ] **Step 3: Run tests, typecheck; commit**
 
 ```bash
-pnpm --filter @prismshadow/penguin-web test && pnpm --filter @prismshadow/penguin-web typecheck
+pnpm --filter @waterford/waf-harness-web test && pnpm --filter @waterford/waf-harness-web typecheck
 git add packages/web/src packages/web/test
 git commit -m "feat(switcher): jump to an activity from the quick switcher
 
@@ -1981,7 +1981,7 @@ and `onMedia={() => navigate("/activities/media")}`.
 - [ ] **Step 4: Typecheck; commit**
 
 ```bash
-pnpm --filter @prismshadow/penguin-web typecheck
+pnpm --filter @waterford/waf-harness-web typecheck
 git add packages/web/src packages/web/e2e
 git commit -m "feat(activities): project media at its own route
 
@@ -2083,6 +2083,6 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Finish
 
-- [ ] Full suites: `pnpm --filter @prismshadow/penguin-server test`, `pnpm --filter @prismshadow/penguin-web test`, `pnpm typecheck` (root: gen-ifaces + all packages), `pnpm lint`, `pnpm format:check`, `pnpm --filter @prismshadow/penguin-web test:e2e`. Expected: only the known pre-existing server failures.
+- [ ] Full suites: `pnpm --filter @waterford/waf-harness-server test`, `pnpm --filter @waterford/waf-harness-web test`, `pnpm typecheck` (root: gen-ifaces + all packages), `pnpm lint`, `pnpm format:check`, `pnpm --filter @waterford/waf-harness-web test:e2e`. Expected: only the known pre-existing server failures.
 - [ ] Changelog: add `changelog/unreleased/2026-09-28-activities-ui-integration.md` in the style of `changelog/unreleased/2026-09-23-activity-studio-conventions.md`, listing the four slices and the seven deviations above.
 - [ ] Look at the whole flow once in the running app: home → activity (sidebar steps back) → Sessions → Show transcript → Open full page → banner → back to the activity → breadcrumb → home.

@@ -1,6 +1,6 @@
 ---
 name: company-research
-description: Run experiments and papers in a PenguinHarness research organization — fix the harness and the metric first, run an autoresearch-style loop (one editable surface, the same time budget per experiment, a results log, keep only improvements) inside a resource envelope the board approved in the all-hands channel, and put every claim through adversarial review by a reviewer who is not its author.
+description: Run experiments and papers in a WAF Harness research organization — fix the harness and the metric first, run an autoresearch-style loop (one editable surface, the same time budget per experiment, a results log, keep only improvements) inside a resource envelope the board approved in the all-hands channel, and put every claim through adversarial review by a reviewer who is not its author.
 version: 2026.10.10.1
 ---
 
@@ -35,8 +35,8 @@ An experiment loop is the textbook case of what `company-employee` calls heavy o
 Then block the ticket on the board and end the run, exactly as "Asking the board" in `company-employee` says:
 
 ```bash
-penguin org channel send -m "@user:alice 2026-09-01-dep-eval is ready for its experiment loop: 5-minute runs on GPU 0 (about 10 GB of VRAM), one at a time, 40 runs or 4 h in total, 6 GB of disk under <app_data_dir>/organizations/co_lab/workspace/experiments/dep-eval/; the dataset is already in the shared root and no paid API is involved. It runs inside the ticket session — stop that session and the loop stops. May I start? Otherwise I stop at 10 runs." --ref-ticket 2026-09-01-dep-eval
-penguin org ticket block 2026-09-01-dep-eval --reason "Waiting for the board's resource envelope for the experiment loop" --by user:alice
+wafh org channel send -m "@user:alice 2026-09-01-dep-eval is ready for its experiment loop: 5-minute runs on GPU 0 (about 10 GB of VRAM), one at a time, 40 runs or 4 h in total, 6 GB of disk under <app_data_dir>/organizations/co_lab/workspace/experiments/dep-eval/; the dataset is already in the shared root and no paid API is involved. It runs inside the ticket session — stop that session and the loop stops. May I start? Otherwise I stop at 10 runs." --ref-ticket 2026-09-01-dep-eval
+wafh org ticket block 2026-09-01-dep-eval --reason "Waiting for the board's resource envelope for the experiment loop" --by user:alice
 ```
 
 Once approved, write the envelope into the ticket's `## Goal` (machine, concurrency, total, disk, keys — the numbers as approved) and into the handbook as `decisions/<yyyy-mm-dd>-envelope-<ticket_id>.md`, so the next session reads it instead of asking again. **Inside the envelope the loop runs unattended.** Reaching its total ends the loop; exceeding it — more hours, a second GPU, more runs — or needing something new — a dataset that is not there, an API key, a bigger model — is a new ask in the same channel, with the same block-and-end. A resource you lack is something you request, never something you work around: no hunting for a key on the machine, no substituting a dataset the ticket did not name, no quietly running on the CPU when the GPU was refused.
@@ -84,8 +84,8 @@ Run the loop in the foreground of the ticket session — never in the background
 A claim goes through the board's `review` column, and the reviewer's job is to try to break it. The move itself starts nothing — `notify` hears only of a ticket's close, only the owner may open a session on the ticket, and the owner's sweep starts sessions only for `in_progress` tickets — so on every round the author starts the review itself, right after moving the ticket to `review` with `## Result` complete:
 
 ```bash
-penguin org ticket move 2026-09-01-dep-eval --to review
-penguin org ticket start 2026-09-01-dep-eval --agent-id co_lab_reviewer -m "Review round 1: the claim is in ## Result; results.tsv, logs/ and the harness are in <app_data_dir>/organizations/co_lab/workspace/co_lab_researcher/experiments/2026-09-01-dep-eval/"
+wafh org ticket move 2026-09-01-dep-eval --to review
+wafh org ticket start 2026-09-01-dep-eval --agent-id co_lab_reviewer -m "Review round 1: the claim is in ## Result; results.tsv, logs/ and the harness are in <app_data_dir>/organizations/co_lab/workspace/co_lab_researcher/experiments/2026-09-01-dep-eval/"
 ```
 
 That session runs as the reviewer, in the reviewer's own partition, with the whole ticket and the note as its first message: name the round and the experiment directory by full path. No mention is needed — it would only wake a desk that cannot open the session.
@@ -100,12 +100,12 @@ That session runs as the reviewer, in the reviewer's own partition, with the who
 The review is a file in the reviewer's partition, `reviews/<ticket_id>/round-<n>.md`, named in a progress line by full path: a **score** (`accept`, `minor` revision, `major` revision or `reject`), the evidence for each finding, and a numbered list of **required changes**. Then the verdict on the board:
 
 - `accept` — a progress line saying so; the CEO (or whoever the handbook names as the closer) moves the ticket to `done` on that line, and a research ticket is never closed without a reviewer's accept in its history;
-- `minor` or `major` — `penguin org ticket move <id> --to in_progress` with a progress line naming the round and the review file; the author's desk picks it up in its next sweep;
+- `minor` or `major` — `wafh org ticket move <id> --to in_progress` with a progress line naming the round and the review file; the author's desk picks it up in its next sweep;
 - `reject` — a recommendation, not a move: rejecting someone else's ticket is the CEO's proposal to the board. Say so in the stream's channel, @-mentioning the CEO with the review's path.
 
 **The author** answers point by point in `reviews/<ticket_id>/round-<n>-response.md` beside its deliverable — each required change either done (with the commit or the path) or rebutted (with the evidence) — revises, moves the ticket back to `review` and starts the next round's review session the same way. Silence on a point is agreement to fix it.
 
-**The cap**: three rounds. If the third review is not an `accept`, the reviewer blocks the ticket on the CEO — `penguin org ticket block <id> --reason "Not accepted after three review rounds: <the open points>" --by agent:<org_id>_ceo` — and says so in the stream's channel. The CEO decides — accept as it stands, one more round, or split the claim — or takes it to the board in the all-hands channel; the board's word is final.
+**The cap**: three rounds. If the third review is not an `accept`, the reviewer blocks the ticket on the CEO — `wafh org ticket block <id> --reason "Not accepted after three review rounds: <the open points>" --by agent:<org_id>_ceo` — and says so in the stream's channel. The CEO decides — accept as it stands, one more round, or split the claim — or takes it to the board in the all-hands channel; the board's word is final.
 
 ## Cautions
 
@@ -113,4 +113,4 @@ The review is a file in the reviewer's partition, `reviews/<ticket_id>/round-<n>
 - **No result without a log line and a commit.** A number remembered from a terminal is not a result.
 - **The envelope is a cap, not a target.** Stop when the criteria are met; stop when the total is reached; ask before either is exceeded — in the channel, never by running "one more" inside the session.
 - **The reviewer never fixes the author's code**, and the author never softens a review by editing it; both are read in the ticket's `history`.
-- **Costs land on the ticket.** Every loop session and every review session is a contributing session of that ticket; `penguin org finance` shows what a claim cost, and a loop that spends twenty runs without a `keep` is finance's finding as much as yours.
+- **Costs land on the ticket.** Every loop session and every review session is a contributing session of that ticket; `wafh org finance` shows what a claim cost, and a loop that spends twenty runs without a `keep` is finance's finding as much as yours.

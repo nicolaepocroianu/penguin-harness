@@ -10,7 +10,7 @@
  * timings place at the time since it started. An author may light a line too, by choosing it
  * in the Script or in the player's list; whichever happened last is the one lit.
  */
-import type { MediaAsset } from "@prismshadow/penguin-server/api";
+import type { MediaAsset } from "@waterford/waf-harness-server/api";
 import type { MediaPreview } from "./media-preview";
 import { narrationScenes } from "./narration-scenes";
 import type { PlayerInteractable, PlayerMedia, PlayerReport } from "./player-bridge";

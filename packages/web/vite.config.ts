@@ -4,22 +4,22 @@
  * Dev server listens on 7365; `/api` and a machine's `/server/<machineId>/api` are proxied to the
  * **development** backend (127.0.0.1:7368 -- `pnpm dev:server`, deliberately not the installed
  * server's 7364, which is routinely running at the same time). Honors PORT so overriding the backend
- * port moves the proxy with it, and PENGUIN_API_PROXY overrides the whole target. SSE
+ * port moves the proxy with it, and WAFH_API_PROXY overrides the whole target. SSE
  * (text/event-stream) passes through http-proxy transparently, no special config needed.
  * The vitest config is kept separate in vitest.config.ts (its embedded vite 5 types conflict with this
  * package's vite 7 plugin types, hence the separate file to avoid the clash).
  *
- * `penguinUi()` emits the licence texts of the shared UI package's bundled fonts beside the build
+ * `wafHarnessUi()` emits the licence texts of the shared UI package's bundled fonts beside the build
  * (`fonts-licenses/`). It is imported by relative path on purpose — see its module doc.
  */
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import type { Plugin } from "vite";
-import { penguinUi } from "../ui/src/vite-plugin";
+import { wafHarnessUi } from "../ui/src/vite-plugin";
 
 /**
- * Resolves the `/api` proxy target: PENGUIN_API_PROXY replaces it outright, otherwise the
+ * Resolves the `/api` proxy target: WAFH_API_PROXY replaces it outright, otherwise the
  * development backend on PORT — the same variable `pnpm dev:server` binds — defaulting to 7368.
  *
  * Empty counts as unset, as everywhere else PORT is read in this repo (server/src/config.ts,
@@ -32,7 +32,7 @@ import { penguinUi } from "../ui/src/vite-plugin";
  * `server.proxy` cannot be exercised without starting a dev server).
  */
 export function apiProxyTarget(env: Record<string, string | undefined> = process.env): string {
-  return env.PENGUIN_API_PROXY || `http://127.0.0.1:${env.PORT || "7368"}`;
+  return env.WAFH_API_PROXY || `http://127.0.0.1:${env.PORT || "7368"}`;
 }
 
 /**
@@ -90,7 +90,7 @@ export function dropNonWoff2FontSources(css: string): string {
  */
 function katexWoff2Only(): Plugin {
   return {
-    name: "penguin:katex-woff2-only",
+    name: "wafh:katex-woff2-only",
     enforce: "pre",
     transform(code, id) {
       if (!id.includes("/katex/dist/") || !id.includes(".css")) return null;
@@ -101,7 +101,7 @@ function katexWoff2Only(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [penguinUi(), react(), tailwindcss(), katexWoff2Only()],
+  plugins: [wafHarnessUi(), react(), tailwindcss(), katexWoff2Only()],
   build: {
     // Never inline a font. Vite turns any asset under 4 KB into a data: URI, and a font slice the
     // stylesheet references would then ride inside the one render-blocking CSS file for every
@@ -113,7 +113,7 @@ export default defineConfig({
   // the build fails outright rather than shipping something subtly wrong, which is the good case.
   worker: { format: "es" },
   server: {
-    // Fixed PenguinHarness dev port (stands alone — vite configs cannot import core TS,
+    // Fixed WAF Harness dev port (stands alone — vite configs cannot import core TS,
     // so the numbers are literals here; the allocation table lives in core's internal/ports.ts).
     port: 7365,
     // Cross-origin requests to /api are the server's to answer, not Vite's: the Chrome extension

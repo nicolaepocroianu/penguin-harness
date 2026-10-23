@@ -12,7 +12,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { PostBody } from "../src/pages/blog-post";
-import { extractToc, hashTargetId, parseFrontmatter } from "@prismshadow/penguin-ui/site";
+import { extractToc, hashTargetId, parseFrontmatter } from "@waterford/waf-harness-ui/site";
 
 const contentDir = join(__dirname, "..", "content", "blog");
 const files = readdirSync(contentDir).filter((f) => f.endsWith(".md"));
@@ -38,13 +38,13 @@ describe("blog post in-page anchors", () => {
       "",
       "见下方[升级须知](#升级须知)。",
       "",
-      "### 为什么是 PenguinHarness",
+      "### 为什么是 WAF Harness",
       "",
-      "详见[这一节](#为什么是-penguinharness)。",
+      "详见[这一节](#为什么是-waf-harness)。",
     ].join("\n");
     const html = render(body);
     const ids = headingIds(html);
-    expect(ids).toEqual(["升级须知", "为什么是-penguinharness"]);
+    expect(ids).toEqual(["升级须知", "为什么是-waf-harness"]);
     const hrefs = inPageHrefs(html);
     // The renderer emits the link percent-encoded, which is also what location.hash reports.
     expect(hrefs[0]).toBe("#%E5%8D%87%E7%BA%A7%E9%A1%BB%E7%9F%A5");

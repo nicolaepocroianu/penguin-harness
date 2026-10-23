@@ -2,7 +2,7 @@
  * Mints an API session by inserting a row into the root's `web.db` — no running server needed.
  * Authorized by being able to read and write that root, which already holds every credential
  * the token could reach. On a multi-user box that means the OS account running the server;
- * everyone else signs in with `penguin auth login --server <url>`.
+ * everyone else signs in with `wafh auth login --server <url>`.
  */
 import path from "node:path";
 import fs from "node:fs";
@@ -10,7 +10,7 @@ import { openExistingDatabase } from "./db/database.js";
 import { AuthSessionsRepo } from "./db/repos/auth-sessions.js";
 import type { SessionViaValue } from "./db/repos/auth-sessions.js";
 import { UsersRepo } from "./db/repos/users.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 
 /** An hour: long enough for a controller to finish, short enough to forget. */
 export const CLI_TOKEN_TTL_MS = 60 * 60_000;
@@ -24,7 +24,7 @@ export const CLI_TOKEN_MAX_TTL_MS = 30 * 24 * 60 * 60_000;
 /**
  * What a minted row records about how its session was established.
  *
- * `cli` is the default and what `penguin auth token` writes: a session that behaves like a
+ * `cli` is the default and what `wafh auth token` writes: a session that behaves like a
  * password one in every way. `desktop` is for the desktop shell signing its own window in
  * against a server it did not spawn, and says the same thing its one-shot claim token says —
  * with as much backing, since only an account that can write this file can mint at all.
@@ -32,7 +32,7 @@ export const CLI_TOKEN_MAX_TTL_MS = 30 * 24 * 60 * 60_000;
  * The distinction is not cosmetic: a desktop session may set a password without supplying the
  * current one, because the account the shell created has a password that was generated,
  * hashed and discarded unseen — there is nothing to supply, and whoever can write to this
- * data root can already reset that password offline (`penguin server reset-admin-password`).
+ * data root can already reset that password offline (`wafh server reset-admin-password`).
  * That allowance is granted by a server running in desktop mode; against any other server the
  * value records what the session is without widening what it may do (routes/me.ts).
  */
@@ -52,12 +52,12 @@ export type MintTokenResult =
 function explain(err: unknown, dbPath: string): string {
   const message = err instanceof Error ? err.message : String(err);
   if (message.includes("no column named via")) {
-    return `${dbPath} predates this release — start the server once (\`penguin web\`) to upgrade it`;
+    return `${dbPath} predates this release — start the server once (\`wafh web\`) to upgrade it`;
   }
   if (message.includes("unable to open database")) {
     return (
       `cannot open ${dbPath} — minting needs the data root's own OS account; ` +
-      "otherwise sign in with `penguin auth login --server <url>`"
+      "otherwise sign in with `wafh auth login --server <url>`"
     );
   }
   return message;

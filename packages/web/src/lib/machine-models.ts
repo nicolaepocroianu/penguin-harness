@@ -15,7 +15,7 @@
  * the picker. Nothing is written to storage: the answer carries the groups' masked keys.
  */
 import { useEffect, useState } from "react";
-import type { ModelsResponse } from "@prismshadow/penguin-server/api";
+import type { ModelsResponse } from "@waterford/waf-harness-server/api";
 import * as api from "../api/endpoints";
 import { machineLink } from "./machine-link";
 import { useMachines } from "../state/machines";

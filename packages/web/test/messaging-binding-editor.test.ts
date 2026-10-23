@@ -24,7 +24,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { MessagingChannel } from "@prismshadow/penguin-server/api";
+import type { MessagingChannel } from "@waterford/waf-harness-server/api";
 import {
   MessagingBindingBody,
   MessagingBindingHelp,
@@ -34,7 +34,7 @@ import {
   type MessagingChannelFacts,
 } from "../src/features/messaging/messaging-binding-editor";
 import { emptyMessagingForm } from "../src/features/messaging/messaging-binding-form";
-import { UiStringsProvider } from "@prismshadow/penguin-ui";
+import { UiStringsProvider } from "@waterford/waf-harness-ui";
 import { S, setActiveStrings } from "../src/lib/strings";
 import { uiStringsOf } from "../src/lib/ui-strings";
 import { en } from "../src/lib/strings-en";
@@ -195,7 +195,7 @@ describe("MessagingBindingBody", () => {
     // a row that already carries a switch, a label and a status word cut this one to
     // "Conflict: ter", which tells the reader nothing they can act on.
     const lastError =
-      "getUpdates failed: another program is already polling this bot — one bot token can serve only one PenguinHarness server at a time (code 409)";
+      "getUpdates failed: another program is already polling this bot — one bot token can serve only one WAF Harness server at a time (code 409)";
     const html = render(
       stateOf("telegram", {
         telegram: {
@@ -641,11 +641,11 @@ describe("telegramTestNotices", () => {
       telegramTestNotices({
         ok: true,
         latencyMs: 12,
-        botUsername: "@penguin_bot",
+        botUsername: "@wafh_bot",
         groupPrivacy: true,
       }),
     ).toEqual([
-      { tone: "success", text: S.messaging.testOkAs("@penguin_bot", 12) },
+      { tone: "success", text: S.messaging.testOkAs("@wafh_bot", 12) },
       { tone: "info", text: S.messaging.testPrivacyOn },
     ]);
   });

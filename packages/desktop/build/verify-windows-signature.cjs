@@ -7,7 +7,7 @@ const SCRIPT = `
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-$sig = Get-AuthenticodeSignature -LiteralPath $env:PENGUIN_SIGNED_FILE
+$sig = Get-AuthenticodeSignature -LiteralPath $env:WAFH_SIGNED_FILE
 function Describe-Certificate($cert) {
   if ($null -eq $cert) { return $null }
   return @{ subject = $cert.Subject; issuer = $cert.Issuer; thumbprint = $cert.Thumbprint; notBefore = $cert.NotBefore.ToUniversalTime().ToString('o'); notAfter = $cert.NotAfter.ToUniversalTime().ToString('o') }
@@ -22,11 +22,11 @@ function verifyWindowsSignature(file, { allowUnsigned = false } = {}) {
   if (!path.isAbsolute(file) || file.includes("\0") || !process.env.SystemRoot) throw failure();
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
-      ([key]) => !["evsign_key", "psmodulepath", "penguin_signed_file"].includes(key.toLowerCase()),
+      ([key]) => !["evsign_key", "psmodulepath", "wafh_signed_file"].includes(key.toLowerCase()),
     ),
   );
   env.PSModulePath = "";
-  env.PENGUIN_SIGNED_FILE = file;
+  env.WAFH_SIGNED_FILE = file;
   try {
     const stdout = childProcess.execFileSync(
       path.join(process.env.SystemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),

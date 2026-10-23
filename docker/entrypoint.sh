@@ -10,7 +10,7 @@
 # not root, so it just execs the command and the caller owns the mount.
 set -eu
 
-data_root="${PENGUIN_HOME:-/data}"
+data_root="${WAFH_HOME:-/data}"
 
 if [ "$(id -u)" -eq 0 ]; then
   mkdir -p "$data_root"

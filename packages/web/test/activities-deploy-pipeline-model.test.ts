@@ -11,7 +11,7 @@ import type {
   DeployRun,
   DeployStage,
   DeployStageState,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   QA_STAGES,
   RELEASE_STAGES,

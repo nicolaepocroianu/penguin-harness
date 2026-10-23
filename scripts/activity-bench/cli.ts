@@ -52,14 +52,14 @@ function within(parent: string, child: string): boolean {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-/** The bench home: bench-owned, never Penguin's own data, a server's root or this checkout. */
+/** The bench home: bench-owned, never WAF Harness's own data, a server's root or this checkout. */
 function benchHome(flag: string | undefined): string {
   const home = path.resolve(
-    flag ?? process.env.PENGUIN_BENCH_HOME ?? path.join(os.homedir(), ".penguin-bench"),
+    flag ?? process.env.WAFH_BENCH_HOME ?? path.join(os.homedir(), ".waf-harness-bench"),
   );
   const refused = [
-    path.join(os.homedir(), ".penguin"),
-    ...(process.env.PENGUIN_HOME ? [process.env.PENGUIN_HOME] : []),
+    path.join(os.homedir(), ".waf-harness"),
+    ...(process.env.WAFH_HOME ? [process.env.WAFH_HOME] : []),
     REPO,
   ].find((root) => within(root, home) || within(home, root));
   if (refused)
@@ -225,7 +225,7 @@ async function seal(
   const out = path.resolve(
     typeof values.out === "string" ? values.out : path.join(home, "vault", `${bench}.sealed`),
   );
-  for (const root of [REPO, path.join(os.homedir(), ".penguin")])
+  for (const root of [REPO, path.join(os.homedir(), ".waf-harness")])
     if (within(root, out)) throw new UsageError(`Seal outside ${root}: an optimiser works there.`);
   const prompt = ttyPrompter();
   const passphrase = await prompt.hidden("Passphrase for the sealed bench: ");
@@ -290,7 +290,7 @@ async function seed(
           dir: path.join(home, "seed-server"),
           claudeConfig: layout.claudeConfig,
           // The seed is prepared by asking, step by step, not by the server on its own.
-          env: { PENGUIN_WAF_AUTO_PREPARE: "0" },
+          env: { WAFH_WAF_AUTO_PREPARE: "0" },
         }),
       prompt: ttyPrompter(),
       preflight: () =>

@@ -7,7 +7,7 @@ import type {
   BuiltinBrowserImportBrowser,
   BuiltinBrowserImportRequest,
   BuiltinBrowserImportSource,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 export interface SourceGroup {
   browser: BuiltinBrowserImportBrowser;

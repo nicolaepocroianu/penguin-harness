@@ -5,7 +5,7 @@
  * here would move with the theme bridge and muddy every comparison.
  *
  * The one exception is the site navbar (src/site): it renders the shared public-site controls
- * from penguin-ui/site; their site.css scope keeps their appearance independent of the theme.
+ * from wafh-ui/site; their site.css scope keeps their appearance independent of the theme.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";

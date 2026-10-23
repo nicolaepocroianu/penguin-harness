@@ -77,16 +77,16 @@ let tmpRoot: string;
 let prevHome: string | undefined;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-state-"));
-  process.env.PENGUIN_HOME = tmpRoot;
+  prevHome = process.env.WAFH_HOME;
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-state-"));
+  process.env.WAFH_HOME = tmpRoot;
 });
 
 afterEach(async () => {
   if (prevHome === undefined) {
-    delete process.env.PENGUIN_HOME;
+    delete process.env.WAFH_HOME;
   } else {
-    process.env.PENGUIN_HOME = prevHome;
+    process.env.WAFH_HOME = prevHome;
   }
   // Retries: when a test times out, vitest runs this cleanup while the test's un-cancelled
   // init may still be writing files, so an immediate recursive rm can hit ENOTEMPTY on
@@ -104,7 +104,7 @@ async function exists(p: string): Promise<boolean> {
 }
 
 describe("paths / resolveRoot", () => {
-  it("honors PENGUIN_HOME", () => {
+  it("honors WAFH_HOME", () => {
     expect(resolveRoot()).toBe(tmpRoot);
   });
 });
@@ -138,7 +138,7 @@ describe("loadAgentState", () => {
       // The default system Prompt states the Agent's identity, without repeating tool details
       // already in the tool schema (Suggested workflows only points to the run_subagent
       // delegation entry point).
-      expect(state.systemConfig.system_prompt).toContain("PenguinHarness");
+      expect(state.systemConfig.system_prompt).toContain("WAF Harness");
       expect(state.systemConfig.system_prompt).not.toContain("exec_command");
       // Personality pins the reply language to the user's own (the tool schema asks the same of
       // every call description, so the two can't disagree).
@@ -174,12 +174,12 @@ describe("loadAgentState", () => {
       expect(state.systemConfig.system_prompt).toContain("# Tool use");
       // Privacy hardening: explicitly forbids reading .project_config.toml (the sole config file,
       // which holds API keys) and each Agent's .vault.toml, and states that config can only be
-      // changed via the CLI (penguin config ...).
+      // changed via the CLI (wafh config ...).
       expect(state.systemConfig.system_prompt).toContain("Never read");
       expect(state.systemConfig.system_prompt).toContain(".project_config.toml");
       expect(state.systemConfig.system_prompt).toContain("agent_state/.vault.toml");
       expect(state.systemConfig.system_prompt).toContain("CLI-only");
-      expect(state.systemConfig.system_prompt).toContain("penguin config");
+      expect(state.systemConfig.system_prompt).toContain("wafh config");
       expect(state.systemConfig.system_prompt).not.toContain(".credentials.toml");
       expect(state.systemConfig.system_prompt.indexOf(AGENTS_MD_PLACEHOLDER)).toBeLessThan(
         state.systemConfig.system_prompt.indexOf("# Environment"),
@@ -237,7 +237,7 @@ describe("loadAgentState", () => {
     const first = await loadAgentState({ init: {} });
     const second = await loadAgentState({ init: {} });
     expect(second.systemConfig.system_prompt).toBe(first.systemConfig.system_prompt);
-    expect(second.systemConfig.system_prompt).toContain("PenguinHarness");
+    expect(second.systemConfig.system_prompt).toContain("WAF Harness");
     expect(second.agentsMd).toBe(first.agentsMd);
     // The tool config is fully preserved on the load path.
     expect(second.systemConfig.tools?.builtin?.[0]?.name).toBe("read_file");
@@ -514,7 +514,7 @@ describe("assembleSystemPrompt", () => {
     const state = await loadAgentState({ init: {} });
     const prompt = assembleSystemPrompt(
       state,
-      sessionEnvironment("/tmp/penguin-ws", "session-test-1", {
+      sessionEnvironment("/tmp/wafh-ws", "session-test-1", {
         agentId: DEFAULT_AGENT_ID,
         projectDir: "/tmp/proj",
         provider: "deepseek",
@@ -522,7 +522,7 @@ describe("assembleSystemPrompt", () => {
       }),
     );
     expect(prompt).toContain("AGENTS.md");
-    expect(prompt).toContain("PenguinHarness");
+    expect(prompt).toContain("WAF Harness");
     // The default template wraps AGENTS.md in a [developer_instructions] block.
     expect(prompt).toContain("[developer_instructions]");
     expect(prompt).toContain("[/developer_instructions]");
@@ -553,7 +553,7 @@ describe("assembleSystemPrompt", () => {
     // Auth/key failures live entirely in Stop rules, as a special case of the
     // unresolvable-error rule: retry once, then stop and ask the user to update the key
     // outside the chat — never through a command that would put the secret on a command line.
-    expect(prompt).not.toContain("penguin config vault set");
+    expect(prompt).not.toContain("wafh config vault set");
     // Position, not presence: `# Stop rules` exists either way, so only the ordering pins that
     // the retry rule sits inside that section instead of back up in Constraints.
     expect(prompt.indexOf("# Stop rules")).toBeLessThan(prompt.indexOf("retry at most once"));
@@ -722,7 +722,7 @@ describe("assembleSystemPrompt", () => {
   it("replaces generated Session environment field placeholders when provided", async () => {
     const state = await loadAgentState({ init: {} });
     const env = sessionEnvironment(
-      "/tmp/penguin-ws",
+      "/tmp/wafh-ws",
       "session-test-1",
       { agentId: "agent-x", projectDir: "/tmp/proj", provider: "openai", modelId: "gpt-5.5" },
       new Date("2026-06-30T00:00:00"),
@@ -731,7 +731,7 @@ describe("assembleSystemPrompt", () => {
 
     expect(prompt).toContain("# Environment");
     expect(prompt).toContain("Session ID: session-test-1");
-    expect(prompt).toContain("CWD: /tmp/penguin-ws");
+    expect(prompt).toContain("CWD: /tmp/wafh-ws");
     expect(prompt).toContain("Agent ID: agent-x");
     expect(prompt).toContain("App Data Dir: /tmp/proj");
     expect(prompt).toContain("Provider: openai");

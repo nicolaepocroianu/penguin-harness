@@ -31,7 +31,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * Unwrapping only the single-key case is deliberate: a configuration that happens to have
  * one key named after the module is the wrapper, and one with several keys is the contents.
  *
- * `alsoKeyedBy` names other wrappers that count: Penguin's assembly wraps a configuration
+ * `alsoKeyedBy` names other wrappers that count: WAF Harness's assembly wraps a configuration
  * in the product code while its definition's id is the activity's, where Loom's modules
  * use one name for both.
  */

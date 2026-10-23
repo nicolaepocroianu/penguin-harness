@@ -16,12 +16,12 @@ import {
   toolCallOutput,
   userText,
   withOrigin,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   PartialTextPayload,
   PartialToolCallOutputPayload,
   PartialToolCallPayload,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { LiveTailTracker } from "../src/runtime/live-tail.js";
 
 const SID = "s1";

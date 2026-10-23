@@ -37,7 +37,7 @@ import { vi } from "vitest";
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
 import { Link, Outlet, RouterProvider, createMemoryRouter } from "react-router";
-import type { MCPServerConfig } from "@prismshadow/penguin-core/interfaces";
+import type { MCPServerConfig } from "@waterford/waf-harness-core/interfaces";
 import type {
   AgentConfigResponse,
   AgentSummary,
@@ -59,7 +59,7 @@ import type {
   WorkbenchVersion,
   VaultEntryInfo,
   VaultUpdateRequest,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { AuthProvider } from "../../src/state/auth";
 import { LocaleProvider } from "../../src/state/locale";
 import { ProjectProvider } from "../../src/state/project";
@@ -340,7 +340,7 @@ export function agentServer(
       keepConnected: true,
       api: null,
       status: { state: "running", checkedAt: "2026-10-15T00:00:00Z", port: 7371 },
-      root: "/home/penguin/.penguin/data",
+      root: "/home/wafh/.waf-harness/data",
     })),
   ];
 

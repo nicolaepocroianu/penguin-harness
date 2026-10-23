@@ -157,7 +157,7 @@ function parseProbeRow(fields: string[]): ReleaseProbe | null {
  */
 export function parseProbes(manifest: string, tag: string): ReleaseProbes | null {
   const lines = manifest.split("\n");
-  if (lines[0] !== `penguin-release-download-manifest\t1\t${tag}`) return null;
+  if (lines[0] !== `wafh-release-download-manifest\t1\t${tag}`) return null;
   let small: ReleaseProbe | null = null;
   let large: ReleaseProbe | null = null;
   for (const line of lines.slice(1)) {

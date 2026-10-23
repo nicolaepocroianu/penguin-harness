@@ -29,7 +29,7 @@ import {
   ICONS,
   ICON_SIZE,
   Menu,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { requestSettings } from "../settings/settings-request";

@@ -10,7 +10,7 @@ import type {
   SoundKind,
   SoundProviderId,
   SoundProviderStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { indexRuns, type RunsIndex } from "./runs-index";
 import { SOUND_PROMPT_MAX, soundPromptOf } from "./sound-model";
 

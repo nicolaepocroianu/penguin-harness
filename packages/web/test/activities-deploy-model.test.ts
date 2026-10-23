@@ -12,7 +12,7 @@ import type {
   DeploySettingsView,
   DeployStageError,
   DeployStageState,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   appendLog,
   blockerText,
@@ -192,7 +192,7 @@ describe("deploy readiness", () => {
     expect(rows["clone:media"]).toMatchObject({ tone: "success" });
     const text = problemText({ code: "clone_stash_left", repo: "module" });
     expect(text).toMatch(/^The Module clone has work a deploy set aside in git's stash/);
-    expect(text).toContain('"penguin-harness deploy"');
+    expect(text).toContain('"waf-harness deploy"');
     // No press on the page clears it: someone puts the work back or drops it by hand.
     expect(clonesMissing(left)).toBe(false);
   });

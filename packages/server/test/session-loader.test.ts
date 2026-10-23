@@ -16,8 +16,8 @@ import {
   saveProjectConfig,
   sessionMeta,
   userText,
-} from "@prismshadow/penguin-core";
-import type { SessionMetaPayload } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { SessionMetaPayload } from "@waterford/waf-harness-core";
 import { activityRunFloor, createCoreSessionLoader } from "../src/runtime/session-manager.js";
 import { SessionSources } from "../src/runtime/session-sources.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";

@@ -14,7 +14,7 @@
  *  mirror); the ssh channel carries only the installer script and the store.
  *
  * The remote is left with exactly what a local install plus a push leaves: the program
- * directory, the `~/.local/bin/penguin` symlink on POSIX, and the data root's hmr/ state.
+ * directory, the `~/.local/bin/wafh` symlink on POSIX, and the data root's hmr/ state.
  * No sudo, no service units, no profile edits, and the rest of the data root is untouched.
  */
 import { createHash, randomBytes } from "node:crypto";
@@ -316,7 +316,7 @@ export function sameBuild(a: string | null, b: string | null): boolean {
  * A server nothing was pushed to installs the image its release shipped instead
  * (shipped-image.ts), and a source checkout builds one (checkout-image.ts): never the bare
  * release, because every command this side runs on a machine goes through the CLI in that
- * machine's store (commands.ts's remotePenguin), and a bare release leaves the store empty.
+ * machine's store (commands.ts's remoteWafHarness), and a bare release leaves the store empty.
  */
 export function resolvePushPlan(
   dataRoot: string | null,
@@ -530,7 +530,7 @@ export async function installOnRemote(opts: {
     // channel asks the machine itself and comes back with its answer, refusals included.
     //
     // Not for a machine whose store is EMPTY. Nothing this side runs there can answer — every
-    // command goes through the CLI in that store (commands.ts's remotePenguin), so no update
+    // command goes through the CLI in that store (commands.ts's remoteWafHarness), so no update
     // channel was ever started — and a release server installed without its harness ended
     // exactly so. The store is replicated below instead, with no installer, and the install
     // restarts the server onto it.
@@ -579,7 +579,7 @@ export async function installOnRemote(opts: {
       let where: Parameters<typeof runInstallScriptCommand>[1];
       if (identity.platform === "win32") {
         // A name of our own making: hex only, so it needs no quoting on either side.
-        const name = `penguin-${randomBytes(6).toString("hex")}.ps1`;
+        const name = `wafh-${randomBytes(6).toString("hex")}.ps1`;
         const local = path.join(os.tmpdir(), name);
         fs.writeFileSync(local, installer);
         windowsTmp = { local, remote: `%USERPROFILE%\\${name}` };
@@ -765,7 +765,7 @@ async function carryOver(
       },
     };
   }
-  const made = await conn.exec(`mktemp -d "\${TMPDIR:-/tmp}/penguin-release.XXXXXX"`);
+  const made = await conn.exec(`mktemp -d "\${TMPDIR:-/tmp}/wafh-release.XXXXXX"`);
   const scratch = made.stdout.trim().split("\n").pop()?.trim() ?? "";
   if (made.code !== 0 || !SCRATCH_DIR.test(scratch)) {
     return {

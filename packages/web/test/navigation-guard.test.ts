@@ -17,7 +17,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createElement as h } from "react";
 import { Link, Outlet, RouterProvider, createMemoryRouter, useSearchParams } from "react-router";
-import { hasUnsaved, useFormDraft } from "@prismshadow/penguin-ui";
+import { hasUnsaved, useFormDraft } from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { NavigationGuard } from "../src/lib/unsaved/navigation-guard";

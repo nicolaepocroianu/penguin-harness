@@ -23,7 +23,7 @@ import type {
   TrimTarget,
   UploadedMedia,
   VoiceOption,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   buttonClass,
@@ -33,7 +33,7 @@ import {
   Textarea,
   Segmented,
   Select,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import { AudioPlaybackFields } from "./audio-playback-fields";

@@ -4,20 +4,20 @@
  * ball rests along the chat body's right edge (one global preference, stored as a ratio of
  * the body's height), how far a drag may pull it, and where on the arc its entries sit.
  *
- * Two global preferences live here: `penguin.dock.launcherY` (where it rests) and
- * `penguin.dock.launcherHidden` (whether the user put it away at all). Both are registered
+ * Two global preferences live here: `wafh.dock.launcherY` (where it rests) and
+ * `wafh.dock.launcherHidden` (whether the user put it away at all). Both are registered
  * as browser preferences in lib/install-scope.ts, so switching data roots keeps them.
  *
  * Coordinates are the ball's TOP offset within the chat body — the region between the
  * toolbar and the composer — and its horizontal offset from the resting edge: 0 on the
  * edge, negative when pulled into the conversation.
  */
-import { rubberband } from "@prismshadow/penguin-ui";
+import { rubberband } from "@waterford/waf-harness-ui";
 
 /** localStorage key of the resting position: the ball's centre as a ratio of the body's height. */
-export const LAUNCHER_Y_KEY = "penguin.dock.launcherY";
+export const LAUNCHER_Y_KEY = "wafh.dock.launcherY";
 /** localStorage key of the put-it-away preference; only LAUNCHER_HIDDEN_ON counts as hidden. */
-export const LAUNCHER_HIDDEN_KEY = "penguin.dock.launcherHidden";
+export const LAUNCHER_HIDDEN_KEY = "wafh.dock.launcherHidden";
 const LAUNCHER_HIDDEN_ON = "1";
 const LAUNCHER_HIDDEN_OFF = "0";
 /** The ball's diameter (px). Raised from 44 on 2026-09-15: the ball, its entries and the caption read too small. */
@@ -83,7 +83,7 @@ export interface LauncherVisibility {
   bottomDockVisible: boolean;
   /** Below the desktop breakpoint the docks merge into one bottom surface. */
   narrow: boolean;
-  /** The user put the launcher away (`penguin.dock.launcherHidden`). */
+  /** The user put the launcher away (`wafh.dock.launcherHidden`). */
   hidden: boolean;
 }
 

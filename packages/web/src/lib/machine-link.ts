@@ -4,7 +4,7 @@
  * (state/machines.tsx), the same one the Machines page shows. A surface that judged a machine by
  * whether its own last request went through kept its answer after the machine came back.
  */
-import type { MachinesResponse } from "@prismshadow/penguin-server/api";
+import type { MachinesResponse } from "@waterford/waf-harness-server/api";
 import { S } from "./strings";
 
 export type MachineLink =

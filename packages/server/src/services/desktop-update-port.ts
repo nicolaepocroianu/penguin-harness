@@ -7,7 +7,7 @@
  * updater snapshot and its tray state through it, and the routes forward the page's
  * check/download/install commands and its tray switch back. Folder access is the one
  * request that is answered: the shell reads the folder and replies under the request's id.
- * Under a plain `penguin server|web` run the port does not exist and this module wires
+ * Under a plain `wafh server|web` run the port does not exist and this module wires
  * nothing; those routes then answer 503 `shell_unreachable`.
  *
  * Wire shapes live in api/types.ts (the updater, tray and folder-access messages) so the

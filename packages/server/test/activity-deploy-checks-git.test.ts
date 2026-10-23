@@ -85,7 +85,7 @@ async function plant(clone: string, marker: string) {
 }
 
 it("runs the checks where no repository is, and none of what they planted in the clone's .git", async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-deploy-checks-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-deploy-checks-"));
   roots.push(root);
   const bare = path.join(root, "origin.git");
   git(root, "init", "--bare", "--initial-branch=main", bare);

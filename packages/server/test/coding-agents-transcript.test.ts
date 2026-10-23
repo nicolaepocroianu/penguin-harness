@@ -5,7 +5,7 @@
  * thinking runs, notices, in-place tool-status updates, filename sanitization).
  */
 import { describe, expect, it } from "vitest";
-import type { AgentSessionEvent } from "@prismshadow/penguin-coding-agents";
+import type { AgentSessionEvent } from "@waterford/waf-harness-coding-agents";
 import type { CodingAgentSessionDetailResponse } from "../src/api/types.js";
 import { renderTranscriptMarkdown, transcriptFilename } from "../src/coding-agents/transcript.js";
 
@@ -131,9 +131,9 @@ describe("renderTranscriptMarkdown", () => {
 describe("transcriptFilename", () => {
   it("sanitizes hostile session ids into one safe path segment", () => {
     expect(transcriptFilename("sess-1727000000000")).toBe(
-      "penguin-coding-agent-sess-1727000000000.md",
+      "wafh-coding-agent-sess-1727000000000.md",
     );
-    expect(transcriptFilename("../../etc passwd")).toBe("penguin-coding-agent-etc-passwd.md");
-    expect(transcriptFilename("!!!")).toBe("penguin-coding-agent-session.md");
+    expect(transcriptFilename("../../etc passwd")).toBe("wafh-coding-agent-etc-passwd.md");
+    expect(transcriptFilename("!!!")).toBe("wafh-coding-agent-session.md");
   });
 });

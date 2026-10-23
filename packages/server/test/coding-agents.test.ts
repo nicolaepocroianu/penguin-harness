@@ -744,7 +744,7 @@ describe("coding agents api", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
     expect(res.headers.get("content-disposition")).toMatch(
-      /^attachment; filename="penguin-coding-agent-[A-Za-z0-9._-]+\.md"$/,
+      /^attachment; filename="wafh-coding-agent-[A-Za-z0-9._-]+\.md"$/,
     );
     const doc = await res.text();
     // H1 names the agent (the definition's title), then the metadata block.

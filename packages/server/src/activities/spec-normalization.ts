@@ -3,13 +3,13 @@
  * `generation.py`, `general_scene.py` and `media_contract.py`.
  *
  * An agent writes a specification; this turns what it wrote into the one shape the rest of
- * Penguin reads. Every scene comes out as `{ id, description, role?, media: { images, video,
+ * WAF Harness reads. Every scene comes out as `{ id, description, role?, media: { images, video,
  * animations }, audio: { tracks } }` and nothing else, so media an agent put anywhere but
  * those four lists is dropped here rather than saved where `planMedia` never looks. The media
  * pass (`generate_media_spec`) is what fills the lists, from the description's tags.
  *
  * One deliberate difference from Loom: a track without a script keeps no script. Loom writes
- * the placeholder "empty"; Penguin reads a missing script as "not written yet" and would
+ * the placeholder "empty"; WAF Harness reads a missing script as "not written yet" and would
  * otherwise speak the word.
  */
 

@@ -3,7 +3,7 @@
  * how much the bound files weigh, by asset type and by language. Pure, so both tables and
  * their total come from one pass over what the server measured.
  */
-import type { MediaStat } from "@prismshadow/penguin-server/api";
+import type { MediaStat } from "@waterford/waf-harness-server/api";
 
 export interface StatsRow {
   key: string;

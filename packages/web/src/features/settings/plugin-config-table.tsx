@@ -25,8 +25,8 @@ import type {
   PluginConfigEntry,
   PluginConfigField,
   PluginConfigTableColumn,
-} from "@prismshadow/penguin-server/api";
-import { Button, InfoPopover } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-server/api";
+import { Button, InfoPopover } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
 import type { Locale } from "../../state/locale";

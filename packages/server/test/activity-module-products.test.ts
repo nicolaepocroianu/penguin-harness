@@ -1,6 +1,6 @@
 /**
  * Opening a product Loom authored in the modules, in place: the project lists the products no
- * project has open, claims one, and its refs get Penguin's files beside Loom's, with Loom's
+ * project has open, claims one, and its refs get WAF Harness's files beside Loom's, with Loom's
  * specification used as it is and its media bindings carried onto a plan made from it.
  */
 import fs from "node:fs/promises";
@@ -120,7 +120,7 @@ describe("products in the modules, opened in place", () => {
     expect(opened.draft.status).toBe("valid");
     expect(opened.draft.description).toBe("Pick the word you hear.\n");
     expect(opened.draft.spec).toMatchObject({ moduleFolder: FOLDER, title: activitySpec.title });
-    // Loom's binding is carried onto the plan Penguin made from the specification.
+    // Loom's binding is carried onto the plan WAF Harness made from the specification.
     expect(opened.draft.mediaPlan!.manifest.assets["en-US"]).toEqual([
       expect.objectContaining({
         key: "cover",
@@ -128,7 +128,7 @@ describe("products in the modules, opened in place", () => {
       }),
     ]);
     const files = refFilesDir(t.root, CODE, 1);
-    await fs.access(path.join(files, "penguin.json"));
+    await fs.access(path.join(files, "wafh.json"));
     expect(
       JSON.parse(await fs.readFile(path.join(files, "asset_manifest.loom.json"), "utf8")),
     ).toMatchObject({ displayName: "Ref 1" });
@@ -145,7 +145,7 @@ describe("products in the modules, opened in place", () => {
           "generated",
           CODE,
           "spec",
-          "penguin.json",
+          "wafh.json",
         ),
         "utf8",
       ),
@@ -176,7 +176,7 @@ describe("products in the modules, opened in place", () => {
       refNum: 2,
     });
     await write(path.join(second, "activity_metadata.json"), { id: CODE, refNum: 2 });
-    await fs.mkdir(path.join(second, "penguin.json"));
+    await fs.mkdir(path.join(second, "wafh.json"));
     const claim = () =>
       api.post(`${base}/module-products/claim`, { moduleFolder: FOLDER, productCode: CODE });
     const listed = async () =>
@@ -192,7 +192,7 @@ describe("products in the modules, opened in place", () => {
     await fs.access(path.join(second, "activity_spec.json"));
     expect(await listed()).toEqual([expect.objectContaining({ productCode: CODE, refNums: [2] })]);
 
-    await fs.rm(path.join(second, "penguin.json"), { recursive: true, force: true });
+    await fs.rm(path.join(second, "wafh.json"), { recursive: true, force: true });
     const retried = await claim();
     expect(retried.status, await retried.clone().text()).toBe(200);
     const rest = (await retried.json()) as ClaimModuleProductResponse;

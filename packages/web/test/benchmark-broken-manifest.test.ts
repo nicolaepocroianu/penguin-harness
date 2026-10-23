@@ -14,7 +14,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { BenchmarkSummary } from "@prismshadow/penguin-server/api";
+import type { BenchmarkSummary } from "@waterford/waf-harness-server/api";
 import { UnpublishedNotice } from "../src/features/benchmark/benchmark-detail-page";
 import { BenchmarkCard } from "../src/features/benchmark/benchmark-page";
 import { S } from "../src/lib/strings";

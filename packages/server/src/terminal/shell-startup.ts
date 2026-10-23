@@ -1,11 +1,11 @@
 /**
- * The harness's own `penguin` first on a terminal's PATH, once the user's startup files
+ * The harness's own `wafh` first on a terminal's PATH, once the user's startup files
  * have run.
  *
  * The commands an Agent runs already find the server's CLI shim directory (`<root>/bin`) at
  * the front of PATH (SessionEnv.pathPrepend, core's path-prepend.ts). A terminal is a login
- * shell a person types into, and the same `penguin` should answer there. That matters most
- * on a development checkout, where whatever `penguin` the machine has installed is some
+ * shell a person types into, and the same `wafh` should answer there. That matters most
+ * on a development checkout, where whatever `wafh` the machine has installed is some
  * other version. The pty's environment alone does not decide it: the shell's startup files
  * run afterwards and routinely rewrite PATH. Debian's /etc/profile replaces it, macOS's
  * path_helper reorders it, and a user's rc prepends ~/.local/bin or a version manager. So
@@ -30,23 +30,23 @@
  *
  * Startup files are not the last word on PATH, though: a prompt hook runs after all of them,
  * before every prompt. Version managers and environment tools install one, and a hook that
- * puts its own directory first takes `penguin` over from the first prompt on. So bash, zsh and
+ * puts its own directory first takes `wafh` over from the first prompt on. So bash, zsh and
  * fish also run the statement as their LAST prompt hook — `PROMPT_COMMAND`, `precmd_functions`,
  * the `fish_prompt` event — and keep the directory first before each prompt. They stay last:
  * a hook registered after startup (a lazy plugin loader's) would otherwise run after this one
  * from then on, so before each prompt the hook moves itself back behind it. Someone who wants
- * another `penguin` there runs it by its full path, or defines an alias or a function named
- * `penguin`, which these shells look up before PATH.
+ * another `wafh` there runs it by its full path, or defines an alias or a function named
+ * `wafh`, which these shells look up before PATH.
  *
  * Every shell but cmd also gets the directory at the front of the pty's environment PATH.
  * That half still counts when no hook runs: an rc that `exec`s another shell, or a shell
  * this module does not know. The hooks leave PATH alone when the directory already leads.
  *
- * A development instance's terminal opens with a line saying which `penguin` runs there and
+ * A development instance's terminal opens with a line saying which `wafh` runs there and
  * against which data root (terminal/cli-notice.ts). The user's own startup files decide part of
- * that: one that exports PENGUIN_API_URL, or a PENGUIN_HOME naming another root, points
- * `penguin` at another server. So where it can, the shell prints that line itself, at its first
- * prompt, once those files have run — the line as given, or the one saying where `penguin`
+ * that: one that exports WAFH_API_URL, or a WAFH_HOME naming another root, points
+ * `wafh` at another server. So where it can, the shell prints that line itself, at its first
+ * prompt, once those files have run — the line as given, or the one saying where `wafh`
  * goes instead ({@link ShellNotice}). Nothing else is printed: every hook is a startup file or
  * a startup argument, never typed input. The files sit at a stable place under the data root
  * and depend only on the directories and that line. Each is rewritten only when its content
@@ -70,9 +70,9 @@ export interface TerminalPathFirst {
 
 /**
  * The first line of a development instance's terminal, printed by the shell itself at its first
- * prompt, after its own startup files: `text` while `penguin` there still targets this instance,
- * else `elsewhere`'s two halves around `VAR=value` — when those files set PENGUIN_API_URL, which
- * names a server outright, or a PENGUIN_HOME that is not `root` (a trailing `/` aside), which the
+ * prompt, after its own startup files: `text` while `wafh` there still targets this instance,
+ * else `elsewhere`'s two halves around `VAR=value` — when those files set WAFH_API_URL, which
+ * names a server outright, or a WAFH_HOME that is not `root` (a trailing `/` aside), which the
  * shim then leaves to the CLI.
  */
 export interface ShellNotice {
@@ -99,8 +99,8 @@ export interface ShellLaunch {
 const ENV_HOOK_SHELLS = new Set(["sh", "dash", "ash"]);
 
 const HEADER = [
-  "# PenguinHarness terminal startup, written by the server (packages/server/src/terminal/shell-startup.ts).",
-  "# Runs the startup files the shell would have read, then puts this harness's penguin first on PATH.",
+  "# WAF Harness terminal startup, written by the server (packages/server/src/terminal/shell-startup.ts).",
+  "# Runs the startup files the shell would have read, then puts this harness's wafh first on PATH.",
 ];
 
 /**
@@ -135,11 +135,11 @@ export function shellLaunch(
         writeStartupFile(path.join(dir, file), content);
       }
       const next: Record<string, string> = { ...envFirst, ZDOTDIR: dir };
-      delete next.PENGUIN_USER_ZDOTDIR;
+      delete next.WAFH_USER_ZDOTDIR;
       // A ZDOTDIR naming this very directory is a leftover of an interrupted startup, not
       // the user's: reading it back would make the hook source itself.
       const user = env.ZDOTDIR;
-      if (user !== undefined && user !== "" && user !== dir) next.PENGUIN_USER_ZDOTDIR = user;
+      if (user !== undefined && user !== "" && user !== dir) next.WAFH_USER_ZDOTDIR = user;
       return { args, env: next, printsNotice };
     }
     if (name === "fish") {
@@ -164,9 +164,9 @@ export function shellLaunch(
       const file = path.join(startupDir, "env.sh");
       writeStartupFile(file, envSh(dirs, notice, platform));
       const next: Record<string, string> = { ...envFirst, ENV: file };
-      delete next.PENGUIN_USER_ENV;
+      delete next.WAFH_USER_ENV;
       const user = env.ENV;
-      if (user !== undefined && user !== "" && user !== file) next.PENGUIN_USER_ENV = user;
+      if (user !== undefined && user !== "" && user !== file) next.WAFH_USER_ENV = user;
       return { args, env: next, printsNotice };
     }
   } catch {
@@ -224,13 +224,13 @@ function posixPathFirst(dirs: readonly string[], platform: NodeJS.Platform): str
 }
 
 /**
- * The function bash and zsh run when startup ends — `__penguin_path_first startup` — and then
+ * The function bash and zsh run when startup ends — `__wafh_path_first startup` — and then
  * before every prompt, see {@link bashPathFirstFunction} and {@link zshPathFirstFunction}.
  */
-const PATH_FIRST_FN = "__penguin_path_first";
+const PATH_FIRST_FN = "__wafh_path_first";
 
 /** The function that prints a development instance's first line, see {@link posixNotice}. */
-const NOTICE_FN = "__penguin_notice";
+const NOTICE_FN = "__wafh_notice";
 
 /**
  * The prompt hook of powerlevel10k, which moves itself last among the zsh prompt hooks before
@@ -276,7 +276,7 @@ function pathFirstLines(words: readonly string[]): string[] {
  * It runs before every prompt because startup files are not the last word on PATH: a prompt hook
  * — bash's `PROMPT_COMMAND`, zsh's `precmd_functions`, which version managers and environment
  * tools install — runs before each prompt, after every startup file, and one that puts its own
- * directory first would hand `penguin` to another installation from the first prompt on. Being
+ * directory first would hand `wafh` to another installation from the first prompt on. Being
  * the last hook makes this one the last word instead, and staying last keeps it that way.
  *
  * It always succeeds, and leaves `$?` to the shell: bash and zsh both give the prompt the user's
@@ -324,7 +324,7 @@ function bashPathFirstFunction(dirs: readonly string[], platform: NodeJS.Platfor
     "      esac",
     "    fi",
     "  fi",
-    `  if [ -n "\${__penguin_notice_pending-}" ]; then unset __penguin_notice_pending; ${NOTICE_FN}; fi`,
+    `  if [ -n "\${__wafh_notice_pending-}" ]; then unset __wafh_notice_pending; ${NOTICE_FN}; fi`,
     "  return 0",
     "}",
     `${PATH_FIRST_FN} startup`,
@@ -351,8 +351,8 @@ function zshPathFirstFunction(dirs: readonly string[], platform: NodeJS.Platform
     `    ${fn}:*|${P10K_PRECMD}:${fn}) ;;`,
     `    *) precmd_functions=(\${precmd_functions:#(${fn}|${P10K_PRECMD})} ${fn} \${(M)precmd_functions:#${P10K_PRECMD}}) ;;`,
     "  esac",
-    "  if (( ${+__penguin_notice_pending} )); then",
-    "    unset __penguin_notice_pending",
+    "  if (( ${+__wafh_notice_pending} )); then",
+    "    unset __wafh_notice_pending",
     `    if zmodload zsh/sched 2>/dev/null; then sched +0 ${NOTICE_FN}; else ${NOTICE_FN}; fi`,
     "  fi",
     "  return 0",
@@ -372,7 +372,7 @@ const BASH_PROMPT_ENTRY = `declare -F ${PATH_FIRST_FN} >/dev/null && ${PATH_FIRS
 
 /**
  * The notice function for bash, zsh and sh ({@link ShellNotice}): the line in yellow when the
- * shell's own variables point `penguin` elsewhere, dim otherwise, as the server draws a notice.
+ * shell's own variables point `wafh` elsewhere, dim otherwise, as the server draws a notice.
  * `printf` takes the variable's value as an argument, never as its format. On Windows, Git
  * Bash may spell the root either way.
  */
@@ -381,14 +381,14 @@ function posixNotice(notice: ShellNotice, platform: NodeJS.Platform): string[] {
   const [before, after] = notice.elsewhere.map(posixQuote);
   const elsewhere = (variable: string): string =>
     `    printf '\\033[33m%s%s%s\\033[0m\\n' ${before} "${variable}=$${variable}" ${after}`;
-  const otherRoot = roots.map((root) => ` && [ "\${PENGUIN_HOME%/}" != ${root} ]`).join("");
+  const otherRoot = roots.map((root) => ` && [ "\${WAFH_HOME%/}" != ${root} ]`).join("");
   return [
     `${NOTICE_FN}() {`,
     '  [ -n "${ZSH_VERSION-}" ] && emulate -L zsh',
-    '  if [ -n "${PENGUIN_API_URL-}" ]; then',
-    elsewhere("PENGUIN_API_URL"),
-    `  elif [ -n "\${PENGUIN_HOME-}" ]${otherRoot}; then`,
-    elsewhere("PENGUIN_HOME"),
+    '  if [ -n "${WAFH_API_URL-}" ]; then',
+    elsewhere("WAFH_API_URL"),
+    `  elif [ -n "\${WAFH_HOME-}" ]${otherRoot}; then`,
+    elsewhere("WAFH_HOME"),
     "  else",
     `    printf '\\033[2m%s\\033[0m\\n' ${posixQuote(notice.text)}`,
     "  fi",
@@ -435,7 +435,7 @@ function zshPromptHook(): string[] {
  * set after the startup call, which does not print.
  */
 function noticeAtFirstPrompt(notice: ShellNotice | null, platform: NodeJS.Platform): string[] {
-  return notice === null ? [] : [...posixNotice(notice, platform), "__penguin_notice_pending=1"];
+  return notice === null ? [] : [...posixNotice(notice, platform), "__wafh_notice_pending=1"];
 }
 
 function bashrc(
@@ -473,16 +473,16 @@ function zshFiles(
   platform: NodeJS.Platform,
 ): Array<[string, string]> {
   const user = (file: string): string[] => [
-    "if [[ -n $_penguin_uzd ]]; then ZDOTDIR=$_penguin_uzd; else unset ZDOTDIR; fi",
+    "if [[ -n $_wafh_uzd ]]; then ZDOTDIR=$_wafh_uzd; else unset ZDOTDIR; fi",
     `[[ -r "\${ZDOTDIR:-$HOME}/${file}" ]] && builtin source "\${ZDOTDIR:-$HOME}/${file}"`,
-    "_penguin_uzd=${ZDOTDIR-}",
-    "ZDOTDIR=$_penguin_zd",
+    "_wafh_uzd=${ZDOTDIR-}",
+    "ZDOTDIR=$_wafh_zd",
   ];
   // The end of startup: ZDOTDIR is the user's again, for `exec zsh` and nested shells; PATH
   // gets its directories first, now and before every prompt; the notice waits for the first.
   const finish = [
-    "if [[ -n $_penguin_uzd ]]; then export ZDOTDIR=$_penguin_uzd; else unset ZDOTDIR; fi",
-    "unset _penguin_zd _penguin_uzd",
+    "if [[ -n $_wafh_uzd ]]; then export ZDOTDIR=$_wafh_uzd; else unset ZDOTDIR; fi",
+    "unset _wafh_zd _wafh_uzd",
     ...zshPathFirstFunction(dirs, platform),
     ...noticeAtFirstPrompt(notice, platform),
     ...zshPromptHook(),
@@ -492,9 +492,9 @@ function zshFiles(
       ".zshenv",
       [
         ...HEADER,
-        "_penguin_zd=$ZDOTDIR",
-        "_penguin_uzd=${PENGUIN_USER_ZDOTDIR-}",
-        "unset PENGUIN_USER_ZDOTDIR",
+        "_wafh_zd=$ZDOTDIR",
+        "_wafh_uzd=${WAFH_USER_ZDOTDIR-}",
+        "unset WAFH_USER_ZDOTDIR",
         ...user(".zshenv"),
         "",
       ].join("\n"),
@@ -506,8 +506,8 @@ function zshFiles(
         ...HEADER,
         // macOS's /etc/zshrc, read just before this file, sets HISTFILE from ZDOTDIR, which
         // is this directory: history belongs in the user's.
-        'if [[ -n ${HISTFILE-} && "${HISTFILE:h}" == "$_penguin_zd" ]]; then',
-        "  HISTFILE=${_penguin_uzd:-$HOME}/${HISTFILE:t}",
+        'if [[ -n ${HISTFILE-} && "${HISTFILE:h}" == "$_wafh_zd" ]]; then',
+        "  HISTFILE=${_wafh_uzd:-$HOME}/${HISTFILE:t}",
         "fi",
         ...user(".zshrc"),
         // A shell that is not a login shell reads no .zlogin: finish here instead.
@@ -530,9 +530,9 @@ function envSh(
   return [
     ...HEADER,
     "# Read as $ENV, after the login profile: the user's own $ENV runs first.",
-    'if [ -n "${PENGUIN_USER_ENV-}" ]; then',
-    "  ENV=$PENGUIN_USER_ENV",
-    "  unset PENGUIN_USER_ENV",
+    'if [ -n "${WAFH_USER_ENV-}" ]; then',
+    "  ENV=$WAFH_USER_ENV",
+    "  unset WAFH_USER_ENV",
     '  if [ -r "$ENV" ]; then . "$ENV"; fi',
     "else",
     "  unset ENV",
@@ -581,8 +581,8 @@ function fishPathFirst(
     `    if test "$hooks[-1]" != ${PATH_FIRST_FN}`,
     `      eval $${PATH_FIRST_FN}_def`,
     "    end",
-    "    if set -q __penguin_notice_pending",
-    "      set -e __penguin_notice_pending",
+    "    if set -q __wafh_notice_pending",
+    "      set -e __wafh_notice_pending",
     `      ${NOTICE_FN}`,
     "    end",
     "  end",
@@ -593,9 +593,7 @@ function fishPathFirst(
     `set -g ${PATH_FIRST_FN}_def ${fishQuote(definition)}`,
     `eval $${PATH_FIRST_FN}_def`,
     `${PATH_FIRST_FN} startup`,
-    ...(notice === null
-      ? []
-      : [...fishNotice(notice, platform), "set -g __penguin_notice_pending 1"]),
+    ...(notice === null ? [] : [...fishNotice(notice, platform), "set -g __wafh_notice_pending 1"]),
   ].join("\n");
 }
 
@@ -607,11 +605,11 @@ function fishNotice(notice: ShellNotice, platform: NodeJS.Platform): string[] {
     `printf '\\e[33m%s%s%s\\e[0m\\n' ${before} "${variable}=$${variable}" ${after}`;
   return [
     `function ${NOTICE_FN}`,
-    '  set -l h (string replace -r "/+\\$" "" -- "$PENGUIN_HOME")',
-    '  if test -n "$PENGUIN_API_URL"',
-    `    ${elsewhere("PENGUIN_API_URL")}`,
-    `  else if test -n "$PENGUIN_HOME"${roots.map((root) => `; and test "$h" != ${root}`).join("")}`,
-    `    ${elsewhere("PENGUIN_HOME")}`,
+    '  set -l h (string replace -r "/+\\$" "" -- "$WAFH_HOME")',
+    '  if test -n "$WAFH_API_URL"',
+    `    ${elsewhere("WAFH_API_URL")}`,
+    `  else if test -n "$WAFH_HOME"${roots.map((root) => `; and test "$h" != ${root}`).join("")}`,
+    `    ${elsewhere("WAFH_HOME")}`,
     "  else",
     `    printf '\\e[2m%s\\e[0m\\n' ${fishQuote(notice.text)}`,
     "  end",
@@ -633,9 +631,9 @@ function powerShellNotice(notice: ShellNotice): string {
   const say = (variable: string, value: string): string =>
     `Write-Host (${before} + '${variable}=' + ${value} + ${after}) -ForegroundColor Yellow`;
   return (
-    "& { $u = [string]$env:PENGUIN_API_URL; $h = [string]$env:PENGUIN_HOME; " +
-    `if ($u) { ${say("PENGUIN_API_URL", "$u")} } ` +
-    `elseif ($h -and $h.TrimEnd([char[]]'\\/') -ne ${powerShellQuote(notice.root)}) { ${say("PENGUIN_HOME", "$h")} } ` +
+    "& { $u = [string]$env:WAFH_API_URL; $h = [string]$env:WAFH_HOME; " +
+    `if ($u) { ${say("WAFH_API_URL", "$u")} } ` +
+    `elseif ($h -and $h.TrimEnd([char[]]'\\/') -ne ${powerShellQuote(notice.root)}) { ${say("WAFH_HOME", "$h")} } ` +
     `else { Write-Host ${powerShellQuote(notice.text)} -ForegroundColor DarkGray } }`
   );
 }

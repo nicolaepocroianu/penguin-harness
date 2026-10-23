@@ -1,6 +1,6 @@
 # Fonts
 
-The faces `@prismshadow/penguin-ui` bundles, which theme names each one, what they cost, the licence
+The faces `@waterford/waf-harness-ui` bundles, which theme names each one, what they cost, the licence
 each one carries and what that licence asks of the app, and how to update them. Bundled rather than
 fetched from a CDN, so the desktop build renders offline.
 
@@ -86,11 +86,11 @@ weight) and fall back to the system CJK face, as they do under the other themes.
 
 ## Licences
 
-The `penguinUi()` Vite plugin emits every text in `LICENSES/` beside the build as
+The `wafHarnessUi()` Vite plugin emits every text in `LICENSES/` beside the build as
 `fonts-licenses/<name>.txt`.
 
 **OFL-1.1 faces.** `scripts/sync-font-licenses.mjs` mirrors each fontsource package's `LICENSE` into
-`LICENSES/<package>.txt` (`pnpm --filter @prismshadow/penguin-ui sync:font-licenses`, `--check` to
+`LICENSES/<package>.txt` (`pnpm --filter @waterford/waf-harness-ui sync:font-licenses`, `--check` to
 verify without writing).
 
 **MiSans.** Xiaomi Inc. publishes MiSans under the MiSans Font Intellectual Property License
@@ -118,7 +118,7 @@ What the licence asks, and where the app does it:
 - **MiSans:** download the official package from https://hyperos.mi.com/font/ (the site asks you to
   accept the licence first), then from the repository root run
   `uv run packages/ui/scripts/build-misans.py <MiSans.zip>` (or `pnpm --filter
-  @prismshadow/penguin-ui fonts:misans /absolute/path/to/MiSans.zip`: pnpm runs the script in
+  @waterford/waf-harness-ui fonts:misans /absolute/path/to/MiSans.zip`: pnpm runs the script in
   `packages/ui`, so a relative path would not resolve); `--check` rebuilds in a temporary directory
   and compares byte for byte. The script pins the sha256 of the Regular and Medium TTFs it accepts,
   so a new MiSans release is a deliberate change: update the pins, rebuild, review the slices, and

@@ -11,7 +11,7 @@ import {
   DISCLOSURE_OUTPUT_PRE_CLASS,
   GlyphIcon,
   ICONS,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 
 export function HarnessInjectedBanner({ text }: { text: string }) {

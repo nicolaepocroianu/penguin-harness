@@ -1,6 +1,6 @@
 /**
  * Which protected folder, if any, a permission ask would touch. An external agent writes
- * files itself, so Penguin cannot refuse a write the way its own file tools do; what it
+ * files itself, so WAF Harness cannot refuse a write the way its own file tools do; what it
  * does see is each permission ask, with the paths the agent reports in `locations` and
  * whatever its raw input names. That makes this a check on asks, not a confinement: an
  * agent that edits without asking, or names a path only inside a shell command, is not

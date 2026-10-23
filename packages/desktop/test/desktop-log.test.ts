@@ -16,7 +16,7 @@ describe("openLogFile", () => {
   let file: string;
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-desktop-log-"));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-desktop-log-"));
     file = path.join(dir, "logs", "desktop.log");
   });
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -25,11 +25,11 @@ describe("openLogFile", () => {
 
   it("creates its directory and stamps every line", () => {
     const log = openLogFile({ file, now: at });
-    log.line("[shell] dev instance 'PenguinHarness Dev' on data root /tmp/x");
+    log.line("[shell] dev instance 'WAF Harness Dev' on data root /tmp/x");
     log.line("[shell] a renderer is gone: window 1 (crashed, exit code 11)");
     log.close();
     expect(read()).toBe(
-      "2026-09-29T08:00:00.000Z [shell] dev instance 'PenguinHarness Dev' on data root /tmp/x\n" +
+      "2026-09-29T08:00:00.000Z [shell] dev instance 'WAF Harness Dev' on data root /tmp/x\n" +
         "2026-09-29T08:00:00.000Z [shell] a renderer is gone: window 1 (crashed, exit code 11)\n",
     );
   });
@@ -45,10 +45,10 @@ describe("openLogFile", () => {
 
   it("splits a child's output into lines, holding a line until it ends, per stream", () => {
     const log = openLogFile({ file, now: at });
-    log.output("stdout", "[server] ", "penguin-server started: http://localhost:5\nData ro");
+    log.output("stdout", "[server] ", "wafh-server started: http://localhost:5\nData ro");
     log.output("stderr", "[server] ", "[server] Uncaught exception: Error: boom\r\n    at x");
     expect(read()).toBe(
-      "2026-09-29T08:00:00.000Z [server] penguin-server started: http://localhost:5\n" +
+      "2026-09-29T08:00:00.000Z [server] wafh-server started: http://localhost:5\n" +
         "2026-09-29T08:00:00.000Z [server] [server] Uncaught exception: Error: boom\n",
     );
     log.output("stdout", "[server] ", "ot: /data\n");

@@ -45,7 +45,7 @@ const DEV = remoteLayoutFor("dev");
 
 describe("the stored passwords", () => {
   it("keeps one private file per alias, named so no alias is a path, and deletes it", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-passwords-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-passwords-"));
     try {
       const store = new SshPasswords(root);
       store.save("nas", " p@ss word ");
@@ -72,7 +72,7 @@ describe("the stored passwords", () => {
       // The helper ssh runs holds no password: it prints the one its environment carries.
       const helper = fs.readFileSync(store.askpass(), "utf8");
       expect(helper).not.toContain("replaced");
-      expect(helper).toContain("PENGUIN_SSH_PASSWORD");
+      expect(helper).toContain("WAFH_SSH_PASSWORD");
       expect(passwordProblem("")).toBe("required");
       expect(passwordProblem("two\nlines")).toBe("invalid");
       expect(passwordProblem("fine")).toBeNull();
@@ -183,23 +183,23 @@ describe("machineIdentity", () => {
 describe("identity probe", () => {
   it("asks in each shell's own dialect — sh cannot read the Windows one and vice versa", () => {
     expect(posixProbe(RELEASE)).toContain("uname -s -m");
-    expect(posixProbe(RELEASE)).toContain('"$HOME/.penguin/lib/package.json"');
-    expect(posixProbe(RELEASE)).toContain(".penguin/data/hmr/harness.json");
+    expect(posixProbe(RELEASE)).toContain('"$HOME/.waf-harness/lib/package.json"');
+    expect(posixProbe(RELEASE)).toContain(".waf-harness/data/hmr/harness.json");
     expect(windowsProbe(RELEASE)).toContain("%PROCESSOR_ARCHITECTURE%");
-    expect(windowsProbe(RELEASE)).toContain("%USERPROFILE%\\.penguin\\lib\\package.json");
-    expect(windowsProbe(RELEASE)).toContain("%USERPROFILE%\\.penguin\\data\\hmr\\harness.json");
+    expect(windowsProbe(RELEASE)).toContain("%USERPROFILE%\\.waf-harness\\lib\\package.json");
+    expect(windowsProbe(RELEASE)).toContain("%USERPROFILE%\\.waf-harness\\data\\hmr\\harness.json");
     expect(windowsProbe(RELEASE)).not.toContain(";");
     // The dev profile asks after ITS installation, never the release one beside it.
-    expect(posixProbe(DEV)).toContain('"$HOME/.penguin-dev/lib/package.json"');
-    expect(posixProbe(DEV)).toContain('"$HOME/.penguin-dev/data/hmr/harness.json"');
-    expect(posixProbe(DEV)).not.toContain("$HOME/.penguin/");
-    expect(windowsProbe(DEV)).toContain("%USERPROFILE%\\.penguin-dev\\lib\\package.json");
+    expect(posixProbe(DEV)).toContain('"$HOME/.waf-harness-dev/lib/package.json"');
+    expect(posixProbe(DEV)).toContain('"$HOME/.waf-harness-dev/data/hmr/harness.json"');
+    expect(posixProbe(DEV)).not.toContain("$HOME/.waf-harness/");
+    expect(windowsProbe(DEV)).toContain("%USERPROFILE%\\.waf-harness-dev\\lib\\package.json");
   });
 
   it("reads identity, installed version and pushed state from the three sections", () => {
     expect(
       parseProbeOutput(
-        'Linux x86_64\n---penguin---\n{"name":"x","version":"0.2.2"}\n---penguin---\n{"platform":{}}\n',
+        'Linux x86_64\n---wafh---\n{"name":"x","version":"0.2.2"}\n---wafh---\n{"platform":{}}\n',
       ),
     ).toEqual({
       platform: "linux",
@@ -210,7 +210,7 @@ describe("identity probe", () => {
   });
 
   it("a machine with nothing installed answers empty sections", () => {
-    expect(parseProbeOutput("Linux x86_64\n---penguin---\n---penguin---\n")).toMatchObject({
+    expect(parseProbeOutput("Linux x86_64\n---wafh---\n---wafh---\n")).toMatchObject({
       installedVersion: null,
       harness: null,
     });
@@ -218,20 +218,20 @@ describe("identity probe", () => {
 
   it("skips a login banner before the identity line", () => {
     expect(
-      parseProbeOutput("Welcome to build-box!\nLinux x86_64\n---penguin---\n---penguin---\n"),
+      parseProbeOutput("Welcome to build-box!\nLinux x86_64\n---wafh---\n---wafh---\n"),
     ).toMatchObject({ platform: "linux", arch: "x64" });
   });
 
   it("recognizes every platform-arch pair the release targets name", () => {
-    expect(parseProbeOutput("Windows_NT AMD64\n---penguin---\n")).toMatchObject({
+    expect(parseProbeOutput("Windows_NT AMD64\n---wafh---\n")).toMatchObject({
       platform: "win32",
       arch: "x64",
     });
-    expect(parseProbeOutput("Darwin arm64\n---penguin---\n")).toMatchObject({
+    expect(parseProbeOutput("Darwin arm64\n---wafh---\n")).toMatchObject({
       platform: "darwin",
       arch: "arm64",
     });
-    expect(parseProbeOutput("Linux aarch64\n---penguin---\n")).toMatchObject({
+    expect(parseProbeOutput("Linux aarch64\n---wafh---\n")).toMatchObject({
       platform: "linux",
       arch: "arm64",
     });
@@ -245,7 +245,7 @@ describe("identity probe", () => {
   });
 
   it("a damaged manifest reads as nothing installed", () => {
-    expect(parseProbeOutput("Linux x86_64\n---penguin---\nnot json at all")).toMatchObject({
+    expect(parseProbeOutput("Linux x86_64\n---wafh---\nnot json at all")).toMatchObject({
       installedVersion: null,
     });
   });
@@ -308,7 +308,7 @@ describe("ssh / scp invocations", () => {
       SSH_ASKPASS: "/r/machines/ssh-askpass/askpass",
       SSH_ASKPASS_REQUIRE: "force",
       DISPLAY: ":0",
-      PENGUIN_SSH_PASSWORD: secret,
+      WAFH_SSH_PASSWORD: secret,
     });
     expect(passwordEnv({ DISPLAY: ":1" }, "/a", secret).DISPLAY).toBe(":1");
   });
@@ -408,8 +408,8 @@ describe("ssh / scp invocations", () => {
   });
 
   it("leaves the scp destination unquoted — modern scp transfers over SFTP, taking it literally", () => {
-    const args = scpArgs(target, ["/local/image.pack"], "/tmp/penguin-abc123");
-    expect(args.at(-1)).toBe("build-box:/tmp/penguin-abc123");
+    const args = scpArgs(target, ["/local/image.pack"], "/tmp/wafh-abc123");
+    expect(args.at(-1)).toBe("build-box:/tmp/wafh-abc123");
   });
 
   it("quotes per shell: single quotes for sh, double for cmd.exe", () => {
@@ -420,21 +420,21 @@ describe("ssh / scp invocations", () => {
 
   it("takes the installer on stdin, so a POSIX install costs ONE ssh handshake", () => {
     expect(runInstallScriptCommand("v0.2.4", { platform: "linux" }, RELEASE)).toEqual({
-      command: `PENGUIN_INSTALL_DIR="$HOME/.penguin" PENGUIN_VERSION='v0.2.4' sh -s`,
+      command: `WAFH_INSTALL_DIR="$HOME/.waf-harness" WAFH_VERSION='v0.2.4' sh -s`,
       scriptOnStdin: true,
     });
     // The dev profile installs beside the release program, never over it.
     expect(runInstallScriptCommand("v0.2.4", { platform: "linux" }, DEV).command).toContain(
-      'PENGUIN_INSTALL_DIR="$HOME/.penguin-dev"',
+      'WAFH_INSTALL_DIR="$HOME/.waf-harness-dev"',
     );
   });
 
-  it("a dev-profile install leaves the machine's `penguin` command with the release one", () => {
-    // The installer repoints ~/.local/bin/penguin (or extends the user Path) at whatever it
-    // just installed; from the dev profile that would hand a person typing `penguin` the dev
+  it("a dev-profile install leaves the machine's `wafh` command with the release one", () => {
+    // The installer repoints ~/.local/bin/wafh (or extends the user Path) at whatever it
+    // just installed; from the dev profile that would hand a person typing `wafh` the dev
     // program, run against the release data root.
     expect(runInstallScriptCommand("v0.2.4", { platform: "linux" }, DEV).command).toBe(
-      `PENGUIN_INSTALL_DIR="$HOME/.penguin-dev" PENGUIN_VERSION='v0.2.4' sh -s -- --no-modify-path`,
+      `WAFH_INSTALL_DIR="$HOME/.waf-harness-dev" WAFH_VERSION='v0.2.4' sh -s -- --no-modify-path`,
     );
     expect(
       runInstallScriptCommand("v0.2.4", { platform: "win32", scriptPath: "%TEMP%\\p.ps1" }, DEV)
@@ -452,15 +452,15 @@ describe("ssh / scp invocations", () => {
         "v0.2.4",
         {
           platform: "win32",
-          scriptPath: "%USERPROFILE%\\penguin-ab12.ps1",
+          scriptPath: "%USERPROFILE%\\wafh-ab12.ps1",
         },
         RELEASE,
       ),
     ).toEqual({
       command:
-        'set "PENGUIN_INSTALL_DIR=%USERPROFILE%\\.penguin" & ' +
-        'powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\\penguin-ab12.ps1"' +
-        ' -Version "v0.2.4" & del /q "%USERPROFILE%\\penguin-ab12.ps1"',
+        'set "WAFH_INSTALL_DIR=%USERPROFILE%\\.waf-harness" & ' +
+        'powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\\wafh-ab12.ps1"' +
+        ' -Version "v0.2.4" & del /q "%USERPROFILE%\\wafh-ab12.ps1"',
       scriptOnStdin: false,
     });
   });
@@ -471,32 +471,32 @@ describe("ssh / scp invocations", () => {
     // hmr/host.ts reads them: the machine keeps answering with whatever it already had, and
     // the replication reports success while achieving nothing.
     expect(unpackStoreCommand("linux", RELEASE)).toBe(
-      'mkdir -p "$HOME/.penguin/data/hmr" && tar -xzf - -C "$HOME/.penguin/data/hmr"',
+      'mkdir -p "$HOME/.waf-harness/data/hmr" && tar -xzf - -C "$HOME/.waf-harness/data/hmr"',
     );
     expect(unpackStoreCommand("linux", DEV)).toBe(
-      'mkdir -p "$HOME/.penguin-dev/data/hmr" && tar -xzf - -C "$HOME/.penguin-dev/data/hmr"',
+      'mkdir -p "$HOME/.waf-harness-dev/data/hmr" && tar -xzf - -C "$HOME/.waf-harness-dev/data/hmr"',
     );
     expect(unpackStoreCommand("win32", RELEASE)).toBe(
-      '(if not exist "%USERPROFILE%\\.penguin\\data\\hmr" mkdir "%USERPROFILE%\\.penguin\\data\\hmr") & tar -xzf - -C "%USERPROFILE%\\.penguin\\data\\hmr"',
+      '(if not exist "%USERPROFILE%\\.waf-harness\\data\\hmr" mkdir "%USERPROFILE%\\.waf-harness\\data\\hmr") & tar -xzf - -C "%USERPROFILE%\\.waf-harness\\data\\hmr"',
     );
   });
 });
 
 describe("the release a server stands on, and what it installs", () => {
-  const manifest = JSON.stringify({ name: "@prismshadow/penguin-cli", version: "0.2.4" });
+  const manifest = JSON.stringify({ name: "@waterford/waf-harness-cli", version: "0.2.4" });
   const works: string[] = [];
   afterEach(() => {
     for (const work of works.splice(0)) fs.rmSync(work, { recursive: true, force: true });
   });
   /** A tarball install's program directory under a fresh temp dir, with its entry. */
   const tarball = () => {
-    const work = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-plan-"));
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-plan-"));
     works.push(work);
-    const lib = path.join(work, "penguin", "lib");
+    const lib = path.join(work, "wafh", "lib");
     fs.mkdirSync(path.join(lib, "dist"), { recursive: true });
-    fs.writeFileSync(path.join(lib, "dist", "penguin.js"), "//\n");
+    fs.writeFileSync(path.join(lib, "dist", "wafh.js"), "//\n");
     fs.writeFileSync(path.join(lib, "package.json"), manifest);
-    return { work, lib, entry: path.join(lib, "dist", "penguin.js") };
+    return { work, lib, entry: path.join(lib, "dist", "wafh.js") };
   };
 
   it("a tarball install stands on the release its lib/ names, and installs no bare release", () => {
@@ -567,18 +567,18 @@ describe("the release a server stands on, and what it installs", () => {
   // and Linux, inside the bundle on macOS, whose resources directory is capitalized.
   it.each([
     { os: "Windows and Linux", appPath: ["resources", "app"] },
-    { os: "macOS", appPath: ["PenguinHarness.app", "Contents", "Resources", "app"] },
+    { os: "macOS", appPath: ["WAF Harness.app", "Contents", "Resources", "app"] },
   ])(
     "packaged desktop app on $os: its own manifest names the release, and its dist/ the image it ships",
     ({ appPath }) => {
-      const work = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-plan-"));
+      const work = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-plan-"));
       works.push(work);
       const appDir = path.join(work, ...appPath);
       fs.mkdirSync(path.join(appDir, "dist"), { recursive: true });
       // The packed manifest: electron-builder's extraMetadata renames it, the version stays.
       fs.writeFileSync(
         path.join(appDir, "package.json"),
-        JSON.stringify({ name: "penguin-harness-desktop", version: "0.2.4" }),
+        JSON.stringify({ name: "waf-harness-desktop", version: "0.2.4" }),
       );
       fs.writeFileSync(path.join(appDir, "dist", "install-image.gz"), "x");
 
@@ -592,13 +592,13 @@ describe("the release a server stands on, and what it installs", () => {
   );
 
   it("a desktop SOURCE run stands on no release: packages/desktop is not under resources/", () => {
-    const work = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-plan-"));
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-plan-"));
     works.push(work);
     const pkgDir = path.join(work, "packages", "desktop");
     fs.mkdirSync(path.join(pkgDir, "dist"), { recursive: true });
     fs.writeFileSync(
       path.join(pkgDir, "package.json"),
-      JSON.stringify({ name: "@prismshadow/penguin-desktop", version: "0.2.4" }),
+      JSON.stringify({ name: "@waterford/waf-harness-desktop", version: "0.2.4" }),
     );
     fs.writeFileSync(path.join(pkgDir, "dist", "install-image.gz"), "x");
 
@@ -627,7 +627,7 @@ describe("shipping the installers", () => {
   });
 });
 
-describe("asking `penguin server status` in the machine's own dialect", () => {
+describe("asking `wafh server status` in the machine's own dialect", () => {
   const target = { alias: "nas", user: "deploy" };
   const answered = {
     code: 0,
@@ -635,7 +635,7 @@ describe("asking `penguin server status` in the machine's own dialect", () => {
     stderr: "",
     timedOut: false,
   };
-  // What cmd.exe says to `"$HOME/.penguin/node/bin/node"`: not "no such command", a path
+  // What cmd.exe says to `"$HOME/.waf-harness/node/bin/node"`: not "no such command", a path
   // with four literal characters in it.
   const cmdSaid = {
     code: 1,
@@ -646,28 +646,28 @@ describe("asking `penguin server status` in the machine's own dialect", () => {
 
   it("speaks cmd.exe to a Windows machine: no $HOME, node.exe, backslashes", () => {
     const command = readServerStateCommand("win32", RELEASE);
-    expect(command).toContain("%USERPROFILE%\\.penguin\\node\\node.exe");
-    expect(command).toContain("lib\\dist\\penguin-hmr.js");
+    expect(command).toContain("%USERPROFILE%\\.waf-harness\\node\\node.exe");
+    expect(command).toContain("lib\\dist\\wafh-hmr.js");
     expect(command).not.toContain("$HOME");
-    expect(readServerStateCommand("linux", RELEASE)).toContain("$HOME/.penguin/node/bin/node");
+    expect(readServerStateCommand("linux", RELEASE)).toContain("$HOME/.waf-harness/node/bin/node");
     // Each profile's CLI acts on that profile's root, on either kind of machine.
     expect(readServerStateCommand("linux", DEV)).toContain(
-      'PENGUIN_HOME="$HOME/.penguin-dev/data"',
+      'WAFH_HOME="$HOME/.waf-harness-dev/data"',
     );
     expect(readServerStateCommand("win32", DEV)).toContain(
-      'set "PENGUIN_HOME=%USERPROFILE%\\.penguin-dev\\data"',
+      'set "WAFH_HOME=%USERPROFILE%\\.waf-harness-dev\\data"',
     );
   });
 
   it("carries the profile to the far side, so a server started there reaches on in the same one", () => {
     // That server has a machines service of its own, and it reads its layout from
-    // PENGUIN_PROFILE. Without the variable a dev-profile server would reach the NEXT
+    // WAFH_PROFILE. Without the variable a dev-profile server would reach the NEXT
     // machine's release installation — the profile would hold for exactly one hop.
-    expect(readServerStateCommand("linux", DEV)).toContain(" PENGUIN_PROFILE=dev ");
-    expect(readServerStateCommand("win32", DEV)).toContain('set "PENGUIN_PROFILE=dev" & ');
+    expect(readServerStateCommand("linux", DEV)).toContain(" WAFH_PROFILE=dev ");
+    expect(readServerStateCommand("win32", DEV)).toContain('set "WAFH_PROFILE=dev" & ');
     // Named for release too: an account exporting the variable cannot flip a release server.
-    expect(readServerStateCommand("linux", RELEASE)).toContain(" PENGUIN_PROFILE=release ");
-    expect(startServerCommand(7371, DEV)).toContain(" PENGUIN_PROFILE=dev ");
+    expect(readServerStateCommand("linux", RELEASE)).toContain(" WAFH_PROFILE=release ");
+    expect(startServerCommand(7371, DEV)).toContain(" WAFH_PROFILE=dev ");
   });
 
   it("a machine whose platform is on record is asked once, in that dialect", async () => {
@@ -715,12 +715,12 @@ describe("asking `penguin server status` in the machine's own dialect", () => {
     });
   });
 
-  it("a machine whose store holds no CLI is said to need installing again, not to run `penguin`", async () => {
-    // What every release's `penguin-hmr` answers on a root nothing was installed into: its advice
+  it("a machine whose store holds no CLI is said to need installing again, not to run `wafh`", async () => {
+    // What every release's `wafh-hmr` answers on a root nothing was installed into: its advice
     // is for a person at that machine's terminal, and the remedy from here is an install.
     for (const said of [
-      "no CLI pushed to /home/cnns/.penguin/data; use `penguin` instead",
-      "the CLI pushed to /home/cnns/.penguin/data is unusable: the committed CLI bundle is missing from the store: /home/cnns/.penguin/data/hmr/store/cli/x.mjs",
+      "no CLI pushed to /home/cnns/.waf-harness/data; use `wafh` instead",
+      "the CLI pushed to /home/cnns/.waf-harness/data is unusable: the committed CLI bundle is missing from the store: /home/cnns/.waf-harness/data/hmr/store/cli/x.mjs",
     ]) {
       const probe = await probeServerState(
         target,
@@ -730,14 +730,14 @@ describe("asking `penguin server status` in the machine's own dialect", () => {
       );
       expect(probe.state).toMatchObject({ kind: "unreachable" });
       const detail = (probe.state as { detail: string }).detail;
-      expect(detail).toMatch(/^PenguinHarness is installed on that machine without the build/);
+      expect(detail).toMatch(/^WAF Harness is installed on that machine without the build/);
       expect(detail).toContain("Install it again from this page");
       expect(detail).toContain(said);
     }
   });
 });
 
-describe("reading what `penguin server status` answered", () => {
+describe("reading what `wafh server status` answered", () => {
   const answer = (o: Record<string, unknown>) => JSON.stringify(o);
 
   it("takes the state and the id out of the machine's own JSON", () => {
@@ -779,10 +779,10 @@ describe("reading what `penguin server status` answered", () => {
 describe("startServerCommand", () => {
   it("survives nohup: the data root rides on `env`, never as a bare assignment nohup would run", () => {
     const command = startServerCommand(7371, DEV);
-    expect(command).toContain('nohup env PENGUIN_HOME="$HOME/.penguin-dev/data" ');
-    expect(command).not.toMatch(/nohup PENGUIN_HOME=/);
+    expect(command).toContain('nohup env WAFH_HOME="$HOME/.waf-harness-dev/data" ');
+    expect(command).not.toMatch(/nohup WAFH_HOME=/);
     expect(command).toContain("server --host 127.0.0.1 --port 7371");
-    expect(command).toContain('"$HOME/.penguin-dev/data/server.log"');
+    expect(command).toContain('"$HOME/.waf-harness-dev/data/server.log"');
   });
 
   it("prints the launched pid, and nothing else reads as one", () => {
@@ -805,7 +805,7 @@ describe.skipIf(process.platform === "win32")("removing the program from a machi
 
   /** A home with an installed program in the layout's directory, data included. */
   const installedHome = (dir: string) => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-uninstall-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-uninstall-"));
     homes.push(home);
     for (const part of ["bin", "lib", "web", "node", "data/hmr", ".old.123"]) {
       fs.mkdirSync(path.join(home, dir, part), { recursive: true });
@@ -820,50 +820,47 @@ describe.skipIf(process.platform === "win32")("removing the program from a machi
     fs.existsSync(path.join(home, dir)) ? fs.readdirSync(path.join(home, dir)).sort() : null;
 
   it("removes the program and keeps its data", () => {
-    const home = installedHome(".penguin-dev");
+    const home = installedHome(".waf-harness-dev");
     const done = run(uninstallCommand(DEV, false), home);
     expect(done.status).toBe(0);
-    expect(left(home, ".penguin-dev")).toEqual(["data"]);
-    expect(fs.existsSync(path.join(home, ".penguin-dev/data/hmr/file"))).toBe(true);
+    expect(left(home, ".waf-harness-dev")).toEqual(["data"]);
+    expect(fs.existsSync(path.join(home, ".waf-harness-dev/data/hmr/file"))).toBe(true);
     expect(done.stdout).toContain("removed");
   });
 
   it("removes the data too when asked, and the directory it leaves empty", () => {
-    const home = installedHome(".penguin-dev");
+    const home = installedHome(".waf-harness-dev");
     expect(run(uninstallCommand(DEV, true), home).status).toBe(0);
-    expect(left(home, ".penguin-dev")).toBeNull();
+    expect(left(home, ".waf-harness-dev")).toBeNull();
   });
 
   it("leaves what it did not install, and the directory that holds it", () => {
-    const home = installedHome(".penguin-dev");
-    fs.writeFileSync(path.join(home, ".penguin-dev", "notes.txt"), "mine");
+    const home = installedHome(".waf-harness-dev");
+    fs.writeFileSync(path.join(home, ".waf-harness-dev", "notes.txt"), "mine");
     expect(run(uninstallCommand(DEV, true), home).status).toBe(0);
-    expect(left(home, ".penguin-dev")).toEqual(["notes.txt"]);
+    expect(left(home, ".waf-harness-dev")).toEqual(["notes.txt"]);
   });
 
-  it("takes the release's `penguin` command only while it still points at this program", () => {
-    const ours = installedHome(".penguin");
-    fs.symlinkSync(path.join(ours, ".penguin/bin/penguin"), path.join(ours, ".local/bin/penguin"));
+  it("takes the release's `wafh` command only while it still points at this program", () => {
+    const ours = installedHome(".waf-harness");
+    fs.symlinkSync(path.join(ours, ".waf-harness/bin/wafh"), path.join(ours, ".local/bin/wafh"));
     expect(run(uninstallCommand(RELEASE, false), ours).status).toBe(0);
-    expect(fs.existsSync(path.join(ours, ".local/bin/penguin"))).toBe(false);
+    expect(fs.existsSync(path.join(ours, ".local/bin/wafh"))).toBe(false);
 
-    const theirs = installedHome(".penguin");
-    fs.symlinkSync("/opt/other/penguin", path.join(theirs, ".local/bin/penguin"));
+    const theirs = installedHome(".waf-harness");
+    fs.symlinkSync("/opt/other/wafh", path.join(theirs, ".local/bin/wafh"));
     expect(run(uninstallCommand(RELEASE, false), theirs).status).toBe(0);
-    expect(fs.readlinkSync(path.join(theirs, ".local/bin/penguin"))).toBe("/opt/other/penguin");
+    expect(fs.readlinkSync(path.join(theirs, ".local/bin/wafh"))).toBe("/opt/other/wafh");
 
     // The dev layout never owned the command, whatever it points at.
-    const dev = installedHome(".penguin-dev");
-    fs.symlinkSync(
-      path.join(dev, ".penguin-dev/bin/penguin"),
-      path.join(dev, ".local/bin/penguin"),
-    );
+    const dev = installedHome(".waf-harness-dev");
+    fs.symlinkSync(path.join(dev, ".waf-harness-dev/bin/wafh"), path.join(dev, ".local/bin/wafh"));
     expect(run(uninstallCommand(DEV, false), dev).status).toBe(0);
-    expect(fs.lstatSync(path.join(dev, ".local/bin/penguin")).isSymbolicLink()).toBe(true);
+    expect(fs.lstatSync(path.join(dev, ".local/bin/wafh")).isSymbolicLink()).toBe(true);
   });
 
   it("finds nothing to remove on a machine with nothing installed, and says so", () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-uninstall-"));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-uninstall-"));
     homes.push(home);
     const done = run(uninstallCommand(DEV, false), home);
     expect(done.status).toBe(0);
@@ -963,11 +960,11 @@ describe("startRemoteServer", () => {
 });
 
 describe("remote layout", () => {
-  it("is the release installation unless PENGUIN_PROFILE says dev", () => {
+  it("is the release installation unless WAFH_PROFILE says dev", () => {
     expect(profileFromEnv({})).toBe("release");
-    expect(profileFromEnv({ PENGUIN_PROFILE: "release" })).toBe("release");
-    expect(profileFromEnv({ PENGUIN_PROFILE: "dev" })).toBe("dev");
-    expect(profileFromEnv({ PENGUIN_PROFILE: "anything-else" })).toBe("release");
+    expect(profileFromEnv({ WAFH_PROFILE: "release" })).toBe("release");
+    expect(profileFromEnv({ WAFH_PROFILE: "dev" })).toBe("dev");
+    expect(profileFromEnv({ WAFH_PROFILE: "anything-else" })).toBe("release");
   });
 
   it("keeps the two profiles apart on every axis: program, data root, port", () => {
@@ -977,13 +974,13 @@ describe("remote layout", () => {
     expect(RELEASE.defaultPort).not.toBe(DEV.defaultPort);
     // The release layout is the installer's own default, so an install this side made and
     // one a person made by hand are the same installation.
-    expect(RELEASE.programDir.posix).toBe("$HOME/.penguin");
-    expect(RELEASE.dataRoot.posix).toBe("$HOME/.penguin/data");
+    expect(RELEASE.programDir.posix).toBe("$HOME/.waf-harness");
+    expect(RELEASE.dataRoot.posix).toBe("$HOME/.waf-harness/data");
     expect(RELEASE.defaultPort).toBe(7364);
     expect(DEV.defaultPort).toBe(7371);
   });
 
-  it("only the release profile registers the machine's `penguin` command", () => {
+  it("only the release profile registers the machine's `wafh` command", () => {
     expect(RELEASE.ownsCommand).toBe(true);
     expect(DEV.ownsCommand).toBe(false);
   });
@@ -993,7 +990,7 @@ describe("readPushedBuild", () => {
   it("hands on the native assets and the provenance, not only the three bundles", () => {
     // A platform resolves node-pty out of its assets directory and nowhere else; a hand-over
     // without them left every terminal on the machine failing with "no assets directory".
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-handover-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-handover-"));
     try {
       const hmr = path.join(root, "hmr");
       const assets = path.join(hmr, "store", "assets", "abc");
@@ -1057,7 +1054,7 @@ describe("readPushedBuild", () => {
   });
 
   it("still hands on a build that was pushed without assets", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-handover-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-handover-"));
     try {
       const hmr = path.join(root, "hmr");
       fs.mkdirSync(path.join(hmr, "s"), { recursive: true });

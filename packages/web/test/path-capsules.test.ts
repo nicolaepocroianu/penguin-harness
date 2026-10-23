@@ -22,7 +22,7 @@ import { S } from "../src/lib/strings";
 const scope = { projectId: "default_project" };
 const LAB = "<app_data_dir>/organizations/co_research_paper_lab";
 /** Where a server on Windows puts the same organization: a drive, backslashes, a dot directory. */
-const WIN_LAB = String.raw`C:\Users\ada\.penguin\data\default_project\organizations\co_lab`;
+const WIN_LAB = String.raw`C:\Users\ada\.waf-harness\data\default_project\organizations\co_lab`;
 
 /** A string as React writes it into an attribute. */
 const attr = (s: string) =>
@@ -75,23 +75,24 @@ describe("splitPaths", () => {
   });
 
   it("takes an absolute path that runs through this Project's data directory", () => {
-    const abs = "/home/ada/.penguin/data/default_project/organizations/co_lab/workspace/site/";
+    const abs = "/home/ada/.waf-harness/data/default_project/organizations/co_lab/workspace/site/";
     expect(paths(`Built into ${abs} today`)).toEqual([abs]);
-    expect(paths("~/.penguin/data/default_project/agents/co_lab_ceo/scratchpad/notes.md")).toEqual([
-      "~/.penguin/data/default_project/agents/co_lab_ceo/scratchpad/notes.md",
-    ]);
-    expect(paths("C:/Users/ada/.penguin/data/default_project/organizations/co_lab/x.json")).toEqual(
-      ["C:/Users/ada/.penguin/data/default_project/organizations/co_lab/x.json"],
-    );
+    expect(
+      paths("~/.waf-harness/data/default_project/agents/co_lab_ceo/scratchpad/notes.md"),
+    ).toEqual(["~/.waf-harness/data/default_project/agents/co_lab_ceo/scratchpad/notes.md"]);
+    expect(
+      paths("C:/Users/ada/.waf-harness/data/default_project/organizations/co_lab/x.json"),
+    ).toEqual(["C:/Users/ada/.waf-harness/data/default_project/organizations/co_lab/x.json"]);
   });
 
   it("takes a Windows path, written with backslashes or with both separators", () => {
     const report = String.raw`${WIN_LAB}\workspace\report.md`;
     expect(paths(`结果在${report}。`)).toEqual([report]);
     const desk =
-      String.raw`C:\Users\ada\.penguin\data\default_project\agents\co_lab_ceo\scratchpad` + "\\";
+      String.raw`C:\Users\ada\.waf-harness\data\default_project\agents\co_lab_ceo\scratchpad` +
+      "\\";
     expect(paths(`Notes in ${desk} for now`)).toEqual([desk]);
-    const mixed = String.raw`C:\Users\ada/.penguin/data\default_project\organizations/co_lab\x.json`;
+    const mixed = String.raw`C:\Users\ada/.waf-harness/data\default_project\organizations/co_lab\x.json`;
     expect(paths(`(${mixed})`)).toEqual([mixed]);
     const exp = String.raw`<app_data_dir>\organizations\co_lab\exp` + "\\";
     expect(paths(`Done in ${exp}.`)).toEqual([exp]);
@@ -99,7 +100,7 @@ describe("splitPaths", () => {
 
   it("leaves other Windows paths alone", () => {
     expect(paths(String.raw`C:\Users\ada\Documents\report.md`)).toEqual([]);
-    expect(paths(String.raw`D:\penguin\other_project\organizations\co_lab\x`)).toEqual([]);
+    expect(paths(String.raw`D:\wafh\other_project\organizations\co_lab\x`)).toEqual([]);
   });
 
   it("leaves other absolute paths, routes and URLs alone", () => {
@@ -107,7 +108,7 @@ describe("splitPaths", () => {
     expect(
       paths("GET /api/projects/default_project/organizations/co_lab/tickets/T-12 returned 404"),
     ).toEqual([]);
-    expect(paths("/home/ada/.penguin/data/other_project/organizations/co_lab/x")).toEqual([]);
+    expect(paths("/home/ada/.waf-harness/data/other_project/organizations/co_lab/x")).toEqual([]);
     expect(paths("https://example.test/default_project/organizations/co_lab/x")).toEqual([]);
     expect(paths("and/or 1/2 <app_data_dir>/")).toEqual([]);
   });
@@ -136,11 +137,14 @@ describe("splitPaths", () => {
 
   it("leaves the tail of a path that runs in from a non-ASCII segment as text", () => {
     const home =
-      String.raw`C:\Users\张三\.penguin\data\default_project\organizations\co_lab\workspace` + "\\";
+      String.raw`C:\Users\张三\.waf-harness\data\default_project\organizations\co_lab\workspace` +
+      "\\";
     expect(paths(home)).toEqual([]);
-    expect(paths("/home/张三/.penguin/data/default_project/organizations/co_lab/x.md")).toEqual([]);
+    expect(paths("/home/张三/.waf-harness/data/default_project/organizations/co_lab/x.md")).toEqual(
+      [],
+    );
     // CJK right before a root is the sentence, not a segment: no separator comes before it.
-    const site = "/home/ada/.penguin/data/default_project/organizations/co_lab/site/";
+    const site = "/home/ada/.waf-harness/data/default_project/organizations/co_lab/site/";
     expect(paths(`构建到${site}了`)).toEqual([site]);
   });
 
@@ -165,14 +169,14 @@ describe("codePath", () => {
     expect(codePath(`${LAB}/run.sh --fast`, scope)).toBeNull();
     expect(codePath("/api/v1/tickets", scope)).toBeNull();
     expect(codePath("/api/projects/default_project/agents/ceo/schedules", scope)).toBeNull();
-    expect(codePath("penguin", scope)).toBeNull();
+    expect(codePath("wafh", scope)).toBeNull();
     expect(codePath(String.raw`dir ${WIN_LAB}\workspace`, scope)).toBeNull();
   });
 
   it("reads a code span holding one Windows path, verbatim", () => {
     const exp = String.raw`${WIN_LAB}\workspace\exp` + "\\";
     expect(codePath(exp, scope)).toBe(exp);
-    const mixed = String.raw`C:\Users\ada/.penguin/data\default_project\agents\ceo/notes.md`;
+    const mixed = String.raw`C:\Users\ada/.waf-harness/data\default_project\agents\ceo/notes.md`;
     expect(codePath(mixed, scope)).toBe(mixed);
   });
 });
@@ -206,14 +210,14 @@ describe("spellAsWritten", () => {
   it("spells a path holding a backslash as the Markdown source does, any other as the text does", () => {
     const pieces: PathPiece[] = [
       { kind: "text", text: "see " },
-      { kind: "path", path: String.raw`C:\x\ada.penguin\default_project\organizations\a` },
+      { kind: "path", path: String.raw`C:\x\ada.waf-harness\default_project\organizations\a` },
       { kind: "text", text: " and " },
       { kind: "path", path: "/x/default_project/organizations/co_lab" },
     ];
-    const source = String.raw`see C:\x\ada\.penguin\default_project\organizations\a and /x/default_project/organizations/co\_lab`;
+    const source = String.raw`see C:\x\ada\.waf-harness\default_project\organizations\a and /x/default_project/organizations/co\_lab`;
     expect(spellAsWritten(pieces, source)).toEqual([
       pieces[0],
-      { kind: "path", path: String.raw`C:\x\ada\.penguin\default_project\organizations\a` },
+      { kind: "path", path: String.raw`C:\x\ada\.waf-harness\default_project\organizations\a` },
       pieces[2],
       pieces[3],
     ]);

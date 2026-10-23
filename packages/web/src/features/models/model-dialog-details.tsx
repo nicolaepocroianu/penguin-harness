@@ -15,7 +15,7 @@
  */
 import { useId } from "react";
 import type { ReactNode } from "react";
-import { Chevron, ICON_GAP, ICON_SIZE } from "@prismshadow/penguin-ui";
+import { Chevron, ICON_GAP, ICON_SIZE } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 
 /** A block of a model dialog below its identity fields. */

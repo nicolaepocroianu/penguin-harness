@@ -40,7 +40,7 @@ describe("running a module's own build", () => {
 
   /** A workspace whose `npm run build` is a node script we control. */
   async function workspace(script: string) {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-build-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-build-"));
     cleanups.push(() => fs.rm(dir, { recursive: true, force: true }));
     await fs.writeFile(path.join(dir, "build.js"), script, "utf8");
     await fs.writeFile(
@@ -69,7 +69,7 @@ describe("running a module's own build", () => {
   it("treats a build that cannot start as a failed build with a reason", async () => {
     // The author asked to see their activity; "there is no build script" answers that, and
     // an exception thrown at whoever requested the preview does not.
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-build-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-build-"));
     cleanups.push(() => fs.rm(dir, { recursive: true, force: true }));
     const outcome = await spawnModuleBuild(dir, compiler());
     expect(outcome.ok).toBe(false);
@@ -77,7 +77,7 @@ describe("running a module's own build", () => {
   });
 
   it("falls back to the scaffold's buildDebug when there is no build script", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-build-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-build-"));
     cleanups.push(() => fs.rm(dir, { recursive: true, force: true }));
     await fs.writeFile(path.join(dir, "build.js"), 'console.log("debug bundle");', "utf8");
     await fs.writeFile(
@@ -92,7 +92,7 @@ describe("running a module's own build", () => {
   });
 
   it("says so when the module has neither script", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-build-"));
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-build-"));
     cleanups.push(() => fs.rm(dir, { recursive: true, force: true }));
     await fs.writeFile(path.join(dir, "package.json"), JSON.stringify({ scripts: {} }), "utf8");
     expect(moduleBuildScript(dir)).toBeNull();
@@ -154,7 +154,7 @@ describe("building a checkout module", () => {
 
   /** A checkout module with this stylesheet, and no webpack anywhere. */
   async function checkout(stylesheet: Record<string, string>) {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-checkout-build-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-checkout-build-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
     const job = {
       moduleRoot: path.join(root, "modules", "navbar"),
@@ -169,7 +169,7 @@ describe("building a checkout module", () => {
     return job;
   }
 
-  it("compiles the module's SCSS stylesheet into Penguin's output, under the name it has", async () => {
+  it("compiles the module's SCSS stylesheet into WAF Harness's output, under the name it has", async () => {
     const job = await checkout({ "default.scss": ".nav { color: red; }" });
     const sass = compiler();
     const outcome = await spawnCheckoutBuild(job, sass);
@@ -219,7 +219,7 @@ describe("building a module in an npm workspace", () => {
    * The webpack and TypeScript in it are stand-ins that record what they were given.
    */
   async function monorepo() {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-workspace-build-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-workspace-build-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
     const repo = path.join(root, "waf-modules");
     const moduleRoot = path.join(repo, "modules", "waf-module-book");
@@ -277,7 +277,7 @@ describe("building a module in an npm workspace", () => {
   }
 
   it("does not walk up from a module outside a workspace, past a stray node_modules", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-legacy-build-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-legacy-build-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
     const moduleRoot = path.join(root, "waterford", "modules", "waf-module-words");
     const frameworkRoot = path.join(root, "waterford", "framework");

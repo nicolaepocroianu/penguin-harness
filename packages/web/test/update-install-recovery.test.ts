@@ -10,7 +10,7 @@
  */
 import { act, createElement as h } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DesktopUpdateStatus } from "@prismshadow/penguin-server/api";
+import type { DesktopUpdateStatus } from "@waterford/waf-harness-server/api";
 import { ADMIN_ME } from "./helpers/admin-settings";
 import { apiError, json, stubFetch } from "./helpers/fetch";
 import { button, hasButton, mount, unmountAll } from "./helpers/dom";
@@ -21,7 +21,7 @@ await import("../src/components/account/app-info-dialog");
 
 async function fixture(withSeq = true) {
   vi.resetModules();
-  localStorage.setItem("penguin.lang", "en");
+  localStorage.setItem("wafh.lang", "en");
   let status: DesktopUpdateStatus = {
     appVersion: "0.2.16",
     state: "downloaded",

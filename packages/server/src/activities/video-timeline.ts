@@ -166,7 +166,7 @@ export function parseTimeline(value: unknown): VideoTimeline {
     "the timeline",
   );
   if (timeline.version !== 1)
-    throw new Error("Invalid video timeline: its version is not one Penguin reads.");
+    throw new Error("Invalid video timeline: its version is not one WAF Harness reads.");
   const cuts: TimelineCut[] = [];
   const cutList = list(timeline.cuts, "the cuts", TIMELINE_MAX_CUTS);
   if (!cutList.length) throw new Error("Invalid video timeline: it has no cuts.");

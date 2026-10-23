@@ -6,8 +6,8 @@ import {
   MEDIA_AGENT_ID,
   loadAgentVault,
   userText,
-} from "@prismshadow/penguin-core";
-import { Component, Use, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+} from "@waterford/waf-harness-core";
+import { Component, Use, type ClassCtx } from "@waterford/waf-harness-core/kernel";
 import type { Clock, Config, Channels, Log, Paths } from "../hmr/capabilities.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { AgentConfig, AgentLifecycle } from "../mechanisms/agents.js";
@@ -539,7 +539,7 @@ export class ActivityGenerationService implements ActivityGeneration {
             modulePackagesRoot(this.config.root),
           );
           if (kind.mediaAgent) await this.provisionMediaAgent(projectId);
-          // A coding agent's run is still a Session, filed under a Penguin Agent: the one
+          // A coding agent's run is still a Session, filed under a WAF Harness Agent: the one
           // named, or the Project's default Agent when only the coding agent was.
           const owner = agentId || (codingAgentId ? DEFAULT_AGENT_ID : agentId);
           await this.agents.requireExists(projectId, owner);
@@ -571,7 +571,7 @@ export class ActivityGenerationService implements ActivityGeneration {
           // A kind the server runs itself runs a model on this machine, else the helper it
           // staged.
           const local = kind.runner === "server" ? (kind.local?.(prepared) ?? null) : null;
-          // Penguin's own agent runs a stage's commands confined to the run's workspace, so
+          // WAF Harness's own agent runs a stage's commands confined to the run's workspace, so
           // the WAF checkout is read-only to them by enforcement, not by the prompt's word —
           // unless an admin turned confinement off for this server (System settings > WAF
           // workspace). A coding agent's commands are not, but a module its agent writes is
@@ -668,14 +668,14 @@ export class ActivityGenerationService implements ActivityGeneration {
               projectId,
               agentId: owner,
               // A coding agent runs the stage as an ordinary Session of its own model: the
-              // same Trace, approvals, completion signal and collection as a Penguin agent's.
+              // same Trace, approvals, completion signal and collection as a WAF Harness agent's.
               ...(codingAgentId ? { provider: CODING_AGENT_PROVIDER, modelId: codingAgentId } : {}),
               workspace,
               ...(protectedRoots ? { protectedRoots } : {}),
               // Stages run unattended, so every tool call is approved; a protected root is
               // still refused, whatever the approval mode allows.
               approvalMode: "allow-all",
-              // A coding agent runs its own commands; Penguin's sandbox cannot reach them.
+              // A coding agent runs its own commands; WAF Harness's sandbox cannot reach them.
               ...(confined ? { sandboxMode: RUN_SANDBOX_MODE } : {}),
             });
             run.sessionId = session.sessionId;

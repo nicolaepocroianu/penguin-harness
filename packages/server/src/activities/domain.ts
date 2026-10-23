@@ -234,12 +234,12 @@ export interface ActivityRunBase {
   projectId: string;
   draftId: string;
   inputRevision: string;
-  /** The Penguin agent whose Session ran it (the Session's owner when a coding agent did the work). */
+  /** The WAF Harness agent whose Session ran it (the Session's owner when a coding agent did the work). */
   agentId: string;
   /**
    * The external coding agent (an ACP runtime such as Codex or OpenCode) that ran this as
    * the model of an ordinary Session; `sessionId` is that Session's. Absent on runs a
-   * Penguin agent's own model made, and on older records.
+   * WAF Harness agent's own model made, and on older records.
    */
   codingAgentId?: string;
   sessionId: string | null;

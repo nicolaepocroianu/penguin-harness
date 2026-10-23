@@ -59,7 +59,7 @@ import {
   renderProjectConfigToml,
   resolveEntryCredential,
   userText,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import {
   MODELSCOPE_PROVIDER_ID,
   PENGUIN_GO_PROVIDER_ID,
@@ -79,7 +79,7 @@ import {
   presetPromotions,
   presetProviderTable,
 } from "../model-catalog/seed.js";
-import { sameClientType, sameEndpoint } from "@prismshadow/penguin-core/model-connection";
+import { sameClientType, sameEndpoint } from "@waterford/waf-harness-core/model-connection";
 import type {
   PluginTables,
   CommandPolicyRule,
@@ -94,7 +94,7 @@ import type {
   ProviderConnection,
   ProviderConnectionShape,
   ProviderTable,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   ChatDefaultsDto,
   CommandPolicyDto,
@@ -127,7 +127,7 @@ import type {
   PlatformModelCatalog,
 } from "./platform-auth-types.js";
 import { detectModelProtocol } from "./protocol-detect.js";
-import { migratePenguinGoRoutes } from "./project-config-migrations.js";
+import { migrateWafHarnessGoRoutes } from "./project-config-migrations.js";
 import { presetProjectConfig } from "./project-config-seed.js";
 import {
   VISION_PROBE_IMAGE,
@@ -138,7 +138,7 @@ import {
   classifyVisionProbeError,
 } from "./vision-detect.js";
 import type { PricingRates, TieredRates } from "./usage-service.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Config, Paths } from "../hmr/capabilities.js";
 import type {
   ModelPromotion,
@@ -300,7 +300,7 @@ function showRef(provider: string, modelId: string): string {
 }
 
 /**
- * `400 penguin_go_protocol_fixed`: `what` is the refused write, said as a sentence's start. A
+ * `400 wafh_go_protocol_fixed`: `what` is the refused write, said as a sentence's start. A
  * refused row names itself in `details`, as `model_not_addable` does, so a caller that can drop
  * one entry (a machine's config sync) skips it rather than the whole table.
  */
@@ -312,7 +312,7 @@ function protocolFixed(
   const group = providerInfo(provider)?.label ?? provider;
   return new HttpError(
     400,
-    "penguin_go_protocol_fixed",
+    "wafh_go_protocol_fixed",
     `${what}: the ${group} group's protocol is fixed to ${fixedClientType(provider)}.`,
     undefined,
     entry,
@@ -913,7 +913,7 @@ export class ProjectConfigService implements ProjectConfigStore {
     // then the server's, which needs the catalog (project-config-migrations.ts): Penguin Go's
     // pre-MMSP routes.
     const migrated = migrateProjectConfigTable(table);
-    const routed = migratePenguinGoRoutes(table) > 0;
+    const routed = migrateWafHarnessGoRoutes(table) > 0;
     if (migrated || routed) {
       // A file from before MMSP 0.5.0 or before group-level connections, or one with pre-MMSP
       // Penguin Go routes: rewritten once, before it is served; the next read parses the
@@ -1739,7 +1739,7 @@ export class ProjectConfigService implements ProjectConfigStore {
    * (`model_not_addable`); one already stored under that key is written as it stands. Both
    * name the entry in `details` (`provider`, `modelId`). See the loops below for why the two
    * differ. A Penguin Go row or group given a protocol other than MMSP, or the group's cleared,
-   * is `penguin_go_protocol_fixed` unless that value is the one it already stores.
+   * is `wafh_go_protocol_fixed` unless that value is the one it already stores.
    *
    * `providers` changes the groups' connections, merged per group and per field like
    * `PUT /models/providers/:provider`; a group absent there keeps its table. Once the rows are
@@ -2366,7 +2366,7 @@ export class ProjectConfigService implements ProjectConfigStore {
     const raw = structuredClone(await this.readRaw(projectId));
     const updated =
       provider === PENGUIN_GO_PROVIDER_ID && catalog.models.length > 0
-        ? migratePenguinGoRoutes(raw, catalog.models[0]!.baseUrl)
+        ? migrateWafHarnessGoRoutes(raw, catalog.models[0]!.baseUrl)
         : 0;
     const current = asArray(raw.models);
     const known = new Set(

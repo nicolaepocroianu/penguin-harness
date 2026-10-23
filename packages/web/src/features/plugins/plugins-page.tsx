@@ -1,6 +1,6 @@
 /**
  * The plugin market: every plugin as one card (plugin-card.tsx) — the library's plugins
- * (Skills and/or a hook package, loaded by core from the @penguinharness/* packages and
+ * (Skills and/or a hook package, loaded by core from the @waf-harness/* packages and
  * installed on Agents) and the server modules a Project can ask for (the Agent Sandbox backends
  * and whatever the registry lists, installed on the server by an admin). Cards sit in
  * collapsible sections, by category unless the reader picks another grouping — status,
@@ -41,7 +41,7 @@ import type {
   PluginItem,
   QuickStartItem,
   SkillMetadataItem,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   CollapsibleSection,
@@ -58,7 +58,7 @@ import {
   TodoNotice,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";

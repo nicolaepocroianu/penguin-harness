@@ -1,5 +1,5 @@
 /**
- * Server-client plumbing: connection resolution order (--server > PENGUIN_API_URL >
+ * Server-client plumbing: connection resolution order (--server > WAFH_API_URL >
  * live server.lock > auto-start), the remote-token gate, the SSE parser, and session
  * reference resolution (full id / unique fragment / ambiguity).
  */
@@ -26,11 +26,11 @@ import { FakeServer } from "./fake-server.js";
 const t = getMessages("en");
 
 const ENV_KEYS = [
-  "PENGUIN_API_URL",
-  "PENGUIN_API_TOKEN",
-  "PENGUIN_HOME",
-  "PENGUIN_PROJECT_ID",
-  "PENGUIN_AGENT_ID",
+  "WAFH_API_URL",
+  "WAFH_API_TOKEN",
+  "WAFH_HOME",
+  "WAFH_PROJECT_ID",
+  "WAFH_AGENT_ID",
 ];
 const saved = new Map<string, string | undefined>();
 
@@ -48,8 +48,8 @@ afterEach(() => {
 });
 
 describe("connection resolution", () => {
-  it("--server wins over PENGUIN_API_URL; trailing slashes are stripped", async () => {
-    process.env.PENGUIN_API_URL = "http://127.0.0.1:7001";
+  it("--server wins over WAFH_API_URL; trailing slashes are stripped", async () => {
+    process.env.WAFH_API_URL = "http://127.0.0.1:7001";
     const conn = await resolveConnection({ server: "http://localhost:7002/" }, t);
     expect(conn.baseUrl).toBe("http://localhost:7002");
     expect(conn.loopback).toBe(true);
@@ -58,17 +58,17 @@ describe("connection resolution", () => {
     expect(connectionLabel(conn)).toBe("http://localhost:7002");
   });
 
-  it("PENGUIN_API_URL is used when --server is absent", async () => {
-    process.env.PENGUIN_API_URL = "http://127.0.0.1:7001";
+  it("WAFH_API_URL is used when --server is absent", async () => {
+    process.env.WAFH_API_URL = "http://127.0.0.1:7001";
     const conn = await resolveConnection({}, t);
     expect(conn.baseUrl).toBe("http://127.0.0.1:7001");
   });
 
-  it("a remote URL without PENGUIN_API_TOKEN is refused with the token hint", async () => {
+  it("a remote URL without WAFH_API_TOKEN is refused with the token hint", async () => {
     await expect(resolveConnection({ server: "https://box.example.com" }, t)).rejects.toThrow(
-      /PENGUIN_API_TOKEN/,
+      /WAFH_API_TOKEN/,
     );
-    process.env.PENGUIN_API_TOKEN = "remote-token";
+    process.env.WAFH_API_TOKEN = "remote-token";
     const conn = await resolveConnection({ server: "https://box.example.com" }, t);
     expect(conn.baseUrl).toBe("https://box.example.com");
     expect(conn.loopback).toBe(false);
@@ -80,8 +80,8 @@ describe("connection resolution", () => {
   });
 
   it("a live server.lock on the data root resolves to http://localhost:<port>", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-cli-lock-"));
-    process.env.PENGUIN_HOME = root;
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-cli-lock-"));
+    process.env.WAFH_HOME = root;
     // Liveness needs a real pid AND an accepting port: use this process and a real listener.
     const listener = net.createServer();
     await new Promise<void>((resolve) => listener.listen(0, "127.0.0.1", resolve));
@@ -104,8 +104,8 @@ describe("connection resolution", () => {
   });
 
   it("no server + autoStart disabled -> the no-server error; a stale lock does not count", async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-cli-stale-"));
-    process.env.PENGUIN_HOME = root;
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-cli-stale-"));
+    process.env.WAFH_HOME = root;
     // A lock whose port nothing accepts is stale and must be ignored.
     fs.writeFileSync(
       path.join(root, "server.lock"),
@@ -119,9 +119,9 @@ describe("connection resolution", () => {
   });
 
   it("autoStartEntry accepts plain-node entries only (a tsx .ts dev entry cannot re-run)", () => {
-    expect(autoStartEntry("/x/dist/penguin.js")).toBe(path.resolve("/x/dist/penguin.js"));
-    expect(autoStartEntry("/x/dist/penguin.mjs")).not.toBeNull();
-    expect(autoStartEntry("/x/src/penguin.ts")).toBeNull();
+    expect(autoStartEntry("/x/dist/wafh.js")).toBe(path.resolve("/x/dist/wafh.js"));
+    expect(autoStartEntry("/x/dist/wafh.mjs")).not.toBeNull();
+    expect(autoStartEntry("/x/src/wafh.ts")).toBeNull();
     expect(autoStartEntry(undefined)).toBeNull();
   });
 });
@@ -201,8 +201,8 @@ describe("option defaults", () => {
   it("project/agent ids: flag > env > built-in default", () => {
     expect(resolveProjectId(undefined)).toBe("default_project");
     expect(resolveAgentId(undefined)).toBe("default_agent");
-    process.env.PENGUIN_PROJECT_ID = "env-project";
-    process.env.PENGUIN_AGENT_ID = "env-agent";
+    process.env.WAFH_PROJECT_ID = "env-project";
+    process.env.WAFH_AGENT_ID = "env-agent";
     expect(resolveProjectId(undefined)).toBe("env-project");
     expect(resolveAgentId(undefined)).toBe("env-agent");
     expect(resolveProjectId("flag-project")).toBe("flag-project");

@@ -10,9 +10,9 @@
  * missing, which is said rather than left blank.
  */
 import { useEffect, useRef, useState } from "react";
-import { Button, usePrefersReducedMotion } from "@prismshadow/penguin-ui";
+import { Button, usePrefersReducedMotion } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
-import type { TrimRange } from "@prismshadow/penguin-server/api";
+import type { TrimRange } from "@waterford/waf-harness-server/api";
 import {
   clipTime,
   moveSelectionEdge,

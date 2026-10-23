@@ -14,7 +14,7 @@ import type {
   ActivityDraft,
   ActivityRunSummary,
   ModuleDocuments,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk, toneStrip } from "../../lib/tone";
@@ -24,7 +24,7 @@ import {
   InfoPopover,
   Segmented,
   SkeletonList,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { AssessmentItemsEditor } from "./assessment-items-editor";
 import { assessmentRunState, readItems } from "./assessment-items";
 import {

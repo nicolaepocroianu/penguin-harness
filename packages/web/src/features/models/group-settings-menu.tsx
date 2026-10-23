@@ -14,7 +14,7 @@
  * pointer too, so the dialog returns focus to the gear when it closes.
  */
 import { useRef, useState } from "react";
-import type { ModelProviderInfo } from "@prismshadow/penguin-server/model-catalog";
+import type { ModelProviderInfo } from "@waterford/waf-harness-server/model-catalog";
 import {
   Button,
   Dropdown,
@@ -26,7 +26,7 @@ import {
   MenuLabel,
   MenuRadioItem,
   MenuSeparator,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { HEADER_SQUARE } from "./group-header";
 import { MODEL_GROUP_SORTS } from "./model-sort";

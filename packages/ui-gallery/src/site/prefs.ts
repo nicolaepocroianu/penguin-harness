@@ -8,7 +8,7 @@
  * switch with it.
  */
 import { useCallback, useEffect } from "react";
-import { SITE_THEME_KEY, subscribeSitePref, writeSitePref } from "@prismshadow/penguin-ui/site";
+import { SITE_THEME_KEY, subscribeSitePref, writeSitePref } from "@waterford/waf-harness-ui/site";
 import { MODE_PREFS } from "../lib/url-state";
 import type { ModePref } from "../lib/url-state";
 import { useGallery } from "../state";

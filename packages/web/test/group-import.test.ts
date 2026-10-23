@@ -5,7 +5,7 @@
  * nothing of the connection — each persists as a bare model that follows its group.
  */
 import { describe, expect, it } from "vitest";
-import type { ModelInfo } from "@prismshadow/penguin-server/api";
+import type { ModelInfo } from "@waterford/waf-harness-server/api";
 import { applyProviderUpdate } from "../src/features/models/connection";
 import { buildImportedRows, groupImportConnection } from "../src/features/models/group-import";
 import { rowToEntry, toRow } from "../src/features/models/models-page";

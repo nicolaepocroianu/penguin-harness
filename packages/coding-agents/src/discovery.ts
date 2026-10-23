@@ -107,7 +107,7 @@ export interface AgentDiscoveryCandidate {
   /**
    * Whether the agent is signed in: from its stored sign-in on every call, and from its
    * own status command when the call probed (which wins unless it could not tell).
-   * Absent when the agent is not detected, or when it keeps its sign-in nowhere Penguin
+   * Absent when the agent is not detected, or when it keeps its sign-in nowhere WAF Harness
    * knows to look.
    */
   authStatus?: AgentAuthStatus;
@@ -297,7 +297,7 @@ const AGENT_RECIPES: AgentRecipe[] = [
       absent: "unknown",
     },
   },
-  // The agents below speak ACP natively too. None has a sign-in Penguin can read, so their
+  // The agents below speak ACP natively too. None has a sign-in WAF Harness can read, so their
   // cards say sign-in is unknown until a session or a Test shows otherwise.
   {
     id: "devin",

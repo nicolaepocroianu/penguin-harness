@@ -63,14 +63,14 @@ describe("a plugin's MCP servers on an Agent", () => {
     await fs.mkdir(path.join(dir, "skills", "cf-guide"), { recursive: true });
     await fs.writeFile(
       path.join(prefix, "package.json"),
-      JSON.stringify({ name: "penguin-plugins", private: true, dependencies: { "@acme/cf": "*" } }),
+      JSON.stringify({ name: "wafh-plugins", private: true, dependencies: { "@acme/cf": "*" } }),
     );
     await fs.writeFile(
       path.join(dir, "package.json"),
       JSON.stringify({
         name: "@acme/cf",
         version: "0.1.2",
-        penguin: { mcp_servers: [cloudflare, local] },
+        wafh: { mcp_servers: [cloudflare, local] },
       }),
     );
     await fs.writeFile(
@@ -143,7 +143,7 @@ describe("a plugin's MCP servers on an Agent", () => {
     await fs.writeFile(
       path.join(prefix, "package.json"),
       JSON.stringify({
-        name: "penguin-plugins",
+        name: "wafh-plugins",
         private: true,
         dependencies: { "@acme/cf": "*", "@acme/cf-twin": "*" },
       }),
@@ -153,7 +153,7 @@ describe("a plugin's MCP servers on an Agent", () => {
       JSON.stringify({
         name: "@acme/cf-twin",
         version: "0.1.0",
-        penguin: { mcp_servers: [cloudflare] },
+        wafh: { mcp_servers: [cloudflare] },
       }),
     );
 

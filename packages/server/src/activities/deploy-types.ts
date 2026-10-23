@@ -127,7 +127,7 @@ export type DeployProblem =
   /** The clone has commits its upstream does not. */
   | { code: "clone_ahead"; repo: DeployRepo; count: number }
   /**
-   * Work a deploy set aside in git's stash (its message begins "penguin-harness deploy") and
+   * Work a deploy set aside in git's stash (its message begins "waf-harness deploy") and
    * could not put back. A deploy would leave it out, so none starts until someone puts it
    * back or drops it by hand.
    */

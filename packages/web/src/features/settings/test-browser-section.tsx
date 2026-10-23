@@ -6,13 +6,13 @@
  * end of the installer's own output, which is where the reason is.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TestBrowserStatus } from "@prismshadow/penguin-server/api";
+import type { TestBrowserStatus } from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { toneInk } from "../../lib/tone";
-import { Button, toastError, toastSuccess, SettingsSection } from "@prismshadow/penguin-ui";
+import { Button, toastError, toastSuccess, SettingsSection } from "@waterford/waf-harness-ui";
 import { TEST_BROWSER_POLL_MS, shouldPollTestBrowser, testBrowserView } from "./test-browser";
 
 export function TestBrowserSection() {

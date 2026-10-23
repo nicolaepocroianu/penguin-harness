@@ -1,6 +1,6 @@
 ---
 name: agent-initialization
-description: Initialize or extend an Agent from a user requirement - write AGENTS.md, set identity metadata, and create, install or import Skills and hook packages (scripts the harness runs on every prompt, before tool calls, or after a task). For an Agent with an in-app workbench, pair with penguin-plugin; for a standalone external program, use penguin-sdk.
+description: Initialize or extend an Agent from a user requirement - write AGENTS.md, set identity metadata, and create, install or import Skills and hook packages (scripts the harness runs on every prompt, before tool calls, or after a task). For an Agent with an in-app workbench, pair with wafh-plugin; for a standalone external program, use wafh-sdk.
 version: 2026.10.14.1
 ---
 
@@ -12,14 +12,14 @@ This skill initializes an agent's settings from a user requirement — plain fil
 
 If the user's message only invokes this skill (e.g. "use agent-initialization skill") without a concrete requirement, ask the user what agent they want and what it should do. But when the requirement is already concrete — even a single sentence like "an expert that answers questions about X" — do **not** ask follow-up questions: derive the role and rules from that sentence, apply the defaults below, and list your assumptions in the final reply.
 
-An Agent Workbench inside PenguinHarness already has its runtime: create the new Agent and follow `penguin-plugin` for its tab. No SDK/API question is needed. Only an external program without a chosen architecture needs the question below.
+An Agent Workbench inside WAF Harness already has its runtime: create the new Agent and follow `wafh-plugin` for its tab. No SDK/API question is needed. Only an external program without a chosen architecture needs the question below.
 
 ## An agent for a program
 
-An external program — an app, a service, a bot, a script outside PenguinHarness — reaches a Penguin agent either embedded with the SDK or through the Penguin server's Agent API, and the two put the agent in different places. That choice is the penguin-sdk skill's, in this same plugin: whenever the requested agent is for a program, follow its *Ask which way first* before you create anything. An agent that people talk to, in the Web App, the CLI or a Remote-control bot, is not for a program and needs no question. Then:
+An external program — an app, a service, a bot, a script outside WAF Harness — reaches a WAF Harness agent either embedded with the SDK or through the WAF Harness server's Agent API, and the two put the agent in different places. That choice is the wafh-sdk skill's, in this same plugin: whenever the requested agent is for a program, follow its *Ask which way first* before you create anything. An agent that people talk to, in the Web App, the CLI or a Remote-control bot, is not for a program and needs no question. Then:
 
-- **SDK:** no Agent is created in this Project. Build the program with the penguin-sdk skill, and apply this skill to the program's embedded agent (see *The embedded agent of an SDK app*).
-- **API:** create or configure the Agent here with the rest of this skill. Its API access and keys are the owner's to turn on, never yours; the penguin-sdk skill's *The API path* and its `reference/agent-api.md` have the rules and the steps to hand the user.
+- **SDK:** no Agent is created in this Project. Build the program with the wafh-sdk skill, and apply this skill to the program's embedded agent (see *The embedded agent of an SDK app*).
+- **API:** create or configure the Agent here with the rest of this skill. Its API access and keys are the owner's to turn on, never yours; the wafh-sdk skill's *The API path* and its `reference/agent-api.md` have the rules and the steps to hand the user.
 
 ## Resolve the inherited runtime
 
@@ -28,7 +28,7 @@ Treat the current Agent as the **Builder**. Resolve the runtime before creating 
 - `provider` and `model_id` are one complete pair. If the user explicitly supplies both, use that pair. If the user supplies neither, inherit the current Builder Session's `Provider` and `Model ID` from the Environment. Reject a half pair.
 - `thinking_level` is independent. If the user explicitly supplies it, use that value. Otherwise read `model.thinking_level` from the Builder's own `agent_state/system_config.yaml`; when the field is absent, use the normal Agent-config default `medium`.
 
-Write the resolved `thinking_level` into a brand-new target Agent's `model.thinking_level`, preserving all other copied `model` fields. Penguin does not persist `provider` or `model_id` in Agent State, so never add either field to `system_config.yaml`. When the same request continues into Benchmark design, carry the resolved model pair forward explicitly so evaluation uses the Builder runtime instead of a Project default. When configuring an existing Agent, change `model.thinking_level` only when the user explicitly requests that runtime change.
+Write the resolved `thinking_level` into a brand-new target Agent's `model.thinking_level`, preserving all other copied `model` fields. WAF Harness does not persist `provider` or `model_id` in Agent State, so never add either field to `system_config.yaml`. When the same request continues into Benchmark design, carry the resolved model pair forward explicitly so evaluation uses the Builder runtime instead of a Project default. When configuring an existing Agent, change `model.thinking_level` only when the user explicitly requests that runtime change.
 
 ## Locate the target agent
 
@@ -79,9 +79,9 @@ Do not register Skills in AGENTS.md; the frontmatter is injected automatically.
 
 Common library bundles, so you don't under-equip the target:
 
-- **Workbench builder**: `agent-initialization`, `penguin-plugin`, `web-design`. The domain Agent it creates needs domain capabilities, not the builder bundle.
-- **Standalone app builder**: `penguin-sdk`, `web-design`, `unified-llm-api`.
-- **Knowledge expert**: document retrieval and citation instructions. For an in-app knowledge workspace, use `penguin-plugin`; use `penguin-sdk` only for a standalone external app.
+- **Workbench builder**: `agent-initialization`, `wafh-plugin`, `web-design`. The domain Agent it creates needs domain capabilities, not the builder bundle.
+- **Standalone app builder**: `wafh-sdk`, `web-design`, `unified-llm-api`.
+- **Knowledge expert**: document retrieval and citation instructions. For an in-app knowledge workspace, use `wafh-plugin`; use `wafh-sdk` only for a standalone external app.
 - **Evaluation loop**: `benchmark-design` and `agent-evaluation` (the `agent-evaluation` plugin), `agent-optimization` (the `default-rsi-toolkit` plugin).
 
 When creating a Test Agent, install only the capabilities it needs to solve ordinary tasks.
@@ -163,7 +163,7 @@ mkdir -p "$TARGET/agent_state/skills" "$TARGET/agent_state/hooks" "$TARGET/agent
 cp "$APP_DATA_DIR/agents/default_agent/agent_state/system_config.yaml" "$TARGET/agent_state/"
 ```
 
-Then set the top-level `name`, `description`, and `version: 1`, set `model.thinking_level` to the resolved value, write `agent_state/AGENTS.md` (it lives under `agent_state/`, not at the agent directory root), and install only the Skills and hook packages required by the user's requirement. Do not persist the resolved provider/model pair in the Agent State. For a new Agent with a workbench, run the `penguin-plugin` check helper after writing its files: it first refreshes the Project's Agent index, so `host.createSession()` can find a file-created Agent before anybody opens the Agents page.
+Then set the top-level `name`, `description`, and `version: 1`, set `model.thinking_level` to the resolved value, write `agent_state/AGENTS.md` (it lives under `agent_state/`, not at the agent directory root), and install only the Skills and hook packages required by the user's requirement. Do not persist the resolved provider/model pair in the Agent State. For a new Agent with a workbench, run the `wafh-plugin` check helper after writing its files: it first refreshes the Project's Agent index, so `host.createSession()` can find a file-created Agent before anybody opens the Agents page.
 
 ## Validate and report
 
@@ -179,4 +179,4 @@ Report the target path, whether an existing Agent was configured or a new Agent 
 
 ## The embedded agent of an SDK app
 
-On the SDK path, the app carries its own agent inside its project; where its directory is, and how the app writes its persona into it, are the penguin-sdk skill's. That directory has exactly the layout described here, and everything in this skill applies to it: the persona goes into its `agent_state/AGENTS.md`, not into application code, and `name`/`description` in its `system_config.yaml` make the app recognizable.
+On the SDK path, the app carries its own agent inside its project; where its directory is, and how the app writes its persona into it, are the wafh-sdk skill's. That directory has exactly the layout described here, and everything in this skill applies to it: the persona goes into its `agent_state/AGENTS.md`, not into application code, and `name`/`description` in its `system_config.yaml` make the app recognizable.

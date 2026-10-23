@@ -29,7 +29,7 @@ vi.mock("node:crypto", async (importOriginal) => {
 let tmpRoot: string;
 
 beforeEach(async () => {
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-workspace-"));
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-workspace-"));
   mocked.uuids.length = 0;
 });
 

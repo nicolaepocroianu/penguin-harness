@@ -1,11 +1,11 @@
 {
-  "name": "@prismshadow/penguin-coding-agents",
+  "name": "@waterford/waf-harness-coding-agents",
   "version": "0.2.13",
   "type": "module",
   "engines": {
     "node": ">=24"
   },
-  "description": "PenguinHarness coding agents kernel: an Agent Client Protocol (ACP) client that drives external coding agents (Claude Code, Codex, Gemini CLI, or any ACP-speaking command) as subprocesses.",
+  "description": "WAF Harness coding agents kernel: an Agent Client Protocol (ACP) client that drives external coding agents (Claude Code, Codex, Gemini CLI, or any ACP-speaking command) as subprocesses.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

@@ -1,7 +1,7 @@
 /**
- * `penguin chat` — interactive REPL over the server.
+ * `wafh chat` — interactive REPL over the server.
  *
- *   penguin chat [--project-id <id>] [--agent-id <id>] [--workspace <path>]
+ *   wafh chat [--project-id <id>] [--agent-id <id>] [--workspace <path>]
  *                [--model-id <id> --provider <group>] [--approve <mode>]
  *                [--thinking <level>] [--resume [sessionId]] [--verbose] [--server <url>]
  *
@@ -30,18 +30,18 @@
  * takes no model flags — `/switch-model` changes the model inside the chat.
  * Ctrl-C behavior (state-dependent): buffer has content -> clear it; awaiting approval
  * -> deny; running -> abort the current turn; empty buffer -> y/N exit confirmation.
- * Docs: /docs/cli § "penguin chat".
+ * Docs: /docs/cli § "wafh chat".
  */
 import { createInterface, type Interface } from "node:readline";
 import type { Command } from "commander";
-import { buildInfo } from "@prismshadow/penguin-core";
+import { buildInfo } from "@waterford/waf-harness-core";
 import type {
   ApprovalDecision,
   OmniMessage,
   ThinkingLevelName,
   ToolCallPayload,
-} from "@prismshadow/penguin-core";
-import type { SessionInfo } from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-core";
+import type { SessionInfo } from "@waterford/waf-harness-server/api";
 import { StreamRenderer, dim, renderHistory } from "../render.js";
 import { parseGoalCommand } from "../goal-command.js";
 import { parseThinkingCommand, resolveThinkingLevel } from "../thinking-command.js";
@@ -330,7 +330,7 @@ export function registerChatCommand(program: Command, t: Messages): void {
 
       /** The conversation's Session, where one must exist: a turn, a steer, a switch. */
       const live = (): SessionInfo => {
-        if (session === null) throw new Error("penguin chat: no Session yet");
+        if (session === null) throw new Error("wafh chat: no Session yet");
         return session;
       };
 
@@ -699,7 +699,7 @@ export function registerChatCommand(program: Command, t: Messages): void {
       // The copy-pastable resume command for one Session: includes this run's Project /
       // Agent options so it works as-is.
       const resumeCommand = (sessionId: string): string =>
-        `penguin chat --resume ${sessionId}` +
+        `wafh chat --resume ${sessionId}` +
         (opts.projectId ? ` --project-id ${opts.projectId}` : "") +
         (opts.agentId ? ` --agent-id ${opts.agentId}` : "");
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ActivityRun, ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRun, ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import { runStarted } from "../src/features/activities/activity-client";
 import { ResourceCache } from "../src/features/activities/resource-cache";
 import { memoryActivity, settle } from "./activity-memory-api";

@@ -7,7 +7,7 @@
  *   the catalog's (a first-party vendor has none), and no row carries a key.
  */
 import { describe, expect, it } from "vitest";
-import { effectiveConnection, providerConnectionShape } from "@prismshadow/penguin-core";
+import { effectiveConnection, providerConnectionShape } from "@waterford/waf-harness-core";
 import {
   MODEL_CATALOG,
   PRESET_DEFAULT_MODEL,

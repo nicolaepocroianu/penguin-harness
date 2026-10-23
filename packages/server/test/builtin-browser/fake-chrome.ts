@@ -1,5 +1,5 @@
 /**
- * Test double for the chrome backend's far side: the PenguinHarness Browser extension, as the
+ * Test double for the chrome backend's far side: the WAF Harness Browser extension, as the
  * socket the server's ExtensionLink holds (ExtensionSocket). It speaks the extension's side of
  * the protocol the way the real one does — answers hello, tabs, ping, open-tab, close-tab,
  * activate-tab and cdp, pushes tab events, and fails a released tab's commands with

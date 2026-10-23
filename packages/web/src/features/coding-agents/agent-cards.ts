@@ -10,7 +10,7 @@ import type {
   CodingAgentDiscoveryResponse,
   CodingAgentEnvEntryInfo,
   CodingAgentServerInfo,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 export interface AgentCardModel {
   key: string;

@@ -10,7 +10,7 @@
  * codes (plus a line number for the multiline fields); the component maps them to
  * localized messages.
  */
-import type { MCPServerConfig, ToolPermission } from "@prismshadow/penguin-core/interfaces";
+import type { MCPServerConfig, ToolPermission } from "@waterford/waf-harness-core/interfaces";
 
 export type McpTransportKind = "stdio" | "http" | "sse";
 

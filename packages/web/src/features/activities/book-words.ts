@@ -7,7 +7,7 @@ import type {
   AssetManifest,
   BookWordsState,
   PhonemesCandidate,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 type MediaAsset = AssetManifest["assets"][string][number];
 export type BookMode = "decodable" | "readAlong";

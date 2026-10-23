@@ -7,7 +7,7 @@ import {
   SiteLocaleProvider,
   SiteLocaleScope,
   SiteThemeProvider,
-} from "@prismshadow/penguin-ui/site";
+} from "@waterford/waf-harness-ui/site";
 import { setActiveStrings } from "./lib/strings";
 import { en } from "./lib/strings-en";
 import { AppRouter } from "./router";

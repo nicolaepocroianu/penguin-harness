@@ -30,7 +30,7 @@ import { promisify } from "node:util";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "plugins", "sandbox-bwrap", "vendor");
-const CACHE = path.join(ROOT, "node_modules", ".cache", "penguin-bwrap-vendor");
+const CACHE = path.join(ROOT, "node_modules", ".cache", "wafh-bwrap-vendor");
 const tar = createRequire(path.join(ROOT, "packages", "server", "package.json"))("tar");
 const decompress = promisify(zstdDecompress);
 
@@ -191,7 +191,7 @@ function zip64Sizes(extra, uncompressedIsBig, compressedIsBig, offsetIsBig, fall
 /** Unpacks one package into `stage`, keeping only WANTED files. */
 async function extract(file, stage) {
   const zip = await fsp.readFile(file);
-  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "penguin-bwrap-"));
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "wafh-bwrap-"));
   try {
     // Two members carry what is wanted: `pkg-*` the files themselves, `info-*` the licenses
     // conda-forge keeps under `info/licenses/` — and shipping a binary means shipping those.

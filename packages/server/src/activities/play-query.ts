@@ -1,7 +1,7 @@
 /**
  * A played activity's query, read the way Loom's dev-sandbox reads `player.html`'s
  * (waf-loom `dev-sandbox/src/player.js`): `module`, `ref`, `languageCode`, `startSceneId`,
- * `resolution` and `source`, with Loom's own parsing for each. Penguin's older `language`
+ * `resolution` and `source`, with Loom's own parsing for each. WAF Harness's older `language`
  * and `scene` stay accepted, so links made before keep working.
  *
  * Pure, so the routes that read a play query (the authenticated entries and the signed page)

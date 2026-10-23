@@ -22,7 +22,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import type { AgentSummary, BenchmarkSummary } from "@prismshadow/penguin-server/api";
+import type { AgentSummary, BenchmarkSummary } from "@waterford/waf-harness-server/api";
 import {
   Button,
   ConfirmModal,
@@ -35,7 +35,7 @@ import {
   toastSuccess,
   useFormDraft,
   useGuardedClose,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";

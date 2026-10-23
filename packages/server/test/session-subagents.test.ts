@@ -11,13 +11,13 @@
  * - Foreign and unknown Sessions are 404s, as on every Session route.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { toolCall, withOrigin } from "@prismshadow/penguin-core";
+import { toolCall, withOrigin } from "@waterford/waf-harness-core";
 import type {
   BackgroundSubagentInfo,
   OmniMessage,
   SubagentMessageOptions,
   SubagentMessageOutcome,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { ApprovalRegistry } from "../src/runtime/approvals.js";
 import type { ServerEvent, SubagentMessageResponse } from "../src/api/types.js";
 import type { RuntimeSession } from "../src/runtime/session-manager.js";

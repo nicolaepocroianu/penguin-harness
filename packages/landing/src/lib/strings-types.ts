@@ -7,7 +7,7 @@ export type Strings = {
     next: string;
     geminiArgon: string;
     tokenDanceChallenge: string;
-    penguinGo: string;
+    wafHarnessGo: string;
   };
   nav: {
     home: string;
@@ -254,7 +254,7 @@ export type Strings = {
       link: string;
     }[];
   };
-  /** Building on an agent library against PenguinHarness (sections/compare.tsx). */
+  /** Building on an agent library against WAF Harness (sections/compare.tsx). */
   compare: {
     title: string;
     subtitle: string;
@@ -263,7 +263,7 @@ export type Strings = {
       mode: string;
       note: string;
     };
-    penguin: {
+    wafh: {
       name: string;
       mode: string;
       note: string;

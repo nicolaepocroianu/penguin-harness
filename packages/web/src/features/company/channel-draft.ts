@@ -23,7 +23,7 @@ export const channelDraftKey = (
   projectId: string,
   orgId: string,
   channelId: string,
-): string => `penguin.channelDraft.${userId}.${projectId}.${orgId}.${channelId}`;
+): string => `wafh.channelDraft.${userId}.${projectId}.${orgId}.${channelId}`;
 
 export function loadChannelDraft(key: string, storage?: DraftStorage): string {
   return loadDraft(key, storage).text ?? "";

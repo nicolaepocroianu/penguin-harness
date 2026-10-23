@@ -17,7 +17,7 @@ import type {
   SessionBatchPageRequest,
   SessionInfo,
   SessionsResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 vi.mock("../src/api/endpoints", () => ({
   batchSessions: vi.fn(),

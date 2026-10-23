@@ -36,7 +36,7 @@ import type {
   MachineJob,
   MachineSocketFact,
   MachinesResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   anyJobPending,
   behindMachines,
@@ -66,7 +66,7 @@ const fresh = (alias: string): MachineInfo => ({
   connection: null,
   socket: null,
   api: null,
-  root: "$HOME/.penguin/data",
+  root: "$HOME/.waf-harness/data",
   status: null,
 });
 const carrying = (alias: string): MachineInfo => ({ ...fresh(alias), installed: INSTALLED });
@@ -80,7 +80,7 @@ const here = (): MachineInfo => ({
   connection: null,
   socket: null,
   api: null,
-  root: "/home/someone/.penguin/data",
+  root: "/home/someone/.waf-harness/data",
   status: { state: "running", checkedAt: INSTALLED.at, port: 7364 },
 });
 

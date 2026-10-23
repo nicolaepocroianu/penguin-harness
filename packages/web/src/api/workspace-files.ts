@@ -17,7 +17,7 @@ import type {
   FilesMoveRequest,
   WorkspaceFilesResponse,
   WorkspaceSearchResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import * as api from "./endpoints";
 import type { WorkspaceDir } from "./endpoints";
 

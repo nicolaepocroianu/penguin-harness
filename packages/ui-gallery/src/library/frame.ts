@@ -16,7 +16,7 @@ import type { TopicId } from "./topics";
 export const LIBRARY_FRAME_PATH = "/lib.html";
 
 /** The `type` of the message a library frame posts with its content height. */
-export const LIBRARY_HEIGHT_MESSAGE = "penguin-gallery:library-height";
+export const LIBRARY_HEIGHT_MESSAGE = "wafh-gallery:library-height";
 
 export function libraryFrameSrc(base: string, prefs: FramePrefs, topic: TopicId): string {
   const params = new URLSearchParams();

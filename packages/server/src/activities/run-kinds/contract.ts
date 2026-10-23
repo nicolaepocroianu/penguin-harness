@@ -9,7 +9,7 @@
  * cancellation, shutdown, and the shared tail that keeps a candidate only while the draft is the
  * one the run started from.
  */
-import { libraryPlugin, type ProtectedRoot } from "@prismshadow/penguin-core";
+import { libraryPlugin, type ProtectedRoot } from "@waterford/waf-harness-core";
 import type { ActivityAuthoring } from "../../mechanisms/activities.js";
 import { HttpError } from "../../http/errors.js";
 import type {
@@ -69,7 +69,7 @@ export interface StageInput<Prepared, Run extends ActivityRun> {
   prepared: Prepared;
   run: Run;
   workspace: string;
-  /** Whether Penguin's sandbox confines the run's commands to its workspace. */
+  /** Whether WAF Harness's sandbox confines the run's commands to its workspace. */
   confined: boolean;
   /** The script with its media tags normalized, as `description.md` holds it. */
   description: string;

@@ -1,12 +1,12 @@
 ---
 title: Built-in Browser
-description: The browser you and your agents share, in the dock — the desktop app's built-in browser or your own Chrome — with automation through penguin browser.
+description: The browser you and your agents share, in the dock — the desktop app's built-in browser or your own Chrome — with automation through wafh browser.
 ---
 
-The **Browser** panel in the dock holds the browser your agents drive from their shell with `penguin browser`: they read pages, click and type, and pull out data such as your Amazon orders, signed in with your own accounts. It has two backends:
+The **Browser** panel in the dock holds the browser your agents drive from their shell with `wafh browser`: they read pages, click and type, and pull out data such as your Amazon orders, signed in with your own accounts. It has two backends:
 
 - **The built-in browser**, a web browser inside the desktop app. You browse in it like in any browser, and the agents drive the same tabs. It keeps its own sign-ins and history, separate from your system browser, and can import both from Chrome, Edge, Brave, Arc, Vivaldi, Opera, Chromium or Firefox.
-- **Your own Chrome**, through the PenguinHarness Browser extension, in the desktop app and in the Web App alike. The agents work in tabs of a **Penguin** tab group in your Chrome, signed in as you already are, and never touch your other tabs.
+- **Your own Chrome**, through the WAF Harness Browser extension, in the desktop app and in the Web App alike. The agents work in tabs of a **WAF Harness** tab group in your Chrome, signed in as you already are, and never touch your other tabs.
 
 Where to go:
 
@@ -18,8 +18,8 @@ Where to go:
 
 ## Before you begin
 
-- **The built-in browser** is part of the desktop app on macOS, Windows and Linux. A browser window signed in to a server (`penguin web`), Docker or a remote machine has none.
-- **Your own Chrome** works on any server whose administrator allows it, which is the default. It needs Chrome 116 or later and the PenguinHarness Browser extension.
+- **The built-in browser** is part of the desktop app on macOS, Windows and Linux. A browser window signed in to a server (`wafh web`), Docker or a remote machine has none.
+- **Your own Chrome** works on any server whose administrator allows it, which is the default. It needs Chrome 116 or later and the WAF Harness Browser extension.
 - The desktop app uses the built-in browser until you [switch](#switch-between-built-in-and-chrome); every other server offers only Chrome. Your agents never choose the backend, and a backend that is unavailable never falls back to the other.
 - An agent drives the browser of the person driving its conversation: the one who sent the message that started the run, or, for a scheduled task, the person who created it. On a server with several accounts, everyone pairs their own Chrome, and an agent never uses anyone else's.
 
@@ -60,7 +60,7 @@ While a homepage is set, a **Home** button beside **Reload** goes to it. To remo
 
 Right-click a web link in a conversation, or press Shift+F10 or the Menu key while the link has focus, to open its menu:
 
-- **Open in built-in browser** opens the link in a new tab and brings the Browser panel up in that conversation's dock. It appears while the browser is available. When agents use your Chrome, it reads **Open in agent's Chrome tab** and opens the tab in your Chrome's Penguin group.
+- **Open in built-in browser** opens the link in a new tab and brings the Browser panel up in that conversation's dock. It appears while the browser is available. When agents use your Chrome, it reads **Open in agent's Chrome tab** and opens the tab in your Chrome's WAF Harness group.
 - **Open in system browser** opens the link in your default browser. In a browser window, the item reads **Open in new tab**.
 - **Copy link address** copies the link.
 
@@ -78,7 +78,7 @@ The page on screen is laid out at the size of the panel, so in a narrow panel a 
 
 Sign in to websites in the panel as you would in any browser. Sign-ins and site data are kept between restarts, in the browser's own profile: signing in here does not sign you in to your system browser, and the other way round.
 
-Agents never type your passwords. When a page an agent needs asks for a sign-in, the `browser-automation` skill has it stop and ask you to sign in in the panel, or to import your sign-in from the browser you normally use. In your own Chrome, your sign-ins already apply; when one is missing, the agent asks you to sign in in its Penguin tab.
+Agents never type your passwords. When a page an agent needs asks for a sign-in, the `browser-automation` skill has it stop and ask you to sign in in the panel, or to import your sign-in from the browser you normally use. In your own Chrome, your sign-ins already apply; when one is missing, the agent asks you to sign in in its WAF Harness tab.
 
 ## Import from your browser
 
@@ -98,14 +98,14 @@ Import copies cookies (which hold your sign-ins) into the current Project’s br
 
 What to expect on each platform:
 
-- **macOS**: Chromium-based browsers encrypt cookies with a key kept in your Keychain, so macOS asks whether PenguinHarness may use the Keychain item named after the browser, such as "Chrome Safe Storage". Allow it; if you deny it, the encrypted cookies are skipped and the result says so.
+- **macOS**: Chromium-based browsers encrypt cookies with a key kept in your Keychain, so macOS asks whether WAF Harness may use the Keychain item named after the browser, such as "Chrome Safe Storage". Allow it; if you deny it, the encrypted cookies are skipped and the result says so.
 - **Windows**: Chrome 127 and later protect most cookies with app-bound encryption, which only Chrome itself can read. Those cookies are skipped with a warning; sign in in the panel instead. A browser that is running may also hold its cookie file open; close it and import again.
 - **Linux**: newer cookies are encrypted with a password kept in the desktop keyring, read through `secret-tool` (from the `libsecret-tools` package on Debian and Ubuntu). Without it those cookies are skipped with a warning.
 - **Firefox** stores cookies unencrypted. Cookies kept for a container or partitioned to another site are left out.
 
 Import only reads: every file is copied to a temporary directory, read there and deleted, and nothing is written to the other browser. Imported history is kept together with the built-in browser's own, up to the newest 5,000 pages. Import is available to administrators only.
 
-From a shell, `penguin browser import --list` lists the profiles and `penguin browser import --from chrome --cookies --domain amazon.com` imports one site's sign-in; see [penguin browser](/cli#penguin-browser).
+From a shell, `wafh browser import --list` lists the profiles and `wafh browser import --from chrome --cookies --domain amazon.com` imports one site's sign-in; see [wafh browser](/cli#wafh-browser).
 
 ## Clear browsing data
 
@@ -113,18 +113,18 @@ Select **Clear browsing data…** in the toolbar's menu and choose what to remov
 
 ## Use your own Chrome
 
-Your agents can work in your own Chrome instead of the built-in browser: with your sign-ins, extensions and settings, from the desktop app or from the Web App on any server. The PenguinHarness Browser extension connects your Chrome to the server, and the agents drive only the tabs you let them have.
+Your agents can work in your own Chrome instead of the built-in browser: with your sign-ins, extensions and settings, from the desktop app or from the Web App on any server. The WAF Harness Browser extension connects your Chrome to the server, and the agents drive only the tabs you let them have.
 
 ### Install the extension
 
 We recommend installing from the Chrome Web Store, which keeps the extension up to date:
 
-1. Open [PenguinHarness Browser](https://chromewebstore.google.com/detail/penguinharness-browser/dodgfhpcbmkjfcbgnoidablfgjjhhmgp) in the Chrome Web Store and select **Add to Chrome**.
-2. Pin **PenguinHarness Browser** to the toolbar from the extensions menu, so its icon shows whether it is connected.
+1. Open [WAF Harness Browser](https://chromewebstore.google.com/detail/waf-harness-browser/dodgfhpcbmkjfcbgnoidablfgjjhhmgp) in the Chrome Web Store and select **Add to Chrome**.
+2. Pin **WAF Harness Browser** to the toolbar from the extensions menu, so its icon shows whether it is connected.
 
 Where the Chrome Web Store cannot be reached, install the zip file published with each release instead:
 
-1. Download [penguin-browser-extension.zip](https://github.com/Prism-Shadow/penguin-harness/releases/latest/download/penguin-browser-extension.zip) and unzip it.
+1. Download [wafh-browser-extension.zip](https://github.com/Prism-Shadow/penguin-harness/releases/latest/download/penguin-browser-extension.zip) and unzip it.
 2. In Chrome, open `chrome://extensions` and turn on **Developer mode** at the top right.
 3. Select **Load unpacked** and pick the unzipped folder.
 4. Pin the extension to the toolbar as above.
@@ -163,8 +163,8 @@ The menu's status row reads **Chrome: connected · <name>**, **Chrome: not conne
 
 The agent drives only these tabs:
 
-- The tabs it opens. They open in a blue tab group named **Penguin**, one per window (**Penguin · <server>** when Chrome is paired with several servers).
-- A tab you hand over: select the extension's icon on that tab, then **Add this tab**. It moves into the Penguin group.
+- The tabs it opens. They open in a blue tab group named **WAF Harness**, one per window (**WAF Harness · <server>** when Chrome is paired with several servers).
+- A tab you hand over: select the extension's icon on that tab, then **Add this tab**. It moves into the WAF Harness group.
 - Pages those tabs open, such as a pop-up or a link opened in a new tab.
 
 It cannot see or touch your other tabs and windows, your cookies, your passwords, your history or your downloads. Raw DevTools commands that would reach them are refused (`cdp_refused`). Chrome's own pages (`chrome://`), the Chrome Web Store and local files cannot be driven at all. Import, clearing browsing data and the browsing history belong to the built-in browser; Chrome keeps its own.
@@ -173,8 +173,8 @@ What reaches the server is what the agent asks of a driven tab, as with the buil
 
 ### Take a tab back or stop the agent
 
-- While the agent works, Chrome shows a bar saying **PenguinHarness Browser started debugging this browser**. It goes away a minute after the agent's last command, and comes back with the next one. **Cancel** on that bar takes every tab back at once; the agent cannot use them again until you hand them over.
-- To take one tab back, drag it out of the Penguin group, close it, or select the extension's icon on it and choose **Release this tab**. The agent's next command on it fails with `tab_released`, and it opens a new tab instead.
+- While the agent works, Chrome shows a bar saying **WAF Harness Browser started debugging this browser**. It goes away a minute after the agent's last command, and comes back with the next one. **Cancel** on that bar takes every tab back at once; the agent cannot use them again until you hand them over.
+- To take one tab back, drag it out of the WAF Harness group, close it, or select the extension's icon on it and choose **Release this tab**. The agent's next command on it fails with `tab_released`, and it opens a new tab instead.
 - **Pause** in the extension's popup stops every command until you select **Resume**. The tabs stay where they are.
 - **Revoke** the Chrome in **Settings › Browser**, turn the extension off in `chrome://extensions`, or, in the desktop app, switch back to the built-in browser.
 
@@ -190,7 +190,7 @@ The extension connects to the server over a WebSocket at `/api/builtin-browser/e
 
 In the desktop app you choose which browser your agents use in **Settings › Browser**, under **Browser agents use**. The Browser panel's menu does not offer the choice.
 
-A notice confirms the switch, such as **Agents now use your Chrome**. While an agent is acting in the browser, the switch is refused with **An agent is using the browser; switch once it is done**. Switching closes nothing: the built-in browser's tabs stay open in the background, and the Penguin tabs stay in Chrome. Every window of the app follows the switch. On any other server there is only Chrome, and the choice does not appear.
+A notice confirms the switch, such as **Agents now use your Chrome**. While an agent is acting in the browser, the switch is refused with **An agent is using the browser; switch once it is done**. Switching closes nothing: the built-in browser's tabs stay open in the background, and the WAF Harness tabs stay in Chrome. Every window of the app follows the switch. On any other server there is only Chrome, and the choice does not appear.
 
 ## Turn Chrome connections off
 
@@ -198,12 +198,12 @@ An administrator can stop every user's Chrome from connecting: in **Settings ›
 
 ## Drive it from the command line
 
-`penguin browser` drives the tabs from a shell, and it is how agents use the browser, built-in or your own Chrome alike. The preinstalled `browser-automation` plugin teaches them the loop: open a page, read it, act with JavaScript, and check what changed. `penguin browser status` names the backend in use; agents cannot change it.
+`wafh browser` drives the tabs from a shell, and it is how agents use the browser, built-in or your own Chrome alike. The preinstalled `browser-automation` plugin teaches them the loop: open a page, read it, act with JavaScript, and check what changed. `wafh browser status` names the backend in use; agents cannot change it.
 
 ```bash
-penguin browser open https://www.amazon.com/your-orders/orders
-penguin browser scan --text
-penguin browser exec <<'EOF'
+wafh browser open https://www.amazon.com/your-orders/orders
+wafh browser scan --text
+wafh browser exec <<'EOF'
 return [...document.querySelectorAll('.order-card')].length;
 EOF
 ```
@@ -213,7 +213,7 @@ EOF
 - `click` and `type` send real mouse and keyboard input, which pages cannot tell from a person's.
 - `screenshot`, `cdp` (a raw Chrome DevTools Protocol command) and `history` cover the rest.
 
-Every command and its output format are in the [CLI Reference](/cli#penguin-browser).
+Every command and its output format are in the [CLI Reference](/cli#wafh-browser).
 
 ## Performance
 
@@ -221,16 +221,16 @@ This section is about the built-in browser; your own Chrome manages its own tabs
 
 Every tab is a whole web page with memory of its own: a busy shopping or news site takes 100 to 300 MB, and some take more than 1 GB. The app watches how much the browser uses and tells you before it gets too much.
 
-- **A warning before trouble.** When the tabs together use more than 1.5 GB of memory, when this computer has less than 10% of its memory free (not measured on macOS), or when more than 12 tabs are open, an amber warning icon appears in the browser's toolbar. Its tooltip says how much memory the browser uses and in how many tabs. A notice pops up once when the warning starts, and the tabs using the most memory carry a small warning mark in the tab strip. Close the tabs you no longer need. `penguin browser status` prints the same figures on a `memory:` line, and a `warning:` line while the warning lasts.
+- **A warning before trouble.** When the tabs together use more than 1.5 GB of memory, when this computer has less than 10% of its memory free (not measured on macOS), or when more than 12 tabs are open, an amber warning icon appears in the browser's toolbar. Its tooltip says how much memory the browser uses and in how many tabs. A notice pops up once when the warning starts, and the tabs using the most memory carry a small warning mark in the tab strip. Close the tabs you no longer need. `wafh browser status` prints the same figures on a `memory:` line, and a `warning:` line while the warning lasts.
 - **Background tabs run slower.** A tab no agent is using may have its timers slowed to about once a second while it is out of sight, as a browser does with background tabs. A tab an agent works in runs at full speed, during each action and for 30 seconds after it, and so does a new tab while it loads.
 - **A crashed page stays a tab.** When a page's process ends (it crashed, or the system took its memory back), its tab shows **This page crashed** with a **Reload** button instead of an empty area, and the rest of the app carries on. An agent that uses that tab gets `tab_crashed` at once. If the app's own window fails, it reloads, waiting longer between tries if it keeps failing; the browser's tabs close with it.
 - **A log for bug reports.** The desktop app records what its processes do in `desktop.log`, including every process that ends unexpectedly and why. The file stops at 5 MB and starts again, keeping the previous one as `desktop.log.1`. Attach both when you report a crash:
 
 | System | Log file |
 | --- | --- |
-| macOS | `~/Library/Application Support/PenguinHarness/logs/desktop.log` |
-| Windows | `%APPDATA%\PenguinHarness\logs\desktop.log` |
-| Linux | `~/.config/PenguinHarness/logs/desktop.log` |
+| macOS | `~/Library/Application Support/WAF Harness/logs/desktop.log` |
+| Windows | `%APPDATA%\WAF Harness\logs\desktop.log` |
+| Linux | `~/.config/WAF Harness/logs/desktop.log` |
 
 ## How it works
 

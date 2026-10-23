@@ -15,13 +15,13 @@ describe("webDistFor", () => {
     expect(webDistFor({ isPackaged: false, appPath: "/src/packages/desktop", env: {} })).toBeNull();
   });
 
-  it("an explicit PENGUIN_WEB_DIST wins in both forms; blank counts as unset", () => {
+  it("an explicit WAFH_WEB_DIST wins in both forms; blank counts as unset", () => {
     for (const isPackaged of [true, false]) {
-      expect(webDistFor({ isPackaged, appPath: "/x", env: { PENGUIN_WEB_DIST: "/srv/web" } })).toBe(
+      expect(webDistFor({ isPackaged, appPath: "/x", env: { WAFH_WEB_DIST: "/srv/web" } })).toBe(
         "/srv/web",
       );
     }
-    expect(webDistFor({ isPackaged: true, appPath: "/x", env: { PENGUIN_WEB_DIST: "  " } })).toBe(
+    expect(webDistFor({ isPackaged: true, appPath: "/x", env: { WAFH_WEB_DIST: "  " } })).toBe(
       path.join("/x", "web-dist"),
     );
   });

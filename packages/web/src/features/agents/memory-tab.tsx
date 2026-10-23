@@ -33,7 +33,7 @@ import type {
   MemoryImportMode,
   MemoryScopeExport,
   MemoryScopeInfo,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   Card,
@@ -65,8 +65,8 @@ import {
   toastSuccess,
   useCopied,
   useFormDraft,
-} from "@prismshadow/penguin-ui";
-import type { SheetSnap } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { SheetSnap } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
@@ -101,7 +101,7 @@ const GHOST_LABEL_CLASS = buttonClass("ghost", "sm");
  * best-effort writes). Only collapsed keys are stored, so new scopes start expanded.
  */
 const collapsedStoreKey = (userId: string, projectId: string, agentId: string): string =>
-  `penguin.memoryCollapsed.${userId}.${projectId}.${agentId}`;
+  `wafh.memoryCollapsed.${userId}.${projectId}.${agentId}`;
 
 function readCollapsedScopes(key: string | null): Set<string> {
   if (!key) return new Set();

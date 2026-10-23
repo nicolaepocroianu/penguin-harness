@@ -18,7 +18,7 @@
  * handler for the Project owner's sign-in in place of a key.
  */
 import { Hono } from "hono";
-import type { AgentResponse, SessionResponse } from "@prismshadow/amsp";
+import type { AgentResponse, SessionResponse } from "@waterford/waf-harness-amsp";
 import type { AppEnv } from "../auth/middleware.js";
 import { HttpError } from "../http/errors.js";
 import { readJson, requireEnum } from "../http/validate.js";

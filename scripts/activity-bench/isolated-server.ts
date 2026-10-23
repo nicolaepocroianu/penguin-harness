@@ -1,10 +1,10 @@
 /**
- * An AuthoringHost that takes each trial through the real Stages: a Penguin server started from
+ * An AuthoringHost that takes each trial through the real Stages: a WAF Harness server started from
  * the recipe's own commit, on a fresh home copied from the bench's seed, driven over the same
  * routes an author's App uses. The server under test is unchanged.
  *
- * The bench home (never ~/.penguin, never a running server's data root):
- *   seed/            a Penguin home `pnpm bench seed` prepares: the Project, its default model,
+ * The bench home (never ~/.waf-harness, never a running server's data root):
+ *   seed/            a WAF Harness home `pnpm bench seed` prepares: the Project, its default model,
  *                    the WAF workspace, the test browser, and for the non-regression check a
  *                    Claude Code definition
  *   claude-config/   CLAUDE_CONFIG_DIR for Claude Code trials: a Claude login a person made
@@ -80,7 +80,7 @@ export type SeedCheck = { refused: string } | { claude: true | string };
 
 /**
  * What a seed must have, asked of a server running on a copy of it: the agent in the Project,
- * a WAF workspace Penguin prepared in the seed, and whether Claude Code can run from the
+ * a WAF workspace WAF Harness prepared in the seed, and whether Claude Code can run from the
  * bench's own folder.
  */
 export async function checkSeedServer(
@@ -148,15 +148,15 @@ function bootTrial(worktree: string, layout: BenchLayout, dir: string): Promise<
     claudeConfig: layout.claudeConfig,
     env: {
       // The seed's workspace is prepared once, by `pnpm bench seed`: a trial home never clones.
-      PENGUIN_WAF_AUTO_PREPARE: "0",
-      PENGUIN_BUNDLED_BROWSERS: path.join(layout.seed, "browsers"),
+      WAFH_WAF_AUTO_PREPARE: "0",
+      WAFH_BUNDLED_BROWSERS: path.join(layout.seed, "browsers"),
     },
   });
 }
 
 /**
  * A fresh home for one trial: the seed, all but its test browser, which every trial uses
- * where the seed keeps it (PENGUIN_BUNDLED_BROWSERS) rather than a copy of its own.
+ * where the seed keeps it (WAFH_BUNDLED_BROWSERS) rather than a copy of its own.
  */
 function copySeed(layout: BenchLayout, dir: string): void {
   const browsers = path.join(layout.seed, "browsers");
@@ -177,7 +177,7 @@ async function workspace(server: Server): Promise<string | null> {
     status: { managed: boolean; ready: boolean; lastError: string | null };
   }>("GET", "/api/admin/waf-workspace");
   if (!status.managed)
-    return "The seed names a WAF checkout outside it, which every trial would share: let Penguin prepare one in the seed instead.";
+    return "The seed names a WAF checkout outside it, which every trial would share: let WAF Harness prepare one in the seed instead.";
   if (!status.ready)
     return `The seed's WAF workspace is not prepared${status.lastError ? `: ${status.lastError}` : "."}`;
   return null;

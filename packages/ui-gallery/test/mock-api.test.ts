@@ -247,7 +247,7 @@ describe("the mocked API", () => {
     await expect(api.login({ userId: "admin", password: "" })).rejects.toMatchObject({
       status: 401,
     });
-    const signedIn = await api.login({ userId: "admin", password: "penguin" });
+    const signedIn = await api.login({ userId: "admin", password: "wafh" });
     expect(signedIn.user.userId).toBe("admin");
     await expect(api.getMe()).resolves.toMatchObject({ user: { userId: "admin" } });
   });

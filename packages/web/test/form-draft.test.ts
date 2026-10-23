@@ -28,7 +28,7 @@ import {
   useFormDraft,
   useGuardedClose,
   useSaving,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { UnsavedPrompt } from "../src/lib/unsaved/unsaved-prompt";

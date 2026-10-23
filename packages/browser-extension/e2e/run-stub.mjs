@@ -7,7 +7,7 @@
 // Covers: pairing through the options page (token in the subprotocol, never in a URL); the
 // pages and the toolbar title in English, and the manifest's messages from _locales; the pages
 // following the device's dark setting until the user picks a theme; the theme switch's focus
-// ring, drawn for the keyboard and never left by a click; the hello handshake and pings; open-tab into the "Penguin" group; a scan-like Runtime.evaluate;
+// ring, drawn for the keyboard and never left by a click; the hello handshake and pings; open-tab into the "WAF Harness" group; a scan-like Runtime.evaluate;
 // a trusted click and typing through Input.*; a relayed CDP event; a page the tab opens joining
 // the group; refusals (a cookie method, a tab the server does not drive); close-tab; and a
 // revoke closing the socket for good.
@@ -49,7 +49,7 @@ async function eventually(fn, timeoutMs = 10_000) {
 
 const fixture = await startFixtureSite();
 const stub = await startStubServer({ pingMs: 2_000 });
-const userDataDir = mkdtempSync(path.join(tmpdir(), "penguin-ext-e2e-"));
+const userDataDir = mkdtempSync(path.join(tmpdir(), "wafh-ext-e2e-"));
 const context = await chromium.launchPersistentContext(userDataDir, {
   headless: false,
   viewport: null,
@@ -137,7 +137,7 @@ try {
   }));
   check(
     "the manifest's name and description come from _locales, in English",
-    listing.name === "PenguinHarness Browser" &&
+    listing.name === "WAF Harness Browser" &&
       listing.description !== "" &&
       !HAN.test(listing.description),
     listing.description,
@@ -191,11 +191,11 @@ try {
   );
   const upgrade = stub.state.upgrades.find((u) => u.status === 101);
   check(
-    "the socket offers penguin-browser.1 and the token as subprotocols, with no token in the URL",
+    "the socket offers wafh-browser.1 and the token as subprotocols, with no token in the URL",
     upgrade !== undefined &&
       upgrade.url === "/api/builtin-browser/extension/ws" &&
       upgrade.origin === `chrome-extension://${extensionId}` &&
-      upgrade.protocols[0] === "penguin-browser.1" &&
+      upgrade.protocols[0] === "wafh-browser.1" &&
       /^token\.[A-Za-z0-9_-]{43}$/.test(upgrade.protocols[1] ?? ""),
     JSON.stringify(upgrade?.protocols.map((p) => p.slice(0, 12))),
   );
@@ -210,7 +210,7 @@ try {
     JSON.stringify(hello),
   );
 
-  // --- open-tab into the Penguin group ---------------------------------------------------------
+  // --- open-tab into the WAF Harness group ---------------------------------------------------------
   const { tab } = await stub.request({
     op: "open-tab",
     url: `${fixture.origin}/orders`,
@@ -226,8 +226,8 @@ try {
     }, tab.id),
   );
   check(
-    "open-tab puts the tab in the blue Penguin group",
-    group?.title === "Penguin" && group?.color === "blue",
+    "open-tab puts the tab in the blue WAF Harness group",
+    group?.title === "WAF Harness" && group?.color === "blue",
     JSON.stringify(group),
   );
 

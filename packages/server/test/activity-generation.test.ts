@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { abortEvent, requestBegin, requestEnd } from "@prismshadow/penguin-core";
+import { abortEvent, requestBegin, requestEnd } from "@waterford/waf-harness-core";
 import type {
   ActivityDetail,
   ActivityDraft,
@@ -18,7 +18,7 @@ import type { ActivityRuns } from "../src/activities/run-store.js";
 import type { ActivityOutcomes } from "../src/activities/outcomes.js";
 import { ActivityLockService } from "../src/activities/activity-lock.js";
 import type { ServerEvent } from "../src/api/types.js";
-import { wire, type ClassCtx } from "@prismshadow/penguin-core/kernel";
+import { wire, type ClassCtx } from "@waterford/waf-harness-core/kernel";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
 import type { Members, ProjectActivityWork, Projects } from "../src/mechanisms/projects.js";
 import type { Reassembly } from "../src/hmr/capabilities.js";
@@ -383,7 +383,7 @@ describe("activity generation through Harness sessions", () => {
                     ? { media: { images: [{ key: "cover", description: "A blue penguin" }] } }
                     : {
                         audio: {
-                          tracks: [{ key: "voice", description: "Say it", script: "Penguin" }],
+                          tracks: [{ key: "voice", description: "Say it", script: "WAF Harness" }],
                         },
                       }),
                 },
@@ -1030,7 +1030,7 @@ describe("activity generation through Harness sessions", () => {
       language: "en-US",
       assetKey: "voice",
       type: "audio",
-      text: "Penguin",
+      text: "WAF Harness",
     });
     const before = (await (await f.client.get(f.endpoint)).json()) as ActivityDetail;
     const beforeAsset = before.draft.mediaPlan!.manifest.assets["en-US"]![0]!;
@@ -2035,7 +2035,7 @@ describe("activity generation through Harness sessions", () => {
     const release = deferred();
     const rename = fs.rename.bind(fs);
     vi.spyOn(fs, "rename").mockImplementation(async (from, to) => {
-      if (String(to).endsWith("penguin.json")) {
+      if (String(to).endsWith("wafh.json")) {
         entered.resolve();
         await release.promise;
       }
@@ -2363,7 +2363,7 @@ describe("activity generation through Harness sessions", () => {
       assetKey: "voice",
       type: "audio",
       text: "",
-      translation: { from: "Penguin", languageName: "Romanian" },
+      translation: { from: "WAF Harness", languageName: "Romanian" },
     });
     await waitFor(() => f.prompts.some((prompt) => prompt.includes("into Romanian")));
     const done = await f.finish(run);
@@ -2375,7 +2375,7 @@ describe("activity generation through Harness sessions", () => {
     const after = (await (await f.client.get(f.endpoint)).json()) as ActivityDetail;
     expect(after.draft.mediaPlan!.manifest.assets["ro-RO"]![0]).toMatchObject({
       script: "Hello there.",
-      translatedFrom: "Penguin",
+      translatedFrom: "WAF Harness",
     });
     // The rest of the plan is untouched.
     expect(after.draft.mediaPlan!.manifest.assets["en-US"]).toEqual(

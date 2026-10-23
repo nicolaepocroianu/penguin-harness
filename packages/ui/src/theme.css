@@ -2,9 +2,9 @@
  * The theme foundation every consumer imports right after `@import "tailwindcss"`:
  *
  *   @import "tailwindcss";
- *   @import "@prismshadow/penguin-ui/theme.css";
- *   @import "@prismshadow/penguin-ui/themes/github.css";   (then modern.css, geek.css)
- *   @import "@prismshadow/penguin-ui/fonts.css";
+ *   @import "@waterford/waf-harness-ui/theme.css";
+ *   @import "@waterford/waf-harness-ui/themes/github.css";   (then modern.css, geek.css)
+ *   @import "@waterford/waf-harness-ui/fonts.css";
  *
  * What lives here is theme-independent: the `dark` variant, the cascade layer order, the bridge
  * from the `--ui-*` token contract (tokens.ts) to Tailwind utilities, the base rules that read

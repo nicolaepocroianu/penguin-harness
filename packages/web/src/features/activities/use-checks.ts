@@ -5,7 +5,7 @@
  * open Checks panel all show one read.
  */
 import { useMemo } from "react";
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import type { ActivityClient } from "./activity-client";
 import {
   checksBadge,

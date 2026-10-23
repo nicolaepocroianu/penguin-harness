@@ -5,7 +5,7 @@
  * row, never passed over in silence.
  */
 import { useRef, useState, type ReactNode } from "react";
-import { GlyphIcon, ICON_SIZE, ICONS } from "@prismshadow/penguin-ui";
+import { GlyphIcon, ICON_SIZE, ICONS } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 
 export interface Clip {

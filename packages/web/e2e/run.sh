@@ -56,8 +56,8 @@ wait_for_server() {
 if [ "${SKIP_BUILD:-0}" != "1" ]; then
   echo "== build web/server and dependencies =="
   (cd "$ROOT" \
-    && pnpm --filter @prismshadow/penguin-server... \
-      --filter @prismshadow/penguin-web... -r build)
+    && pnpm --filter @waterford/waf-harness-server... \
+      --filter @waterford/waf-harness-web... -r build)
 fi
 
 mkdir -p "$LOGS"
@@ -68,11 +68,11 @@ MOCK_PID=$!
 wait_for_server "$MOCK_PID" "$MOCK_URL/" 0
 
 echo "== start server =="
-# PENGUIN_SEED_ADMIN_PASSWORD pins the otherwise-random seeded admin password to the
+# WAFH_SEED_ADMIN_PASSWORD pins the otherwise-random seeded admin password to the
 # constant the specs use (ADMIN_PASSWORD in auth.mjs).
-PENGUIN_WAF_AUTO_PREPARE=0 PENGUIN_HOME="$DATA" PORT=$SRV_PORT HOST=127.0.0.1 PENGUIN_WEB_DB="$DATA/web.db" \
-  PENGUIN_WEB_DIST="$ROOT/packages/web/dist" \
-  PENGUIN_SEED_ADMIN_PASSWORD=penguin-2026 \
+WAFH_WAF_AUTO_PREPARE=0 WAFH_HOME="$DATA" PORT=$SRV_PORT HOST=127.0.0.1 WAFH_WEB_DB="$DATA/web.db" \
+  WAFH_WEB_DIST="$ROOT/packages/web/dist" \
+  WAFH_SEED_ADMIN_PASSWORD=wafh-2026 \
   node "$ROOT/packages/server/dist/index.js" >"$LOGS/server.log" 2>&1 &
 SRV_PID=$!
 

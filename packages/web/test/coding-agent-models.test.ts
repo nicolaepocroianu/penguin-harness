@@ -7,7 +7,7 @@ import {
 import { visibleChatModels } from "../src/features/models/model-grouping";
 
 describe("codingAgentLogo", () => {
-  it("uses the vendor's logo where Penguin has one, else the agent's own letter tile", () => {
+  it("uses the vendor's logo where WAF Harness has one, else the agent's own letter tile", () => {
     expect(codingAgentLogo("codex", "Codex CLI")).toBe("openai");
     expect(codingAgentLogo("opencode", "OpenCode")).toBe("OpenCode");
   });

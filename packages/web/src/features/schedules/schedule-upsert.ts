@@ -8,7 +8,7 @@ import type {
   ModelRefDto,
   ScheduleItem,
   ScheduleUpsertRequest,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 /**
  * Stored schedule fields → a model reference. The DTO types the two fields independently, so

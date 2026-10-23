@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * `pnpm link:cli` (run by `pnpm build`): links this directory's package globally, so pnpm puts
- * its `penguin` and `penguin-hmr` on PATH with its own shims (see launch.mjs). It never fails
+ * its `wafh` and `wafh-hmr` on PATH with its own shims (see launch.mjs). It never fails
  * the build.
  *
  * First it removes links of packages/cli itself that an earlier `link:cli` left on PATH: they run
@@ -35,7 +35,7 @@ function isOldLink(file) {
 }
 
 for (const dir of new Set((process.env.PATH ?? "").split(path.delimiter).filter(Boolean))) {
-  for (const name of ["penguin", "penguin-hmr"].flatMap((n) => [n, `${n}.cmd`, `${n}.ps1`])) {
+  for (const name of ["wafh", "wafh-hmr"].flatMap((n) => [n, `${n}.cmd`, `${n}.ps1`])) {
     const file = path.join(dir, name);
     if (!isOldLink(file)) continue;
     fs.rmSync(file);
@@ -50,5 +50,5 @@ const added = /\.[cm]?js$/.test(pnpm)
   ? spawnSync(process.execPath, [pnpm, ...args], { stdio: "inherit" })
   : spawnSync(pnpm, args, { stdio: "inherit" });
 if (added.status !== 0) {
-  console.error("[link:cli] skipped the global penguin link (a first link needs `pnpm setup`).");
+  console.error("[link:cli] skipped the global wafh link (a first link needs `pnpm setup`).");
 }

@@ -14,11 +14,11 @@
  * A line inside another fence is never read as an opener: a reply that shows a2ui syntax inside
  * a Markdown example prints the example as written.
  *
- * No language is passed to the fallback. `PENGUIN_LANG` defaults to English whatever the user
+ * No language is passed to the fallback. `WAFH_LANG` defaults to English whatever the user
  * writes in, and the fallback's few labels sit inside the reply, so they follow the reply's own
  * language.
  */
-import { toFallbackMarkdown } from "@prismshadow/penguin-core/a2ui";
+import { toFallbackMarkdown } from "@waterford/waf-harness-core/a2ui";
 
 /** An open fence: its character and run length, which a closing line must match or exceed. */
 interface Fence {

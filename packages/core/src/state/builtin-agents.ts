@@ -1,5 +1,5 @@
 /**
- * Preset content for builtin Agents; the plugin library lives in @prismshadow/penguin-plugins
+ * Preset content for builtin Agents; the plugin library lives in @waterford/waf-harness-plugins
  * (the library files are read live when building the preset).
  *
  * - Every Project comes with three builtin Agents. `default_agent` (the General Agent, the
@@ -14,7 +14,7 @@
  *   the WAF authoring plugin, which is `preinstall: false` so no other Agent carries it, and
  *   its AGENTS.md holds the rules every stage run shares. A module run still stages the skills
  *   it reads into its workspace, because a coding agent never sees an Agent's installed Skills.
- *   The default Project also includes penguin_support and its support workbench. Other
+ *   The default Project also includes wafh_support and its support workbench. Other
  *   dedicated capabilities (creating an Agent, optimizing an Agent, etc.) are carried by Skills rather than dedicated builtin Agents.
  * - The preset carries no AGENTS.md: the default AGENTS.md is empty, with delegation and task
  *   conventions living in the default template's Suggested Workflows section.
@@ -29,7 +29,7 @@ import {
   MEDIA_AGENT_ID,
 } from "./paths.js";
 
-export const SUPPORT_AGENT_ID = "penguin_support";
+export const SUPPORT_AGENT_ID = "wafh_support";
 
 /** The set of Project builtin Agent ids (supplied along with the Project, cannot be deleted from Web). */
 export const BUILTIN_AGENT_IDS: readonly string[] = [
@@ -88,7 +88,7 @@ You author WAF learning activities for children aged 3 to 8, one stage per Sessi
  * created; an existing Agent is never overwritten). default_agent installs the library's
  * preinstalled plugins and has no preset AGENTS.md; media_agent installs none and gets
  * MEDIA_AGENT_MD; activity_agent installs the WAF authoring plugin and gets ACTIVITY_AGENT_MD;
- * the default Project's penguin_support installs the penguin-support plugin.
+ * the default Project's wafh_support installs the wafh-support plugin.
  */
 export function builtinProjectAgentPresets(
   projectId = DEFAULT_PROJECT_ID,
@@ -123,16 +123,15 @@ export function builtinProjectAgentPresets(
     },
   ];
   if (projectId === DEFAULT_PROJECT_ID) {
-    const support = libraryPlugin("penguin-support");
-    if (!support)
-      throw new Error("The built-in penguin-support plugin is missing from the library.");
+    const support = libraryPlugin("wafh-support");
+    if (!support) throw new Error("The built-in wafh-support plugin is missing from the library.");
     presets.push({
       agentId: SUPPORT_AGENT_ID,
       preset: {
-        name: "PenguinHarness Support",
+        name: "WAF Harness Support",
         description:
           "Product support with questions, follow-ups and answers grounded in the official docs and source code.",
-        agentsMd: "Read and follow the penguin-support Skill for every support question.\n",
+        agentsMd: "Read and follow the wafh-support Skill for every support question.\n",
         plugins: [support],
       },
     });

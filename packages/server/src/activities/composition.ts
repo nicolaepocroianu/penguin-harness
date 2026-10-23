@@ -4,15 +4,15 @@
  * watches it in the studio before anything is recorded.
  *
  * The page is agent-written, so everything here is about keeping it small and closed: it is
- * built from a Penguin template whose content policy forbids the network, it may use only the
- * files staged beside it (the scene's images, the vendored GSAP build and Penguin's bridge
+ * built from a WAF Harness template whose content policy forbids the network, it may use only the
+ * files staged beside it (the scene's images, the vendored GSAP build and WAF Harness's bridge
  * script), and it is served only on the preview origin (see composition-service.ts). The
  * checks below are static; the content policy and the preview origin are what hold at runtime.
  */
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
-import type { Opaque } from "@prismshadow/penguin-core/kernel";
+import type { Opaque } from "@waterford/waf-harness-core/kernel";
 import { HttpError } from "../http/errors.js";
 import { contentRevision, type ActivityDetail } from "./domain.js";
 import type { MediaAsset } from "./media.js";
@@ -31,7 +31,7 @@ export const COMPOSITION_FRAMES_FILE = "frames.json";
 export const COMPOSITION_INPUT_FILE = "composition-input.json";
 export const COMPOSITION_TEMPLATE_FILE = "composition-template.html";
 export const COMPOSITION_GSAP_FILE = "gsap.min.js";
-export const COMPOSITION_BRIDGE_FILE = "penguin-composition.js";
+export const COMPOSITION_BRIDGE_FILE = "wafh-composition.js";
 export const COMPOSITION_IMAGE_DIR = "images";
 export const COMPOSITION_MAX_BYTES = 512 * 1024;
 export const COMPOSITION_FRAMES_MAX_BYTES = 64 * 1024;
@@ -217,7 +217,7 @@ export function compositionInput(
   };
 }
 
-/** The Penguin template the agent writes its page from, sized to the canvas. */
+/** The WAF Harness template the agent writes its page from, sized to the canvas. */
 export function compositionTemplate(width: number, height: number): string {
   return `<!doctype html>
 <html lang="en">
@@ -249,7 +249,7 @@ export function compositionTemplate(width: number, height: number): string {
       <!-- The frames go here: elements positioned inside the stage, using images/ files. -->
     </div>
     <script>
-      // One paused timeline drives everything the page shows. Penguin plays and records it.
+      // One paused timeline drives everything the page shows. WAF Harness plays and records it.
       const timeline = gsap.timeline({ paused: true });
       // timeline.to(...), timeline.from(...), one section per frame of frames.json.
       window.__composition.timeline = timeline;
@@ -260,7 +260,7 @@ export function compositionTemplate(width: number, height: number): string {
 }
 
 /**
- * Penguin's bridge, loaded by every composition: it provides the `window.__composition`
+ * WAF Harness's bridge, loaded by every composition: it provides the `window.__composition`
  * contract (`duration`, `ready`, `timeline`), stamps the stage's `data-duration` once the page
  * has loaded, and lets the studio play, pause and restart the timeline by message. It is
  * served from here, never from the run's workspace, so the agent cannot change it.
@@ -288,7 +288,7 @@ export const COMPOSITION_BRIDGE = `(function () {
     var timeline = timelineOf(composition);
     window.parent.postMessage(
       {
-        source: "penguin-composition",
+        source: "wafh-composition",
         state: state,
         duration: composition ? composition.duration : 0,
         time: timeline ? timeline.time() : 0,
@@ -313,7 +313,7 @@ export const COMPOSITION_BRIDGE = `(function () {
   window.addEventListener("message", function (event) {
     if (event.source !== window.parent) return;
     var data = event.data;
-    if (!data || data.source !== "penguin-studio") return;
+    if (!data || data.source !== "wafh-studio") return;
     var timeline = timelineOf(current());
     if (!timeline) return;
     if (data.action === "play") {

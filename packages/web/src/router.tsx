@@ -23,7 +23,7 @@ import {
   createMemoryRouter,
   createRoutesFromElements,
 } from "react-router";
-import { releaseBootWallpaper } from "@prismshadow/penguin-ui/boot";
+import { releaseBootWallpaper } from "@waterford/waf-harness-ui/boot";
 import { NavigationGuard } from "./lib/unsaved/navigation-guard";
 import { useAuth } from "./state/auth";
 import { useRuntimeLanguages } from "./features/chat/use-runtime-languages";

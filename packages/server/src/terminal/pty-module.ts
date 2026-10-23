@@ -13,7 +13,7 @@
  *
  * 1. This module's own graph — the packaged server, whose node-pty was installed with it.
  * 2. The PROGRAM this process was started from (`process.argv[1]`): a pushed platform runs
- *    inside an installed release (`<program>/lib/dist/penguin-hmr.js`), and that release's
+ *    inside an installed release (`<program>/lib/dist/wafh-hmr.js`), and that release's
  *    `lib/node_modules/node-pty` was published for this machine's own platform. This is
  *    what makes a build pushed from another kind of machine — a Mac installing on Linux, an
  *    x64 box installing on arm64 — open terminals at all.

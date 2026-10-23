@@ -11,9 +11,9 @@
  * warns about memory a small warning mark — each named in the tab's tooltip.
  */
 import { useState } from "react";
-import type { BuiltinBrowserTab } from "@prismshadow/penguin-server/api";
-import { Dot, GlyphIcon, ICONS, ICON_SIZE, PanelTabs, Spinner } from "@prismshadow/penguin-ui";
-import type { PanelTabItem } from "@prismshadow/penguin-ui";
+import type { BuiltinBrowserTab } from "@waterford/waf-harness-server/api";
+import { Dot, GlyphIcon, ICONS, ICON_SIZE, PanelTabs, Spinner } from "@waterford/waf-harness-ui";
+import type { PanelTabItem } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { faviconSrc, isBlankUrl, tabLabel } from "./address";
 import { formatMemory } from "./load";

@@ -140,7 +140,7 @@ describe("the machine socket relay", () => {
     const target = {
       agent: new http.Agent(),
       port: m.port,
-      cookie: "penguin_session=x",
+      cookie: "wafh_session=x",
       session: 1,
     };
 
@@ -168,7 +168,7 @@ describe("the machine socket relay", () => {
     const relay = new MachineSocketRelay((l) => lines.push(l), { openTimeoutMs: 150 });
     const res = await relay.stream(
       "m1",
-      { agent: new http.Agent(), port: m.port, cookie: "penguin_session=x", session: 1 },
+      { agent: new http.Agent(), port: m.port, cookie: "wafh_session=x", session: 1 },
       { path: "/api/events", lastEventId: null },
     );
     expect(res.status).toBe(200);
@@ -191,7 +191,7 @@ describe("the machine socket relay", () => {
       });
     const lines: string[] = [];
     const relay = new MachineSocketRelay((l) => lines.push(l), { dialTimeoutMs: 100 });
-    const target = { agent: new http.Agent(), port, cookie: "penguin_session=x", session: 1 };
+    const target = { agent: new http.Agent(), port, cookie: "wafh_session=x", session: 1 };
 
     const started = Date.now();
     const first = await relay.stream("m1", target, { path: "/api/events", lastEventId: null });
@@ -217,7 +217,7 @@ describe("the machine socket relay", () => {
     const port = (server.address() as { port: number }).port;
     stop = () => new Promise<void>((resolve) => server.close(() => resolve()));
     const relay = new MachineSocketRelay(() => undefined);
-    const target = { agent: new http.Agent(), port, cookie: "penguin_session=x", session: 1 };
+    const target = { agent: new http.Agent(), port, cookie: "wafh_session=x", session: 1 };
 
     const first = await relay.stream("m1", target, { path: "/api/events", lastEventId: null });
     expect(first.status).toBe(502);
@@ -232,7 +232,7 @@ describe("the machine socket relay", () => {
     stop = m.close;
     const lines: string[] = [];
     const relay = new MachineSocketRelay((l) => lines.push(l));
-    const base = { agent: new http.Agent(), port: m.port, cookie: "penguin_session=x" };
+    const base = { agent: new http.Agent(), port: m.port, cookie: "wafh_session=x" };
 
     const first = await relay.stream(
       "m1",

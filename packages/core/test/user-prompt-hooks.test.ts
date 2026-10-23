@@ -181,7 +181,7 @@ describe("runUserPromptHooks", () => {
 describe("Session user-prompt hooks", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-user-prompt-"));
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-user-prompt-"));
   });
   afterEach(async () => {
     await rmEventually(dir);

@@ -1,11 +1,11 @@
 {
-  "name": "@penguinharness/sandbox-bwrap",
+  "name": "@waf-harness/sandbox-bwrap",
   "version": "0.2.3",
   "type": "module",
-  "description": "Bubblewrap sandbox backend for PenguinHarness: filesystem confinement plus network isolation and path masking.",
+  "description": "Bubblewrap sandbox backend for WAF Harness: filesystem confinement plus network isolation and path masking.",
   "keywords": [
-    "penguin-plugin",
-    "penguinharness",
+    "wafh-plugin",
+    "waf-harness",
     "sandbox",
     "linux",
     "bubblewrap",
@@ -50,11 +50,11 @@
     "build": "node ../../scripts/vendor-bwrap.mjs && node ../../scripts/gen-ifaces.mjs --project tsconfig.json --out ifaces.json && tsup"
   },
   "devDependencies": {
-    "@prismshadow/penguin-core": "workspace:*",
+    "@waterford/waf-harness-core": "workspace:*",
     "tsup": "^8.3.0",
     "vitest": "^3.2.6"
   },
-  "penguin": {
+  "wafh": {
     "short_description": "Linux: confine file writes, cut the network, mask paths.",
     "category": "sandbox",
     "icon": "icon.svg",

@@ -14,7 +14,7 @@ export interface AgentServerDefinition {
   /** Extra environment merged over the sandboxed base env. */
   env?: Record<string, string>;
   /**
-   * Set on a definition Penguin manages itself (Models → Built-in), naming which built-in it
+   * Set on a definition WAF Harness manages itself (Models → Built-in), naming which built-in it
    * is; such a definition is written only by that service, never through the Local CLI routes.
    */
   builtin?: string;

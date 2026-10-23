@@ -21,7 +21,7 @@ import { createHash } from "node:crypto";
  * outlines a tap target when the App asks. Loom found the App through `document.referrer`; this page is served with no
  * referrer, so the App's origin arrives signed in the page's configuration instead, and a
  * page with none reports nothing. What the page needs to know arrives as JSON in
- * `#penguin-sandbox`, not as query parameters, because the page is the server's to write.
+ * `#wafh-sandbox`, not as query parameters, because the page is the server's to write.
  */
 export const PLAYER_SOURCE = String.raw`
 const globals = require('@waf-framework/src/common/globals');
@@ -35,7 +35,7 @@ const PauseController = require('@waf-framework/src/common/pauseController');
 const Services = require('@waf-framework/src/common/Services');
 const urlManager = require('@waf-framework/src/common/urlManager');
 
-const sandbox = JSON.parse(document.getElementById('penguin-sandbox').textContent);
+const sandbox = JSON.parse(document.getElementById('wafh-sandbox').textContent);
 
 Logging.setTransport(new SandboxTransport());
 
@@ -72,8 +72,8 @@ document.body.addEventListener('keyup', (event) => {
 // and to nobody else. The App may ask for one tap target to be outlined, and only the App.
 const ACTIVITY_STATE_EVENT = 'waf:activity-state-change';
 const ACTIVITY_INTERACTABLES_EVENT = 'waf:activity-interactables-change';
-const STATE_MESSAGE = 'penguin-sandbox:activity-state';
-const HIGHLIGHT_MESSAGE = 'penguin-sandbox:highlight-interactable';
+const STATE_MESSAGE = 'wafh-sandbox:activity-state';
+const HIGHLIGHT_MESSAGE = 'wafh-sandbox:highlight-interactable';
 let latestActivityState = null;
 
 function currentInteractables() {
@@ -116,7 +116,7 @@ document.addEventListener(
 // dispatched on the activity's root without bubbling, so it is caught on the way down. Only
 // the kind, the key and what happened go out; nothing else of the record does.
 const ACTIVITY_MEDIA_EVENT = 'waf:activity-media-change';
-const MEDIA_MESSAGE = 'penguin-sandbox:activity-media';
+const MEDIA_MESSAGE = 'wafh-sandbox:activity-media';
 document.addEventListener(
     ACTIVITY_MEDIA_EVENT,
     (event) => {
@@ -145,8 +145,8 @@ document.addEventListener(
 // Picking: while the App has it switched on, a click chooses an element instead of playing
 // the activity. The page reports the nearest element with an id -- generated modules give
 // content elements their asset key as the id -- and the tap target it belongs to, if any.
-const PICK_MODE_MESSAGE = 'penguin-sandbox:pick-mode';
-const PICKED_MESSAGE = 'penguin-sandbox:picked';
+const PICK_MODE_MESSAGE = 'wafh-sandbox:pick-mode';
+const PICKED_MESSAGE = 'wafh-sandbox:picked';
 let picking = false;
 
 function pickFromClick(event) {
@@ -205,17 +205,17 @@ window.addEventListener('message', (event) => {
 });
 
 function ensureHighlightStyle() {
-    if (document.getElementById('penguin-highlight-style')) return;
+    if (document.getElementById('wafh-highlight-style')) return;
     const style = document.createElement('style');
-    style.id = 'penguin-highlight-style';
+    style.id = 'wafh-highlight-style';
     style.textContent =
-        '.penguin-highlight { outline: 3px solid #1a73e8 !important; outline-offset: 3px !important; }';
+        '.waf-harness-highlight { outline: 3px solid #1a73e8 !important; outline-offset: 3px !important; }';
     (document.head || document.documentElement).appendChild(style);
 }
 
 function clearInteractableHighlight() {
-    const outlined = document.querySelectorAll('.penguin-highlight');
-    for (let i = 0; i < outlined.length; i++) outlined[i].classList.remove('penguin-highlight');
+    const outlined = document.querySelectorAll('.waf-harness-highlight');
+    for (let i = 0; i < outlined.length; i++) outlined[i].classList.remove('wafh-highlight');
 }
 
 function highlightInteractable(id) {
@@ -228,7 +228,7 @@ function highlightInteractable(id) {
         return;
     }
     const targets = document.querySelectorAll('[data-interactable-id="' + escaped + '"]');
-    for (let i = 0; i < targets.length; i++) targets[i].classList.add('penguin-highlight');
+    for (let i = 0; i < targets.length; i++) targets[i].classList.add('wafh-highlight');
 }
 
 pubSub.on(Activity.Events.Started, hideLoading);
@@ -277,9 +277,9 @@ function startPlayer() {
                 refNum: sandbox.refNum,
                 ...(sandbox.resolution ? { resolution: sandbox.resolution } : {}),
             },
-            jwt: 'penguin-sandbox',
+            jwt: 'wafh-sandbox',
             services: {
-                apiKey: 'penguin-sandbox',
+                apiKey: 'wafh-sandbox',
                 // The framework joins hostname and path as text, so a host carrying the
                 // base path puts every API call under it.
                 hostname: window.location.host + base.replace(/\/$/, ''),
@@ -289,9 +289,9 @@ function startPlayer() {
             student: {
                 name: 'Developer',
                 languageCode: sandbox.languageCode,
-                application: 'penguin-sandbox',
-                organization: 'penguin-sandbox',
-                id: 'penguin-student',
+                application: 'wafh-sandbox',
+                organization: 'wafh-sandbox',
+                id: 'wafh-student',
             },
             user: { languageCode: sandbox.languageCode },
         },
@@ -370,7 +370,7 @@ const fs = require('fs');
 const path = require('path');
 const { createRequire } = require('module');
 
-const job = JSON.parse(process.env.PENGUIN_PLAYER_BUILD);
+const job = JSON.parse(process.env.WAFH_PLAYER_BUILD);
 const frameworkRoot = path.resolve(job.frameworkRoot);
 const outputRoot = path.resolve(job.outputRoot);
 const frameworkRequire = createRequire(path.join(frameworkRoot, 'package.json'));
@@ -417,7 +417,7 @@ webpack({
 
 /**
  * What a built player was built from. A player is rebuilt when either changes: a new
- * framework version, or a new player entry in a new Penguin.
+ * framework version, or a new player entry in a new WAF Harness.
  */
 export function playerStamp(frameworkVersion: string): string {
   return createHash("sha256")
@@ -527,7 +527,7 @@ export function playerPage(
         This preview link has expired, so its pictures and sounds can no longer load. Reload the preview to keep playing.
       </div>
     </main>
-    <script type="application/json" id="penguin-sandbox">${json}</script>
+    <script type="application/json" id="wafh-sandbox">${json}</script>
     <script src="${base}player/player.js"></script>
   </body>
 </html>

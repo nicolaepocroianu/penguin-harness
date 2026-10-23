@@ -18,9 +18,9 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
-import type { SpawnConfiner } from "@prismshadow/penguin-core";
-import { wire } from "@prismshadow/penguin-core/kernel";
-import type { SandboxProvider } from "@prismshadow/penguin-core/plugin";
+import type { SpawnConfiner } from "@waterford/waf-harness-core";
+import { wire } from "@waterford/waf-harness-core/kernel";
+import type { SandboxProvider } from "@waterford/waf-harness-core/plugin";
 import { spawnDeployProcess, type DeployProcess } from "../src/activities/deploy-process.js";
 import { defaultDeploySettings } from "../src/activities/deploy-settings.js";
 import {
@@ -39,8 +39,8 @@ import { SandboxService, type Sandbox } from "../src/sandbox/service.js";
 import { FakeClones } from "./fake-clones.js";
 
 /** A variable of this server's that a build must not see, named as the harness's own are. */
-const SECRET = "PENGUIN_PREVIEW_BUILD_PROBE";
-/** One that is not the harness's: a build sees only what it needs, not all but PENGUIN_*. */
+const SECRET = "WAFH_PREVIEW_BUILD_PROBE";
+/** One that is not the harness's: a build sees only what it needs, not all but WAFH_*. */
 const TOKEN = "PREVIEW_BUILD_PROBE_TOKEN";
 
 /**
@@ -96,7 +96,7 @@ async function layOutSass(home: string, writes: Record<string, string> = {}): Pr
 }
 
 /**
- * A run's module (a stylesheet and an `npm run build` that probes) beside Penguin's root, with
+ * A run's module (a stylesheet and an `npm run build` that probes) beside WAF Harness's root, with
  * the pinned Sass already installed there as its stand-in, and the packages every run shares
  * linked in as the module's node_modules. Made under `parent`. With `sassInstall`, the pinned
  * Sass is not installed yet, and that is the npm that installs it.
@@ -109,7 +109,7 @@ async function runModule(
     sassInstall?: DeployProcess["run"];
   } = {},
 ) {
-  const root = await fs.mkdtemp(path.join(options.parent ?? os.tmpdir(), "penguin-run-build-"));
+  const root = await fs.mkdtemp(path.join(options.parent ?? os.tmpdir(), "wafh-run-build-"));
   roots.push(root);
   const module = path.join(root, "activity-runs", "run_1", "module");
   const shared = path.join(root, "module-packages-cache", "set", "node_modules");
@@ -262,7 +262,7 @@ console.log("npm secret=" + (process.env.${SECRET} ?? "none") + " token=" + (pro
 });
 
 describe("the module builder the server wires", () => {
-  /** The server's module builder over Penguin's root, with the admin switch and sandbox given. */
+  /** The server's module builder over WAF Harness's root, with the admin switch and sandbox given. */
   function wired(
     root: string,
     confined: () => boolean,
@@ -325,7 +325,7 @@ async function hostSandbox(): Promise<SandboxService | null> {
   } | null;
   const provider = await plugin?.loadDshAdaptor().catch(() => null);
   if (!provider) return null;
-  const probeRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-run-build-probe-"));
+  const probeRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-run-build-probe-"));
   try {
     provider.confine(["node"], { mode: "workspace-write", workspaceRoot: probeRoot });
   } catch {

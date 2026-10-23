@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { PluginConfigEntry, PluginConfigField } from "@prismshadow/penguin-server/api";
+import type { PluginConfigEntry, PluginConfigField } from "@waterford/waf-harness-server/api";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { ConfigField } from "../src/features/settings/plugin-config-field";

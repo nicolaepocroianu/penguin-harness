@@ -16,7 +16,7 @@ import {
   Modal,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 
 export function AddAgentModal({
   open,

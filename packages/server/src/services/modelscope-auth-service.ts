@@ -16,8 +16,8 @@
  * immediately before each upstream request, silently rotating the access token near expiry.
  */
 import { randomBytes } from "node:crypto";
-import { userAgent } from "@prismshadow/penguin-core";
-import { Interface, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
+import { userAgent } from "@waterford/waf-harness-core";
+import { Interface, Module, Provide, Use } from "@waterford/waf-harness-core/kernel";
 import { MODELSCOPE_PROVIDER_ID } from "../model-catalog/catalog.js";
 import { HttpError } from "../http/errors.js";
 import { normalizeModelScopeBridgeUrl } from "../config.js";
@@ -30,7 +30,7 @@ import type {
 import type { ModelScopeAuthFlowStatusResponse } from "../api/types.js";
 
 /** Recorded by the bridge alongside the flow; it identifies the App but does not gate it. */
-export const MODELSCOPE_BRIDGE_CLIENT_ID = "penguin-harness";
+export const MODELSCOPE_BRIDGE_CLIENT_ID = "waf-harness";
 
 const FLOW_TTL_MS = 10 * 60 * 1000;
 const MAX_FLOWS_PER_OWNER = 8;

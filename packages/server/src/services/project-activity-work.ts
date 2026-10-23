@@ -1,4 +1,4 @@
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { ProjectActivityWork, Projects } from "../mechanisms/projects.js";
 import { HttpError } from "../http/errors.js";
 

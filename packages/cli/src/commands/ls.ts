@@ -1,7 +1,7 @@
 /**
- * `penguin session ls` — list the project's sessions.
+ * `wafh session ls` — list the project's sessions.
  *
- *   penguin session ls [--project-id <id>] [--agent-id <id>] [-a|--all] [--days <n>]
+ *   wafh session ls [--project-id <id>] [--agent-id <id>] [-a|--all] [--days <n>]
  *                      [--json] [--server <url>]
  *
  * All agents of the project unless `--agent-id` narrows it (the API lists per agent, so
@@ -11,10 +11,10 @@
  * `--days <n>` keeps sessions whose lastActiveAt falls within the last n calendar days
  * (today is day 1, so `--days 2` covers yesterday and today — the `cost --days`
  * calendar semantics); it combines with `-a` and `--json`.
- * Docs: /docs/cli § "penguin session ls".
+ * Docs: /docs/cli § "wafh session ls".
  */
 import type { Command } from "commander";
-import type { SessionInfo } from "@prismshadow/penguin-server/api";
+import type { SessionInfo } from "@waterford/waf-harness-server/api";
 import {
   resolveAgentId,
   resolveConnection,
@@ -26,7 +26,7 @@ import { listAgents, listAgentSessions } from "../server-session.js";
 import { relativeTime, renderTable } from "../table.js";
 import type { Messages } from "../i18n.js";
 
-/** Registers `ls` under the `penguin session` group (see session.ts). */
+/** Registers `ls` under the `wafh session` group (see session.ts). */
 export function registerLsCommand(session: Command, t: Messages): void {
   session
     .command("ls")

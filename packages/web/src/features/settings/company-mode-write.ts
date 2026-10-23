@@ -10,7 +10,7 @@
 import type {
   ServerSettingsResponse,
   ServerSettingsUpdateRequest,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 /** What a flip settled on: the stored value now, or the value to revert to and why. */
 export type CompanyModeWriteResult =

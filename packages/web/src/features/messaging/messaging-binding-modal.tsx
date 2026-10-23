@@ -15,8 +15,8 @@
  * asks about the other's. For a conversation on a machine out of reach the editor reads nothing
  * and the dialog stays open on the machine's last answer, read-only, with Save disabled.
  */
-import type { MessagingChannel } from "@prismshadow/penguin-server/api";
-import { Button, Modal, useGuardedClose, useUnsavedChanges } from "@prismshadow/penguin-ui";
+import type { MessagingChannel } from "@waterford/waf-harness-server/api";
+import { Button, Modal, useGuardedClose, useUnsavedChanges } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import {
   MessagingBindingBody,

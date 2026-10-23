@@ -25,11 +25,13 @@ async function legacy() {
     path.join(old, "package.json"),
     JSON.stringify({
       name: "Desk",
-      penguin: {
+      wafh: {
         modules: [
           {
             name: "Workflow",
-            requires: { host: { iface: "@prismshadow/penguin-server#WorkflowHost", from: "Host" } },
+            requires: {
+              host: { iface: "@waterford/waf-harness-server#WorkflowHost", from: "Host" },
+            },
           },
         ],
       },
@@ -37,7 +39,7 @@ async function legacy() {
   );
   await fs.writeFile(
     path.join(old, "index.ts"),
-    'import type { WorkflowPackage } from "@prismshadow/penguin-server/plugin"; export default {modules:{Workflow:{}}} satisfies WorkflowPackage;',
+    'import type { WorkflowPackage } from "@waterford/waf-harness-server/plugin"; export default {modules:{Workflow:{}}} satisfies WorkflowPackage;',
   );
   await fs.writeFile(
     path.join(old, "ui/index.html"),

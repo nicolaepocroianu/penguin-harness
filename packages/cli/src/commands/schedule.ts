@@ -1,15 +1,15 @@
 /**
- * `penguin schedule` — list and manage the project's scheduled tasks.
+ * `wafh schedule` — list and manage the project's scheduled tasks.
  *
- *   penguin schedule ls [--project-id <id>] [--agent-id <id>] [--json] [--server <url>]
- *   penguin schedule add <name> --prompt <s> --start-at <ISO|now> [--period <dur>]
+ *   wafh schedule ls [--project-id <id>] [--agent-id <id>] [--json] [--server <url>]
+ *   wafh schedule add <name> --prompt <s> --start-at <ISO|now> [--period <dur>]
  *                    [--end-at <ISO>] [--session-id <id> | --workspace <path>
  *                    [--model-id <id> --provider <p>]] [--disabled]
  *                    [--project-id] [--agent-id] [--json] [--server]
- *   penguin schedule update <name> [--prompt] [--start-at] [--period] [--end-at]
+ *   wafh schedule update <name> [--prompt] [--start-at] [--period] [--end-at]
  *                    [--session-id | --workspace [--model-id --provider]]
  *                    [--enable|--disable] [--project-id] [--agent-id] [--json] [--server]
- *   penguin schedule rm <name> [--project-id] [--agent-id] [--json] [--server]
+ *   wafh schedule rm <name> [--project-id] [--agent-id] [--json] [--server]
  *
  * `ls`: schedules live per agent (GET .../agents/:a/schedules); without `--agent-id`
  * the command iterates every agent of the project. Columns: agent, name, enabled,
@@ -31,10 +31,10 @@
  * and switching target kinds clears the other kind's fields. `rm` deletes without
  * prompting (agents drive this; the server's owner authorization still applies).
  * `--start-at now` means the current instant.
- * Docs: /docs/cli § "penguin schedule".
+ * Docs: /docs/cli § "wafh schedule".
  */
 import type { Command } from "commander";
-import type { ScheduleItem, SchedulesResponse } from "@prismshadow/penguin-server/api";
+import type { ScheduleItem, SchedulesResponse } from "@waterford/waf-harness-server/api";
 import {
   resolveAgentId,
   resolveConnection,

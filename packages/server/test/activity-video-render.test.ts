@@ -11,7 +11,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestBegin, requestEnd } from "@prismshadow/penguin-core";
+import { requestBegin, requestEnd } from "@waterford/waf-harness-core";
 import type { BrowserLauncher } from "../src/activities/browser-session.js";
 import { compositionTemplate } from "../src/activities/composition.js";
 import type {
@@ -1000,7 +1000,7 @@ describe("recording files", () => {
     const generatedVideo = { runId, sha256: "b".repeat(64) };
     const valid = validateManifest(manifest({ path: `${video}.webm`, generatedVideo }), address);
     expect(valid.assets["en-US"]![0]!.generatedVideo).toEqual(generatedVideo);
-    // The runtime never sees Penguin's provenance.
+    // The runtime never sees WAF Harness's provenance.
     expect(wafManifest(valid).assets["en-US"]![0]).not.toHaveProperty("generatedVideo");
     // A version keeps the recording's bytes.
     // Its captions, when a timeline made them, belong to a version with it.

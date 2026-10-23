@@ -22,7 +22,7 @@
 import { createContext, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { Components, Options } from "react-markdown";
-import { Md } from "@prismshadow/penguin-ui";
+import { Md } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { toneSurface } from "../../lib/tone";
 import {

@@ -5,12 +5,12 @@
  * on "Add new models" and on "Restore defaults". Reference values: nothing reads them when a
  * request is built.
  */
-import type { ModelEntry, ModelRef, ProviderTable } from "@prismshadow/penguin-core";
+import type { ModelEntry, ModelRef, ProviderTable } from "@waterford/waf-harness-core";
 import {
   canonicalClientType,
   sameClientType,
   sameEndpoint,
-} from "@prismshadow/penguin-core/model-connection";
+} from "@waterford/waf-harness-core/model-connection";
 import { MODEL_CATALOG, MODEL_PROVIDERS, providerClientType, providerInfo } from "./catalog.js";
 import type { ModelCatalogEntry } from "./catalog.js";
 

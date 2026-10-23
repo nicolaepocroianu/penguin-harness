@@ -10,7 +10,7 @@
  * Project's). Storage is injectable (work-mode.ts convention: vitest runs in Node with no
  * localStorage) and every read degrades to "no draft" rather than throwing at a dialog open.
  */
-import type { ModelRefDto } from "@prismshadow/penguin-server/api";
+import type { ModelRefDto } from "@waterford/waf-harness-server/api";
 
 /** Minimal storage interface (the subset of localStorage used here); tests inject an in-memory one. */
 export interface DraftStorage {
@@ -40,7 +40,7 @@ export const EMPTY_ORG_DRAFT: OrgCreateDraft = {
 
 /** The draft's storage key. One key per (user, Project); a signed-out browser gets its own bucket. */
 export function orgDraftKey(userId: string | null, projectId: string): string {
-  return `penguin.orgCreateDraft.${userId ?? ""}.${projectId}`;
+  return `wafh.orgCreateDraft.${userId ?? ""}.${projectId}`;
 }
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");

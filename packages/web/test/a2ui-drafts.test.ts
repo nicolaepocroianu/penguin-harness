@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { A2UI_DRAFT_LIMIT, A2UI_DRAFT_MAX_AGE_MS, a2uiDrafts } from "../src/lib/a2ui-drafts";
 import { blockedStorage, stubLocalStorage } from "./helpers/storage";
 
-const PREFIX = "penguin.a2uiDraft.";
+const PREFIX = "wafh.a2uiDraft.";
 const entry = (at: number) => JSON.stringify({ v: 1, at, state: ["a"] });
 
 describe("a2uiDrafts", () => {
@@ -28,7 +28,7 @@ describe("a2uiDrafts", () => {
     for (let i = 0; i < A2UI_DRAFT_LIMIT + 5; i += 1) {
       storage.setItem(`${PREFIX}s1:${i}`, entry(now - (i + 1) * 1000));
     }
-    storage.setItem("penguin.other", "kept");
+    storage.setItem("wafh.other", "kept");
     a2uiDrafts.save("s1:new", ["b"]);
     const kept = [...storage.map.keys()].filter((key) => key.startsWith(PREFIX));
     expect(kept).toHaveLength(A2UI_DRAFT_LIMIT);
@@ -36,7 +36,7 @@ describe("a2uiDrafts", () => {
     // The new entry and the 49 newest seeded ones stay; the six oldest made room.
     expect(kept).toContain(`${PREFIX}s1:48`);
     expect(kept).not.toContain(`${PREFIX}s1:49`);
-    expect(storage.map.get("penguin.other")).toBe("kept");
+    expect(storage.map.get("wafh.other")).toBe("kept");
   });
 
   it("never throws when storage refuses every call", () => {

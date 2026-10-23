@@ -38,9 +38,9 @@ import {
   isContextMenuKey,
   toastSuccess,
   useRowContextMenu,
-} from "@prismshadow/penguin-ui";
-import type { AnchorRect, ContextMenuEventLike } from "@prismshadow/penguin-ui";
-import type { BrowserBackend } from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-ui";
+import type { AnchorRect, ContextMenuEventLike } from "@waterford/waf-harness-ui";
+import type { BrowserBackend } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { STAT_ICONS } from "../../lib/stat-icons";
 import { isDesktopShellWindow } from "../../lib/account-menu";

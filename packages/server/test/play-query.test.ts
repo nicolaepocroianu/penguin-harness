@@ -1,5 +1,5 @@
 /**
- * A play link's query, read with the rules of Loom's dev-sandbox `player.js`, plus Penguin's
+ * A play link's query, read with the rules of Loom's dev-sandbox `player.js`, plus WAF Harness's
  * older `language` and `scene` names.
  */
 import { describe, expect, it } from "vitest";
@@ -52,7 +52,7 @@ describe("a play link's query", () => {
     expect(parsePlayRef(value)).toEqual(expected);
   });
 
-  it("reads Loom's names first, and Penguin's older ones when Loom's are absent", () => {
+  it("reads Loom's names first, and WAF Harness's older ones when Loom's are absent", () => {
     expect(read("languageCode=es-MX&language=ro-RO&startSceneId=a&scene=b")).toMatchObject({
       languageCode: "es-MX",
       startSceneId: "a",

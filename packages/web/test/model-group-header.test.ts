@@ -31,9 +31,9 @@ import { createElement, isValidElement } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ModelsResponse } from "@prismshadow/penguin-server/api";
-import { MODEL_PROVIDERS, providerInfo } from "@prismshadow/penguin-server/model-catalog";
-import type { ModelProviderInfo } from "@prismshadow/penguin-server/model-catalog";
+import type { ModelsResponse } from "@waterford/waf-harness-server/api";
+import { MODEL_PROVIDERS, providerInfo } from "@waterford/waf-harness-server/model-catalog";
+import type { ModelProviderInfo } from "@waterford/waf-harness-server/model-catalog";
 import {
   connectedMenuItems,
   connectionStatus,

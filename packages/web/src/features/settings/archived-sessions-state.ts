@@ -34,7 +34,7 @@ import type {
   ServerEvent,
   SessionInfo,
   SessionStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { SIDEBAR_PAGE_SIZE, activityKeyOf } from "../../lib/session-grouping";

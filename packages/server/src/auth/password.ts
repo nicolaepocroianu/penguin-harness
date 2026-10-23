@@ -1,4 +1,4 @@
-import { Component, Interface } from "@prismshadow/penguin-core/kernel";
+import { Component, Interface } from "@waterford/waf-harness-core/kernel";
 /**
  * Password hashing (slow-hash storage).
  *

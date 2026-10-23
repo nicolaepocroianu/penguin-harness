@@ -23,7 +23,7 @@ import type {
   AgentSummary,
   PluginItem,
   PluginMcpServerItem,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 /**
  * What one Agent has installed, the three lists a plugin is spread over: its skills and its

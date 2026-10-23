@@ -31,8 +31,8 @@ describe("isFileDrag", () => {
     expect(isFileDrag(["text/plain"])).toBe(false);
     expect(isFileDrag(["text/uri-list", "text/html"])).toBe(false);
     // The sidebar's two reorder drags each use a private MIME precisely so nothing else reacts.
-    expect(isFileDrag(["application/x-penguin-session-id"])).toBe(false);
-    expect(isFileDrag(["application/x-penguin-group-key"])).toBe(false);
+    expect(isFileDrag(["application/x-wafh-session-id"])).toBe(false);
+    expect(isFileDrag(["application/x-wafh-group-key"])).toBe(false);
     expect(isFileDrag([])).toBe(false);
   });
 

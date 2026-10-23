@@ -287,7 +287,7 @@ export function Quickstart() {
                       ))}
                     </ol>
                   </div>
-                  <CodeCard code={S.quickstart.web.command} label="penguin web" />
+                  <CodeCard code={S.quickstart.web.command} label="wafh web" />
                 </div>
               ) : (
                 <div className="grid gap-8 p-6 sm:p-8 md:grid-cols-[0.9fr_1.1fr] md:items-center">
@@ -302,7 +302,7 @@ export function Quickstart() {
                       {S.quickstart.localNote}
                     </p>
                   </div>
-                  <CodeCard code={S.quickstart.cli.command} label="penguin" />
+                  <CodeCard code={S.quickstart.cli.command} label="wafh" />
                 </div>
               )}
             </div>

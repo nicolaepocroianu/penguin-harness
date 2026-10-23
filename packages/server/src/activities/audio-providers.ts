@@ -22,7 +22,7 @@ import {
  * Which audio a run can actually produce, and what to say when it cannot.
  *
  * Loom's audio stack has four kinds — speech, music, effects and forced alignment — each
- * with its own provider setting. Local models run in Penguin's native local-audio
+ * with its own provider setting. Local models run in WAF Harness's native local-audio
  * capability. Availability includes the installed runtime and required model package.
  *
  * The part worth having now is honesty about capability. An activity that asks for effects

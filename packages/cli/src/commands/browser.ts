@@ -1,25 +1,25 @@
 /**
- * `penguin browser` — the agent browser, a thin client over /api/builtin-browser in the shape of
+ * `wafh browser` — the agent browser, a thin client over /api/builtin-browser in the shape of
  * GenericAgent's web_scan / web_execute_js tools. The browser is the one the user chose for their
- * agents: the desktop app's built-in browser, or their own Chrome through the PenguinHarness
+ * agents: the desktop app's built-in browser, or their own Chrome through the WAF Harness
  * Browser extension. The CLI never picks it; `status` names it.
  *
- *   penguin browser status | tabs
- *   penguin browser open <url> [--new-tab] | switch <tab-id> | close [<tab-id>]
- *   penguin browser scan [--text] [--max-chars <n>]
- *   penguin browser exec [<script> | -] [--file <f>] [--save <f>] [--no-monitor] [--timeout <s>]
- *   penguin browser click <selector> [--index <n>] | click --at <x>,<y>
- *   penguin browser type <text> [--selector <css>] [--submit]
+ *   wafh browser status | tabs
+ *   wafh browser open <url> [--new-tab] | switch <tab-id> | close [<tab-id>]
+ *   wafh browser scan [--text] [--max-chars <n>]
+ *   wafh browser exec [<script> | -] [--file <f>] [--save <f>] [--no-monitor] [--timeout <s>]
+ *   wafh browser click <selector> [--index <n>] | click --at <x>,<y>
+ *   wafh browser type <text> [--selector <css>] [--submit]
  *     (exec, click and type answer the page's dialogs: alerts accepted, the others dismissed
  *     unless --accept-dialogs)
- *   penguin browser screenshot [-o <file.png>] [--full-page]
- *   penguin browser cdp <Domain.method> [--params <json>]
- *   penguin browser import --list | --from <source-id|browser> [--cookies] [--history] [--domain <d>]...
- *   penguin browser history [<query>] [-n <count>]
+ *   wafh browser screenshot [-o <file.png>] [--full-page]
+ *   wafh browser cdp <Domain.method> [--params <json>]
+ *   wafh browser import --list | --from <source-id|browser> [--cookies] [--history] [--domain <d>]...
+ *   wafh browser history [<query>] [-n <count>]
  *
  * Every command takes `--json` (the response DTO as one line) and `--server`; the commands that
  * act on a page take `--tab <id|active>`, `active` by default. Inside a session,
- * PENGUIN_SESSION_ID travels with every call as `sessionId` — in the body, or the query of a GET
+ * WAFH_SESSION_ID travels with every call as `sessionId` — in the body, or the query of a GET
  * or DELETE. The server acts for the person driving that session, so an agent drives its own
  * user's Chrome, and the app shows which conversation is at work. What is printed is
  * browser-output.ts; an error is one line on stderr, `error: <code>: <message>`, with exit code 1.
@@ -27,7 +27,7 @@
  * The CLI never auto-starts a server for these commands: the built-in browser lives in the
  * desktop app, and the user's Chrome is paired with the server they signed in to, so a server
  * started here would have neither.
- * Docs: /docs/cli § "penguin browser".
+ * Docs: /docs/cli § "wafh browser".
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -42,7 +42,7 @@ import type {
   BuiltinBrowserStatus,
   BuiltinBrowserTab,
   BuiltinBrowserTabsResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   renderCdpResult,
   renderExec,
@@ -184,9 +184,9 @@ function normalizeUrl(raw: string): string {
   return raw.trim();
 }
 
-/** The calling session (PENGUIN_SESSION_ID), for a request body. */
+/** The calling session (WAFH_SESSION_ID), for a request body. */
 function session(): { sessionId?: string } {
-  const id = process.env.PENGUIN_SESSION_ID?.trim();
+  const id = process.env.WAFH_SESSION_ID?.trim();
   return id ? { sessionId: id } : {};
 }
 

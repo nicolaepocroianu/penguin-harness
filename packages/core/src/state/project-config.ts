@@ -281,7 +281,7 @@ export function defaultProjectConfig(): ProjectConfig {
 
 /** The old format (concatenated storage id / string reference) is never migrated: reading it reports a clear error immediately (the product hasn't shipped yet). */
 const OLD_FORMAT_HINT =
-  "No migration since the product hasn't shipped yet: delete this config file and rebuild it with `penguin config model add/default`.";
+  "No migration since the product hasn't shipped yet: delete this config file and rebuild it with `wafh config model add/default`.";
 
 /** Validates the default_model / vision_model fields: must be a { provider, model_id } paired reference. */
 function parseRefField(file: string, name: string, value: unknown): ModelRef | undefined {
@@ -1110,7 +1110,7 @@ export async function setDefaultModel(
   const cfg = await loadProjectConfig(root, projectId);
   if (!getModel(cfg, ref)) {
     throw new Error(
-      `default_model must point to a configured model: ${formatModelRef(ref)} is not in models. Use \`penguin config model list\` to see the configured models.`,
+      `default_model must point to a configured model: ${formatModelRef(ref)} is not in models. Use \`wafh config model list\` to see the configured models.`,
     );
   }
   cfg.default_model = { provider: ref.provider, model_id: ref.model_id };
@@ -1132,7 +1132,7 @@ export async function setVisionModel(
   const entry = getModel(cfg, ref);
   if (!entry) {
     throw new Error(
-      `vision_model must point to a configured model: ${formatModelRef(ref)} is not in models. Use \`penguin config model list\` to see the configured models.`,
+      `vision_model must point to a configured model: ${formatModelRef(ref)} is not in models. Use \`wafh config model list\` to see the configured models.`,
     );
   }
   if (entry.vision === false) {
@@ -1196,7 +1196,7 @@ export function resolveModelRef(cfg: ProjectConfig, modelId: string, provider: s
   const ref: ModelRef = { provider, model_id: modelId };
   if (!getModel(cfg, ref)) {
     throw new Error(
-      `Model is not in the Project config: ${formatModelRef(ref)}. Use \`penguin config model list\` to see the configured models, or \`penguin config model add\` to add one.`,
+      `Model is not in the Project config: ${formatModelRef(ref)}. Use \`wafh config model list\` to see the configured models, or \`wafh config model add\` to add one.`,
     );
   }
   return ref;

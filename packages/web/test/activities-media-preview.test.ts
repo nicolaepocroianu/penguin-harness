@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AssetManifest } from "@prismshadow/penguin-server/api";
+import type { AssetManifest } from "@waterford/waf-harness-server/api";
 import { mediaPreview } from "../src/features/activities/media-preview";
 import { narrationScenes } from "../src/features/activities/narration-scenes";
 import { boundSource } from "../src/features/activities/ref-plan";

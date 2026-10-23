@@ -25,9 +25,9 @@ export const EXAMPLE_FOLDERS = [
   {
     id: "apps",
     tasks: [
-      { id: "ragDocsExpert", skills: ["agent-initialization", "penguin-plugin", "web-design"] },
-      { id: "investmentCopilot", skills: ["agent-initialization", "penguin-plugin", "web-design"] },
-      { id: "legalDesk", skills: ["agent-initialization", "penguin-plugin", "web-design"] },
+      { id: "ragDocsExpert", skills: ["agent-initialization", "wafh-plugin", "web-design"] },
+      { id: "investmentCopilot", skills: ["agent-initialization", "wafh-plugin", "web-design"] },
+      { id: "legalDesk", skills: ["agent-initialization", "wafh-plugin", "web-design"] },
     ],
   },
   {

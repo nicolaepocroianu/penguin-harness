@@ -3,7 +3,7 @@ import { Readable, Writable } from "node:stream";
 import { client, methods, ndJsonStream, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 
 // ACP transport only. Agent-specific authentication, launch settings and policies
-// belong to a profile; Penguin's provider layer never sees this connection.
+// belong to a profile; WAF Harness's provider layer never sees this connection.
 export class AcpClient {
   constructor({ command, args, env, cwd, spawnProcess = spawn }) {
     Object.assign(this, { command, args, env, cwd, spawnProcess });
@@ -31,7 +31,7 @@ export class AcpClient {
     this.proc.stdin.on("error", () => this.close());
     // Account diagnostics can contain secrets. Drain them without exposing them.
     this.proc.stderr.resume();
-    let app = client({ name: "penguin-delegation" });
+    let app = client({ name: "wafh-delegation" });
     for (const method of [methods.client.session.update, methods.client.elicitation.complete])
       app = app.onNotification(method, (ctx) => this.emit(method, ctx.params));
     for (const method of [
@@ -49,7 +49,7 @@ export class AcpClient {
     void this.connection.closed.then(() => this.close());
     this.info = await this.request(methods.agent.initialize, {
       protocolVersion: PROTOCOL_VERSION,
-      clientInfo: { name: "penguin-harness", version: "0.2.13" },
+      clientInfo: { name: "waf-harness", version: "0.2.13" },
       // Agent handles filesystem/terminal operations. URL elicitation is for login;
       // forms are relayed to the human, never answered by the parent model.
       clientCapabilities: { elicitation: { url: {}, form: {} } },

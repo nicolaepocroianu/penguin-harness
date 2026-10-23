@@ -3,7 +3,7 @@
  * running and now is not, or the stages as a whole. Kept pure so "settled since last look"
  * is decided in one place, and a page opened on finished runs announces nothing.
  */
-import type { ActivityRunSummary, PipelineState } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary, PipelineState } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 
 export type Announcement = {

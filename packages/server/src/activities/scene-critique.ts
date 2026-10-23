@@ -8,7 +8,7 @@
  *
  * The idea is open-design's critique loop, its "Design Jury" (`apps/daemon/src/critique/` in
  * github.com/nexu-io/open-design, Apache-2.0): a scored critique whose fixes feed the next round
- * until the score clears a bar. The rubric, the files and the checks here are Penguin's own.
+ * until the score clears a bar. The rubric, the files and the checks here are WAF Harness's own.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -108,7 +108,7 @@ export const critiquePrompt = CRITIQUE_PROMPT({
   CRITIQUE_STILLS_DIR,
 });
 
-/** Why what the agent wrote is not a critique Penguin keeps. */
+/** Why what the agent wrote is not a critique WAF Harness keeps. */
 export class CritiqueProblem extends Error {}
 
 /** The score of a critique: the mean of its rubric's scores, to one decimal. */

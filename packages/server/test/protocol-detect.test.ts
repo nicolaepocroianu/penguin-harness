@@ -848,7 +848,7 @@ describe("POST /api/projects/:p/models/detect", () => {
     const saved = {
       anthropic: process.env.ANTHROPIC_API_KEY,
       openai: process.env.OPENAI_API_KEY,
-      penguin: process.env.PENGUIN_GO_API_KEY,
+      wafh: process.env.PENGUIN_GO_API_KEY,
     };
     process.env.ANTHROPIC_API_KEY = "vendor-anthropic-must-not-cross";
     process.env.OPENAI_API_KEY = "vendor-openai-must-not-cross";
@@ -872,8 +872,8 @@ describe("POST /api/projects/:p/models/detect", () => {
       else process.env.ANTHROPIC_API_KEY = saved.anthropic;
       if (saved.openai === undefined) delete process.env.OPENAI_API_KEY;
       else process.env.OPENAI_API_KEY = saved.openai;
-      if (saved.penguin === undefined) delete process.env.PENGUIN_GO_API_KEY;
-      else process.env.PENGUIN_GO_API_KEY = saved.penguin;
+      if (saved.wafh === undefined) delete process.env.PENGUIN_GO_API_KEY;
+      else process.env.PENGUIN_GO_API_KEY = saved.wafh;
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });

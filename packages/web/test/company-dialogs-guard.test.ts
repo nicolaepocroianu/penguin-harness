@@ -27,8 +27,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { createElement as h, Fragment } from "react";
 import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router";
-import { hasUnsaved } from "@prismshadow/penguin-ui";
-import type { OrgEmployeeItem, OrganizationSettings } from "@prismshadow/penguin-server/api";
+import { hasUnsaved } from "@waterford/waf-harness-ui";
+import type { OrgEmployeeItem, OrganizationSettings } from "@waterford/waf-harness-server/api";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { UnsavedPrompt } from "../src/lib/unsaved/unsaved-prompt";

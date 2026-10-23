@@ -36,7 +36,7 @@ import {
   toastError,
   useFormDraft,
   useGuardedClose,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";

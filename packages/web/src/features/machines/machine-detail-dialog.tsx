@@ -38,7 +38,7 @@
  */
 import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
-import type { MachineInfo, MachineJob, SshHostResponse } from "@prismshadow/penguin-server/api";
+import type { MachineInfo, MachineJob, SshHostResponse } from "@waterford/waf-harness-server/api";
 import {
   Button,
   Chevron,
@@ -60,7 +60,7 @@ import {
   RetryStatus,
   RuledSection,
   Spinner,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { dismissNotice, envOnlyNoticeId, useNoticeDismissed } from "../../lib/notice-dismissals";
 import { formatDateTime, formatRelativeShort } from "../../lib/format";

@@ -17,8 +17,8 @@
  * Read-only, the fields show with every control disabled and no fill button.
  */
 import type { FormEvent, ReactNode } from "react";
-import { formFillText } from "@prismshadow/penguin-core/a2ui";
-import type { A2uiForm, A2uiFormField, A2uiOption } from "@prismshadow/penguin-core/a2ui";
+import { formFillText } from "@waterford/waf-harness-core/a2ui";
+import type { A2uiForm, A2uiFormField, A2uiOption } from "@waterford/waf-harness-core/a2ui";
 import { useUiStrings } from "../../../strings";
 import type { A2uiStrings } from "../../../strings";
 import { Button } from "../../actions/button/button";

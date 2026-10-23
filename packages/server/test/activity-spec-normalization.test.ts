@@ -79,7 +79,7 @@ describe("normalizing scenes the way Loom does", () => {
       { key: "scene-2-image-red-ball-grass", description: "A red ball on grass" },
       { key: "scene-2-image-image-scene-scene-2", description: "Image for scene scene-2-play." },
     ]);
-    // Loom's "empty" placeholder is not a script Penguin should speak.
+    // Loom's "empty" placeholder is not a script WAF Harness should speak.
     expect(scenes[1]!.audio.tracks).toEqual([
       { key: "s2", description: "Prompt", interruptible: true, voice: "auto" },
     ]);

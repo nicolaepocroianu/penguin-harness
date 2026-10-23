@@ -38,15 +38,15 @@ import {
   parseSkillFrontmatter,
   pluginContentVersion,
   listInstalledWorkbenches,
-} from "@prismshadow/penguin-core";
-import type { LibraryPlugin } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { LibraryPlugin } from "@waterford/waf-harness-core";
 import { SEMANTIC_ID_PATTERN, SEMANTIC_ID_RULE } from "./ids.js";
 import { isWorkbenchId, workbenchesDir } from "../workbenches/store.js";
 import { isTopicFileName } from "./memory-service.js";
 import type { PluginUpdateRef } from "../api/types.js";
 import { resolveLibraryPlugins } from "./plugin-library.js";
 import { resolveDirectorySkills } from "./directory-skills.js";
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Config, Paths } from "../hmr/capabilities.js";
 import type { AgentConfig, AgentLifecycle, Snapshots } from "../mechanisms/agents.js";
 import type { AgentIndex } from "../mechanisms/projects.js";

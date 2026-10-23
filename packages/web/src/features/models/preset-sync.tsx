@@ -10,8 +10,14 @@
  * danger one saying what it keeps and deletes. The controls hold no state of their own: the page
  * owns the busy flags and the table, and hands them in as a {@link PresetSyncHost}.
  */
-import type { ModelsResponse, PresetSyncMode } from "@prismshadow/penguin-server/api";
-import { Button, ConfirmModal, toastError, toastInfo, toastSuccess } from "@prismshadow/penguin-ui";
+import type { ModelsResponse, PresetSyncMode } from "@waterford/waf-harness-server/api";
+import {
+  Button,
+  ConfirmModal,
+  toastError,
+  toastInfo,
+  toastSuccess,
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";

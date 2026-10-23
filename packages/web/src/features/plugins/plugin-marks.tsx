@@ -12,7 +12,7 @@
  * it stays muted ink (never red text), and the hover sentence says what the status means for
  * this plugin — the failure reason, the machines it runs on, how many Agents are behind.
  */
-import { Badge, GlyphIcon, ICONS, ICON_GAP, ICON_SIZE } from "@prismshadow/penguin-ui";
+import { Badge, GlyphIcon, ICONS, ICON_GAP, ICON_SIZE } from "@waterford/waf-harness-ui";
 import type { ReactNode } from "react";
 import { S } from "../../lib/strings";
 import { toneInk, type Tone } from "../../lib/tone";

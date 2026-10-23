@@ -14,8 +14,8 @@ export interface SwitcherRecentsStorage {
   setItem(key: string, value: string): void;
 }
 
-/** The single global storage key (`penguin.…` naming convention); holds a JSON array of entry ids, most recent first. */
-export const QUICK_SWITCHER_RECENTS_KEY = "penguin.quickSwitcher.recents";
+/** The single global storage key (`wafh.…` naming convention); holds a JSON array of entry ids, most recent first. */
+export const QUICK_SWITCHER_RECENTS_KEY = "wafh.quickSwitcher.recents";
 
 /** How many recents the palette surfaces; older selections fall off the stored list itself. */
 export const QUICK_SWITCHER_RECENTS_LIMIT = 5;

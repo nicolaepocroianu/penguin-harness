@@ -4,7 +4,7 @@
  * icon, and the group pager in the sidebar's words. The rows themselves — the group header, the
  * lazy folder, the "more" row and the pager — are the shared UI package's.
  */
-import { GlyphIcon, ICONS, ICON_SIZE, Pager } from "@prismshadow/penguin-ui";
+import { GlyphIcon, ICONS, ICON_SIZE, Pager } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import type { SessionSortMode } from "../../lib/session-order";
 
@@ -45,7 +45,7 @@ export const SORT_MODE_ICONS: Record<SessionSortMode, string> = {
  * choice is a single user preference, not a per-page one — switching it anywhere
  * switches it everywhere.
  */
-const GROUP_MODE_KEY = "penguin.sidebarGroupMode";
+const GROUP_MODE_KEY = "wafh.sidebarGroupMode";
 
 export function initialGroupMode(): GroupMode {
   const stored = localStorage.getItem(GROUP_MODE_KEY);

@@ -9,7 +9,7 @@ import type {
   VersionSaveResult,
   VersionStatus,
   VersionSummary,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { fileSizeText } from "./media-library";
 import type { Announcement } from "./run-toasts";

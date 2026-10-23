@@ -6,7 +6,7 @@
  *
  * Builds the web dist, compiles the platform and cli entries, and pushes all three as ONE
  * atomic version to POST /api/hmr/upgrade. Authentication is an admin session established
- * per run: PENGUIN_ADMIN_PASSWORD is read from the environment and exchanged for a cookie,
+ * per run: WAFH_ADMIN_PASSWORD is read from the environment and exchanged for a cookie,
  * so no credential of any kind is written to disk — a file holding an admin-equivalent
  * secret is readable by everything running as this user, agent shells included, which makes
  * the file itself the vulnerability.
@@ -24,10 +24,10 @@
  * rather than in packages/web/dist, which that server may be serving (see `webDist`).
  *
  * Usage:
- *   PENGUIN_ADMIN_PASSWORD=… node scripts/deploy.mjs 53531
- *   PENGUIN_ADMIN_PASSWORD=… node scripts/deploy.mjs 53531 --skip-web-build
- *   PENGUIN_ADMIN_PASSWORD=… node scripts/deploy.mjs 53531 --force
- *   PENGUIN_ADMIN_PASSWORD=… node scripts/deploy.mjs https://box.example.com
+ *   WAFH_ADMIN_PASSWORD=… node scripts/deploy.mjs 53531
+ *   WAFH_ADMIN_PASSWORD=… node scripts/deploy.mjs 53531 --skip-web-build
+ *   WAFH_ADMIN_PASSWORD=… node scripts/deploy.mjs 53531 --force
+ *   WAFH_ADMIN_PASSWORD=… node scripts/deploy.mjs https://box.example.com
  *   node scripts/deploy.mjs --out /tmp/version.gz
  *
  * A target that has already committed this exact build is left alone: the push would only make
@@ -72,13 +72,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const WEB_DIST = path.join(ROOT, "packages", "web", "dist");
 const PLATFORM_ENTRY = path.join(ROOT, "packages", "server", "src", "hmr", "entry.ts");
 const CLI_ENTRY = path.join(ROOT, "packages", "cli", "src", "index.ts");
-const PLATFORM_BUNDLE = path.join(os.tmpdir(), `penguin-deploy-platform-${process.pid}.mjs`);
-const CLI_BUNDLE = path.join(os.tmpdir(), `penguin-deploy-cli-${process.pid}.mjs`);
+const PLATFORM_BUNDLE = path.join(os.tmpdir(), `wafh-deploy-platform-${process.pid}.mjs`);
+const CLI_BUNDLE = path.join(os.tmpdir(), `wafh-deploy-cli-${process.pid}.mjs`);
 
 const log = (msg) => console.log(`[deploy] ${msg}`);
 
 /**
- * Provenance for this push, recorded with the version so `penguin version --json` on the
+ * Provenance for this push, recorded with the version so `wafh version --json` on the
  * target can name where its harness came from — harness.json's copy, alongside the same
  * revision inlined into the bundles themselves.
  *
@@ -109,15 +109,15 @@ async function pushSource() {
  * inline (the alias in push-bundle.mjs resolves the same package).
  */
 async function compiledIdentity() {
-  const core = await import("@prismshadow/penguin-core");
+  const core = await import("@waterford/waf-harness-core");
   return core.buildInfo();
 }
 
 function usage(problem) {
   console.error(
     `${problem}\n\n` +
-      "Usage: PENGUIN_ADMIN_PASSWORD=… node scripts/deploy.mjs <port|url> [--skip-web-build] [--force]\n" +
-      "       PENGUIN_API_TOKEN=$(cat <root>/api-token) node scripts/deploy.mjs <port|url>\n" +
+      "Usage: WAFH_ADMIN_PASSWORD=… node scripts/deploy.mjs <port|url> [--skip-web-build] [--force]\n" +
+      "       WAFH_API_TOKEN=$(cat <root>/api-token) node scripts/deploy.mjs <port|url>\n" +
       "       node scripts/deploy.mjs --out <file> [--skip-web-build]\n" +
       "  <port>  a port on this machine (an ssh -L tunnel to the target runtime, or a local server)\n" +
       "  <url>   a full origin, when the target is not reached over loopback\n" +
@@ -156,12 +156,10 @@ const webDist =
 // Two credentials, either one: the admin password (exchanged for a cookie), or the
 // runtime's own local API token (`<root>/api-token`, admin-equivalent — see
 // server/src/auth/api-token.ts), sent as a Bearer. A local push needs no password.
-const ADMIN_PASSWORD = process.env.PENGUIN_ADMIN_PASSWORD;
-const API_TOKEN = process.env.PENGUIN_API_TOKEN;
+const ADMIN_PASSWORD = process.env.WAFH_ADMIN_PASSWORD;
+const API_TOKEN = process.env.WAFH_API_TOKEN;
 if (outFile === null && !ADMIN_PASSWORD && !API_TOKEN)
-  usage(
-    "[deploy] set PENGUIN_ADMIN_PASSWORD or PENGUIN_API_TOKEN (the runtime's <root>/api-token).",
-  );
+  usage("[deploy] set WAFH_ADMIN_PASSWORD or WAFH_API_TOKEN (the runtime's <root>/api-token).");
 
 /** A bare port means this machine's loopback (typically an ssh -L tunnel to the real target). */
 const baseUrl =
@@ -416,7 +414,7 @@ async function main() {
     log("building the web dist…");
     // Extra args reach the package's own `vite build`. Outside the package, vite would leave
     // the directory as it found it and warn; it is this run's own, so it is emptied.
-    const build = ["--filter", "@prismshadow/penguin-web", "build"];
+    const build = ["--filter", "@waterford/waf-harness-web", "build"];
     if (webDist !== WEB_DIST) build.push("--outDir", webDist, "--emptyOutDir");
     const windows = process.platform === "win32";
     execFileSync("pnpm", windows ? build.map(quoteForCmd) : build, {

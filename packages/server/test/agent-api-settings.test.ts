@@ -198,10 +198,10 @@ describe("Agent API settings", () => {
     const res = await owner.post(`${tab("keyed_agent")}/keys`, { name: "ci runner" });
     expect(res.status).toBe(201);
     const { key, secret } = (await res.json()) as AgentApiKeyCreateResponse;
-    expect(secret).toMatch(/^penguin_[A-Za-z0-9_-]{43}$/);
+    expect(secret).toMatch(/^wafh_[A-Za-z0-9_-]{43}$/);
     expect(key).toMatchObject({
       name: "ci runner",
-      prefix: secret.slice(0, 16),
+      prefix: secret.slice(0, 13),
       createdBy: "api_owner",
       lastUsedAt: null,
     });

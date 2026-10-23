@@ -12,9 +12,9 @@ import type {
   TextVariant,
   ThemeId,
   ToneName,
-} from "@prismshadow/penguin-ui";
-import type { TextSize } from "@prismshadow/penguin-ui/boot";
-import type { A2uiSpec } from "@prismshadow/penguin-core/a2ui";
+} from "@waterford/waf-harness-ui";
+import type { TextSize } from "@waterford/waf-harness-ui/boot";
+import type { A2uiSpec } from "@waterford/waf-harness-core/a2ui";
 import type { SurfaceGroupId, SurfaceId } from "./app/surfaces";
 import type { ChartToken } from "./library/chart-tokens";
 import type { TopicGroupId, TopicId } from "./library/topics";

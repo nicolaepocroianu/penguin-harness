@@ -117,7 +117,7 @@ test("a group reveals its own remainder one page at a time, and 收起 folds it 
 
 test("grouped by time, one reveal row walks the whole list ten rows a click", async ({ page }) => {
   await seedSessions(page, "pagetimeuser");
-  await page.addInitScript(() => localStorage.setItem("penguin.sidebarGroupMode", "time"));
+  await page.addInitScript(() => localStorage.setItem("wafh.sidebarGroupMode", "time"));
 
   await page.goto(`${BASE}/chat`);
   const sidebar = page.getByRole("complementary");

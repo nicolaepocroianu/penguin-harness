@@ -210,7 +210,7 @@ test("clicking the current Project in the dropdown: Agent and Session lists must
   // Agent list and lands on the draft page (the brand heading marks the draft page); operating
   // the dropdown midway through would get closed by a subsequent re-render.
   const generalAgent = page.getByText("General Agent").first();
-  const draftTitle = page.getByRole("heading", { name: "PenguinHarness" });
+  const draftTitle = page.getByRole("heading", { name: "WAF Harness" });
   await expect(generalAgent).toBeVisible();
   await expect(draftTitle).toBeVisible();
 
@@ -282,7 +282,7 @@ test("a late Agent list of the Project just left never shows under the new one",
   const bad = watchProjectAgentPairs(page, agentsOf);
   await useHttpTransport(page);
   await page.addInitScript((projectId) => {
-    localStorage.setItem("penguin.lastProjectId", projectId);
+    localStorage.setItem("wafh.lastProjectId", projectId);
   }, a);
 
   // A's first Agent list is held back until after the switch to B has been answered.
@@ -324,10 +324,10 @@ test("on a slow machine, quick Project switches keep each Project's Agents and c
   await useHttpTransport(page);
   await page.addInitScript(
     ({ a, b, user }) => {
-      localStorage.setItem("penguin.lastProjectId", a);
+      localStorage.setItem("wafh.lastProjectId", a);
       // B's new-chat draft remembers A's Agent, as one written while A's Agents leaked into B.
       localStorage.setItem(
-        `penguin.chatDraft.${user}.${b}`,
+        `wafh.chatDraft.${user}.${b}`,
         JSON.stringify({ agentId: "alpha_only" }),
       );
     },
@@ -382,7 +382,7 @@ test("on a slow machine, quick Project switches keep each Project's Agents and c
   // A new chat in B starts from its remembered draft, which names A's Agent.
   await page.getByRole("button", { name: "New chat" }).first().click();
   await expect(page).toHaveURL(/\/chat\/new$/);
-  await expect(page.getByRole("heading", { name: "PenguinHarness" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: "WAF Harness" })).toBeVisible({
     timeout: 30_000,
   });
   await page.waitForTimeout(3_000);

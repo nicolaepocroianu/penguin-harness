@@ -139,7 +139,7 @@ afterEach(async () => {
 });
 
 async function makeEnv(): Promise<{ env: Environment; dir: string }> {
-  const dir = await mkdtemp(path.join(tmpdir(), "penguin-bg-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "wafh-bg-"));
   const env = new Environment({ workspaceDir: dir, toolConfig: commandToolConfig() });
   cleanups.push(async () => {
     env.dispose();
@@ -375,7 +375,7 @@ describe("exec_command run_in_background", () => {
   });
 
   it("dispose suppresses pending completion reports", async () => {
-    const dir = await mkdtemp(path.join(tmpdir(), "penguin-bg-"));
+    const dir = await mkdtemp(path.join(tmpdir(), "wafh-bg-"));
     cleanups.push(() => rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
     const env = new Environment({ workspaceDir: dir, toolConfig: commandToolConfig() });
     const events: BackgroundTaskDoneEvent[] = [];
@@ -495,7 +495,7 @@ describe("background-state listener", () => {
       await new Promise<void>((r) => gates.set(prompt, r));
       yield withHop(assistantText(`answer to: ${prompt}`));
     });
-    const dir = await mkdtemp(path.join(tmpdir(), "penguin-bg-"));
+    const dir = await mkdtemp(path.join(tmpdir(), "wafh-bg-"));
     const env = new Environment({
       workspaceDir: dir,
       toolConfig: { customTools: [SUB_DEF], mcpServers: [] },
@@ -1141,7 +1141,7 @@ function gatedRunner(gates: Map<string, () => void>): SubagentRunner {
 describe("sibling background subagents survive a completion notice (issue #581)", () => {
   it("settling one child ends no sibling, on the idle path or on the steering path", async () => {
     const gates = new Map<string, () => void>();
-    const dir = await mkdtemp(path.join(tmpdir(), "penguin-bg-"));
+    const dir = await mkdtemp(path.join(tmpdir(), "wafh-bg-"));
     const env = new Environment({
       workspaceDir: dir,
       toolConfig: { customTools: [SUB_DEF], mcpServers: [] },

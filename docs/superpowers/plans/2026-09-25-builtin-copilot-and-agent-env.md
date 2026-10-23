@@ -6,7 +6,7 @@
 
 **Architecture:** Part 1 extends the existing `AgentServerDefinition.env` with validation, a Vault-style `PUT …/env` route, masked listing and a card editor. Part 2 adds a `BuiltinAgentsService` that downloads the Copilot CLI's platform package from the npm registry, verifies it, unpacks it under the data root, and registers an ordinary coding-agent definition (`copilot-builtin`, `--acp`) whose `COPILOT_GITHUB_TOKEN` uses Part 1's storage. No new session runtime: the existing ACP path runs it.
 
-**Tech Stack:** TypeScript, Node 24, Hono routes, the penguin-core kernel (`@Component`/`Interface`), `tar` (already a server dependency), undici-backed global `fetch` (already proxy-aware), React + Vitest.
+**Tech Stack:** TypeScript, Node 24, Hono routes, the wafh-core kernel (`@Component`/`Interface`), `tar` (already a server dependency), undici-backed global `fetch` (already proxy-aware), React + Vitest.
 
 **Spec:** `docs/superpowers/specs/2026-09-25-builtin-copilot-and-agent-env-design.md`
 
@@ -17,12 +17,12 @@
 - Controls take `size="sm"`; no `text-*` class on a control. Tab switchers use `Segmented`.
 - Stateful server logic lives in a kernel `@Component` service behind an `Interface` class, registered in `packages/server/src/platform.ts`. Run `pnpm gen:ifaces` (repo root) after changing a mechanism interface.
 - Env keys: `^[A-Za-z_][A-Za-z0-9_]*$`; values ≤ 8192 characters, no newlines.
-- Reserved env keys: the sandbox pass-through list (`PATH PATHEXT SYSTEMROOT WINDIR COMSPEC TEMP TMP HOME USERPROFILE LOCALAPPDATA APPDATA LANG LC_ALL HTTPS_PROXY HTTP_PROXY NO_PROXY SSL_CERT_FILE NODE_EXTRA_CA_CERTS`, case-insensitive), `NO_BROWSER`, and any key starting with `PENGUIN_`.
+- Reserved env keys: the sandbox pass-through list (`PATH PATHEXT SYSTEMROOT WINDIR COMSPEC TEMP TMP HOME USERPROFILE LOCALAPPDATA APPDATA LANG LC_ALL HTTPS_PROXY HTTP_PROXY NO_PROXY SSL_CERT_FILE NODE_EXTRA_CA_CERTS`, case-insensitive), `NO_BROWSER`, and any key starting with `WAFH_`.
 - Masking: `maskApiKey` from `packages/server/src/services/project-config-service.ts` (`***` up to 12 characters, else `first4…last4`). Real values never leave the server.
 - Copilot package: `@github/copilot-<platform>-<arch>`, pinned version `1.0.88`. Platforms: `win32`, `darwin`, `linux`, `linuxmusl` × `x64`, `arm64`.
 - Built-in Copilot definition id: `copilot-builtin`; title `GitHub Copilot (built-in)`; args `["--acp"]`; env `COPILOT_GITHUB_TOKEN` and `COPILOT_HOME` (its own config folder under the agent home).
 - Runtimes live in `<data root>/runtimes/copilot/<version>/`; temporary folders are `<data root>/runtimes/copilot/.incoming-*`.
-- Registry base URL: `process.env.PENGUIN_NPM_REGISTRY ?? "https://registry.npmjs.org"` (also serves corporate mirrors; tests point it at a local server).
+- Registry base URL: `process.env.WAFH_NPM_REGISTRY ?? "https://registry.npmjs.org"` (also serves corporate mirrors; tests point it at a local server).
 - Changelog entries under `changelog/unreleased/`, one per part.
 - Known baseline: `packages/web/test/model-grouping.test.ts` fails on main; do not fix it.
 - Release blocker for Part 2: the Copilot CLI's `LICENSE.md` permits running and redistributing unmodified copies inside an application with material functionality beyond it; confirm with the user before release and link the license from the card.
@@ -100,11 +100,11 @@ import { isReservedEnvKey, validateAgentEnvEntry } from "../src/env.js";
 import { parseDefinition } from "../src/types.js";
 
 describe("agent env rules", () => {
-  it("reserves the sandbox pass-through names, NO_BROWSER and PENGUIN_*", () => {
-    for (const key of ["PATH", "path", "UserProfile", "NO_BROWSER", "PENGUIN_CODING_AGENT_HOME", "PENGUIN_X"]) {
+  it("reserves the sandbox pass-through names, NO_BROWSER and WAFH_*", () => {
+    for (const key of ["PATH", "path", "UserProfile", "NO_BROWSER", "WAFH_CODING_AGENT_HOME", "WAFH_X"]) {
       expect(isReservedEnvKey(key)).toBe(true);
     }
-    for (const key of ["GEMINI_API_KEY", "COPILOT_GITHUB_TOKEN", "PATHS", "MY_PENGUIN"]) {
+    for (const key of ["GEMINI_API_KEY", "COPILOT_GITHUB_TOKEN", "PATHS", "MY_WAFH"]) {
       expect(isReservedEnvKey(key)).toBe(false);
     }
   });
@@ -114,7 +114,7 @@ describe("agent env rules", () => {
     expect(validateAgentEnvEntry("GEMINI_API_KEY", undefined)).toBeNull();
     expect(validateAgentEnvEntry("1BAD", "x")).toMatch(/letter or underscore/);
     expect(validateAgentEnvEntry("HAS-DASH", "x")).toMatch(/letter or underscore/);
-    expect(validateAgentEnvEntry("PATH", "x")).toMatch(/set by Penguin/);
+    expect(validateAgentEnvEntry("PATH", "x")).toMatch(/set by WAF Harness/);
     expect(validateAgentEnvEntry("K", "")).toMatch(/empty/);
     expect(validateAgentEnvEntry("K", "a\nb")).toMatch(/line break/);
     expect(validateAgentEnvEntry("K", "x".repeat(8193))).toMatch(/8192/);
@@ -144,10 +144,10 @@ const MAX_ENV_VALUE = 8192;
 
 /**
  * Names an agent definition may not set: the ones the sandbox passes through from the host
- * (overriding them breaks how the agent starts) and the ones Penguin sets itself.
+ * (overriding them breaks how the agent starts) and the ones WAF Harness sets itself.
  */
 export function isReservedEnvKey(key: string): boolean {
-  return PASS_THROUGH.test(key) || /^NO_BROWSER$/i.test(key) || /^PENGUIN_/i.test(key);
+  return PASS_THROUGH.test(key) || /^NO_BROWSER$/i.test(key) || /^WAFH_/i.test(key);
 }
 
 /**
@@ -158,7 +158,7 @@ export function validateAgentEnvEntry(key: string, value: string | undefined): s
   if (!ENV_KEY_PATTERN.test(key)) {
     return `${key}: a name starts with a letter or underscore and uses only letters, digits and underscores.`;
   }
-  if (isReservedEnvKey(key)) return `${key} is set by Penguin and cannot be changed here.`;
+  if (isReservedEnvKey(key)) return `${key} is set by WAF Harness and cannot be changed here.`;
   if (value === undefined) return null;
   if (value === "") return `${key}: the value is empty.`;
   if (/[\r\n]/.test(value)) return `${key}: the value cannot contain a line break.`;
@@ -171,7 +171,7 @@ In `packages/coding-agents/src/types.ts`, add to `AgentServerDefinition` after `
 
 ```ts
   /**
-   * Set on a definition Penguin manages itself (Models → Built-in), naming which built-in it
+   * Set on a definition WAF Harness manages itself (Models → Built-in), naming which built-in it
    * is; such a definition is written only by that service, never through the Local CLI routes.
    */
   builtin?: string;
@@ -403,7 +403,7 @@ describe("coding agent env", () => {
     const put = (entries: unknown) => admin.put("/api/coding-agents/agents/fake/env", { entries });
     for (const entries of [
       [{ key: "PATH", value: "x" }],
-      [{ key: "PENGUIN_X", value: "x" }],
+      [{ key: "WAFH_X", value: "x" }],
       [{ key: "1BAD", value: "x" }],
       [{ key: "A", value: "a\nb" }],
       [{ key: "A", value: "x" }, { key: "A", value: "y" }],
@@ -484,7 +484,7 @@ In `packages/server/src/api/types.ts`, add the two interfaces from **Produces** 
    * once its running sessions end.
    */
   envPending?: boolean;
-  /** Set when Penguin manages this agent itself (Models → Built-in), naming which built-in. */
+  /** Set when WAF Harness manages this agent itself (Models → Built-in), naming which built-in. */
   builtin?: string;
 ```
 
@@ -508,7 +508,7 @@ In `packages/server/src/mechanisms/coding-agents.ts`, change `listAgents()` and 
   removeBuiltinDefinition(agentId: string): boolean;
 ```
 
-Add `type AgentServerDefinition` to that file's `@prismshadow/penguin-coding-agents` type import.
+Add `type AgentServerDefinition` to that file's `@waterford/waf-harness-coding-agents` type import.
 
 - [ ] **Step 4: Implement in the service**
 
@@ -730,7 +730,7 @@ describe("agent env helpers", () => {
     expect(envKeyProblem("", [])).toBe(S.common.requiredField);
     expect(envKeyProblem("1BAD", [])).toBe(S.models.cliEnvKeyInvalid);
     expect(envKeyProblem("path", [])).toBe(S.models.cliEnvKeyReserved);
-    expect(envKeyProblem("PENGUIN_X", [])).toBe(S.models.cliEnvKeyReserved);
+    expect(envKeyProblem("WAFH_X", [])).toBe(S.models.cliEnvKeyReserved);
     expect(envKeyProblem("NO_BROWSER", [])).toBe(S.models.cliEnvKeyReserved);
   });
 
@@ -809,7 +809,7 @@ In `packages/web/src/lib/strings-en.ts`, in the same block:
     cliEnvSaved: "Saved. The agent uses it from its next start.",
     cliEnvPending: "Applies once this agent's running sessions end.",
     cliEnvKeyInvalid: "Use letters, digits and underscores, starting with a letter or underscore.",
-    cliEnvKeyReserved: "Penguin sets this one itself.",
+    cliEnvKeyReserved: "WAF Harness sets this one itself.",
     cliEnvValueRequired: "Enter a value.",
     cliEnvOverwriteTitle: "Replace this value?",
     cliEnvOverwriteBody: (key) => `${key} already has a value. Saving replaces it.`,
@@ -831,12 +831,12 @@ Create `packages/web/src/features/models/agent-env.ts`:
 import type {
   CodingAgentEnvEntryInfo,
   CodingAgentEnvRequest,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 
 const KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const RESERVED =
-  /^(PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|HOME|USERPROFILE|LOCALAPPDATA|APPDATA|LANG|LC_ALL|HTTPS_PROXY|HTTP_PROXY|NO_PROXY|SSL_CERT_FILE|NODE_EXTRA_CA_CERTS|NO_BROWSER)$|^PENGUIN_/i;
+  /^(PATH|PATHEXT|SYSTEMROOT|WINDIR|COMSPEC|TEMP|TMP|HOME|USERPROFILE|LOCALAPPDATA|APPDATA|LANG|LC_ALL|HTTPS_PROXY|HTTP_PROXY|NO_PROXY|SSL_CERT_FILE|NODE_EXTRA_CA_CERTS|NO_BROWSER)$|^WAFH_/i;
 
 /** Why a new variable name cannot be used, or null. Same rule as the server's. */
 export function envKeyProblem(key: string, _existing: string[]): string | null {
@@ -894,7 +894,7 @@ In `packages/web/src/features/coding-agents/agent-cards.ts`:
 ```
 
 - Do the same in the saved-only card object, reading from `agent`.
-- Import `CodingAgentEnvEntryInfo` from `@prismshadow/penguin-server/api`.
+- Import `CodingAgentEnvEntryInfo` from `@waterford/waf-harness-server/api`.
 
 - [ ] **Step 5: Run the helper and card tests**
 
@@ -912,7 +912,7 @@ Create `packages/web/src/features/models/agent-env-editor.tsx`:
  * confirmed first). Admin-only; values never come back from the server.
  */
 import { useState } from "react";
-import type { CodingAgentEnvEntryInfo, CodingAgentEnvRequest } from "@prismshadow/penguin-server/api";
+import type { CodingAgentEnvEntryInfo, CodingAgentEnvRequest } from "@waterford/waf-harness-server/api";
 import { setCodingAgentEnv } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
@@ -1151,7 +1151,7 @@ Create `changelog/unreleased/2026-09-25-coding-agent-env.md`:
 Each agent on **Models → Local CLI** has an **Environment** section where an admin adds the
 variables it starts with, such as `GEMINI_API_KEY` or `COPILOT_GITHUB_TOKEN`. It works for
 detected agents as well as ones added by hand. Values stay on the server and are shown
-masked; members do not see them. Names Penguin sets itself (`PATH`, `HOME`, `PENGUIN_*`
+masked; members do not see them. Names WAF Harness sets itself (`PATH`, `HOME`, `WAFH_*`
 and the like) are refused.
 
 A change applies from the agent's next start; while its sessions run, the card says so.
@@ -1220,9 +1220,9 @@ Expected: FAIL, module not found.
 
 ```ts
 /**
- * What Penguin downloads to run GitHub Copilot itself: the Copilot CLI's platform package from
+ * What WAF Harness downloads to run GitHub Copilot itself: the Copilot CLI's platform package from
  * npm (the same program the Local CLI recipe runs with --acp), at a version pinned here and
- * raised deliberately with a Penguin release.
+ * raised deliberately with a WAF Harness release.
  */
 export const COPILOT_VERSION = "1.0.88";
 
@@ -1268,7 +1268,7 @@ Expected: PASS.
 
 ```bash
 git add packages/server/src/coding-agents/builtin/copilot-package.ts packages/server/test/builtin-copilot-package.test.ts
-git commit -m "feat(server): the Copilot platform package Penguin downloads"
+git commit -m "feat(server): the Copilot platform package WAF Harness downloads"
 ```
 
 ### Task 5: Verified download and install
@@ -1279,7 +1279,7 @@ git commit -m "feat(server): the Copilot platform package Penguin downloads"
 - Test: `packages/server/test/builtin-runtime-install.test.ts` (create)
 
 **Interfaces:**
-- Consumes: `binaryFromManifest` (Task 4); `spawnTarget` (Task 1, from `@prismshadow/penguin-coding-agents`).
+- Consumes: `binaryFromManifest` (Task 4); `spawnTarget` (Task 1, from `@waterford/waf-harness-coding-agents`).
 - Produces:
 
 ```ts
@@ -1519,7 +1519,7 @@ Create `packages/server/src/coding-agents/builtin/runtime-install.ts`:
 
 ```ts
 /**
- * Download and install one npm platform package as a runtime Penguin runs itself: metadata from
+ * Download and install one npm platform package as a runtime WAF Harness runs itself: metadata from
  * the registry, the tarball checked against the checksum the registry publishes, unpacked into a
  * temporary folder and renamed into `<runtimesDir>/<version>` in one step, then started once with
  * --version. A failed, cut-off or cancelled download never replaces a working version. Uses the
@@ -1530,7 +1530,7 @@ import { execFile } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { spawnTarget } from "@prismshadow/penguin-coding-agents";
+import { spawnTarget } from "@waterford/waf-harness-coding-agents";
 import * as tar from "tar";
 import { binaryFromManifest } from "./copilot-package.js";
 
@@ -1785,13 +1785,13 @@ describe("built-in copilot", () => {
 
   beforeEach(async () => {
     registry = await fakeRegistry({ packageName, version: COPILOT_VERSION });
-    process.env.PENGUIN_NPM_REGISTRY = registry.url;
+    process.env.WAFH_NPM_REGISTRY = registry.url;
     t = await createTestApp();
     admin = apiClient(t.app, (await loginAdmin(t.app)).cookie);
     member = apiClient(t.app, (await provisionUser(t.app, "member_b")).cookie);
   });
   afterEach(async () => {
-    delete process.env.PENGUIN_NPM_REGISTRY;
+    delete process.env.WAFH_NPM_REGISTRY;
     await t.cleanup();
     await registry.close();
   });
@@ -1851,7 +1851,7 @@ describe("built-in copilot", () => {
   it("reports a failed download and keeps no half install", async () => {
     await registry.close();
     registry = await fakeRegistry({ packageName, version: COPILOT_VERSION, corrupt: true });
-    process.env.PENGUIN_NPM_REGISTRY = registry.url;
+    process.env.WAFH_NPM_REGISTRY = registry.url;
     await admin.post("/api/coding-agents/builtin/copilot/setup", { token: PAT });
     const failed = await until(state, (s) => s.status !== "downloading");
     expect(failed.status).toBe("failed");
@@ -1874,10 +1874,10 @@ Create `packages/server/src/mechanisms/builtin-agents.ts`:
 
 ```ts
 /**
- * The built-in agents mechanism: agents Penguin downloads, runs and updates itself (Models →
+ * The built-in agents mechanism: agents WAF Harness downloads, runs and updates itself (Models →
  * Built-in), declared apart from the service that implements it.
  */
-import { Interface } from "@prismshadow/penguin-core/kernel";
+import { Interface } from "@waterford/waf-harness-core/kernel";
 import type { BuiltinAgentInfo } from "../api/types.js";
 
 export abstract class BuiltinAgents extends Interface<{
@@ -1908,7 +1908,7 @@ Create `packages/server/src/coding-agents/builtin/service.ts`:
  * (`copilot-builtin`, over ACP) with the admin's PAT as COPILOT_GITHUB_TOKEN. Download state
  * lives here; the definition and its variables live with the other coding agents.
  */
-import { Component, Use } from "@prismshadow/penguin-core/kernel";
+import { Component, Use } from "@waterford/waf-harness-core/kernel";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { BuiltinAgentInfo } from "../../api/types.js";
@@ -2003,7 +2003,7 @@ Continue the class:
     this.failure = null;
     try {
       const runtime = await installRuntime({
-        registry: (process.env.PENGUIN_NPM_REGISTRY ?? "https://registry.npmjs.org").replace(/\/+$/u, ""),
+        registry: (process.env.WAFH_NPM_REGISTRY ?? "https://registry.npmjs.org").replace(/\/+$/u, ""),
         packageName: this.packageName!,
         version: COPILOT_VERSION,
         runtimesDir: this.runtimesDir(),
@@ -2228,7 +2228,7 @@ git commit -m "feat(server): built-in GitHub Copilot, downloaded and run on a PA
 
 ```ts
 import { describe, expect, it } from "vitest";
-import type { BuiltinAgentInfo } from "@prismshadow/penguin-server/api";
+import type { BuiltinAgentInfo } from "@waterford/waf-harness-server/api";
 import { builtinActions, progressPercent } from "../src/features/models/builtin-model";
 
 const base: BuiltinAgentInfo = {
@@ -2282,7 +2282,7 @@ Create `packages/web/src/features/models/builtin-model.ts`:
 
 ```ts
 /** What a built-in agent's card offers in each state (Models → Built-in). */
-import type { BuiltinAgentInfo } from "@prismshadow/penguin-server/api";
+import type { BuiltinAgentInfo } from "@waterford/waf-harness-server/api";
 
 export function builtinActions(info: BuiltinAgentInfo) {
   const installed = info.installedVersion !== null;
@@ -2374,9 +2374,9 @@ Expected: PASS.
 ```ts
     viewBuiltin: "Built-in",
     builtinIntro:
-      "Agents Penguin downloads, runs and updates for you. You give it a token; nothing is installed on the server machine by hand.",
+      "Agents WAF Harness downloads, runs and updates for you. You give it a token; nothing is installed on the server machine by hand.",
     builtinCopilotAbout:
-      "GitHub Copilot, run from GitHub's own Copilot program. Penguin downloads it into its data folder and runs it with your personal access token.",
+      "GitHub Copilot, run from GitHub's own Copilot program. WAF Harness downloads it into its data folder and runs it with your personal access token.",
     builtinDownloadSize: (mb) => `Downloads about ${mb} MB.`,
     builtinTokenLabel: "GitHub personal access token",
     builtinTokenHint: "A fine-grained token (github_pat_…) with the Copilot Requests permission.",
@@ -2407,12 +2407,12 @@ Create `packages/web/src/features/models/builtin-panel.tsx`:
 
 ```tsx
 /**
- * Models → Built-in: agents Penguin downloads, runs and updates itself. One card for GitHub
+ * Models → Built-in: agents WAF Harness downloads, runs and updates itself. One card for GitHub
  * Copilot: paste a PAT, Set up, and it becomes a coding agent like the Local CLI ones. Polls
  * while a download runs. Admin-only, like the routes it calls.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { BuiltinAgentInfo, CodingAgentTestResult } from "@prismshadow/penguin-server/api";
+import type { BuiltinAgentInfo, CodingAgentTestResult } from "@waterford/waf-harness-server/api";
 import {
   cancelBuiltinCopilot,
   listBuiltinAgents,
@@ -2718,18 +2718,18 @@ Create `changelog/unreleased/2026-09-25-builtin-copilot.md`:
 - **Type:** feat
 - **Scope:** `server`, `web`
 
-**Models → Built-in** is a new tab for agents Penguin downloads, runs and updates itself.
+**Models → Built-in** is a new tab for agents WAF Harness downloads, runs and updates itself.
 Its first is GitHub Copilot: an admin pastes a fine-grained personal access token with the
-**Copilot Requests** permission and clicks **Set up**, and Penguin downloads the Copilot
+**Copilot Requests** permission and clicks **Set up**, and WAF Harness downloads the Copilot
 program for the server machine from npm, checks it against its published checksum, and
 registers "GitHub Copilot (built-in)" as a coding agent. It then appears in the chat model
 picker and the activity editor's Generation agent list, and runs like the other coding
 agents, with nothing installed by hand.
 
-The version is pinned with each Penguin release; when a newer one is pinned, the card
+The version is pinned with each WAF Harness release; when a newer one is pinned, the card
 offers **Update**. **Replace token** and **Remove** are on the card. The built-in agent
 keeps its own Copilot settings folder, apart from any Copilot login on the machine.
-Setting the `PENGUIN_NPM_REGISTRY` environment variable points the download at a mirror.
+Setting the `WAFH_NPM_REGISTRY` environment variable points the download at a mirror.
 ```
 
 ```bash

@@ -8,7 +8,7 @@
  * what it is and never loaded: every placeholder plays the same stand-in clip, so its picture
  * would say nothing about the asset, and naming it is the point.
  */
-import type { MediaAsset } from "@prismshadow/penguin-server/api";
+import type { MediaAsset } from "@waterford/waf-harness-server/api";
 import { bindingOf, type PlaceholderPaths } from "./placeholder-media";
 import { boundSource } from "./ref-plan";
 

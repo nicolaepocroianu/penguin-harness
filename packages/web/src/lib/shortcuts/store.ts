@@ -3,7 +3,7 @@
  *
  * Resolution = the registry's defaults for the current platform, overlaid by the stored
  * platform section's known ids (`null` = explicitly unbound). The stored document is the
- * account's `ui_prefs.keybindings`, mirrored to `localStorage["penguin.keybindings"]`: the
+ * account's `ui_prefs.keybindings`, mirrored to `localStorage["wafh.keybindings"]`: the
  * dispatcher installs at module evaluation, before auth and before any prefs request answers,
  * so the first keystroke needs a synchronous read, and the mirror's `storage` event is what
  * lets every other same-origin tab follow a change live. Only overrides are stored — a row set
@@ -27,7 +27,7 @@ import type {
 } from "./types";
 
 /** The browser mirror of the account's overrides (a `browser`-scoped key in install-scope's KEY_RULES). */
-export const KEYBINDINGS_KEY = "penguin.keybindings";
+export const KEYBINDINGS_KEY = "wafh.keybindings";
 
 /** Minimal storage interface (the subset of localStorage used here); tests inject an in-memory one. */
 export interface KeybindingsStorage {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import { ProjectActivityWorkService } from "../src/services/project-activity-work.js";
 
 describe("project activity admission", () => {

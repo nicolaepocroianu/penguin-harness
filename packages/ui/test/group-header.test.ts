@@ -49,11 +49,11 @@ describe("GroupHeader", () => {
       createElement(GroupHeader, {
         open: true,
         onToggle: () => {},
-        label: "penguin-harness",
-        title: "/home/me/dev/penguin-harness",
+        label: "waf-harness",
+        title: "/home/me/dev/waf-harness",
       }),
     );
-    expect(html).toContain('data-tooltip="/home/me/dev/penguin-harness"');
+    expect(html).toContain('data-tooltip="/home/me/dev/waf-harness"');
     expect(html).toContain('data-tooltip-content="text" data-tooltip-extra="true"');
     expect(header(true, false)).not.toContain("data-tooltip");
   });

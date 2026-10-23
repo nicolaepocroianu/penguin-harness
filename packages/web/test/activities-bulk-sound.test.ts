@@ -3,7 +3,7 @@ import type {
   ActivityRunSummary,
   AssetManifest,
   SoundProviderStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   bulkSoundProvider,
   pendingSoundKinds,

@@ -18,7 +18,7 @@ import {
   userText,
   isCompleteModelMessage,
   type OmniMessage,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 
 /** Stream a Session run to stdout and collect the assistant's final text. */
 async function runToStdout(run: AsyncGenerator<OmniMessage>): Promise<string> {

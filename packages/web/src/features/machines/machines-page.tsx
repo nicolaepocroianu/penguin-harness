@@ -34,7 +34,7 @@ import type {
   MachinesResponse,
   MachinesUseResponse,
   SshHostResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   Checkbox,
@@ -50,7 +50,7 @@ import {
   TodoNotice,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { useProject } from "../../state/project";
 import { useLocale } from "../../state/locale";

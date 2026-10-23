@@ -171,15 +171,15 @@ describe("rail width", () => {
 
 describe("remembered rail state", () => {
   it("reads a stored width and clamps it", () => {
-    expect(readRailWidth(memory({ "penguin.activityRailWidth": "340" }))).toBe(340);
-    expect(readRailWidth(memory({ "penguin.activityRailWidth": "9999" }))).toBe(RAIL_MAX_WIDTH);
+    expect(readRailWidth(memory({ "wafh.activityRailWidth": "340" }))).toBe(340);
+    expect(readRailWidth(memory({ "wafh.activityRailWidth": "9999" }))).toBe(RAIL_MAX_WIDTH);
     expect(readRailWidth(memory())).toBe(RAIL_DEFAULT_WIDTH);
-    expect(readRailWidth(memory({ "penguin.activityRailWidth": "wide" }))).toBe(RAIL_DEFAULT_WIDTH);
+    expect(readRailWidth(memory({ "wafh.activityRailWidth": "wide" }))).toBe(RAIL_DEFAULT_WIDTH);
   });
 
   it("collapses only on an explicit record", () => {
-    expect(readRailCollapsed(memory({ "penguin.activityRailCollapsed": "collapsed" }))).toBe(true);
-    expect(readRailCollapsed(memory({ "penguin.activityRailCollapsed": "open" }))).toBe(false);
+    expect(readRailCollapsed(memory({ "wafh.activityRailCollapsed": "collapsed" }))).toBe(true);
+    expect(readRailCollapsed(memory({ "wafh.activityRailCollapsed": "open" }))).toBe(false);
     expect(readRailCollapsed(memory())).toBe(false);
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { BuiltinAgentInfo } from "@prismshadow/penguin-server/api";
+import type { BuiltinAgentInfo } from "@waterford/waf-harness-server/api";
 import {
   builtinActions,
   builtinSubtitle,

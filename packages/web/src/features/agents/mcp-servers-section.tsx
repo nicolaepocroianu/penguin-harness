@@ -27,7 +27,7 @@
  * and shown as marks in a status column, whoever added the server.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { MCPServerConfig } from "@prismshadow/penguin-core/interfaces";
+import type { MCPServerConfig } from "@waterford/waf-harness-core/interfaces";
 import {
   Button,
   ConfirmModal,
@@ -45,9 +45,9 @@ import {
   TableRow,
   toastError,
   toastSuccess,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
-import type { AgentMcpServerItem, McpServerTestResponse } from "@prismshadow/penguin-server/api";
+import type { AgentMcpServerItem, McpServerTestResponse } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { useLocale } from "../../state/locale";

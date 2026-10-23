@@ -223,7 +223,7 @@ describe("book word manifest fields", () => {
 
   it("keeps a word pronunciation's fields", () => {
     expect(validateManifest(manifest(word), address).assets["en-US"]![0]).toEqual(word);
-    // Provenance stays with Penguin; the module's manifest has Loom's fields only.
+    // Provenance stays with WAF Harness; the module's manifest has Loom's fields only.
     expect(
       wafManifest(validateManifest(manifest(word), address)).assets["en-US"]![0],
     ).not.toHaveProperty("phonemeSource");

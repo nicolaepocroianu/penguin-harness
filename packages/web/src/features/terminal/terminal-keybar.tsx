@@ -16,7 +16,7 @@
  *   arms it and the next character typed on the soft keyboard consumes it (the composition
  *   happens on the data path in terminal-view.tsx). Tapping again disarms.
  */
-import { GlyphIcon, ICONS, ICON_SIZE } from "@prismshadow/penguin-ui";
+import { GlyphIcon, ICONS, ICON_SIZE } from "@waterford/waf-harness-ui";
 import { useTerminalChrome } from "./terminal-appearance";
 import { S } from "../../lib/strings";
 import {

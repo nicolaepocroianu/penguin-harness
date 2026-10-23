@@ -46,7 +46,7 @@ import type {
   VaultResponse,
   VersionResponse,
   WorkspaceFileEntry,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 // The built-in catalog, as the app reads it (the same built module the app imports): the model
 // table and the group tables are what it seeds a Project with, so the app's "add new models"
 // badge stays quiet, and each row's effective connection is resolved by the same function the
@@ -234,7 +234,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
 
   const project: ProjectSummary = {
     projectId: IDS.project,
-    name: "PenguinHarness demo",
+    name: "WAF Harness demo",
     role: "owner",
     ownerUserId: user.userId,
     createdAt: iso(ago(120)),
@@ -429,7 +429,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
           ]
         : [],
     },
-    stateDir: `/home/demo/.penguin/data/projects/${IDS.project}/agents/${agent.agentId}/agent_state`,
+    stateDir: `/home/demo/.waf-harness/data/projects/${IDS.project}/agents/${agent.agentId}/agent_state`,
     activeSessionCount: agent.activeSessionCount,
   });
 
@@ -535,7 +535,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
     client: "web",
     ...extra,
   });
-  const tempWorkspace = `/home/demo/.penguin/data/projects/${IDS.project}/agents/${IDS.agents.docs}/workspaces/tmp-7c1e9b2a`;
+  const tempWorkspace = `/home/demo/.waf-harness/data/projects/${IDS.project}/agents/${IDS.agents.docs}/workspaces/tmp-7c1e9b2a`;
   const harness = harnessTimeline(now);
   const orgDesk = orgDeskTimeline(now);
   const sessions: SessionInfo[] = [
@@ -579,12 +579,12 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       source: "subagent",
     }),
     session(IDS.sessions.benchmark, IDS.agents.docs, "Evaluate CASE-001", ago(3), {
-      // A Test Session the evaluation launched through `penguin run`: archived until kept.
+      // A Test Session the evaluation launched through `wafh run`: archived until kept.
       source: "cli",
       archived: true,
-      workspace: `/home/demo/.penguin/data/projects/${IDS.project}/agents/${IDS.agents.docs}/workspaces/case-001`,
+      workspace: `/home/demo/.waf-harness/data/projects/${IDS.project}/agents/${IDS.agents.docs}/workspaces/case-001`,
     }),
-    // A `penguin run` Session the user unarchived: kept in the sidebar, wearing its CLI glyph.
+    // A `wafh run` Session the user unarchived: kept in the sidebar, wearing its CLI glyph.
     session(IDS.sessions.kept, IDS.agents.docs, "Rebuild the index in batch", ago(1, 120), {
       source: "cli",
     }),
@@ -622,7 +622,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       lastActiveAt: iso(rsi.endedAt),
     }),
     // Its evaluator subagents, which its tool cards open, and the Test Sessions they ran with
-    // `penguin run`: CLI Sessions, archived until kept.
+    // `wafh run`: CLI Sessions, archived until kept.
     ...IDS.sessions.evaluators.map((id, i) =>
       session(id, IDS.agents.general, rsiEvaluatorTitle(lang, i), rsi.startedAt + 54_000, {
         workspace: RSI_WORKSPACE,
@@ -707,7 +707,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
               "Answer questions about Claude Code from its documentation, with citations.",
             shortDescription: "Claude Code docs, with citations",
             version: "0.2.13",
-            package: `@penguinharness/${IDS.plugins.registry}`,
+            package: `@waf-harness/${IDS.plugins.registry}`,
             source: "builtin",
             skills: [
               skill("claude-code-expert", "Search and cite the Claude Code docs", "2026.09.20.1"),
@@ -717,13 +717,13 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
             mcpServers: [],
           },
           {
-            name: "penguin-sdk",
+            name: "wafh-sdk",
             description:
-              "Build with the PenguinHarness SDK: the Session, Agent State and OmniMessage APIs.",
+              "Build with the WAF Harness SDK: the Session, Agent State and OmniMessage APIs.",
             version: "0.2.13",
-            package: "@penguinharness/penguin-sdk",
+            package: "@waf-harness/wafh-sdk",
             source: "builtin",
-            skills: [skill("penguin-sdk", "How to use the PenguinHarness SDK")],
+            skills: [skill("wafh-sdk", "How to use the WAF Harness SDK")],
             hooks: [],
             mcpServers: [],
           },
@@ -731,7 +731,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
             name: "web-design",
             description: "Design and build web pages that do not read as templated defaults.",
             version: "0.2.13",
-            package: "@penguinharness/web-design",
+            package: "@waf-harness/web-design",
             source: "builtin",
             skills: [skill("web-design", "Web visual design")],
             hooks: [],
@@ -748,7 +748,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
             description:
               "Run a Session round after round until an objective is met, within a token budget.",
             version: "0.2.13",
-            package: "@penguinharness/goal",
+            package: "@waf-harness/goal",
             source: "builtin",
             skills: [],
             hooks: ["stop"],
@@ -759,7 +759,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
             name: "continual-learning",
             description: "Write what a Session learned into the Agent's memory when it ends.",
             version: "0.2.13",
-            package: "@penguinharness/continual-learning",
+            package: "@waf-harness/continual-learning",
             source: "builtin",
             skills: [skill("continual-learning", "Consolidate memory when a Session ends")],
             hooks: ["stop"],
@@ -837,7 +837,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
   const installedPlugins: InstalledPluginsResponse = {
     plugins: [
       {
-        specifier: "@penguinharness/sandbox-bwrap",
+        specifier: "@waf-harness/sandbox-bwrap",
         active: true,
         builtin: true,
         modules: ["sandbox.bwrap"],
@@ -847,7 +847,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         here: true,
       },
       {
-        specifier: "@penguinharness/messaging-feishu",
+        specifier: "@waf-harness/messaging-feishu",
         active: false,
         builtin: false,
         modules: ["messaging.feishu"],
@@ -858,7 +858,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       },
       // A plugin the running build cannot run: loaded, left out, with the platform's reason.
       {
-        specifier: "@penguinharness/claude-code",
+        specifier: "@waf-harness/claude-code",
         active: false,
         builtin: false,
         modules: ["ClaudeCode"],
@@ -873,26 +873,26 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         here: true,
       },
     ],
-    shipped: ["@penguinharness/sandbox-bwrap", "@penguinharness/sandbox-seatbelt"],
+    shipped: ["@waf-harness/sandbox-bwrap", "@waf-harness/sandbox-seatbelt"],
     file: ".project_config.toml",
     machineId: "demo-machine-0001",
     restartPending: false,
   };
   // The sandbox backends' cards: their rows carry the descriptions and the shield
-  // icons the packages' own package.json (its `penguin` block) and icon hold.
+  // icons the packages' own package.json (its `wafh` block) and icon hold.
   const shield = (inner: string) =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5.2c0 4.4-3 8.2-7 9.8-4-1.6-7-5.4-7-9.8V6l7-3z" />${inner}</svg>`;
   const pluginIndex: PluginIndexResponse = {
     plugins: [
       {
-        name: "@penguinharness/sandbox-bwrap",
+        name: "@waf-harness/sandbox-bwrap",
         version: "0.2.13",
         description: "Confines agent commands with bubblewrap on Linux.",
         shortDescription: "Linux: confine file writes, cut the network, mask paths.",
         icon: shield(
           '<circle cx="10.4" cy="10.3" r="1.7" /><circle cx="14.2" cy="12.3" r="1.1" /><circle cx="11.3" cy="14.9" r="0.8" />',
         ),
-        authors: ["PenguinHarness"],
+        authors: ["WAF Harness"],
         license: "MIT",
         repository: "https://github.com/prismshadow/penguin-harness",
         keywords: ["linux", "sandbox"],
@@ -900,14 +900,14 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         updatedAt: Math.floor(ago(19) / 1000),
       },
       {
-        name: "@penguinharness/sandbox-seatbelt",
+        name: "@waf-harness/sandbox-seatbelt",
         version: "0.2.13",
         description: "Confines agent commands with Seatbelt on macOS.",
         shortDescription: "macOS: confine file writes, cut the network, mask paths.",
         icon: shield(
           '<path d="M8.6 15.4l6.8-6.8" /><rect x="10.4" y="10.4" width="3.2" height="3.2" rx="0.6" />',
         ),
-        authors: ["PenguinHarness"],
+        authors: ["WAF Harness"],
         license: "MIT",
         repository: "https://github.com/prismshadow/penguin-harness",
         keywords: ["macos", "sandbox"],
@@ -915,10 +915,10 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         updatedAt: Math.floor(ago(19) / 1000),
       },
       {
-        name: "@penguinharness/messaging-feishu",
+        name: "@waf-harness/messaging-feishu",
         version: "0.2.12",
         description: "Relays a Session to a Feishu bot.",
-        authors: ["PenguinHarness"],
+        authors: ["WAF Harness"],
         license: "MIT",
         keywords: ["messaging", "feishu"],
         categories: ["messaging"],
@@ -929,11 +929,11 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
     pending: [],
   };
   const readmes: Record<string, string> = {
-    "@penguinharness/sandbox-bwrap":
-      '# sandbox-bwrap\n\nRuns every agent command inside a bubblewrap namespace: the Workspace is writable, the rest of the filesystem read-only, and the network follows the Session\'s sandbox level.\n\n```toml\n[plugins]\nsandbox-bwrap = "@penguinharness/sandbox-bwrap"\n```\n',
-    "@penguinharness/sandbox-seatbelt":
+    "@waf-harness/sandbox-bwrap":
+      '# sandbox-bwrap\n\nRuns every agent command inside a bubblewrap namespace: the Workspace is writable, the rest of the filesystem read-only, and the network follows the Session\'s sandbox level.\n\n```toml\n[plugins]\nsandbox-bwrap = "@waf-harness/sandbox-bwrap"\n```\n',
+    "@waf-harness/sandbox-seatbelt":
       "# sandbox-seatbelt\n\nThe macOS counterpart of sandbox-bwrap, on Seatbelt profiles.\n",
-    "@penguinharness/messaging-feishu":
+    "@waf-harness/messaging-feishu":
       "# messaging-feishu\n\nBinds a Session to a Feishu bot so replies reach a chat.\n",
   };
 
@@ -1074,7 +1074,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       'export PYTHONPATH="$PWD/agents"',
       `uvx --from harbor==${HARBOR_VERSION} harbor run -p ${taskPath(bench)} -i ${item.task} \\`,
       `  -a ${HARBOR_AGENT} -m <provider>/<model_id> \\`,
-      "  --ak thinking=<level> --ak penguin_version=<penguin version> \\",
+      "  --ak thinking=<level> --ak wafh_version=<wafh version> \\",
       `  --ak run_timeout=${bench.runTimeout} --ak max_turns=${bench.maxTurns} \\`,
       ...(bench.timeBudgetNote !== undefined
         ? [`  --ak time_budget_note=${shellWord(bench.timeBudgetNote)} \\`]
@@ -1095,7 +1095,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       "## How this case is run",
       "",
       "This case does not run in a Workspace. It is a Harbor task: the evaluator runs it in Docker " +
-        `with Harbor ${HARBOR_VERSION} and the PenguinHarness adapter from the repository above, ` +
+        `with Harbor ${HARBOR_VERSION} and the WAF Harness adapter from the repository above, ` +
         `following that repository's rules for agents — ${repoLink(bench, "blob", BENCHMARK_RUN_RULES)} — ` +
         `from the root of a checkout at commit \`${bench.ref}\`:`,
       "",
@@ -1106,7 +1106,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       `Caps: the agent is stopped at ${bench.runTimeout} and after ${bench.maxTurns} turns. Run at ` +
         "most four trials at a time on one machine. Prerequisites on the evaluating machine: Docker " +
         `with Compose v2; uv; network access to ${bench.downloads}, nodejs.org, the npm registry and ` +
-        "the model provider; the model under test configured in this machine's PenguinHarness with " +
+        "the model provider; the model under test configured in this machine's WAF Harness with " +
         "its API key saved (the adapter copies that one entry into the container, outside the " +
         "trial's log directory)." +
         (bench.note !== undefined ? ` ${bench.note}` : ""),
@@ -1119,7 +1119,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       "",
       ...(bench.results !== undefined
         ? [
-            `Measured results of PenguinHarness on these tasks: ${repoLink(bench, "blob", bench.results)}`,
+            `Measured results of WAF Harness on these tasks: ${repoLink(bench, "blob", bench.results)}`,
             "",
           ]
         : []),
@@ -1252,7 +1252,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         socket: null,
         api: null,
         status: { state: "running", checkedAt: iso(ago(0, 1)), port: 7364 },
-        root: "/home/demo/.penguin/data",
+        root: "/home/demo/.waf-harness/data",
       },
       {
         id: "ssh:gpu-box",
@@ -1264,7 +1264,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         socket: null,
         api: { answeredAt: iso(ago(0, 3)) },
         status: { state: "running", checkedAt: iso(ago(0, 3)), port: 7364 },
-        root: "/home/ubuntu/.penguin/data",
+        root: "/home/ubuntu/.waf-harness/data",
         // The last sync could not carry a key this server reads from its environment, and the
         // machine would not take one hand-added model: the dialog's two notices.
         configSync: {
@@ -1299,7 +1299,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         socket: null,
         api: null,
         status: null,
-        root: "~/.penguin/data",
+        root: "~/.waf-harness/data",
       },
     ],
     imageVersion: "0.2.13",
@@ -1353,7 +1353,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       overview: {
         enabled: true,
         templateHasMemory: true,
-        memoryDir: `/home/demo/.penguin/data/projects/${IDS.project}/agents/${IDS.agents.docs}/agent_state/memory`,
+        memoryDir: `/home/demo/.waf-harness/data/projects/${IDS.project}/agents/${IDS.agents.docs}/agent_state/memory`,
         scopes: [
           { scopeKey: "user", kind: "user", fileCount: 3, hasIndex: true, updatedAt: iso(ago(1)) },
           {
@@ -1396,7 +1396,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
           "corpus-layout.md",
           "Corpus layout",
           "corpus/ is split by upstream repository.",
-          `---\nname: ${"Corpus layout"}\nupdated_at: ${dayKey(ago(2))}\n---\n\ncorpus/claude-code-docs/ · corpus/penguin-docs/\n`,
+          `---\nname: ${"Corpus layout"}\nupdated_at: ${dayKey(ago(2))}\n---\n\ncorpus/claude-code-docs/ · corpus/wafh-docs/\n`,
           2,
         ),
       ],
@@ -1405,7 +1405,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       overview: {
         enabled: true,
         templateHasMemory: false,
-        memoryDir: `/home/demo/.penguin/data/projects/${IDS.project}/agents/${IDS.agents.notes}/agent_state/memory`,
+        memoryDir: `/home/demo/.waf-harness/data/projects/${IDS.project}/agents/${IDS.agents.notes}/agent_state/memory`,
         scopes: [{ scopeKey: "user", kind: "user", fileCount: 0, hasIndex: false }],
       },
       files: [],
@@ -1414,7 +1414,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       overview: {
         enabled: true,
         templateHasMemory: true,
-        memoryDir: `/home/demo/.penguin/data/projects/${IDS.project}/agents/${IDS.agents.general}/agent_state/memory`,
+        memoryDir: `/home/demo/.waf-harness/data/projects/${IDS.project}/agents/${IDS.agents.general}/agent_state/memory`,
         scopes: [{ scopeKey: "user", kind: "user", fileCount: 0, hasIndex: false }],
       },
       files: [],
@@ -1446,7 +1446,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         {
           keyId: "kq3VtX9cRb2LmN0a",
           name: "docs-site search",
-          prefix: "penguin_Zr8kQ2vT",
+          prefix: "wafh_Zr8kQ2vT",
           createdBy: user.userId,
           createdAt: iso(ago(21)),
           lastUsedAt: iso(ago(0, 12)),
@@ -1454,7 +1454,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         {
           keyId: "Hc7pW2sYd4EfJ6uB",
           name: "weekly report script",
-          prefix: "penguin_4mGxL7pA",
+          prefix: "wafh_4mGxL7pA",
           createdBy: user.userId,
           createdAt: iso(ago(2)),
           lastUsedAt: null,
@@ -1487,13 +1487,13 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         file("README.md", 2_140, 12),
         file("package.json", 612, 12),
       ],
-      corpus: [dir("claude-code-docs", 1), dir("penguin-docs", 1)],
+      corpus: [dir("claude-code-docs", 1), dir("wafh-docs", 1)],
       "corpus/claude-code-docs": [
         file("hooks.md", 9_812, 1),
         file("mcp.md", 7_420, 1),
         file("memory.md", 5_118, 1),
       ],
-      "corpus/penguin-docs": [file("server-api.md", 31_004, 1), file("omni-message.md", 22_870, 1)],
+      "corpus/wafh-docs": [file("server-api.md", 31_004, 1), file("omni-message.md", 22_870, 1)],
       scripts: [file("check-links.mjs", 1_984, 3)],
       src: [file("bm25.ts", 3_102, 5), file("rag.ts", 1_410, 0)],
       test: [file("rag.test.ts", 2_206, 0)],
@@ -1516,8 +1516,8 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
         "# MCP servers\n\nAn MCP server is declared under `tools.mcpServers` in system_config.yaml.\n",
       "corpus/claude-code-docs/memory.md":
         "# Memory\n\nMemory files are Markdown with a frontmatter name and description.\n",
-      "corpus/penguin-docs/server-api.md": "# Server API\n\nEvery route is listed here.\n",
-      "corpus/penguin-docs/omni-message.md": "# OmniMessage\n\nThe message protocol.\n",
+      "corpus/wafh-docs/server-api.md": "# Server API\n\nEvery route is listed here.\n",
+      "corpus/wafh-docs/omni-message.md": "# OmniMessage\n\nThe message protocol.\n",
     },
   };
 
@@ -1616,7 +1616,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
       path: "/home/demo",
       parent: "/home",
       entries: [
-        { name: ".penguin", path: "/home/demo/.penguin" },
+        { name: ".waf-harness", path: "/home/demo/.waf-harness" },
         { name: "projects", path: "/home/demo/projects" },
       ],
     },

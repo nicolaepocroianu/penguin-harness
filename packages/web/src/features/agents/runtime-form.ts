@@ -17,7 +17,7 @@ import type {
   AgentConfigDto,
   AgentConfigUpdateRequest,
   AgentModelConfigDto,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 /** The five number boxes, in the order the tab shows them. */
 export const RUNTIME_NUMBER_FIELDS = [

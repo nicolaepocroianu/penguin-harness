@@ -40,7 +40,7 @@ import { SCHEMA_SQL } from "../src/db/schema.js";
 import { MessagingBindingsRepo } from "../src/db/repos/messaging-bindings.js";
 import { SessionsRepo } from "../src/db/repos/sessions.js";
 import type { SessionRow } from "../src/db/repos/sessions.js";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 
 const sqlite = process.getBuiltinModule("node:sqlite");
 
@@ -50,7 +50,7 @@ let formedDir: string;
 let formed: string;
 
 beforeAll(async () => {
-  formedDir = await mkdtemp(path.join(tmpdir(), "penguin-db-formed-"));
+  formedDir = await mkdtemp(path.join(tmpdir(), "wafh-db-formed-"));
   formed = path.join(formedDir, "web.db");
   openDatabase(formed).close();
 });
@@ -58,7 +58,7 @@ afterAll(async () => {
   await rm(formedDir, { recursive: true, force: true, maxRetries: 10 });
 });
 beforeEach(async () => {
-  dir = await mkdtemp(path.join(tmpdir(), "penguin-db-upgrade-"));
+  dir = await mkdtemp(path.join(tmpdir(), "wafh-db-upgrade-"));
 });
 afterEach(async () => {
   // maxRetries for the same reason helpers.ts documents: on Windows a handle that is

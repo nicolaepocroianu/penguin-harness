@@ -58,7 +58,7 @@ function scripted(script: Script): MachineChannel & { calls: Call[] } {
     if (command.includes("tar.gz.sha256")) {
       return ok(script.reach ?? "@@oss 206 0\n@@github 206 0\n");
     }
-    if (command.startsWith("mktemp -d")) return ok("/tmp/penguin-release.Ab12Cd\n");
+    if (command.startsWith("mktemp -d")) return ok("/tmp/wafh-release.Ab12Cd\n");
     if (command.includes("uname")) {
       return script.windows
         ? {
@@ -77,7 +77,7 @@ function scripted(script: Script): MachineChannel & { calls: Call[] } {
     }
     if (command.includes("sh -s") || command.includes("powershell")) {
       ran = true;
-      const says = script.installSays ?? ["PenguinHarness 0.2.4 installed"];
+      const says = script.installSays ?? ["WAF Harness 0.2.4 installed"];
       for (const line of says) onLine?.(line);
       return { ...ok(`${says.join("\n")}\n`), code: script.installExit ?? 0 };
     }
@@ -127,7 +127,7 @@ describe("installOnRemote", () => {
   const assets = () => path.resolve(__dirname, "..", "..", "..");
 
   beforeEach(() => {
-    work = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-push-test-"));
+    work = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-push-test-"));
   });
   afterEach(() => {
     fs.rmSync(work, { recursive: true, force: true });
@@ -137,8 +137,8 @@ describe("installOnRemote", () => {
 
   it("probes, installs and replicates over the ONE session, then asks what the machine now has", async () => {
     const channel = scripted({
-      probe: "Linux x86_64\\n---penguin---\\n---penguin---\\n",
-      afterInstall: `Linux x86_64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n${HARNESS}`,
+      probe: "Linux x86_64\\n---wafh---\\n---wafh---\\n",
+      afterInstall: `Linux x86_64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n${HARNESS}`,
     });
     const progress: string[] = [];
     const outcome = await installOnRemote({
@@ -157,18 +157,18 @@ describe("installOnRemote", () => {
     expect(calls[0]!.command).toContain("uname -s -m"); // identity first
     // The release is downloaded ON THE REMOTE, pinned to this server's own base, the
     // installer riding the session's stdin.
-    expect(calls[1]!.command).toContain("PENGUIN_VERSION='v0.2.4' sh -s");
+    expect(calls[1]!.command).toContain("WAFH_VERSION='v0.2.4' sh -s");
     expect(calls[1]!.input?.toString("utf8").startsWith("#!/")).toBe(true);
     // The hmr state crosses the same stdin as a tarball, into the hmr directory it was
     // tarred from.
-    expect(calls[2]!.command).toContain('tar -xzf - -C "$HOME/.penguin/data/hmr"');
+    expect(calls[2]!.command).toContain('tar -xzf - -C "$HOME/.waf-harness/data/hmr"');
     expect(calls[2]!.input?.subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b])); // gzip
     // And the machine is asked what it ended up with, which is the only step that can tell
     // an install that took from one that ran cleanly and changed nothing.
     expect(calls[3]!.command).toContain("uname -s -m");
     expect(progress).toContain("linux-x64.");
     // The far side's own output is relayed as it arrives, not withheld until exit.
-    expect(progress).toContain("PenguinHarness 0.2.4 installed");
+    expect(progress).toContain("WAF Harness 0.2.4 installed");
   });
 
   it("calls an install that ran cleanly and changed nothing a failure", async () => {
@@ -177,7 +177,7 @@ describe("installOnRemote", () => {
     // this version — so without asking afterwards this is a success recorded at OUR version,
     // and syncOutOfDate filters on exactly that: the machine is excluded from the sweep that
     // would have tried again. A false success here seals itself in.
-    const channel = scripted({ probe: "Linux x86_64\\n---penguin---\\n---penguin---\\n" });
+    const channel = scripted({ probe: "Linux x86_64\\n---wafh---\\n---wafh---\\n" });
     const outcome = await installOnRemote({
       target,
       plan: plan(),
@@ -197,8 +197,8 @@ describe("installOnRemote", () => {
     // syncOutOfDate filters on that record, so the machine would be left out of the very
     // sweep that would have pushed again.
     const channel = scripted({
-      probe: "Linux x86_64\\n---penguin---\\n---penguin---\\n",
-      afterInstall: 'Linux x86_64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n',
+      probe: "Linux x86_64\\n---wafh---\\n---wafh---\\n",
+      afterInstall: 'Linux x86_64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n',
     });
     const outcome = await installOnRemote({
       target,
@@ -214,8 +214,8 @@ describe("installOnRemote", () => {
 
   it("a Windows host has no session to hold: the probe, a copied script and the store each get their own connection", async () => {
     const channel = scripted({
-      probe: "Windows_NT AMD64\\n---penguin---\\n---penguin---\\n",
-      afterInstall: `Windows_NT AMD64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n${HARNESS}`,
+      probe: "Windows_NT AMD64\\n---wafh---\\n---wafh---\\n",
+      afterInstall: `Windows_NT AMD64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n${HARNESS}`,
       windows: true,
     });
     const outcome = await installOnRemote({
@@ -237,9 +237,9 @@ describe("installOnRemote", () => {
     // PowerShell cannot take the script on stdin, so a Windows remote gets a copy — scp'd to
     // the home directory, with the delete chained onto the command that runs it.
     expect(calls[2]!.verb).toBe("copyTo");
-    expect(calls[2]!.command).toMatch(/^penguin-[0-9a-f]+\.ps1 -> \.$/);
+    expect(calls[2]!.command).toMatch(/^wafh-[0-9a-f]+\.ps1 -> \.$/);
     expect(calls[3]!.verb).toBe("oneShot");
-    expect(calls[3]!.command).toContain('-File "%USERPROFILE%\\penguin-');
+    expect(calls[3]!.command).toContain('-File "%USERPROFILE%\\wafh-');
     expect(calls[3]!.command).toContain('-Version "v0.2.4"');
     expect(calls[3]!.command).toContain("& del /q");
     // The store, as stdin to a one-shot tar.
@@ -256,7 +256,7 @@ describe("installOnRemote", () => {
     // this down the machine's own update channel, which answers.
     const channel = scripted({
       probe:
-        'Linux x86_64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n{"platform":{"bundle":"store/platform/0123456789abcdef.mjs"}}\\n',
+        'Linux x86_64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n{"platform":{"bundle":"store/platform/0123456789abcdef.mjs"}}\\n',
     });
     const outcome = await installOnRemote({
       target,
@@ -276,8 +276,8 @@ describe("installOnRemote", () => {
     // store, so no server and no update channel can answer: the store crosses as a tarball,
     // and the machine is asked what it ended up with.
     const channel = scripted({
-      probe: 'Linux x86_64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n',
-      afterInstall: `Linux x86_64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n${HARNESS}`,
+      probe: 'Linux x86_64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n',
+      afterInstall: `Linux x86_64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n${HARNESS}`,
     });
     const outcome = await installOnRemote({
       target,
@@ -295,7 +295,7 @@ describe("installOnRemote", () => {
 
   it("does nothing when the remote already matches base AND pushed state", async () => {
     const channel = scripted({
-      probe: `Linux x86_64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n${HARNESS}\\n`,
+      probe: `Linux x86_64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n${HARNESS}\\n`,
     });
     const outcome = await installOnRemote({
       target,
@@ -334,11 +334,11 @@ describe("installOnRemote", () => {
   });
 
   describe("a machine that cannot download the release itself", () => {
-    const fresh = "Linux x86_64\\n---penguin---\\n---penguin---\\n";
-    const after = `Linux x86_64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n${HARNESS}`;
+    const fresh = "Linux x86_64\\n---wafh---\\n---wafh---\\n";
+    const after = `Linux x86_64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n${HARNESS}`;
 
     it("gets the package from this side: sent into a scratch directory, installed from it, the scratch removed", async () => {
-      const pkg = path.join(work, "penguin-linux-x64.tar.gz");
+      const pkg = path.join(work, "wafh-linux-x64.tar.gz");
       fs.writeFileSync(pkg, "the package");
       const asked: string[] = [];
       const channel = scripted({
@@ -359,14 +359,14 @@ describe("installOnRemote", () => {
       });
       expect(outcome).toMatchObject({ kind: "installed" });
       expect(asked).toEqual(["0.2.4 linux-x64"]);
-      const archive = "/tmp/penguin-release.Ab12Cd/penguin-linux-x64.tar.gz";
+      const archive = "/tmp/wafh-release.Ab12Cd/wafh-linux-x64.tar.gz";
       const sent = channel.calls.find((c) => c.command.startsWith("cat > "));
       expect(sent?.command).toBe(`cat > "${archive}"`);
       expect(sent?.input?.toString()).toBe("the package");
       const install = channel.calls.find((c) => c.command.includes("sh -s"));
-      expect(install?.command).toContain(`PENGUIN_ARCHIVE='${archive}'`);
-      expect(install?.command).not.toContain("PENGUIN_VERSION");
-      expect(channel.calls.at(-1)?.command).toBe('rm -rf "/tmp/penguin-release.Ab12Cd"');
+      expect(install?.command).toContain(`WAFH_ARCHIVE='${archive}'`);
+      expect(install?.command).not.toContain("WAFH_VERSION");
+      expect(channel.calls.at(-1)?.command).toBe('rm -rf "/tmp/wafh-release.Ab12Cd"');
     });
 
     it("downloads it there after all when one source answers", async () => {
@@ -389,7 +389,7 @@ describe("installOnRemote", () => {
       });
       expect(carried).toBe(0);
       expect(channel.calls.find((c) => c.command.includes("sh -s"))?.command).toContain(
-        "PENGUIN_VERSION='v0.2.4'",
+        "WAFH_VERSION='v0.2.4'",
       );
     });
 
@@ -426,8 +426,8 @@ describe("installOnRemote", () => {
 
   it("a bare release plan streams nothing", async () => {
     const channel = scripted({
-      probe: "Linux x86_64\\n---penguin---\\n---penguin---\\n",
-      afterInstall: 'Linux x86_64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n',
+      probe: "Linux x86_64\\n---wafh---\\n---wafh---\\n",
+      afterInstall: 'Linux x86_64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n',
     });
     const outcome = await installOnRemote({
       target,
@@ -442,7 +442,7 @@ describe("installOnRemote", () => {
 
   it("reports the installer's own output on failure", async () => {
     const channel = scripted({
-      probe: 'Linux x86_64\\n---penguin---\\n{"version":"0.0.1"}\\n---penguin---\\n',
+      probe: 'Linux x86_64\\n---wafh---\\n{"version":"0.0.1"}\\n---wafh---\\n',
       installExit: 3,
     });
     const outcome = await installOnRemote({
@@ -453,7 +453,7 @@ describe("installOnRemote", () => {
       layout: RELEASE,
     });
     expect(outcome).toMatchObject({ kind: "failed", step: "install" });
-    expect((outcome as { detail: string }).detail).toContain("PenguinHarness 0.2.4 installed");
+    expect((outcome as { detail: string }).detail).toContain("WAF Harness 0.2.4 installed");
   });
 
   it("leads ssh's own words with what to do when the session cannot be opened, and asks no second connection", async () => {
@@ -519,7 +519,7 @@ describe("installOnRemote", () => {
       2,
     ).replaceAll("\n", "\\n");
     const channel = scripted({
-      probe: `Linux x86_64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n${theirs}`,
+      probe: `Linux x86_64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n${theirs}`,
     });
     const outcome = await installOnRemote({
       target,
@@ -533,9 +533,9 @@ describe("installOnRemote", () => {
 
   it("keeps curl's progress bar out of the log and quotes the installer's error as the failure", async () => {
     const channel = scripted({
-      probe: "Linux x86_64\\n---penguin---\\n---penguin---\\n",
+      probe: "Linux x86_64\\n---wafh---\\n---wafh---\\n",
       installSays: [
-        "Downloading penguin-linux-x64.tar.gz from GitHub ...",
+        "Downloading wafh-linux-x64.tar.gz from GitHub ...",
         "##########                    14.2%\r######################### 100.0%",
         "error: download failed from both the primary source and its fallback. Check your network, then retry.",
       ],
@@ -551,7 +551,7 @@ describe("installOnRemote", () => {
       onProgress: (line) => progress.push(line),
     });
     expect(progress.some((line) => line.includes("%"))).toBe(false);
-    expect(progress).toContain("Downloading penguin-linux-x64.tar.gz from GitHub ...");
+    expect(progress).toContain("Downloading wafh-linux-x64.tar.gz from GitHub ...");
     expect(outcome).toMatchObject({
       kind: "failed",
       step: "install",
@@ -562,12 +562,12 @@ describe("installOnRemote", () => {
 
   it("leads with the program's own error when the installer points above itself", async () => {
     const channel = scripted({
-      probe: "Linux x86_64\\n---penguin---\\n---penguin---\\n",
+      probe: "Linux x86_64\\n---wafh---\\n---wafh---\\n",
       installSays: [
         "Bundle checksum OK.",
         "Payload checksum OK.",
         "node: /lib64/libc.so.6: version `GLIBC_2.28' not found (required by node)",
-        "error: candidate PenguinHarness failed to run (exit status 1). See the error above.",
+        "error: candidate WAF Harness failed to run (exit status 1). See the error above.",
       ],
       installExit: 1,
     });
@@ -586,14 +586,14 @@ describe("installOnRemote", () => {
       "node: /lib64/libc.so.6: version `GLIBC_2.28' not found (required by node)",
     );
     expect(said.at(-1)).toBe(
-      "error: candidate PenguinHarness failed to run (exit status 1). See the error above.",
+      "error: candidate WAF Harness failed to run (exit status 1). See the error above.",
     );
   });
 
   it("refuses a base that cannot name a release", async () => {
     const channel = scripted({
-      probe: "Linux x86_64\\n---penguin---\\n---penguin---\\n",
-      afterInstall: 'Linux x86_64\\n---penguin---\\n{"version":"0.2.4"}\\n---penguin---\\n',
+      probe: "Linux x86_64\\n---wafh---\\n---wafh---\\n",
+      afterInstall: 'Linux x86_64\\n---wafh---\\n{"version":"0.2.4"}\\n---wafh---\\n',
     });
     const outcome = await installOnRemote({
       target,

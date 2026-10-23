@@ -9,7 +9,7 @@ import { RequestError } from "@agentclientprotocol/sdk";
 import { FakeCodingAgent } from "./fake-agent.js";
 import type { AgentServerDefinition, AgentSessionEvent } from "../src/types.js";
 
-const CLIENT_INFO = { name: "penguin-test", version: "0.0.0" };
+const CLIENT_INFO = { name: "wafh-test", version: "0.0.0" };
 
 interface Harness {
   manager: CodingAgentManager;

@@ -33,7 +33,7 @@
  * **Content that was never loaded is the one thing this cannot fix**, and it says so instead:
  * a region that knows about more history carries `data-find-more`, which becomes the
  * "earlier content is not loaded — load and keep searching" row. Clicking it starts the same
- * backfill the region's own scroll affordance does (a `penguin:find-load-older` event on the
+ * backfill the region's own scroll affordance does (a `wafh:find-load-older` event on the
  * region element) and, when hits land above the reader, keeps the search going *upward* — the
  * next hit is the nearest one above where the reader was, not the top of the conversation.
  *
@@ -48,7 +48,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import { FindField } from "@prismshadow/penguin-ui";
+import { FindField } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { revealCollapsedIn } from "../../lib/find-expand";
 import {

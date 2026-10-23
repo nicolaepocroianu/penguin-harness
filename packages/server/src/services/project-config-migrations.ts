@@ -16,10 +16,10 @@ function isTable(value: unknown): value is Record<string, unknown> {
  * Go-owned connection URLs, including stored routes from before the MMSP switch. The
  * `token.penguin.ooo` origin and the `/api`, `/api/v1beta` and `/api/anthropic` paths are those
  * pre-MMSP routes, recognized only so they can be migrated: removed with the migration at the
- * 0.3.0 release preparation (see migratePenguinGoRoutes). The server's trusted Go origin
+ * 0.3.0 release preparation (see migrateWafHarnessGoRoutes). The server's trusted Go origin
  * (`PENGUIN_GO_ORIGIN`) counts as Go's too.
  */
-export function isPenguinGoEndpoint(value: unknown): value is string {
+export function isWafHarnessGoEndpoint(value: unknown): value is string {
   if (typeof value !== "string") return false;
   try {
     const url = new URL(value);
@@ -55,18 +55,21 @@ export function isPenguinGoEndpoint(value: unknown): value is string {
  * Removal: at the 0.3.0 release preparation, by whoever prepares it, together with core's
  * migrateLegacyClientTypes (same release-notes condition). Takes out the no-`endpoint` call in
  * ProjectConfigService.readTable and the `endpoint === undefined` branch below, the pre-MMSP
- * origin and paths in isPenguinGoEndpoint, and the migration cases in server
+ * origin and paths in isWafHarnessGoEndpoint, and the migration cases in server
  * `penguin-go-mmsp.test.ts` ("Penguin Go stored projects"); see
  * changelog/0.2.15/2026-10-12-backward-compatibility.md and
  * changelog/unreleased/2026-10-15-backward-compatibility.md. The `endpoint` path stays.
  */
-export function migratePenguinGoRoutes(table: Record<string, unknown>, endpoint?: string): number {
+export function migrateWafHarnessGoRoutes(
+  table: Record<string, unknown>,
+  endpoint?: string,
+): number {
   if (!Array.isArray(table.models)) return 0;
   const providers = isTable(table.providers) ? table.providers : {};
   const groupValue = providers[PENGUIN_GO_PROVIDER_ID];
   const group = isTable(groupValue) ? groupValue : {};
   const nextRoute = (base: unknown, client: unknown): string | undefined => {
-    if (!isPenguinGoEndpoint(base)) return undefined;
+    if (!isWafHarnessGoEndpoint(base)) return undefined;
     if (
       endpoint === undefined &&
       client === "mmsp" &&
@@ -90,7 +93,7 @@ export function migratePenguinGoRoutes(table: Record<string, unknown>, endpoint?
     }
     if (
       groupRoute !== undefined &&
-      !isPenguinGoEndpoint(base) &&
+      !isWafHarnessGoEndpoint(base) &&
       value.client_type === undefined &&
       group.client_type !== undefined &&
       group.client_type !== "mmsp"

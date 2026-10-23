@@ -27,7 +27,7 @@ describe("speech artifacts", () => {
   it.each(["stop", "length", "missing", "throw"])(
     "publishes only complete AgentHub speech streams (%s)",
     async (finish) => {
-      const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-speech-test-"));
+      const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-speech-test-"));
       try {
         await fs.copyFile(
           new URL(

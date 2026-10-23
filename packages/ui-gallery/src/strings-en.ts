@@ -3,7 +3,7 @@ import type { GalleryStrings } from "./strings-types";
 
 export const en: GalleryStrings = {
   sitebar: {
-    siteName: "PenguinHarness",
+    siteName: "WAF Harness",
     nav: {
       home: "Home",
       blog: "Blog",
@@ -176,7 +176,7 @@ export const en: GalleryStrings = {
   },
   home: {
     eyebrow: "Surface gallery",
-    title: "Penguin UI",
+    title: "WAF Harness UI",
     lead: "The real Web App, running in three themes, two modes, five text sizes, and the font pairings — on an in-browser demo API, fully clickable.",
     app: "The app",
     appLead:
@@ -757,7 +757,7 @@ export const en: GalleryStrings = {
       sheetBody: "Drag up for the full screen, down to close.",
       lightbox: "Lightbox",
       lightboxHint: "Click the thumbnail to zoom in; Esc or a click outside the image closes it.",
-      lightboxAlt: "The Penguin logo",
+      lightboxAlt: "The WAF Harness logo",
       palette: "Command palette",
       paletteAside: "Type to filter; each action opens another dialog on this board.",
       openPalette: "Open the command palette",
@@ -779,7 +779,7 @@ export const en: GalleryStrings = {
       besideTip: "Opens to the right of its trigger",
       belowTip: "Opens under its trigger",
       command:
-        "pnpm --filter @prismshadow/penguin-web exec vitest run test/session-activity.test.ts --reporter verbose",
+        "pnpm --filter @waterford/waf-harness-web exec vitest run test/session-activity.test.ts --reporter verbose",
     },
     tabs: {
       basic: "Tab switcher",
@@ -1018,7 +1018,7 @@ export const en: GalleryStrings = {
       articleHint:
         "The prose blog posts and doc pages share. Headings carry anchors, fenced code is highlighted, and tab groups and callouts are the docs' Markdown extensions; its contents sit on the right.",
       articleBody:
-        '## Install\n\nOne command in a terminal installs it:\n\n```bash\ncurl -fsSL https://penguin.ooo/install.sh | sh\n```\n\n### By platform\n\n```bash tab="Linux / macOS"\ncurl -fsSL https://penguin.ooo/install.sh | sh\n```\n\n```powershell tab="Windows"\nirm https://penguin.ooo/install.ps1 | iex\n```\n\n> [!INFO]- Blocked on first launch\n>\n> Allow it in the system settings.\n\n## Next steps\n\n- Run `penguin web` to open the Web App\n- Back to [Install](#install)\n\n| Command | What it does |\n| --- | --- |\n| `penguin` | Chat in the terminal |\n| `penguin web` | Start the Web App |\n\n## API\n\n| Method | Path | Description |\n| --- | --- | --- |\n| POST | `/api/auth/login` | Logs in: `{userId, password}` → `{user}` |\n| GET | `/api/auth/claim?token=…` | Redeems a sign-in link: sets the cookie and redirects to `/` |\n| PUT | `/api/me/prefs` | Writes UI preferences (shallow merge); `browserBackend` is refused (`400`), since the built-in browser chooses it through its own endpoint |\n| GET | `/api/me/archived-sessions` | One group\'s archived Sessions: `?projectId=&workspace=&limit=&before=&q=&source=` → `{sessions, hasMore}` |',
+        '## Install\n\nOne command in a terminal installs it:\n\n```bash\ncurl -fsSL https://penguin.ooo/install.sh | sh\n```\n\n### By platform\n\n```bash tab="Linux / macOS"\ncurl -fsSL https://penguin.ooo/install.sh | sh\n```\n\n```powershell tab="Windows"\nirm https://penguin.ooo/install.ps1 | iex\n```\n\n> [!INFO]- Blocked on first launch\n>\n> Allow it in the system settings.\n\n## Next steps\n\n- Run `wafh web` to open the Web App\n- Back to [Install](#install)\n\n| Command | What it does |\n| --- | --- |\n| `wafh` | Chat in the terminal |\n| `wafh web` | Start the Web App |\n\n## API\n\n| Method | Path | Description |\n| --- | --- | --- |\n| POST | `/api/auth/login` | Logs in: `{userId, password}` → `{user}` |\n| GET | `/api/auth/claim?token=…` | Redeems a sign-in link: sets the cookie and redirects to `/` |\n| PUT | `/api/me/prefs` | Writes UI preferences (shallow merge); `browserBackend` is refused (`400`), since the built-in browser chooses it through its own endpoint |\n| GET | `/api/me/archived-sessions` | One group\'s archived Sessions: `?projectId=&workspace=&limit=&before=&q=&source=` → `{sessions, hasMore}` |',
       toc: "On this page",
       sidebar: "Docs sidebar",
       sidebarHint:
@@ -1058,7 +1058,7 @@ export const en: GalleryStrings = {
         {
           title: "Install the SDK",
           context: "SDK",
-          snippet: "In your project directory: npm install @prismshadow/penguin-core.",
+          snippet: "In your project directory: npm install @waterford/waf-harness-core.",
         },
       ],
       leave: "External link",
@@ -1066,7 +1066,7 @@ export const en: GalleryStrings = {
       leaveLink: "GitHub repository",
       leaveLabels: {
         title: "You're about to open an external link",
-        body: "This link goes to a site outside PenguinHarness and opens in a new tab:",
+        body: "This link goes to a site outside WAF Harness and opens in a new tab:",
         cancel: "Cancel",
         open: "Open link",
       },
@@ -1123,7 +1123,7 @@ export const en: GalleryStrings = {
         small: "Small: secondary information and metadata.",
         caption: "Caption: a note under a chart or a control.",
         eyebrow: "Group label",
-        mono: "sess_7f3a · ~/work/penguin",
+        mono: "sess_7f3a · ~/work/wafh",
         label: "Field label",
       },
       inline: { before: "Run ", code: "pnpm install", after: " to install the dependencies." },
@@ -1550,7 +1550,7 @@ export const en: GalleryStrings = {
       memoryCount: (n: number) => `${n} items`,
       memoryDescriptions: [
         "The local proxy listens on 127.0.0.1:9090, but ~/.bashrc returns early in a non-interactive shell, so exec_command never sees http_proxy and the rest of the proxy variables; export the proxy in the command itself or pass --noproxy '*' for local addresses, or curl answers 502 for a local port.",
-        'Inside the PenguinHarness v0.2.15 server process every Gemini model call fails with "Failed to parse URL from [object Request]": the bundled fetch and Request disagree. Upgrading to 0.2.16 fixes it.',
+        'Inside the WAF Harness v0.2.15 server process every Gemini model call fails with "Failed to parse URL from [object Request]": the bundled fetch and Request disagree. Upgrading to 0.2.16 fixes it.',
         "Verify patent numbers and papers with a tool before citing them.",
       ],
       viewMemory: (name: string) => `View ${name}`,
@@ -1591,7 +1591,7 @@ export const en: GalleryStrings = {
       reasons: {
         failed: "Failed at Restart the server: no answer on port 7364 within 30 s.",
         unreachable: "ssh: connect to host 10.0.0.12 port 22: Connection timed out",
-        working: "Downloading penguin-harness 0.2.16…",
+        working: "Downloading waf-harness 0.2.16…",
         reconnecting: "Reconnect 3 of 8 failed",
         reconnectStopped:
           "lab-2 refused the connection: no ssh server listens at that address and port.",
@@ -1635,7 +1635,7 @@ export const en: GalleryStrings = {
       addHint:
         "The dialog's body and footer: the tabs, host rows to tick, why the last Add failed, and the box ticked by default.",
       addIntro:
-        "This server installs PenguinHarness on a machine it can sign in to over ssh, and connects to it.",
+        "This server installs WAF Harness on a machine it can sign in to over ssh, and connects to it.",
       tabs: { config: "From the ssh config", manual: "Fill in by hand" },
       search: "Search hosts",
       elsewhere: (version: string) => `Installed by another Project ${version}`,

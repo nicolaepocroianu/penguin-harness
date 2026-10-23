@@ -48,7 +48,7 @@ import type {
   MachineInfo,
   MachineJob,
   MachineReconnect,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   checkLine,
   installedText,
@@ -80,7 +80,7 @@ const unreachable: Extract<MachineReading, { kind: "unreachable" }> = {
 };
 const working: Extract<MachineReading, { kind: "working" }> = {
   kind: "working",
-  step: "Downloading penguin-harness 0.2.13…",
+  step: "Downloading waf-harness 0.2.13…",
 };
 const reconnecting: Extract<MachineReading, { kind: "reconnecting" }> = {
   kind: "reconnecting",
@@ -165,7 +165,7 @@ const machine = (over: Partial<MachineInfo> = {}): MachineInfo => ({
   keepConnected: true,
   api: null,
   status: { state: "running", checkedAt: "2026-10-10T07:59:00.000Z", port: 7364 },
-  root: "$HOME/.penguin-dev/data",
+  root: "$HOME/.waf-harness-dev/data",
   ...over,
 });
 const job = (over: Partial<MachineJob>): MachineJob => ({
@@ -342,7 +342,7 @@ describe("a job's steps", () => {
 
   it("mark a job ssh refused before it named a phase failed at the step it names, saying why in the page's language", () => {
     const said =
-      "nas did not accept any key this computer offered. (ssh: penguin@nas: Permission denied (publickey).)";
+      "nas did not accept any key this computer offered. (ssh: wafh@nas: Permission denied (publickey).)";
     const refused = job({
       result: {
         ok: false,
@@ -364,7 +364,7 @@ describe("a job's steps", () => {
       kind: "failed",
       stepName: S.machines.step.check,
       message: S.machines.check.ssh.auth("nas"),
-      detail: S.machines.check.sshSaid("penguin@nas: Permission denied (publickey)."),
+      detail: S.machines.check.sshSaid("wafh@nas: Permission denied (publickey)."),
       canReplaceProgram: false,
     });
   });
@@ -381,7 +381,7 @@ describe("a job's steps", () => {
           state: "done",
           machineId: "ssh:nas",
           checkedAt: "2026-10-10T08:00:00.000Z",
-          checks: [{ id: "ssh", state: "pass", user: "penguin", host: "nas" }],
+          checks: [{ id: "ssh", state: "pass", user: "wafh", host: "nas" }],
         },
       }),
     );
@@ -467,8 +467,8 @@ describe("a machine being brought back", () => {
   });
 
   it("names the program directory the data root sits in", () => {
-    expect(programDirOf("$HOME/.penguin-dev/data")).toBe("$HOME/.penguin-dev");
-    expect(programDirOf("%USERPROFILE%\\.penguin\\data")).toBe("%USERPROFILE%\\.penguin");
+    expect(programDirOf("$HOME/.waf-harness-dev/data")).toBe("$HOME/.waf-harness-dev");
+    expect(programDirOf("%USERPROFILE%\\.waf-harness\\data")).toBe("%USERPROFILE%\\.waf-harness");
   });
 });
 
@@ -513,7 +513,7 @@ describe("the facts", () => {
       checkedAt: "2026-10-10T07:57:00.000Z",
       detail: unreachable.detail!,
     },
-    root: "/home/ubuntu/.penguin/data",
+    root: "/home/ubuntu/.waf-harness/data",
   };
   const block = {
     alias: "edge-1",
@@ -582,7 +582,7 @@ describe("the facts", () => {
     const here: MachineInfo = {
       ...edge,
       id: "local",
-      alias: "penguin-dev",
+      alias: "wafh-dev",
       local: true,
       installed: { version: IMAGE, at: "2026-10-07T08:00:00.000Z" },
       status: { state: "running", checkedAt: "2026-10-10T08:00:00.000Z", port: 7364 },
@@ -705,7 +705,7 @@ describe("the connection check", () => {
     expect(line({ id: "port", state: "fail", port: 7371, holder: "other" }).text).toBe(
       S.machines.check.portTaken(7371),
     );
-    expect(line({ id: "port", state: "pass", port: 7371, holder: "penguin" }).text).toBe(
+    expect(line({ id: "port", state: "pass", port: 7371, holder: "wafh" }).text).toBe(
       S.machines.check.portOurs(7371),
     );
     expect(line({ id: "disk", state: "skip" })).toMatchObject({

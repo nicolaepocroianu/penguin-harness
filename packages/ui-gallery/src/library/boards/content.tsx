@@ -32,8 +32,8 @@ import {
   Text,
   toastInfo,
   useMarkdownReader,
-} from "@prismshadow/penguin-ui";
-import type { A2uiActions, HeadingLevel, TextVariant } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { A2uiActions, HeadingLevel, TextVariant } from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 import type { GalleryStrings } from "../../strings";
@@ -72,7 +72,7 @@ export async function loadConfig(path: string, fallback = {}) {
   return text === null ? fallback : JSON.parse(text);
 }
 
-export const DEFAULT_PATH = "penguin.config.json";
+export const DEFAULT_PATH = "wafh.config.json";
 `;
 
 const PATCH = `diff --git a/src/limits.ts b/src/limits.ts

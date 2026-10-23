@@ -36,7 +36,7 @@ afterEach(async () => {
   for (const root of roots.splice(0)) await fs.rm(root, { recursive: true, force: true });
 });
 async function installation(packages: string[]) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-audio-runtime-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-audio-runtime-"));
   roots.push(root);
   const anchor = path.join(root, "local-audio", "package.json");
   for (const name of dependencies) {

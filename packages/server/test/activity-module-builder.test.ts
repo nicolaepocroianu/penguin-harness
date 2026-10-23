@@ -1,5 +1,5 @@
 /**
- * The pinned Sass every module stylesheet is compiled with: installed once under Penguin's
+ * The pinned Sass every module stylesheet is compiled with: installed once under WAF Harness's
  * root, reused after, and run by its command line with this process's Node. npm is a fake
  * that lays out an install whose `sass.js` copies its input; the compile itself is a real
  * child process, from a folder whose name has a space in it.
@@ -27,7 +27,7 @@ fs.writeFileSync(to, "/* compiled */ " + text);
 `;
 
 async function setup(npm: { fail?: boolean } = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin sass "));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh sass "));
   roots.push(root);
   const installs: string[] = [];
   /** The project `.npmrc` each install's npm would read, as it found it. */
@@ -62,7 +62,7 @@ describe("the pinned Sass", () => {
     expect(await fs.readFile(path.join(module, "res", "style.css"), "utf8")).toBe(
       "/* compiled */ .a { color: red; }",
     );
-    // Installed into Penguin's root, with nothing left of the install in progress.
+    // Installed into WAF Harness's root, with nothing left of the install in progress.
     expect(await fs.readdir(path.join(root, "tools"))).toEqual(["sass-1.54.0"]);
   });
 

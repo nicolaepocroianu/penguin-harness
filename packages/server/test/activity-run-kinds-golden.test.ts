@@ -14,7 +14,7 @@ import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { abortEvent, requestBegin } from "@prismshadow/penguin-core";
+import { abortEvent, requestBegin } from "@waterford/waf-harness-core";
 import type { ActivityDetail, ActivityDraft, ActivityRun } from "../src/activities/domain.js";
 import type { ActivityGenerationService } from "../src/activities/generation.js";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";

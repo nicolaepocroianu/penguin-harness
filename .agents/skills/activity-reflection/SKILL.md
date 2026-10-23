@@ -17,10 +17,10 @@ costs money.
 
 You may read:
 
-- **The outcome ledger**, through the admin route of the Penguin server the person names. Ask
+- **The outcome ledger**, through the admin route of the WAF Harness server the person names. Ask
   them to run the queries with their own admin session and save the JSON where you can read it;
   never ask for a password, a cookie or a token.
-  - `GET /api/admin/activity-outcomes/tally?kind=<run kind>&by=<recipe|runtime|prompt|library|harness|penguin>`
+  - `GET /api/admin/activity-outcomes/tally?kind=<run kind>&by=<recipe|runtime|prompt|library|harness|wafh>`
     with optional `projectId`, `activityId` (repeatable), `since`, `until`: runs counted per
     recipe or part of one. Metrics include how runs ended (`succeeded`, `failed`, …), `seconds`,
     `tests.passed` / `tests.failed` / `tests.notRun` / `tests.untrusted`, `judged.*`,
@@ -105,7 +105,7 @@ Only on **better**, add **commit 2**, which changes no behaviour:
 
 Both are outside the bench's surface, so the PR's head is `out_of_surface` by construction: the
 scored recipe is commit 1. Open the PR on the fork (`gh pr create --repo
-nicolaepocroianu/penguin-harness`). Its description carries:
+nicolaepocroianu/waf-harness`). Its description carries:
 
 - the hypothesis and the change;
 - **the scored commit (commit 1's sha) and the evaluation id**; re-scoring it is

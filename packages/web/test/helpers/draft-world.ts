@@ -26,7 +26,7 @@ import type {
   ServerEvent,
   SessionInfo,
   SessionsBatchRequest,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { AuthProvider } from "../../src/state/auth";
 import { LocaleProvider } from "../../src/state/locale";
 import { ProjectProvider, useProject } from "../../src/state/project";
@@ -76,7 +76,7 @@ const machines: MachinesResponse = {
       keepConnected: true,
       api: null,
       status: { state: "running", checkedAt: "2026-10-15T00:00:00Z", port: 7371 },
-      root: "/home/penguin/.penguin/data",
+      root: "/home/wafh/.waf-harness/data",
     },
   ],
   imageVersion: "0.2.16",

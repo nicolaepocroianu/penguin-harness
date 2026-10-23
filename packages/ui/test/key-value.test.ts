@@ -13,7 +13,7 @@ describe("KeyValue", () => {
       KeyValue,
       null,
       createElement(KeyValueRow, { label: "Version" }, "0.2.13"),
-      createElement(KeyValueRow, { label: "Root", mono: true }, "~/.penguin/data"),
+      createElement(KeyValueRow, { label: "Root", mono: true }, "~/.waf-harness/data"),
     ),
   );
 

@@ -22,8 +22,11 @@ import {
   catalogEntryFor,
   offPeakAt,
   retainedCatalogPricing,
-} from "@prismshadow/penguin-server/model-catalog";
-import type { ModelProviderInfo, OffPeakDiscount } from "@prismshadow/penguin-server/model-catalog";
+} from "@waterford/waf-harness-server/model-catalog";
+import type {
+  ModelProviderInfo,
+  OffPeakDiscount,
+} from "@waterford/waf-harness-server/model-catalog";
 
 import { orderModelGroups } from "./model-group-order";
 

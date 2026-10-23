@@ -2,7 +2,7 @@
  * The evaluator's browser, locked down. A check — a trial's own tests are its agent's code —
  * drives it over Playwright's protocol, and the browser itself runs unconfined, as this user:
  * left alone, a check could open `file:///…` and read anything the user can (their Claude
- * login, Penguin's vaults, the other side's trial home), or send it to any host.
+ * login, WAF Harness's vaults, the other side's trial home), or send it to any host.
  *
  * Two locks, neither of which the check can lift:
  *

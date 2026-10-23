@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Normalises every skill of a package being ported into a PenguinHarness plugin package.
+// Normalises every skill of a package being ported into a WAF Harness plugin package.
 //
 //   node normalize-skills.mjs <package dir> [--version YYYY.MM.DD.N]
 //

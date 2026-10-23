@@ -29,7 +29,7 @@
  * product's own and needs nothing from the list.
  *
  * The conversation is an ordinary Session, listed with the agent's own: only the Test Sessions
- * it starts through `penguin run` (CLI Sessions) are archived, by the listing rule.
+ * it starts through `wafh run` (CLI Sessions) are archived, by the listing rule.
  */
 import { useEffect, useState } from "react";
 import type {
@@ -37,7 +37,7 @@ import type {
   BenchmarkSummary,
   ModelRefDto,
   ModelsResponse,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   FieldHint,
@@ -50,7 +50,7 @@ import {
   Segmented,
   Select,
   Textarea,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { S } from "../../lib/strings";
 import { formatScore } from "../../lib/format";

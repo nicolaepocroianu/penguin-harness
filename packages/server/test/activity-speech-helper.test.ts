@@ -33,7 +33,7 @@ async function runHelper({
   response = null as Record<string, unknown> | null,
   env = { ELEVENLABS_API_KEY: "fake-test-only" } as Record<string, string>,
 } = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-speech-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-speech-test-"));
   try {
     await fs.copyFile(
       new URL(

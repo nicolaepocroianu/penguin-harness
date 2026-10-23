@@ -1,6 +1,6 @@
 /**
  * The plugin library's file source of truth and core's loader: one npm package per plugin under the repo's `plugins/`
- * (its package.json is the manifest: npm's fields and a `penguin` block; the skills and hook
+ * (its package.json is the manifest: npm's fields and a `wafh` block; the skills and hook
  * packages it ships), the version scheme, the category grouping, the preinstall filter, the name
  * lookups, and the doc conventions every shipped skill follows.
  *
@@ -11,9 +11,9 @@
  * Versions, on a fixture library a temp host package carries (usePushedPluginLibrary):
  * - A plugin's version is the npm version of its package.json.
  * - Each skill keeps its own dated version through the loader's stamp, and the hook package
- *   carries `penguin.hooks.version`.
+ *   carries `wafh.hooks.version`.
  * - A shipped skill without a dated version, or shipped `hooks/` without
- *   `penguin.hooks.version`, fails the load naming the file, rather than reading as a version
+ *   `wafh.hooks.version`, fails the load naming the file, rather than reading as a version
  *   every install is behind; so does any other warning-level fault in a shipped package, an MCP
  *   server entry the resolver refuses among them.
  *
@@ -33,7 +33,7 @@
  *   out; the text beside it installs byte for byte). A safe icon is kept from its `<svg>` root on.
  * - An old package that still carries a plugin.json lists by its directories; nothing is read
  *   from the plugin.json.
- * - A package of MCP servers alone (`penguin.mcp_servers`, no skills/ or hooks/) is a library
+ * - A package of MCP servers alone (`wafh.mcp_servers`, no skills/ or hooks/) is a library
  *   plugin: it lists its servers, each with every vault key its config references — declared
  *   ones with their labels first — and whether it offers OAuth sign-in. An empty server list
  *   makes no plugin.
@@ -81,7 +81,7 @@ const CONTRACT_PLUGINS = new Set(["waf-authoring"]);
 /** Minimal LibraryPlugin for groupPlugins unit tests. */
 const fakePlugin = (name: string, category?: string): LibraryPlugin => ({
   name,
-  packageName: `@penguinharness/${name}`,
+  packageName: `@waf-harness/${name}`,
   description: `Do ${name}.`,
   version: "0.2.13",
   preinstall: true,
@@ -131,12 +131,12 @@ describe("loadLibraryPlugins", () => {
       expect(warnings, dir).toEqual([]);
       expect(manifest.pluginName, dir).toBe(dir);
       expect(manifest.description, dir).not.toBe("");
-      expect(manifest.penguin.shortDescription, dir).toBeDefined();
+      expect(manifest.wafh.shortDescription, dir).toBeDefined();
       expect(
         PLUGIN_CATEGORIES.map((c) => c.id),
         dir,
-      ).toContain(manifest.penguin.category);
-      const icon = readPluginIcon(path.join(pluginsRoot, dir), manifest.penguin.icon);
+      ).toContain(manifest.wafh.category);
+      const icon = readPluginIcon(path.join(pluginsRoot, dir), manifest.wafh.icon);
       expect(icon.warnings, dir).toEqual([]);
       expect(icon.icon, `${dir} icon`).toMatch(/^<svg[\s\S]*<\/svg>\s*$/);
       expect(raw.files ?? [], dir).not.toContain("plugin.json");
@@ -235,10 +235,10 @@ describe("loadLibraryPlugins", () => {
     const goal = libraryPlugin("goal");
     const pkg = JSON.parse(
       await fs.readFile(path.join(pluginsRoot, "goal", "package.json"), "utf8"),
-    ) as { penguin: { hooks: { version: string } } };
+    ) as { wafh: { hooks: { version: string } } };
     expect(goal?.hooks?.manifest).toMatchObject({
       name: "goal",
-      version: pkg.penguin.hooks.version,
+      version: pkg.wafh.hooks.version,
       stop: [{ command: "stop.mjs", timeout: 60 }],
       pre_tool_use: [],
       user_prompt: [{ command: "start.mjs", timeout: 60, trigger: "host" }],
@@ -259,12 +259,12 @@ describe("loadLibraryPlugins", () => {
     // Merged plugins carry several skills, each still resolvable by its own name.
     expect(librarySkill("web-design")?.plugin.name).toBe("software-development");
     expect(librarySkill("unified-llm-api")?.plugin.name).toBe("agent-development");
-    expect(librarySkill("penguin-config")?.plugin.name).toBe("agent-development");
+    expect(librarySkill("wafh-config")?.plugin.name).toBe("agent-development");
     expect(librarySkill("plugin-porting")?.plugin.name).toBe("skill-porting");
     // The default loop's steps sit with their audience: setting up an agent is agent
     // development, measuring one is Agent Evaluation, and the toolkit keeps only the loop.
     expect(librarySkill("agent-initialization")?.plugin.name).toBe("agent-development");
-    expect(librarySkill("penguin-plugin")?.plugin.name).toBe("agent-development");
+    expect(librarySkill("wafh-plugin")?.plugin.name).toBe("agent-development");
     expect(librarySkill("agent-evaluation")?.plugin.name).toBe("agent-evaluation");
     expect(librarySkill("benchmark-design")?.plugin.name).toBe("agent-evaluation");
     expect(libraryPlugin("default-rsi-toolkit")?.skills.map((s) => s.name)).toEqual([
@@ -349,9 +349,9 @@ describe("groupPlugins / loadPluginGroups", () => {
       "data-analysis",
       "goal",
       "humanizer",
-      "penguin-support",
       "use-bento-slides",
       "use-firecrawl",
+      "wafh-support",
     ]);
     expect(names("ai-app-development")).toEqual([
       "agent-development",
@@ -389,29 +389,29 @@ describe("plugin versions, on a fixture library", () => {
     root = null;
   });
 
-  /** A host package holding one plugin, `@penguinharness/sample`, made of `files` (paths relative to the plugin directory); the library is pointed at it. */
+  /** A host package holding one plugin, `@waf-harness/sample`, made of `files` (paths relative to the plugin directory); the library is pointed at it. */
   async function library(files: Record<string, string>): Promise<void> {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-plugin-versions-"));
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-plugin-versions-"));
     await fs.writeFile(
       path.join(root, "package.json"),
-      JSON.stringify({ name: "fixture-host", dependencies: { "@penguinharness/sample": "*" } }),
+      JSON.stringify({ name: "fixture-host", dependencies: { "@waf-harness/sample": "*" } }),
     );
-    await write(path.join(root, "node_modules", "@penguinharness", "sample"), files);
+    await write(path.join(root, "node_modules", "@waf-harness", "sample"), files);
     usePushedPluginLibrary(root);
   }
 
   const skillFile = (name: string, version?: string) =>
     `---\nname: ${name}\ndescription: Do ${name}.\n${version === undefined ? "" : `version: ${version}\n`}---\n\n## Before you start\n`;
-  /** The sample package's package.json: its npm fields and a `penguin` block. */
-  const pkg = (penguin: Record<string, unknown> = {}) =>
+  /** The sample package's package.json: its npm fields and a `wafh` block. */
+  const pkg = (wafh: Record<string, unknown> = {}) =>
     JSON.stringify({
-      name: "@penguinharness/sample",
+      name: "@waf-harness/sample",
       version: "3.1.4",
       description: "Sample.",
-      penguin: { short_description: "Short.", short_description_zh: "短。", ...penguin },
+      wafh: { short_description: "Short.", short_description_zh: "短。", ...wafh },
     });
 
-  it("keeps each skill's own dated version through the stamp, gives the hook package penguin.hooks.version, and the plugin its npm version", async () => {
+  it("keeps each skill's own dated version through the stamp, gives the hook package wafh.hooks.version, and the plugin its npm version", async () => {
     await library({
       "package.json": pkg({ hooks: { version: "2026.09.02.3", stop: [{ command: "stop.mjs" }] } }),
       "skills/one/SKILL.md": skillFile("one", "2026.09.01.2"),
@@ -434,7 +434,7 @@ describe("plugin versions, on a fixture library", () => {
     expect(plugin.hooks?.manifest.version).toBe("2026.09.02.3");
   });
 
-  it("refuses a shipped skill without a dated version, and shipped hooks/ without penguin.hooks.version, naming the file", async () => {
+  it("refuses a shipped skill without a dated version, and shipped hooks/ without wafh.hooks.version, naming the file", async () => {
     await library({
       "package.json": pkg(),
       "skills/one/SKILL.md": skillFile("one"),
@@ -446,7 +446,7 @@ describe("plugin versions, on a fixture library", () => {
       "package.json": pkg({ hooks: { stop: [] } }),
       "hooks/stop.mjs": "export {};\n",
     });
-    expect(() => libraryPlugin("sample")).toThrow(/package\.json: .*penguin\.hooks\.version/);
+    expect(() => libraryPlugin("sample")).toThrow(/package\.json: .*wafh\.hooks\.version/);
   });
 
   it("fails the library for a shipped package with any warning-level fault, naming the key", async () => {
@@ -454,14 +454,14 @@ describe("plugin versions, on a fixture library", () => {
       "package.json": pkg({ category: 7 }),
       "skills/one/SKILL.md": skillFile("one", "2026.09.01.2"),
     });
-    expect(() => loadLibraryPlugins()).toThrow(/package\.json: penguin\.category must be a string/);
+    expect(() => loadLibraryPlugins()).toThrow(/package\.json: wafh\.category must be a string/);
     await fs.rm(root!, { recursive: true, force: true });
 
     await library({
       "package.json": pkg({ mcp_servers: [{ name: "nowhere", config: { transport: "ws" } }] }),
       "skills/one/SKILL.md": skillFile("one", "2026.09.01.2"),
     });
-    expect(() => loadLibraryPlugins()).toThrow(/penguin\.mcp_servers: server "nowhere"/);
+    expect(() => loadLibraryPlugins()).toThrow(/wafh\.mcp_servers: server "nowhere"/);
   });
 });
 
@@ -480,26 +480,26 @@ describe("packages the operator installed on the server", () => {
     `---\nname: ${name}\ndescription: Do ${name}.\n${version === undefined ? "" : `version: ${version}\n`}---\n\nBody.\n`;
 
   /**
-   * A shipped library of one plugin (`@penguinharness/sample`) and a server prefix whose
+   * A shipped library of one plugin (`@waf-harness/sample`) and a server prefix whose
    * package.json depends on `installed`; every package is written under node_modules.
    */
   async function setUp(
     installed: string[],
     packages: Record<string, Record<string, string | Uint8Array>>,
   ): Promise<void> {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-installed-plugins-"));
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-installed-plugins-"));
     const host = path.join(root, "host");
     await write(host, {
       "package.json": JSON.stringify({
         name: "host",
-        dependencies: { "@penguinharness/sample": "*" },
+        dependencies: { "@waf-harness/sample": "*" },
       }),
-      "node_modules/@penguinharness/sample/package.json": JSON.stringify({
-        name: "@penguinharness/sample",
+      "node_modules/@waf-harness/sample/package.json": JSON.stringify({
+        name: "@waf-harness/sample",
         version: "1.0.0",
         description: "Sample.",
       }),
-      "node_modules/@penguinharness/sample/skills/sample/SKILL.md": skillFile(
+      "node_modules/@waf-harness/sample/skills/sample/SKILL.md": skillFile(
         "sample",
         "2026.09.01.1",
       ),
@@ -507,7 +507,7 @@ describe("packages the operator installed on the server", () => {
     const prefix = path.join(root, "prefix");
     await write(prefix, {
       "package.json": JSON.stringify({
-        name: "penguin-plugins",
+        name: "wafh-plugins",
         private: true,
         dependencies: Object.fromEntries(installed.map((name) => [name, "*"])),
       }),
@@ -519,12 +519,12 @@ describe("packages the operator installed on the server", () => {
     useInstalledPluginPrefix(prefix);
   }
 
-  const notes = (name: string, penguin: Record<string, unknown> = {}) => ({
+  const notes = (name: string, wafh: Record<string, unknown> = {}) => ({
     "package.json": JSON.stringify({
       name,
       version: "2.0.0",
       description: "Notes.",
-      penguin: { preinstall: true, ...penguin },
+      wafh: { preinstall: true, ...wafh },
     }),
     "skills/notes/SKILL.md": skillFile("notes", "2026.10.01.1"),
   });
@@ -537,7 +537,7 @@ describe("packages the operator installed on the server", () => {
     await setUp(["@acme/notes"], { "@acme/notes": notes("@acme/notes") });
     expect(loadLibraryPlugins().map((p) => [p.name, p.packageName, p.source])).toEqual([
       ["notes", "@acme/notes", "installed"],
-      ["sample", "@penguinharness/sample", undefined],
+      ["sample", "@waf-harness/sample", undefined],
     ]);
     expect(libraryPlugin("notes")).toMatchObject({ version: "2.0.0", preinstall: false });
     expect(loadPreinstalledPlugins().map((p) => p.name)).toEqual(["sample"]);
@@ -549,12 +549,12 @@ describe("packages the operator installed on the server", () => {
 
   it("leaves out a package of server modules alone, a name the build ships, and npm's own dependencies", async () => {
     await setUp(["@acme/sandbox-x", "@other/sample", "@acme/nothing"], {
-      // A server module's card: a penguin block, with nothing to install into an Agent.
+      // A server module's card: a wafh block, with nothing to install into an Agent.
       "@acme/sandbox-x": {
         "package.json": JSON.stringify({
           name: "@acme/sandbox-x",
           version: "1.0.0",
-          penguin: { category: "sandbox" },
+          wafh: { category: "sandbox" },
         }),
         "ifaces.json": "{}",
       },
@@ -564,14 +564,14 @@ describe("packages the operator installed on the server", () => {
         "package.json": JSON.stringify({
           name: "@acme/nothing",
           version: "1.0.0",
-          penguin: { mcp_servers: [] },
+          wafh: { mcp_servers: [] },
         }),
       },
       // Installed by npm beside the packages the prefix asked for, not by the operator.
       "left-pad": notes("left-pad"),
     });
     expect(loadLibraryPlugins().map((p) => [p.name, p.packageName])).toEqual([
-      ["sample", "@penguinharness/sample"],
+      ["sample", "@waf-harness/sample"],
     ]);
   });
 
@@ -626,11 +626,11 @@ describe("packages the operator installed on the server", () => {
     expect(plugin.title).toBe("Notes");
     expect(plugin).not.toHaveProperty("category");
     expect(plugin.quickStart).toEqual({ prompt: "Take a note.", skills: ["notes"] });
-    expect(logged(warn)).toContain("penguin.category must be a string; ignored");
+    expect(logged(warn)).toContain("wafh.category must be a string; ignored");
     expect(logged(warn)).toContain("names skills the package does not ship (elsewhere)");
   });
 
-  it("lists the skills of a package whose hooks/ has no penguin.hooks.version, and no hook package", async () => {
+  it("lists the skills of a package whose hooks/ has no wafh.hooks.version, and no hook package", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await setUp(["@acme/notes"], {
       "@acme/notes": { ...notes("@acme/notes"), "hooks/stop.mjs": "export {};\n" },
@@ -638,7 +638,7 @@ describe("packages the operator installed on the server", () => {
     const plugin = libraryPlugin("notes")!;
     expect(plugin.skills.map((s) => s.name)).toEqual(["notes"]);
     expect(plugin.hooks).toBeUndefined();
-    expect(logged(warn)).toContain("hooks/ is present but package.json declares no penguin.hooks");
+    expect(logged(warn)).toContain("hooks/ is present but package.json declares no wafh.hooks");
   });
 
   it("reads a skill without a version as unversioned, which its installed copy is never behind", async () => {
@@ -719,10 +719,10 @@ describe("packages the operator installed on the server", () => {
   });
 
   it("lists an old package that still carries a plugin.json by its directories, reading nothing from it", async () => {
-    await setUp(["@penguinharness/old"], {
-      "@penguinharness/old": {
+    await setUp(["@waf-harness/old"], {
+      "@waf-harness/old": {
         "package.json": JSON.stringify({
-          name: "@penguinharness/old",
+          name: "@waf-harness/old",
           version: "0.2.13",
           description: "Old.",
         }),
@@ -763,7 +763,7 @@ describe("packages the operator installed on the server", () => {
           name: "@acme/mail",
           version: "0.1.9",
           description: "Mail.",
-          penguin: {
+          wafh: {
             mcp_servers: [
               {
                 name: "mail",
@@ -818,7 +818,7 @@ describe("packages the operator installed on the server", () => {
         "package.json": JSON.stringify({
           name: "@acme/tools",
           version: "1.0.0",
-          penguin: {
+          wafh: {
             mcp_servers: [
               { name: "local", config: { command: "node", args: ["${PLUGIN_ROOT}/server.mjs"] } },
               { name: "nowhere", config: { transport: "ws", url: "wss://tools.example.com" } },
@@ -838,13 +838,13 @@ describe("packages the operator installed on the server", () => {
     const said = logged(warn);
     expect(said).toContain('server "nowhere": unknown transport');
     expect(said).toContain('server "moving"');
-    expect(said).toContain("penguin.mcp_servers[3].name must be a server name");
+    expect(said).toContain("wafh.mcp_servers[3].name must be a server name");
     expect(said).toContain('the server name "local" is used twice');
     expect(said).toContain("setup key UNUSED, which its config never references");
   });
 
   it("reads a local package directory the way the library will (readLibraryPackage), refusing one without a release version", async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-library-package-"));
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-library-package-"));
     await write(path.join(root, "ok"), notes("@acme/notes"));
     await write(path.join(root, "bad"), {
       "package.json": JSON.stringify({ name: "@acme/bad", version: "next" }),
@@ -897,7 +897,7 @@ describe("parseSkillFrontmatter", () => {
 describe("workspacePluginRoot (a checkout reads plugins from the repo's plugins/ directory)", () => {
   /** A workspace checkout as pnpm lays it out: the repo root, its plugins/, and an injected copy of a plugin under .pnpm. */
   async function checkout(opts: { workspaceFile: boolean; packageName: string }) {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-plugin-root-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-plugin-root-"));
     if (opts.workspaceFile)
       await fs.writeFile(path.join(root, "pnpm-workspace.yaml"), "packages:\n");
     const source = path.join(root, "plugins", "sample");
@@ -908,20 +908,20 @@ describe("workspacePluginRoot (a checkout reads plugins from the repo's plugins/
     );
     const injected = path.join(
       root,
-      "node_modules/.pnpm/@penguinharness+sample@file+plugins+sample/node_modules/@penguinharness/sample",
+      "node_modules/.pnpm/@waf-harness+sample@file+plugins+sample/node_modules/@waf-harness/sample",
     );
     await fs.mkdir(injected, { recursive: true });
     // Where core itself sits in that checkout: its own injected copy, deep under .pnpm.
     const core = path.join(
       root,
-      "node_modules/.pnpm/@prismshadow+penguin-core@file+packages+core/node_modules/@prismshadow/penguin-core",
+      "node_modules/.pnpm/@prismshadow+wafh-core@file+packages+core/node_modules/@waterford/waf-harness-core",
     );
     await fs.mkdir(core, { recursive: true });
     return { root, source, injected, core };
   }
 
   it("prefers the repo's plugins/<name>/ over pnpm's injected copy inside a workspace checkout", async () => {
-    const c = await checkout({ workspaceFile: true, packageName: "@penguinharness/sample" });
+    const c = await checkout({ workspaceFile: true, packageName: "@waf-harness/sample" });
     try {
       expect(workspacePluginRoot("sample", c.injected, c.core)).toBe(c.source);
     } finally {
@@ -930,7 +930,7 @@ describe("workspacePluginRoot (a checkout reads plugins from the repo's plugins/
   });
 
   it("keeps the resolved copy outside a workspace: an npm install and the packed app have no workspace file", async () => {
-    const c = await checkout({ workspaceFile: false, packageName: "@penguinharness/sample" });
+    const c = await checkout({ workspaceFile: false, packageName: "@waf-harness/sample" });
     try {
       expect(workspacePluginRoot("sample", c.injected, c.core)).toBe(c.injected);
     } finally {
@@ -939,7 +939,7 @@ describe("workspacePluginRoot (a checkout reads plugins from the repo's plugins/
   });
 
   it("keeps the resolved copy when the workspace directory is not that package", async () => {
-    const c = await checkout({ workspaceFile: true, packageName: "@penguinharness/other" });
+    const c = await checkout({ workspaceFile: true, packageName: "@waf-harness/other" });
     try {
       expect(workspacePluginRoot("sample", c.injected, c.core)).toBe(c.injected);
     } finally {

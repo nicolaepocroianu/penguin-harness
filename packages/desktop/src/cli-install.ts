@@ -1,21 +1,21 @@
 /**
- * The `penguin` command an installed desktop app provides: PATH exposure for the bundled
- * CLI launcher (`<app>/bin/penguin`, generated at stage time; see launcher.ts).
+ * The `wafh` command an installed desktop app provides: PATH exposure for the bundled
+ * CLI launcher (`<app>/bin/wafh`, generated at stage time; see launcher.ts).
  *
  * It installs itself, at every launch, without asking — the CLI is part of what the app
  * is, and an update that left a stale command behind would point an old client at a new
- * server. Per platform (deb is absent on purpose: its postinst ships /usr/bin/penguin, see
+ * server. Per platform (deb is absent on purpose: its postinst ships /usr/bin/wafh, see
  * build/linux/after-install.tpl):
- * - macOS: symlink /usr/local/bin/penguin → <app>/bin/penguin. The unprivileged write is
+ * - macOS: symlink /usr/local/bin/wafh → <app>/bin/wafh. The unprivileged write is
  *   tried first and an administrator prompt appears only where it actually fails, which on
  *   a Mac without Homebrew is where /usr/local/bin has to be created.
  * - Windows: append <app>\bin to the user PATH (HKCU\Environment) via reg.exe, idempotently
  *   and append-only; new terminals pick it up. No elevation is involved.
- * - Linux AppImage: write an executable ~/.local/bin/penguin wrapper that runs the AppImage
+ * - Linux AppImage: write an executable ~/.local/bin/wafh wrapper that runs the AppImage
  *   itself as Node (see launcher.ts appImageWrapperScript).
  *
  * Two rules follow from doing this silently, both enforced in cli-link.ts:
- * - A `penguin` this app did not write is never replaced. `install.sh` puts its own symlink
+ * - A `wafh` this app did not write is never replaced. `install.sh` puts its own symlink
  *   at the very path the AppImage form uses, and the user may have one from anywhere else.
  *   Such a target is skipped and the reason recorded.
  * - Nothing is installed from a location that will not persist — a macOS bundle still on
@@ -80,18 +80,18 @@ interface Attempt {
   declined?: boolean;
 }
 
-/** macOS: /usr/local/bin/penguin symlink, escalating via osascript only on EACCES/EPERM. */
+/** macOS: /usr/local/bin/wafh symlink, escalating via osascript only on EACCES/EPERM. */
 async function attemptDarwin(force: boolean): Promise<Attempt> {
   const appPath = app.getAppPath();
   if (isVolatileAppLocation(appPath, process.platform)) {
     return {
       ok: false,
       result: "deferred",
-      detail: `The app is running from ${appPath}, which will not stay there. Move PenguinHarness to your Applications folder and open it from there; the command installs itself on that launch.`,
+      detail: `The app is running from ${appPath}, which will not stay there. Move WAF Harness to your Applications folder and open it from there; the command installs itself on that launch.`,
     };
   }
-  const desired = path.join(binDir(), "penguin");
-  const link = path.join(MAC_LINK_DIR, "penguin");
+  const desired = path.join(binDir(), "wafh");
+  const link = path.join(MAC_LINK_DIR, "wafh");
   try {
     const synced = syncSymlink(link, desired, force);
     if (synced.action === "current") return { ok: true, result: "current", detail: synced.detail };
@@ -113,14 +113,14 @@ async function attemptDarwin(force: boolean): Promise<Attempt> {
         ok: false,
         result: "failed",
         declined: true,
-        detail: `Administrator authorization was cancelled or failed, so ${link} was not created. Use "Install 'penguin' Command…" in the application menu to try again.\n${String(escalated)}`,
+        detail: `Administrator authorization was cancelled or failed, so ${link} was not created. Use "Install 'wafh' Command…" in the application menu to try again.\n${String(escalated)}`,
       };
     }
   }
   return {
     ok: true,
     result: "installed",
-    detail: `${link} now points at the app's bundled CLI. Run 'penguin' from any terminal.`,
+    detail: `${link} now points at the app's bundled CLI. Run 'wafh' from any terminal.`,
   };
 }
 
@@ -159,16 +159,16 @@ async function attemptWindows(): Promise<Attempt> {
   } catch (err) {
     return { ok: false, result: "failed", detail: String(err) };
   }
-  // Nothing on disk is touched here: the entry is appended, so another `penguin` earlier in
+  // Nothing on disk is touched here: the entry is appended, so another `wafh` earlier in
   // PATH keeps winning and no other software's entry is rewritten.
   return {
     ok: true,
     result: "installed",
-    detail: `${dir} was added to your user PATH. Open a NEW terminal (existing ones keep the old PATH) and run 'penguin'.`,
+    detail: `${dir} was added to your user PATH. Open a NEW terminal (existing ones keep the old PATH) and run 'wafh'.`,
   };
 }
 
-/** Linux AppImage: executable ~/.local/bin/penguin wrapper invoking the AppImage as Node. */
+/** Linux AppImage: executable ~/.local/bin/wafh wrapper invoking the AppImage as Node. */
 function attemptAppImage(force: boolean): Attempt {
   const appImage = process.env.APPIMAGE;
   if (!appImage) {
@@ -178,7 +178,7 @@ function attemptAppImage(force: boolean): Attempt {
       detail: "APPIMAGE is not set; this build cannot install the command.",
     };
   }
-  const target = path.join(os.homedir(), ".local", "bin", "penguin");
+  const target = path.join(os.homedir(), ".local", "bin", "wafh");
   let script: string;
   try {
     script = appImageWrapperScript(appImage);
@@ -196,7 +196,7 @@ function attemptAppImage(force: boolean): Attempt {
   return {
     ok: true,
     result: "installed",
-    detail: `${target} now runs the CLI bundled in this AppImage. Make sure ~/.local/bin is on your PATH (most distributions add it at login), then run 'penguin' from a new terminal.`,
+    detail: `${target} now runs the CLI bundled in this AppImage. Make sure ~/.local/bin is on your PATH (most distributions add it at login), then run 'wafh' from a new terminal.`,
   };
 }
 
@@ -251,10 +251,8 @@ export async function ensureCliCommand(): Promise<void> {
 function showResult(win: BrowserWindow | null, ok: boolean, detail: string): void {
   const opts = {
     type: ok ? ("info" as const) : ("error" as const),
-    title: "PenguinHarness",
-    message: ok
-      ? "The 'penguin' command is installed."
-      : "Could not install the 'penguin' command.",
+    title: "WAF Harness",
+    message: ok ? "The 'wafh' command is installed." : "Could not install the 'wafh' command.",
     detail,
   };
   void (win !== null ? dialog.showMessageBox(win, opts) : dialog.showMessageBox(opts));
@@ -262,7 +260,7 @@ function showResult(win: BrowserWindow | null, ok: boolean, detail: string): voi
 
 /**
  * The menu item. Same install, but it reports every outcome and it is the one place a
- * `penguin` this app did not write can be replaced — with the user looking at what is
+ * `wafh` this app did not write can be replaced — with the user looking at what is
  * about to be overwritten. Invoking it also clears a previously declined prompt.
  */
 export async function installCliCommand(win: BrowserWindow | null): Promise<void> {
@@ -275,8 +273,8 @@ export async function installCliCommand(win: BrowserWindow | null): Promise<void
   if (outcome.result === "foreign") {
     const opts = {
       type: "warning" as const,
-      title: "PenguinHarness",
-      message: "Something else already provides the 'penguin' command.",
+      title: "WAF Harness",
+      message: "Something else already provides the 'wafh' command.",
       detail: `${outcome.detail}\n\nReplace it with this app's command? The file it replaces is not backed up.`,
       buttons: ["Replace", "Cancel"],
       defaultId: 1,

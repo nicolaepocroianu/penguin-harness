@@ -12,7 +12,7 @@
  * currently openable.
  */
 import { useEffect, useMemo, useState } from "react";
-import { ChangesCard, ICONS } from "@prismshadow/penguin-ui";
+import { ChangesCard, ICONS } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { isFilePathLike, toWorkspaceRelative } from "../../lib/file-path";
 

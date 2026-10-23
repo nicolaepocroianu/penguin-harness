@@ -90,7 +90,7 @@ export interface ConfinedChecksRequest extends ChecksRequest {
  */
 export const CHILD_SOURCE = `import { isBuiltin, registerHooks } from "node:module";
 
-const SHIM = "penguin-checks:fs";
+const SHIM = "wafh-checks:fs";
 
 function confined() {
   const permission = process.permission;
@@ -233,7 +233,7 @@ export async function runConfinedChecks(request: ConfinedChecksRequest): Promise
   try {
     if (request.signal.aborted) return stopped;
     // A folder that never exists: the modules' URLs, so the harness finds its siblings.
-    const base = `${pathToFileURL(path.join(os.tmpdir(), `penguin-checks-${randomBytes(8).toString("hex")}`)).href}/`;
+    const base = `${pathToFileURL(path.join(os.tmpdir(), `wafh-checks-${randomBytes(8).toString("hex")}`)).href}/`;
     const input = JSON.stringify({ ...request.input, browserEndpoint: browser.endpoint });
     const coreDir = fs.realpathSync(request.coreDir);
     const sent: { results: string | null; failure: string | null } = {

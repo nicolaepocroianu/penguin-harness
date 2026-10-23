@@ -10,8 +10,8 @@
 import { createElement as h, useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { Link, MemoryRouter, useLocation } from "react-router";
-import { SiteLanguageMenu, SiteNavLinks, SiteThemeToggle } from "@prismshadow/penguin-ui/site";
-import type { SiteLangPref, SiteThemeMode } from "@prismshadow/penguin-ui/site";
+import { SiteLanguageMenu, SiteNavLinks, SiteThemeToggle } from "@waterford/waf-harness-ui/site";
+import type { SiteLangPref, SiteThemeMode } from "@waterford/waf-harness-ui/site";
 import { click, mount, pressEscape, run, unmountAll } from "./helpers/dom";
 
 const languageLabels = { label: "Language", en: "English", zh: "中文", system: "System" };

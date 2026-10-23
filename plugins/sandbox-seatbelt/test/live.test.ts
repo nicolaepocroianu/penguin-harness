@@ -3,7 +3,7 @@
  * core's command sessions, real kernel denials.
  *
  * Host-gated — this suite can only run where Seatbelt exists, so it skips everywhere
- * else and profile.test.ts carries the deterministic coverage (unless PENGUIN_MUST_RUN
+ * else and profile.test.ts carries the deterministic coverage (unless WAFH_MUST_RUN
  * names it; see scripts/must-run.mjs). Written to be the exact
  * counterpart of the bwrap package's live suite, so the two backends are held to the
  * same behavioral bar.
@@ -12,13 +12,13 @@ import { afterAll, describe, expect, it } from "vitest";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
-import { CommandSessionManager } from "@prismshadow/penguin-core";
-import type { SandboxPolicy } from "@prismshadow/penguin-core/plugin";
+import { CommandSessionManager } from "@waterford/waf-harness-core";
+import type { SandboxPolicy } from "@waterford/waf-harness-core/plugin";
 import { canonicalPath, createSeatbeltProvider } from "../src/index.js";
 import { mustRun } from "../../../scripts/must-run.mjs";
 
-const ws = canonicalPath(mkdtempSync(path.join(tmpdir(), "penguin-seatbelt-live-")));
-const outsideProbe = path.join(homedir(), `penguin-seatbelt-live-${process.pid}.txt`);
+const ws = canonicalPath(mkdtempSync(path.join(tmpdir(), "wafh-seatbelt-live-")));
+const outsideProbe = path.join(homedir(), `wafh-seatbelt-live-${process.pid}.txt`);
 const provider = createSeatbeltProvider();
 
 /** null = spawn unconfined; otherwise confine under this policy (workspaceRoot filled per spawn). */
@@ -58,7 +58,7 @@ afterAll(() => {
   rmSync(outsideProbe, { force: true });
 });
 
-describe.skipIf(!usable)("penguin-seatbelt live enforcement (host-gated)", () => {
+describe.skipIf(!usable)("wafh-seatbelt live enforcement (host-gated)", () => {
   it("fs-write: the workspace is writable, the world outside it is not", async () => {
     policy = { mode: "workspace-write" };
     const inside = await run("echo confined-ok > inside.txt && cat inside.txt");
@@ -97,7 +97,7 @@ describe.skipIf(!usable)("penguin-seatbelt live enforcement (host-gated)", () =>
   });
 
   it("mask-paths: a masked directory's secret is unreadable", async () => {
-    const secretDir = mkdtempSync(path.join(homedir(), "penguin-seatbelt-secret-"));
+    const secretDir = mkdtempSync(path.join(homedir(), "wafh-seatbelt-secret-"));
     const secretFile = path.join(secretDir, "token.txt");
     writeFileSync(secretFile, "super-secret");
     try {

@@ -130,7 +130,7 @@ describe("delimiters that are not math", () => {
       "Set $PATH and $HOME before running.",
       "It costs $5 and $10 in total.",
       "The range is $5-$10 per seat.",
-      "Use $HOME/.penguin/data or $PENGUIN_HOME.",
+      "Use $HOME/.waf-harness/data or $WAFH_HOME.",
       "echo $PATH; echo $HOME",
       "Prices: $1,200 and $3,400.",
       "50% off: $20 to $10",

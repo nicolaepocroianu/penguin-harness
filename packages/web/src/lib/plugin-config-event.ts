@@ -7,7 +7,7 @@
  * the page was reloaded. The Plugins page dispatches after its PUT lands; a mounted draft and
  * conversation read their view again.
  */
-export const PLUGIN_CONFIG_SAVED_EVENT = "penguin:plugin-config-saved";
+export const PLUGIN_CONFIG_SAVED_EVENT = "wafh:plugin-config-saved";
 
 export interface PluginConfigSavedDetail {
   /** The saved group's name (`sandbox`), and the card it is drawn in. */

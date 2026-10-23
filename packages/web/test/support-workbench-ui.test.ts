@@ -12,7 +12,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { stubFetch, json } from "./helpers/fetch";
-const ui = path.resolve(__dirname, "../../../plugins/penguin-support/workbenches/support/ui");
+const ui = path.resolve(__dirname, "../../../plugins/wafh-support/workbenches/support/ui");
 const ticket = {
   id: "one",
   title: "Opening the workbench",
@@ -31,7 +31,7 @@ const ticket = {
 beforeEach(async () => {
   vi.useFakeTimers();
   vi.resetModules();
-  localStorage.setItem("penguin.support.lang", "en");
+  localStorage.setItem("wafh.support.lang", "en");
   const html = await fs.readFile(path.join(ui, "index.html"), "utf8");
   document.body.innerHTML = html.match(/<body>([\s\S]*)<\/body>/)![1]!;
   // jsdom has no native dialog implementation; the browser smoke test checks focus and Esc.

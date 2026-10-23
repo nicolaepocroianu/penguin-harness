@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MediaStat } from "@prismshadow/penguin-server/api";
+import type { MediaStat } from "@waterford/waf-harness-server/api";
 import { statsTables } from "../src/features/activities/activity-stats";
 
 const stat = (over: Partial<MediaStat> & Pick<MediaStat, "key">): MediaStat => ({

@@ -1,12 +1,12 @@
 /**
- * The test browser: a Chromium Penguin owns, for quality checks and acceptance tests to open
+ * The test browser: a Chromium WAF Harness owns, for quality checks and acceptance tests to open
  * an activity's player in.
  *
- * It lives under `PENGUIN_HOME/browsers`, where Playwright is told to look
+ * It lives under `WAFH_HOME/browsers`, where Playwright is told to look
  * (`PLAYWRIGHT_BROWSERS_PATH`), never in the user's own Playwright cache: what a check runs
  * against is the browser this server's `playwright-core` was built for, and nothing else on
  * the machine moves it. A release package ships one beside the program (the launcher names
- * it in `PENGUIN_BUNDLED_BROWSERS`), which is used as it is when the home has none; anywhere
+ * it in `WAFH_BUNDLED_BROWSERS`), which is used as it is when the home has none; anywhere
  * else an admin installs it with one action. Nothing installs it on its own.
  *
  * The install is Playwright's own installer run as a child process — no shell, a time limit,
@@ -25,7 +25,7 @@ import {
   Use,
   type ClassCtx,
   type Opaque,
-} from "@prismshadow/penguin-core/kernel";
+} from "@waterford/waf-harness-core/kernel";
 import { HttpError } from "../http/errors.js";
 import type { Config } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
@@ -57,7 +57,7 @@ export const INSTALL_LOG_MAX = 64 * 1024;
 /** How much of a failed install's output the status carries: the end, where the error is. */
 export const STATUS_LOG_TAIL = 4000;
 
-/** The directory under PENGUIN_HOME the browser is installed into. */
+/** The directory under WAFH_HOME the browser is installed into. */
 export const BROWSERS_DIR_NAME = "browsers";
 
 /**
@@ -120,7 +120,7 @@ export abstract class TestBrowserPorts extends Interface<{
   locateExecutable?: (browsersDir: string) => Promise<string | null>;
   /** The browsers directory a release package ships; null for none. */
   bundledDir?: string | null;
-  /** The `playwright-core` package directory; null stands for a Penguin that ships none. */
+  /** The `playwright-core` package directory; null stands for a WAF Harness that ships none. */
   playwrightCoreDir?: string | null;
   /** Starts the browser as a Playwright server (see `launchPlaywrightServer`). */
   launchServer?: (executable: string, coreDir: string) => Promise<BrowserServerHandle>;
@@ -329,7 +329,7 @@ export class TestBrowserService implements TestBrowser {
   }
 
   private bundledDir(): string | null {
-    const dir = this.ports.bundledDir ?? process.env.PENGUIN_BUNDLED_BROWSERS ?? null;
+    const dir = this.ports.bundledDir ?? process.env.WAFH_BUNDLED_BROWSERS ?? null;
     return dir && dir.trim() !== "" ? dir : null;
   }
 
@@ -389,7 +389,7 @@ export class TestBrowserService implements TestBrowser {
     if (coreDir === null)
       return {
         ran: false,
-        reason: "This copy of Penguin does not include Playwright, so it cannot run the tests.",
+        reason: "This copy of WAF Harness does not include Playwright, so it cannot run the tests.",
       };
     const executable = await this.executablePath();
     if (executable === null)
@@ -410,7 +410,7 @@ export class TestBrowserService implements TestBrowser {
       throw new HttpError(
         503,
         "test_browser_unavailable",
-        "This copy of Penguin does not include Playwright, so it cannot install the test browser.",
+        "This copy of WAF Harness does not include Playwright, so it cannot install the test browser.",
       );
     }
     if (this.installing) {

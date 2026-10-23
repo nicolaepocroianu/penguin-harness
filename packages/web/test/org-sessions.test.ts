@@ -23,7 +23,7 @@ import type {
   OrgChartResponse,
   OrgSessionsResponse,
   SessionStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   deskRowLabel,
   deskRows,

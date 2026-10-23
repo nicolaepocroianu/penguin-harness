@@ -1,7 +1,7 @@
 /**
  * WorkbenchService: boots every workbench folder of an Agent as a module tree of its own.
  *
- * A workbench is a plugin package: hand-written manifests in `package.json#penguin.modules`
+ * A workbench is a plugin package: hand-written manifests in `package.json#wafh.modules`
  * and an `index.ts` whose default export pairs them with code. Its root module must be
  * named `Workbench` and provide `WorkbenchMain`; the server publishes `WorkbenchHost` to the
  * tree as module `Host`, and the slots it opens to workbenches under the platform's own
@@ -24,7 +24,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { bootModules, Component, parseManifest, Use } from "@prismshadow/penguin-core/kernel";
+import { bootModules, Component, parseManifest, Use } from "@waterford/waf-harness-core/kernel";
 import type {
   ClassCtx,
   IfaceDecl,
@@ -32,8 +32,8 @@ import type {
   Manifest,
   ModuleDef,
   ModuleTree,
-} from "@prismshadow/penguin-core/kernel";
-import { agentDir, userText } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core/kernel";
+import { agentDir, userText } from "@waterford/waf-harness-core";
 import table from "../ifaces.json" with { type: "json" };
 import type { ServerEvent } from "../api/types.js";
 import type { Channels, Clock, Hmr, Log, Paths } from "../hmr/capabilities.js";
@@ -75,7 +75,7 @@ import {
   type WorkbenchFolder,
 } from "./store.js";
 
-const PKG = "@prismshadow/penguin-server";
+const PKG = "@waterford/waf-harness-server";
 export const HOST_MODULE = "Host";
 export const ROOT_MODULE = "Workbench";
 export const HOST_IFACE = `${PKG}#WorkbenchHost`;
@@ -111,20 +111,20 @@ async function readManifests(folder: WorkbenchFolder): Promise<Manifest[]> {
     await fs.promises.readFile(path.join(folder.dir, "package.json"), "utf8"),
   ) as {
     type?: unknown;
-    penguin?: { modules?: unknown };
+    wafh?: { modules?: unknown };
   };
   if (raw.type !== "module") {
     throw new Error('package.json must set "type": "module" (a workbench is an ES module)');
   }
-  const list = raw.penguin?.modules;
+  const list = raw.wafh?.modules;
   if (!Array.isArray(list) || list.length === 0) {
-    throw new Error("package.json#penguin.modules must list at least the `Workbench` module");
+    throw new Error("package.json#wafh.modules must list at least the `Workbench` module");
   }
   return list.map((doc, i) => {
     try {
       return parseManifest(doc);
     } catch (err) {
-      throw new Error(`package.json#penguin.modules[${i}]: ${messageOf(err)}`);
+      throw new Error(`package.json#wafh.modules[${i}]: ${messageOf(err)}`);
     }
   });
 }
@@ -148,7 +148,7 @@ export function loadHints(
   };
   return [
     `${UI_DIR}/ has pages but the manifest contributes no tab, so nothing shows beside the chat. ` +
-      `In package.json, under penguin.modules[0] (the module named Workbench), set ` +
+      `In package.json, under wafh.modules[0] (the module named Workbench), set ` +
       `"contributes": ${JSON.stringify({ [`${WEB_MODULE}.${TABS_SLOT}`]: [entry] })} — ` +
       `one entry per tab, src a file under ${UI_DIR}/.`,
   ];
@@ -225,7 +225,7 @@ async function loadDefs(manifests: readonly Manifest[], entry: string): Promise<
   }
   const root = defs.get(ROOT_MODULE);
   if (!root)
-    throw new Error(`package.json#penguin.modules must include a module named '${ROOT_MODULE}'`);
+    throw new Error(`package.json#wafh.modules must include a module named '${ROOT_MODULE}'`);
   if (!Object.values(root.manifest.provides).some((ref) => ref === MAIN_IFACE)) {
     throw new Error(`module '${ROOT_MODULE}' must provide "${MAIN_IFACE}"`);
   }

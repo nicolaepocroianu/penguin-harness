@@ -6,7 +6,7 @@
  *
  * Plain TS so it runs in node.
  */
-import type { PipelineState } from "@prismshadow/penguin-server/api";
+import type { PipelineState } from "@waterford/waf-harness-server/api";
 
 /** The current sequence as the server answered it; null when it could not be read. */
 type CurrentRead = { pipeline: PipelineState | null } | null;

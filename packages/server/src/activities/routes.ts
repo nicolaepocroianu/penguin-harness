@@ -1,8 +1,8 @@
 import { ASSIST_MESSAGE_MAX, parseAssistFocus } from "./assist.js";
 import { ACTIVITY_LANGUAGES, DEFAULT_LANGUAGE_CODE } from "./languages.js";
 import { HttpError } from "../http/errors.js";
-import { isValidId } from "@prismshadow/penguin-core";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { isValidId } from "@waterford/waf-harness-core";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import type { Context, Hono } from "hono";
 import { Hono as HonoApp } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
@@ -61,7 +61,7 @@ import {
 import { parseTrimRange, parseTrimSource, parseTrimTarget } from "./audio-trim.js";
 
 /**
- * Who runs an agent-driven stage: a Penguin agent's own model (`agentId`), or an external
+ * Who runs an agent-driven stage: a WAF Harness agent's own model (`agentId`), or an external
  * coding agent (`codingAgentId`, one of the ACP runtimes in /api/coding-agents) as the model
  * of a Session that `agentId`, when given, owns. One of the two is required.
  */
@@ -966,7 +966,7 @@ export class ActivityRoutes {
       });
     });
     // Uploads and their listing stay inside this activity's own workspace under
-    // PENGUIN_HOME. The shared WAF checkout is never written to.
+    // WAFH_HOME. The shared WAF checkout is never written to.
     app.post("/:activityId/media-uploads", async (c) => {
       const body = await readJson(c);
       const name = requireString(body, "name", { minLen: 1, maxLen: 255 });

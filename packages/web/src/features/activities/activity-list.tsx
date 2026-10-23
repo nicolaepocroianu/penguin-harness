@@ -15,7 +15,7 @@ import type {
   ActivityPoster,
   ActivityRecord,
   ActivitySummary,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Button,
   Chevron,
@@ -30,7 +30,7 @@ import {
   ICONS,
   Menu,
   MenuItem,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk, toneStrip } from "../../lib/tone";

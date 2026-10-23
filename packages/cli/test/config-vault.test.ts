@@ -1,6 +1,6 @@
 /**
- * Integration tests for `penguin config vault set|list|remove` (run through commander's
- * parseAsync for the full command path, with PENGUIN_HOME pointed at a temp directory):
+ * Integration tests for `wafh config vault set|list|remove` (run through commander's
+ * parseAsync for the full command path, with WAFH_HOME pointed at a temp directory):
  * writes to a hidden .vault.toml (mode 0600), list masks values without leaking
  * plaintext, remove raises an error on a missing key, --agent-id targets a specific
  * Agent, and an invalid key name / an overlong value exit with a non-zero code.
@@ -10,7 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Command } from "commander";
-import { agentVaultPath, DEFAULT_PROJECT_ID } from "@prismshadow/penguin-core";
+import { agentVaultPath, DEFAULT_PROJECT_ID } from "@waterford/waf-harness-core";
 import { registerConfigCommand } from "../src/commands/config.js";
 import { getMessages } from "../src/i18n.js";
 
@@ -18,18 +18,18 @@ let tmpRoot: string;
 let prevHome: string | undefined;
 
 beforeEach(async () => {
-  prevHome = process.env.PENGUIN_HOME;
-  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-cli-vault-"));
-  process.env.PENGUIN_HOME = tmpRoot;
+  prevHome = process.env.WAFH_HOME;
+  tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-cli-vault-"));
+  process.env.WAFH_HOME = tmpRoot;
 });
 
 afterEach(async () => {
-  if (prevHome === undefined) delete process.env.PENGUIN_HOME;
-  else process.env.PENGUIN_HOME = prevHome;
+  if (prevHome === undefined) delete process.env.WAFH_HOME;
+  else process.env.WAFH_HOME = prevHome;
   await fs.rm(tmpRoot, { recursive: true, force: true });
 });
 
-/** Runs a `penguin config vault …` command, capturing stdout/stderr and the exit code (without actually exiting the process). */
+/** Runs a `wafh config vault …` command, capturing stdout/stderr and the exit code (without actually exiting the process). */
 async function runVault(args: string[]): Promise<{ out: string; err: string; code: number }> {
   const program = new Command();
   program.exitOverride();
@@ -47,7 +47,7 @@ async function runVault(args: string[]): Promise<{ out: string; err: string; cod
   const prevExitCode = process.exitCode;
   process.exitCode = undefined;
   try {
-    await program.parseAsync(["node", "penguin", "config", "vault", ...args]);
+    await program.parseAsync(["node", "wafh", "config", "vault", ...args]);
     return { out: out.join(""), err: err.join(""), code: Number(process.exitCode ?? 0) };
   } finally {
     outSpy.mockRestore();
@@ -56,7 +56,7 @@ async function runVault(args: string[]): Promise<{ out: string; err: string; cod
   }
 }
 
-describe("penguin config vault", () => {
+describe("wafh config vault", () => {
   it("set -> list (masked) -> remove full round trip; stored as hidden .vault.toml with 0600", async () => {
     const set = await runVault(["set", "--key", "MY_KEY", "--value", "vault-secret-9876"]);
     expect(set.code).toBe(0);
@@ -102,8 +102,8 @@ describe("penguin config vault", () => {
     expect(defaultList.out).toContain("The vault is empty.");
   });
 
-  it("--root picks the data root (beats PENGUIN_HOME); set/list both target that root", async () => {
-    const otherRoot = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-cli-vault-root-"));
+  it("--root picks the data root (beats WAFH_HOME); set/list both target that root", async () => {
+    const otherRoot = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-cli-vault-root-"));
     try {
       const set = await runVault([
         "set",
@@ -118,7 +118,7 @@ describe("penguin config vault", () => {
       expect(
         await fs.readFile(agentVaultPath(otherRoot, DEFAULT_PROJECT_ID, "default_agent"), "utf8"),
       ).toContain("ROOTED_KEY");
-      // The root directory pointed to by PENGUIN_HOME is unaffected.
+      // The root directory pointed to by WAFH_HOME is unaffected.
       const defaultList = await runVault(["list"]);
       expect(defaultList.out).toContain("The vault is empty.");
       const rootedList = await runVault(["list", "--root", otherRoot]);

@@ -112,14 +112,14 @@ describe("activity deploy to PROD", () => {
 
   /** A product ready to deploy, its project owned by the admin or by an owner who is not one. */
   async function setup(owner: "admin" | "member") {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-prod-waf-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-prod-waf-"));
     cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
     await fs.mkdir(path.join(root, "framework", "src"), { recursive: true });
     await fs.writeFile(path.join(root, "framework", "package.json"), "{}");
     await fs.mkdir(path.join(root, "modules"), { recursive: true });
     const clones = new FakeClones();
     // The checkout's clones, the product's module among them (its owner cloned it, and
-    // Penguin writes the product's files into it); its media's sparse set has this
+    // WAF Harness writes the product's files into it); its media's sparse set has this
     // product's folder.
     for (const [folder, remote] of [
       ["waf-activity-data", DATA_REMOTE],

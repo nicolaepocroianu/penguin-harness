@@ -100,7 +100,7 @@ async function run(
 let tmp: string;
 
 beforeEach(async () => {
-  tmp = await mkdtemp(path.join(tmpdir(), "penguin-readfile-img-"));
+  tmp = await mkdtemp(path.join(tmpdir(), "wafh-readfile-img-"));
 });
 
 afterEach(async () => {

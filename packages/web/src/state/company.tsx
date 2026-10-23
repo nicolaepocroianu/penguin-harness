@@ -56,10 +56,10 @@ import type {
   OrganizationSummary,
   ServerEvent,
   UiPrefs,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { useStore } from "zustand/react";
 import { createStore } from "zustand/vanilla";
-import { toastAttention } from "@prismshadow/penguin-ui";
+import { toastAttention } from "@waterford/waf-harness-ui";
 import * as api from "../api/endpoints";
 import { apiErrorText } from "../lib/api-error";
 import { isCurrentProject } from "../lib/project-scope";

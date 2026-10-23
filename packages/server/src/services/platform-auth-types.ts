@@ -1,6 +1,6 @@
 /** Stable identifiers for Penguin Go's key-authorization flow. */
 
-export const PLATFORM_CLIENT_ID = "penguin-harness";
+export const PLATFORM_CLIENT_ID = "waf-harness";
 
 export interface PlatformCatalogPricing {
   unit: "usd_per_mtok";
@@ -9,7 +9,7 @@ export interface PlatformCatalogPricing {
   output: number;
 }
 
-/** A platform model normalized into the fields Penguin persists for a newly discovered row. */
+/** A platform model normalized into the fields WAF Harness persists for a newly discovered row. */
 export interface PlatformCatalogModel {
   modelId: string;
   displayName: string;

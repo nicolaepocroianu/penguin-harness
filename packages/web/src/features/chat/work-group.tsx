@@ -15,8 +15,8 @@
  * - The duration is `summarizeWork`'s span; it ticks only while an item is in flight.
  */
 import { useContext } from "react";
-import { ActivityGroup } from "@prismshadow/penguin-ui";
-import type { ActivityGroupProps } from "@prismshadow/penguin-ui";
+import { ActivityGroup } from "@waterford/waf-harness-ui";
+import type { ActivityGroupProps } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { FindRevealContext } from "../../lib/find-expand";
 import { approvalKey } from "../../lib/omni/stream-model";

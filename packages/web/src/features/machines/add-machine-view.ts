@@ -12,7 +12,7 @@ import type {
   MachineInfo,
   MachinesResponse,
   SshHostSummary,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { matchMachines } from "./machines-match";
 import type { MachineMatch } from "./machines-match";
 import { machinesInUse } from "./machines-view";

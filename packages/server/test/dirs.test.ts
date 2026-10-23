@@ -57,7 +57,7 @@ describe("dirs api", () => {
       await owner.post("/api/projects", { projectId: "owner_dirs-browse", name: "dirs project" })
     ).json()) as ProjectCreateResponse;
     projectId = created.project.projectId;
-    dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "penguin-dirs-")));
+    dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "wafh-dirs-")));
   });
 
   afterEach(async () => {

@@ -4,7 +4,7 @@
  * which fetch nothing until asked, unless the one video an editor shows asks for its
  * first frame.
  */
-import type { UploadKind } from "@prismshadow/penguin-server/api";
+import type { UploadKind } from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import { ImagePreview } from "./image-preview";
 

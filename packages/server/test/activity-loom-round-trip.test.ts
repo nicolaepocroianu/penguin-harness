@@ -34,7 +34,7 @@ async function readJson(file: string): Promise<Json> {
 const assetsOf = (manifest: Json) =>
   Object.values(manifest["assets"] as Record<string, Asset[]>).flat();
 
-describe("a Loom product opened and saved in Penguin", () => {
+describe("a Loom product opened and saved in WAF Harness", () => {
   const cleanups: (() => Promise<void>)[] = [];
   afterEach(async () => {
     for (const cleanup of cleanups.splice(0)) await cleanup();
@@ -70,11 +70,11 @@ describe("a Loom product opened and saved in Penguin", () => {
       expect(media.status, await media.clone().text()).toBe(200);
       const saved = (await media.json()) as ActivityDraft;
       const described = await api.patch(`${base}/${id}/description`, {
-        description: `${before.draft.description}Saved in Penguin.\n`,
+        description: `${before.draft.description}Saved in WAF Harness.\n`,
         expectedRevision: saved.contentRevision,
       });
       expect(described.status, await described.clone().text()).toBe(200);
-      // What Penguin reads back is what it saved: Loom's extras never reach its manifest.
+      // What WAF Harness reads back is what it saved: Loom's extras never reach its manifest.
       expect((await detail()).draft.mediaPlan!.manifest).toEqual(before.draft.mediaPlan!.manifest);
     };
     const product = path.join(modules, folder, "generated", code);
@@ -132,7 +132,7 @@ describe("a Loom product opened and saved in Penguin", () => {
       });
     };
     await check();
-    // Penguin reads only what it holds: no book roles, no Loom-only fields.
+    // WAF Harness reads only what it holds: no book roles, no Loom-only fields.
     const opened = await detail();
     expect(opened.draft.status).toBe("valid");
     const mine = opened.draft.mediaPlan!.manifest.assets["en-US"]!;
@@ -153,7 +153,7 @@ describe("a Loom product opened and saved in Penguin", () => {
     );
     const spec = refFilesDir(t.root, "r2pt01", 150, "waf-module-r2pt01");
     const original = path.join(source, "refs", "r2pt01-150", "spec", "asset_manifest.json");
-    // Penguin keeps a word's recording timings only when they align with its script, and
+    // WAF Harness keeps a word's recording timings only when they align with its script, and
     // says so when it drops them; these are phoneme timings for a drawn-out script.
     const timingsOfWords = (asset: Asset, field: string) =>
       asset["role"] === "bookWord" && field === "wordTimings";
@@ -178,7 +178,7 @@ describe("a Loom product opened and saved in Penguin", () => {
     expect(mine.map((asset) => asset.key)).toContain("scene-4-image-magnifier-inset");
     await save();
     await check();
-    // Tags edited in Penguin replace Loom's; the rest of the product's metadata stays.
+    // Tags edited in WAF Harness replace Loom's; the rest of the product's metadata stays.
     const tagged = await api.put(`${base}/${id}/tags`, { tags: ["Decodables", "Ants"] });
     expect(tagged.status, await tagged.clone().text()).toBe(200);
     expect(await readJson(path.join(product, "spec", "activity_metadata.json"))).toMatchObject({
@@ -189,7 +189,7 @@ describe("a Loom product opened and saved in Penguin", () => {
   });
 });
 
-describe("a ref made in Penguin, as Loom lists refs", () => {
+describe("a ref made in WAF Harness, as Loom lists refs", () => {
   const cleanups: (() => Promise<void>)[] = [];
   afterEach(async () => {
     for (const cleanup of cleanups.splice(0)) await cleanup();
@@ -285,20 +285,20 @@ describe("a configuration edit, in the module's own file", () => {
       revision,
       put,
       discard,
-      penguin: path.join(refFilesDir(t.root, "edits", 1), "penguin.json"),
+      wafh: path.join(refFilesDir(t.root, "edits", 1), "wafh.json"),
     };
   }
 
   it("puts back the module's file on a discard of an edit made before edits were written there", async () => {
-    const { file, revision, put, discard, penguin } = await fresh();
+    const { file, revision, put, discard, wafh } = await fresh();
     expect((await put({ a: 1 }, await revision())).status).toBe(200);
     // As an edit saved before this change left things: no record of the module's file, which
     // still holds what Loom wrote.
-    const state = JSON.parse(await fs.readFile(penguin, "utf8")) as {
+    const state = JSON.parse(await fs.readFile(wafh, "utf8")) as {
       moduleDocuments: { configuration: Record<string, unknown> };
     };
     delete state.moduleDocuments.configuration["replaced"];
-    await fs.writeFile(penguin, JSON.stringify(state));
+    await fs.writeFile(wafh, JSON.stringify(state));
     await fs.writeFile(file, '{ "loom": true }');
     expect((await put({ a: 2 }, await revision())).status).toBe(200);
     expect(JSON.parse(await fs.readFile(file, "utf8"))).toEqual({ a: 2 });
@@ -315,11 +315,11 @@ describe("a configuration edit, in the module's own file", () => {
   });
 
   it("leaves the file holding the edit the draft holds when two arrive at once", async () => {
-    const { file, revision, put, penguin } = await fresh();
+    const { file, revision, put, wafh } = await fresh();
     const expected = await revision();
     const answers = await Promise.all([put({ a: 1 }, expected), put({ a: 2 }, expected)]);
     expect(answers.map((answer) => answer.status).sort()).toEqual([200, 409]);
-    const state = JSON.parse(await fs.readFile(penguin, "utf8")) as {
+    const state = JSON.parse(await fs.readFile(wafh, "utf8")) as {
       moduleDocuments: { configuration: { value: unknown } };
     };
     expect(JSON.parse(await fs.readFile(file, "utf8"))).toEqual(
@@ -328,13 +328,13 @@ describe("a configuration edit, in the module's own file", () => {
   });
 });
 
-describe("metadata Penguin writes over Loom's", () => {
+describe("metadata WAF Harness writes over Loom's", () => {
   const cleanups: (() => Promise<void>)[] = [];
   afterEach(async () => {
     for (const cleanup of cleanups.splice(0)) await cleanup();
   });
 
-  it("keeps Loom's tags exactly as Loom wrote them, beyond Penguin's own limits", async () => {
+  it("keeps Loom's tags exactly as Loom wrote them, beyond WAF Harness's own limits", async () => {
     const t = await createTestApp();
     cleanups.push(t.cleanup);
     const folder = "waf-module-r2pt01";
@@ -350,7 +350,7 @@ describe("metadata Penguin writes over Loom's", () => {
     );
     const loomTags = [
       ...Array.from({ length: 21 }, (_, at) => `Tag ${at + 1}`),
-      "A tag far longer than Penguin's thirty-two characters",
+      "A tag far longer than WAF Harness's thirty-two characters",
       "Bell\u0007",
     ];
     await fs.writeFile(metadata, JSON.stringify({ ...(await readJson(metadata)), tags: loomTags }));
@@ -364,7 +364,7 @@ describe("metadata Penguin writes over Loom's", () => {
     });
     expect(claimed.status, await claimed.clone().text()).toBe(200);
     expect((await readJson(metadata))["tags"]).toEqual(loomTags);
-    // Penguin keeps the ones it can, within its limits.
+    // WAF Harness keeps the ones it can, within its limits.
     const id = ((await claimed.json()) as ClaimModuleProductResponse).activityIds[0]!;
     const opened = (await (await api.get(`${base}/${id}`)).json()) as ActivityDetail;
     expect(opened.tags).toEqual(loomTags.slice(0, 20));
@@ -373,7 +373,7 @@ describe("metadata Penguin writes over Loom's", () => {
     expect((await readJson(metadata))["tags"]).toEqual(["Ants"]);
   });
 
-  it("removes the ref's runtime when Penguin's specification goes", async () => {
+  it("removes the ref's runtime when WAF Harness's specification goes", async () => {
     const t = await createTestApp();
     cleanups.push(t.cleanup);
     const owner = await provisionUser(t.app, "clearer");
@@ -414,15 +414,15 @@ describe("Loom's generation fingerprint", () => {
     ).toBe("36d7d691d6c404a141614324417cde24a5dd4e0584a60affdb27f6e32ac4031d");
   });
 
-  it("follows Loom's Gemini identity, with the model Penguin actually spoke with", () => {
-    // Loom compares this with what its own configured model would give; Penguin's Gemini model
+  it("follows Loom's Gemini identity, with the model WAF Harness actually spoke with", () => {
+    // Loom compares this with what its own configured model would give; WAF Harness's Gemini model
     // differs, so Loom makes the clip again, as it should for another model's recording.
     expect(
       loomGenerationFingerprint({ provider: "gemini", model: SPEECH_MODEL, voice: "Kore" }),
     ).toBe("f628cd754cd1708f7f37040bc18c552f979f8aba45264740d651c43c8e644e33");
   });
 
-  it("is absent where Penguin cannot say what Loom would compute", () => {
+  it("is absent where WAF Harness cannot say what Loom would compute", () => {
     // The default ElevenLabs voice before it is resolved to the voice id that spoke the clip.
     expect(
       loomGenerationFingerprint({

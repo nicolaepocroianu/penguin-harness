@@ -7,30 +7,30 @@ const USAGE =
   "usage: generate-release-download-manifest.mjs <tag> <output-dir> <cli-artifacts-dir> <desktop-artifacts-dir> [extra-release-file...]";
 
 const CLI_BUNDLES = [
-  "penguin-linux-x64.tar.gz",
-  "penguin-linux-arm64.tar.gz",
-  "penguin-darwin-x64.tar.gz",
-  "penguin-darwin-arm64.tar.gz",
-  "penguin-universal.tar.gz",
-  "penguin-win32-x64.zip",
+  "wafh-linux-x64.tar.gz",
+  "wafh-linux-arm64.tar.gz",
+  "wafh-darwin-x64.tar.gz",
+  "wafh-darwin-arm64.tar.gz",
+  "wafh-universal.tar.gz",
+  "wafh-win32-x64.zip",
 ];
 
 const DESKTOP_INSTALLERS = [
-  "penguin-desktop-darwin-arm64.dmg",
-  "penguin-desktop-darwin-arm64.zip",
-  "penguin-desktop-darwin-x64.dmg",
-  "penguin-desktop-darwin-x64.zip",
-  "penguin-desktop-linux-x86_64.AppImage",
-  "penguin-desktop-linux-amd64.deb",
-  "penguin-desktop-win32-x64.exe",
+  "wafh-desktop-darwin-arm64.dmg",
+  "wafh-desktop-darwin-arm64.zip",
+  "wafh-desktop-darwin-x64.dmg",
+  "wafh-desktop-darwin-x64.zip",
+  "wafh-desktop-linux-x86_64.AppImage",
+  "wafh-desktop-linux-amd64.deb",
+  "wafh-desktop-win32-x64.exe",
 ];
 
 const DESKTOP_UPDATE_METADATA = ["latest.yml", "latest-mac.yml", "latest-linux.yml"];
 
 const DESKTOP_UPDATE_BLOCKMAPS = [
-  "penguin-desktop-darwin-arm64.zip.blockmap",
-  "penguin-desktop-darwin-x64.zip.blockmap",
-  "penguin-desktop-win32-x64.exe.blockmap",
+  "wafh-desktop-darwin-arm64.zip.blockmap",
+  "wafh-desktop-darwin-x64.zip.blockmap",
+  "wafh-desktop-win32-x64.exe.blockmap",
 ];
 
 const PROBES = [
@@ -85,7 +85,7 @@ function makeProbe(size) {
   let counter = 0;
   while (offset < size) {
     const chunk = createHash("sha256")
-      .update("penguin-harness release probe v1\0")
+      .update("waf-harness release probe v1\0")
       .update(String(size))
       .update("\0")
       .update(String(counter))
@@ -116,7 +116,7 @@ async function main() {
     writeFileSync(path.join(outputDir, probe.file), makeProbe(probe.size));
   }
 
-  const rows = [["penguin-release-download-manifest", "1", tag]];
+  const rows = [["wafh-release-download-manifest", "1", tag]];
   for (const probe of PROBES) {
     const info = filePath(outputDir, probe.file);
     rows.push(["probe", probe.label, probe.file, String(info.size), await sha256File(info.path)]);

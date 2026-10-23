@@ -22,7 +22,7 @@
  *   runs count is 1..MAX_RUNS.
  */
 import { describe, expect, it } from "vitest";
-import { defaultSystemConfig } from "@prismshadow/penguin-core";
+import { defaultSystemConfig } from "@waterford/waf-harness-core";
 import { S } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import {

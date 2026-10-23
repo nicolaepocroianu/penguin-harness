@@ -1,5 +1,5 @@
 /**
- * Unit tests for penguin-bwrap: the exact profile it builds for each dimension, and
+ * Unit tests for wafh-bwrap: the exact profile it builds for each dimension, and
  * its fail-closed behavior when bubblewrap is unusable. The probe is injected, so both
  * paths are deterministic on any host (a real-bwrap host also runs sandbox-live).
  */
@@ -10,8 +10,8 @@ import path from "node:path";
 import {
   bwrapProfileArgs,
   bwrapSettingsOf,
-  createPenguinBwrapProvider,
-  loadPenguinBwrapProvider,
+  createWafHarnessBwrapProvider,
+  loadWafHarnessBwrapProvider,
   vendoredRunner,
 } from "../src/index.js";
 
@@ -23,7 +23,7 @@ function after(argv: readonly string[], marker: string): readonly string[] {
   return argv.slice(argv.indexOf(marker));
 }
 
-describe("penguin-bwrap profile", () => {
+describe("wafh-bwrap profile", () => {
   it("read-only: the world is read-only, nothing is writable, no network flag", () => {
     const args = bwrapProfileArgs({ mode: "read-only", workspaceRoot: WS });
     expect(args).toEqual([
@@ -116,7 +116,7 @@ describe("penguin-bwrap profile", () => {
   });
 
   it("mask-paths: a directory becomes an empty tmpfs, a file is shadowed by /dev/null", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "penguin-mask-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "wafh-mask-"));
     const file = path.join(dir, "secret.txt");
     writeFileSync(file, "shh");
     const sub = path.join(dir, "sub");
@@ -138,13 +138,13 @@ describe("penguin-bwrap profile", () => {
     const args = bwrapProfileArgs({
       mode: "read-only",
       workspaceRoot: WS,
-      maskPaths: [path.join(tmpdir(), "penguin-definitely-absent-path")],
+      maskPaths: [path.join(tmpdir(), "wafh-definitely-absent-path")],
     });
-    expect(args.join(" ")).not.toContain("penguin-definitely-absent-path");
+    expect(args.join(" ")).not.toContain("wafh-definitely-absent-path");
   });
 
   it("masks come AFTER the read-only bind of / that would otherwise expose them", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "penguin-mask-order-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "wafh-mask-order-"));
     try {
       const args = bwrapProfileArgs({ mode: "read-only", workspaceRoot: WS, maskPaths: [dir] });
       // bwrap applies mounts in order: the mask must be in the tail after `--ro-bind / /`.
@@ -156,9 +156,9 @@ describe("penguin-bwrap profile", () => {
   });
 });
 
-describe("penguin-bwrap provider", () => {
+describe("wafh-bwrap provider", () => {
   it("implements every dimension of the built-in interface", () => {
-    expect(createPenguinBwrapProvider({ probe: () => true }).dimensions).toEqual([
+    expect(createWafHarnessBwrapProvider({ probe: () => true }).dimensions).toEqual([
       "fs-write",
       "network",
       "mask-paths",
@@ -167,7 +167,7 @@ describe("penguin-bwrap provider", () => {
   });
 
   it("wraps the caller's argv behind the profile and a -- separator", () => {
-    const provider = createPenguinBwrapProvider({ probe: () => true, runner: "bwrap" });
+    const provider = createWafHarnessBwrapProvider({ probe: () => true, runner: "bwrap" });
     const confined = provider.confine([...ARGV], {
       mode: "workspace-write",
       workspaceRoot: WS,
@@ -182,7 +182,7 @@ describe("penguin-bwrap provider", () => {
 
   it("an unusable bwrap fails closed, and the probe runs once", () => {
     let probes = 0;
-    const provider = createPenguinBwrapProvider({
+    const provider = createWafHarnessBwrapProvider({
       probe: () => {
         probes++;
         return false;
@@ -197,7 +197,7 @@ describe("penguin-bwrap provider", () => {
   it("reads its settings at each confine, probing each runner once with the timeout set", () => {
     const probed: Array<[number, string]> = [];
     let doc: Record<string, unknown> = {};
-    const provider = createPenguinBwrapProvider({
+    const provider = createWafHarnessBwrapProvider({
       probe: (timeoutMs, runner) => {
         probed.push([timeoutMs, runner]);
         return runner !== "/missing/bwrap";
@@ -224,18 +224,18 @@ describe("bwrap on another platform", () => {
   it("declines off Linux (not a failure), and fails with a reason on Linux it cannot serve", async () => {
     const other = "win32" as const;
     await expect(
-      loadPenguinBwrapProvider({ platform: other, probe: () => true }),
+      loadWafHarnessBwrapProvider({ platform: other, probe: () => true }),
     ).resolves.toBeNull();
     await expect(
-      loadPenguinBwrapProvider({ platform: "linux", probe: () => false }),
+      loadWafHarnessBwrapProvider({ platform: "linux", probe: () => false }),
     ).rejects.toThrow(/is missing or refuses/);
     await expect(
-      loadPenguinBwrapProvider({ platform: "linux", probe: () => true }),
+      loadWafHarnessBwrapProvider({ platform: "linux", probe: () => true }),
     ).resolves.toBeDefined();
   });
 
   it("names the switch of each distribution that gates user namespaces, Ubuntu's included", async () => {
-    const rejection = loadPenguinBwrapProvider({ platform: "linux", probe: () => false });
+    const rejection = loadWafHarnessBwrapProvider({ platform: "linux", probe: () => false });
     await expect(rejection).rejects.toThrow(/kernel\.unprivileged_userns_clone/);
     await expect(rejection).rejects.toThrow(/kernel\.apparmor_restrict_unprivileged_userns/);
     // The root step is optional: sandbox-dsh confines files without it.
@@ -245,7 +245,7 @@ describe("bwrap on another platform", () => {
 
   it("carries what the runner said, and that it did not start at all", async () => {
     await expect(
-      loadPenguinBwrapProvider({
+      loadWafHarnessBwrapProvider({
         platform: "linux",
         settings: () => ({ runner: "/nonexistent/bwrap", probeTimeoutMs: 5000 }),
       }),
@@ -253,7 +253,7 @@ describe("bwrap on another platform", () => {
   });
 
   it("names itself bubblewrap on the settings card", () => {
-    expect(createPenguinBwrapProvider({ probe: () => true }).mechanism).toBe("bubblewrap");
+    expect(createWafHarnessBwrapProvider({ probe: () => true }).mechanism).toBe("bubblewrap");
   });
 });
 

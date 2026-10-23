@@ -14,7 +14,7 @@ import {
   tokenUsage,
   toolCall,
   emptyTokenCounts,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import { isProbeContent, probeTps, probeVerdict } from "../src/services/project-config-service.js";
 
 describe("isProbeContent", () => {

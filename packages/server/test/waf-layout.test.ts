@@ -1,6 +1,6 @@
 /**
  * The WAF checkout's folder grammar. Every path is pinned to the string the checkout and the
- * stored drafts already use: a change here moves files Penguin and Loom have written.
+ * stored drafts already use: a change here moves files WAF Harness and Loom have written.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -32,7 +32,7 @@ afterEach(async () => {
   for (const dir of cleanups.splice(0)) await fs.rm(dir, { recursive: true, force: true });
 });
 async function directory(): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-waf-layout-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-waf-layout-"));
   cleanups.push(dir);
   return dir;
 }

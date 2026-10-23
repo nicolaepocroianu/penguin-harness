@@ -23,15 +23,15 @@ Success looks like this:
 ## Decisions already made
 
 - **Approach 1, not the SDK.** The built-in Copilot is the Copilot CLI's own runtime,
-  downloaded by Penguin and driven over ACP (`--acp`) through the existing coding-agent
+  downloaded by WAF Harness and driven over ACP (`--acp`) through the existing coding-agent
   path. The GitHub Copilot SDK (a second, parallel runtime) is out of scope; its extras
   (per-session tokens, custom tools, bring-your-own-key) are not needed for this goal.
 - **A third tab named "Built-in"** beside **Local CLI** and **API providers**. It holds
-  agents Penguin downloads, runs and updates itself, configured with a token. Local CLI
+  agents WAF Harness downloads, runs and updates itself, configured with a token. Local CLI
   keeps meaning "installed on this machine, signed in its own way".
-- **Downloaded on demand**, never bundled into Penguin's package: the runtime is about
+- **Downloaded on demand**, never bundled into WAF Harness's package: the runtime is about
   150 MB per platform.
-- **Environment variables are stored like Penguin's other secrets** (API provider keys,
+- **Environment variables are stored like WAF Harness's other secrets** (API provider keys,
   the Agent Vault): plaintext on the server, masked at the API, never returned to the
   browser. No new encryption is introduced.
 
@@ -79,9 +79,9 @@ Every path that rewrites a definition must carry `env` over. Today three drop it
   - everything the sandbox passes through (the `PASS_THROUGH` list in
     `coding-agents/src/env.ts`)
   - `NO_BROWSER`
-  - any key starting with `PENGUIN_`
+  - any key starting with `WAFH_`
 
-  Overriding these would break how the agent starts or how Penguin tracks it.
+  Overriding these would break how the agent starts or how WAF Harness tracks it.
 - Values up to 8192 characters; no newlines.
 - A rejected request saves nothing and names the offending key.
 
@@ -122,7 +122,7 @@ not see the section.
   - `linuxmusl-x64`, `linuxmusl-arm64`, chosen via libc detection
 
   Any other platform is reported as unsupported.
-- **Version:** a version pinned in Penguin's source, updated deliberately with a Penguin
+- **Version:** a version pinned in WAF Harness's source, updated deliberately with a WAF Harness
   release. Never "latest".
 
 ### How it is downloaded
@@ -132,7 +132,7 @@ in `platform.ts`, per the repo's service conventions) does the following:
 
 1. Reads the pinned version's metadata from the registry: `dist.tarball` and
    `dist.integrity`.
-2. Downloads the tarball through Penguin's proxy setting, if one is configured, and
+2. Downloads the tarball through WAF Harness's proxy setting, if one is configured, and
    verifies it against `dist.integrity` (sha512). No `npm` is needed on the machine.
 3. Unpacks it into a temporary folder under `<data root>/runtimes/copilot/`, then renames
    it into `<data root>/runtimes/copilot/<version>/` in one step.
@@ -244,7 +244,7 @@ The Copilot card changes with its state:
 ## Release blocker
 
 The Copilot CLI package is not MIT ("SEE LICENSE IN LICENSE.md"). Before shipping Part 2,
-confirm that its license allows Penguin to download and run it on a user's behalf in this
+confirm that its license allows WAF Harness to download and run it on a user's behalf in this
 way, and that the "accepts GitHub Copilot's terms" note links to the right terms. Part 1
 has no such dependency and can ship first.
 

@@ -1,8 +1,8 @@
 {
-  "name": "@prismshadow/amsp",
+  "name": "@waterford/waf-harness-amsp",
   "version": "0.2.16",
   "type": "module",
-  "description": "AMSP (Agent Message Stream Protocol): the wire types of a PenguinHarness Agent's API and a zero-dependency client for Node 24 and browsers.",
+  "description": "AMSP (Agent Message Stream Protocol): the wire types of a WAF Harness Agent's API and a zero-dependency client for Node 24 and browsers.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

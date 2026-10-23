@@ -17,8 +17,8 @@ import {
   catalogEntryFor,
   catalogModelEntries,
   presetModelEntries,
-} from "@prismshadow/penguin-server/model-catalog";
-import type { ModelInfo } from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/model-catalog";
+import type { ModelInfo } from "@waterford/waf-harness-server/api";
 import { catalogDelta } from "../src/features/models/catalog-sync";
 import { presetUpdateTodo } from "../src/lib/todo-badges";
 

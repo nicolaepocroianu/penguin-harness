@@ -3,7 +3,7 @@
  * belong together (one product has ten), and a product code is what authors search by.
  * A code is unique only within its collection, so a group is keyed by both.
  */
-import type { ActivityRecord, ActivitySummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRecord, ActivitySummary } from "@waterford/waf-harness-server/api";
 import { filterByTag } from "./activity-tags";
 import { filterActivities } from "./preview";
 
@@ -108,7 +108,7 @@ function groupKey(entry: Pick<ActivityRecord, "collectionId" | "productCode">): 
   return `${entry.collectionId}:${entry.productCode}`;
 }
 
-export const COLLAPSED_GROUPS_KEY = "penguin.activities.collapsedGroups";
+export const COLLAPSED_GROUPS_KEY = "wafh.activities.collapsedGroups";
 
 type CollapsedStore = Record<string, string[]>;
 

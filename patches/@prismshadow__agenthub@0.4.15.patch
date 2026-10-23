@@ -328,7 +328,7 @@ index 0000000000000000000000000000000000000000..2c8f2c186c04a7635a65564edb564902
 +                const headers = new Headers(init?.headers);
 +                headers.set("Authorization", `Bearer ${auth.accessToken}`);
 +                headers.set("ChatGPT-Account-Id", auth.accountId);
-+                headers.set("User-Agent", "PenguinHarness-Experimental-Transport/0.1");
++                headers.set("User-Agent", "WAF-Harness-Experimental-Transport/0.1");
 +                headers.set("originator", "penguin_harness");
 +                if (endpoint.pathname.endsWith("/models"))
 +                    endpoint.searchParams.set("client_version", "0.154.0");
@@ -448,7 +448,7 @@ index 0000000000000000000000000000000000000000..0f8cc82b51e5e721ea95dc9e7ad00f88
 +            maxRetries: 0,
 +            defaultHeaders: {
 +                ...options.defaultHeaders,
-+                "User-Agent": "PenguinHarness",
++                "User-Agent": "WAF-Harness",
 +                "X-GitHub-Api-Version": "2026-07-01",
 +                "Copilot-Integration-Id": "agentic-workflows",
 +                "Openai-Intent": "conversation-edits",

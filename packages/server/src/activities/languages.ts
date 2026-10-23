@@ -1,7 +1,7 @@
 /**
  * The languages an activity can be authored in, and where each one's media lives.
  *
- * Penguin's manifest has always been keyed by language and has always held exactly one
+ * WAF Harness's manifest has always been keyed by language and has always held exactly one
  * key. The validator accepts a hundred; nothing ever created a second. The rail's language
  * selector has one option, permanently.
  *

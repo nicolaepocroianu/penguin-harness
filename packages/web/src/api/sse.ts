@@ -16,8 +16,8 @@
  *   without any frame of its own ends it and re-issues it from its last event id.
  * Docs: /docs/server-api § "Streaming (SSE)".
  */
-import type { OmniMessage } from "@prismshadow/penguin-core/omnimessage";
-import type { MachineEvent, ServerEvent } from "@prismshadow/penguin-server/api";
+import type { OmniMessage } from "@waterford/waf-harness-core/omnimessage";
+import type { MachineEvent, ServerEvent } from "@waterford/waf-harness-server/api";
 import { apiUrl } from "../lib/server-context";
 import { machineForSession } from "../lib/session-machines";
 import { apiSocket } from "./socket";

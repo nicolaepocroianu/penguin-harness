@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DeployProblem } from "@prismshadow/penguin-server/api";
+import type { DeployProblem } from "@waterford/waf-harness-server/api";
 import type { ChecksFacts } from "../src/features/activities/checks-model";
 import {
   deployFacts,

@@ -5,7 +5,7 @@
  * activity-play-routes.test.ts's.
  */
 import { describe, expect, it } from "vitest";
-import { wire } from "@prismshadow/penguin-core/kernel";
+import { wire } from "@waterford/waf-harness-core/kernel";
 import { ActivityPlayerHtmlRoutes } from "../src/activities/player-html-routes.js";
 
 function player(options: { renewed?: boolean } = {}) {
@@ -29,7 +29,7 @@ function player(options: { renewed?: boolean } = {}) {
   routes.setup();
   return (query: string, cookie = "good") =>
     routes.routes.request(`http://localhost/?${query}`, {
-      headers: cookie ? { cookie: `penguin_session=${cookie}` } : {},
+      headers: cookie ? { cookie: `wafh_session=${cookie}` } : {},
     });
 }
 
@@ -49,7 +49,7 @@ describe("Loom's /player.html address", () => {
   it("keeps a renewed sign-in on a link it cannot play", async () => {
     const response = await player({ renewed: true })("module=m2ab01&ref=1");
     expect(response.status).toBe(404);
-    expect(response.headers.get("set-cookie")).toContain("penguin_session=good");
+    expect(response.headers.get("set-cookie")).toContain("wafh_session=good");
   });
 
   it("sends a visitor who is not signed in to sign in", async () => {

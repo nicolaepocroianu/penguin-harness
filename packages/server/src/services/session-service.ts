@@ -21,14 +21,14 @@ import type {
   SessionSandboxMode,
   SpawnConfiner,
   ThinkingLevelName,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import fs from "node:fs/promises";
 import {
   agentsDir,
   createAgent,
   isSessionMeta,
   normalizeSessionSource,
-} from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
 import type {
   ApprovalMode,
   MessagingChannel,
@@ -60,7 +60,7 @@ import type { SessionIndex, SessionOrigins } from "../mechanisms/sessions.js";
 import type { ProjectConfigStore } from "../mechanisms/projects.js";
 import type { CodingAgents } from "../mechanisms/coding-agents.js";
 import { CODING_AGENT_PROVIDER } from "../coding-agents/session-runtime.js";
-import type { SandboxDimension, SandboxSettings } from "@prismshadow/penguin-core/plugin";
+import type { SandboxDimension, SandboxSettings } from "@waterford/waf-harness-core/plugin";
 import { aboveSandboxCeiling } from "./sandbox-ceiling.js";
 
 /** A stored policy's network level as the composer names it. */
@@ -257,7 +257,7 @@ export interface SessionServiceDeps {
   controlEnv?: (ctx: ControlEnvContext) => Record<string, string>;
   /**
    * PATH threading (same policy the session loader passes): the shim directory holding
-   * this harness's own `penguin`, put in front of every command an Agent runs.
+   * this harness's own `wafh`, put in front of every command an Agent runs.
    */
   pathPrepend?: (ctx: ControlEnvContext) => string[];
   /**
@@ -860,7 +860,7 @@ export class SessionService {
     /**
      * The least confinement this Session's commands may run under, whatever the deployment's
      * sandbox setting is. Activity runs pass `workspace-write`. A coding agent runs its own
-     * commands, outside Penguin's sandbox, so it is not handed this.
+     * commands, outside WAF Harness's sandbox, so it is not handed this.
      */
     sandboxMode?: SessionSandboxMode;
     thinkingLevel?: ThinkingLevelName;
@@ -871,7 +871,7 @@ export class SessionService {
     isAdmin?: boolean;
     /**
      * What kind of conversation this is, recorded in the Session's session_meta: `schedule`
-     * from the scheduler, `company` from the organization runtime, `cli` from `penguin run`
+     * from the scheduler, `company` from the organization runtime, `cli` from `wafh run`
      * (the only source a request may name), `api` from an Agent API run; absent means `user`,
      * a person's conversation.
      */
@@ -991,7 +991,7 @@ export class SessionService {
   /**
    * A Session a coding agent runs: the same row, sidebar entry, approvals and Trace as any
    * other, with the agent's own session behind it instead of a core Session. The owning
-   * Penguin Agent files it (listing, Trace directory, temporary workspace); the agent does
+   * WAF Harness Agent files it (listing, Trace directory, temporary workspace); the agent does
    * the work.
    */
   private async createCodingAgentSession(args: {

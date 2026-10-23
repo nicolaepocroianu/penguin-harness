@@ -259,7 +259,7 @@ async function waitUntil(condition: () => boolean, ms = 3_000): Promise<void> {
 const targetOf = (port: number) => ({
   agent: new http.Agent(),
   port,
-  cookie: "penguin_session=x",
+  cookie: "wafh_session=x",
   session: 1,
 });
 

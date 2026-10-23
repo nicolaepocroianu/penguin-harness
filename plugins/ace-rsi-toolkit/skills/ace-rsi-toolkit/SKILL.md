@@ -12,7 +12,7 @@ version: 2026.10.12.1
 
 This Skill needs `run_subagent`, so it runs in a top-level Session. If the message only names it, ask which agent to train and on which published Benchmark. Otherwise resolve the inputs below and ask only for a missing Target or Benchmark; everything else has a default.
 
-- `test_agent_id` — the Target (the Evaluation Center's Test Agent): an existing agent of this Project, or `create: <id>` when the user wants a fresh one, created with no plugins by `penguin agent create --agent-id <id> --project-id "$PROJECT_ID" --json` (an id matches `^[a-z][a-z0-9_-]{1,63}$`). If that id exists already, stop and ask; never reinitialize an agent. The Target is never the agent you run as: training rewrites its State while you work.
+- `test_agent_id` — the Target (the Evaluation Center's Test Agent): an existing agent of this Project, or `create: <id>` when the user wants a fresh one, created with no plugins by `wafh agent create --agent-id <id> --project-id "$PROJECT_ID" --json` (an id matches `^[a-z][a-z0-9_-]{1,63}$`). If that id exists already, stop and ask; never reinitialize an agent. The Target is never the agent you run as: training rewrites its State while you work.
 - `benchmark_id` — a Benchmark of this Project whose `benchmark_config.toml` status is published (not a literal `draft` or `failed`). Its cases (every directory of it holding a `statement/README.md`) are both the training samples and the measured case set. Without one, list the published Benchmarks and ask; this Skill never builds one.
 - `test_benchmark_id` (optional) — a second published Benchmark held out from training: H1 (the initialized State) and the final playbook are measured on it too, and nothing of it reaches the Reflector or the Curator.
 - `runs` — runs per case in every measurement; default 1.
@@ -37,7 +37,7 @@ Resolve every path from your Environment's `App Data Dir`, as `references/evalua
 ```text
 PROJECT_DIR  = <app_data_dir>
 PROJECT_ID   = basename of PROJECT_DIR
-PENGUIN_HOME = dirname of PROJECT_DIR
+WAFH_HOME = dirname of PROJECT_DIR
 TARGET       = PROJECT_DIR/agents/<test_agent_id>
 STATE        = TARGET/agent_state
 BENCHMARK    = PROJECT_DIR/benchmarks/<benchmark_id>
@@ -80,7 +80,7 @@ adaptations: []
 
 Keep in OUT every role request and raw reply, every cell result, every published `rules.yaml` as `OUT/playbook/v<version>.yaml`, every failure and adaptation, and `OUT/state.yaml` (epoch, sample, phase, State version), so that a compacted or resumed Session continues the run instead of restarting it.
 
-Only the evaluation worker reads a `rubric/`; you, the Reflector and the Curator never do. A Harbor case's session id `harbor:<trial>` names a trial directory under `BENCHMARK/.jobs/<job>/`: its Trace is under `agent/penguin/traces/`, it has no Workspace on this machine, and its `verifier/` output and the tasks' `tests/` and `solution/` are private.
+Only the evaluation worker reads a `rubric/`; you, the Reflector and the Curator never do. A Harbor case's session id `harbor:<trial>` names a trial directory under `BENCHMARK/.jobs/<job>/`: its Trace is under `agent/wafh/traces/`, it has no Workspace on this machine, and its `verifier/` output and the tasks' `tests/` and `solution/` are private.
 
 Snapshots: before the first change to a measured State, make sure `TARGET/snapshots/v<version>.tar.gz` exists: an archive of `agent_state/` without `.vault.toml`, its entries rooted at `agent_state/`. Never overwrite one, and stop if it cannot be created. State versions only increase and are never reused.
 

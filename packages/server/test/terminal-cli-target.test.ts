@@ -1,15 +1,15 @@
 /**
- * Which server the `penguin` typed in a terminal talks to: the server that opened the terminal.
+ * Which server the `wafh` typed in a terminal talks to: the server that opened the terminal.
  *
  * The real CLI — this checkout's, run the way a dev server offers it (services/cli-shim.ts) —
  * in a real bash opened over the API, against two stand-in servers that each answer
  * `GET /api/projects` with a name of their own: one on this server's data root, one on another
  * root ("installed"). The server PROCESS's environment points at the other one the ways it can
- * in practice: an inherited PENGUIN_HOME, and the PENGUIN_API_URL / _TOKEN an Agent command of
+ * in practice: an inherited WAFH_HOME, and the WAFH_API_URL / _TOKEN an Agent command of
  * another harness carries, which a dev server that Agent started inherits.
  *
- * - With no flag and nothing the user set, `penguin` in the terminal reaches this server's root.
- * - What the user sets wins: PENGUIN_HOME typed on the command line reaches that root.
+ * - With no flag and nothing the user set, `wafh` in the terminal reaches this server's root.
+ * - What the user sets wins: WAFH_HOME typed on the command line reaches that root.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
@@ -77,7 +77,7 @@ async function standIn(root: string, name: string) {
   };
 }
 
-describe.skipIf(bash === null)("a terminal's penguin", () => {
+describe.skipIf(bash === null)("a terminal's wafh", () => {
   let tmp: string;
   let t: TestApp | null = null;
   const saved = new Map<string, string | undefined>();
@@ -87,7 +87,7 @@ describe.skipIf(bash === null)("a terminal's penguin", () => {
   };
 
   beforeEach(() => {
-    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-cli-target-"));
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-cli-target-"));
     // The server's shells start in this HOME and read only its startup files.
     const home = path.join(tmp, "home");
     fs.mkdirSync(home);
@@ -97,7 +97,7 @@ describe.skipIf(bash === null)("a terminal's penguin", () => {
     );
     fs.writeFileSync(path.join(home, ".bashrc"), `PS1='${PROMPT} '\n`);
     setEnv("HOME", home);
-    setEnv("PENGUIN_LANG", "en");
+    setEnv("WAFH_LANG", "en");
   });
 
   afterEach(async () => {
@@ -128,9 +128,9 @@ describe.skipIf(bash === null)("a terminal's penguin", () => {
     const other = await standIn(otherRoot, "installed");
     try {
       // What the server process may carry from whoever started it.
-      setEnv("PENGUIN_HOME", otherRoot);
-      setEnv("PENGUIN_API_URL", other.url);
-      setEnv("PENGUIN_API_TOKEN", "installed-token");
+      setEnv("WAFH_HOME", otherRoot);
+      setEnv("WAFH_API_URL", other.url);
+      setEnv("WAFH_API_TOKEN", "installed-token");
 
       const admin = await loginAdmin(t.app);
       const api = apiClient(t.app, admin.cookie);
@@ -151,14 +151,14 @@ describe.skipIf(bash === null)("a terminal's penguin", () => {
         return lines;
       };
 
-      const plain = await type("penguin project ls --json; echo plain-done", "plain-done");
+      const plain = await type("wafh project ls --json; echo plain-done", "plain-done");
       expect(plain.join("\n")).toContain('"projectId":"this-instance"');
       expect(other.seen).toEqual([]);
       expect(mine.seen).toContain("GET /api/projects");
 
       // The user's own choice still wins.
       const chosen = await type(
-        `PENGUIN_HOME='${otherRoot}' penguin project ls --json; echo chosen-done`,
+        `WAFH_HOME='${otherRoot}' wafh project ls --json; echo chosen-done`,
         "chosen-done",
       );
       expect(chosen.join("\n")).toContain('"projectId":"installed"');

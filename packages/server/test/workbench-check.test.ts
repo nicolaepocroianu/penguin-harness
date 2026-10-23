@@ -10,12 +10,12 @@ import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
-import { loadAgentState } from "@prismshadow/penguin-core";
+import { loadAgentState } from "@waterford/waf-harness-core";
 import { createTestApp, type TestApp } from "./helpers.js";
 const exec = promisify(execFile);
 const checker = fileURLToPath(
   new URL(
-    "../../../plugins/agent-development/skills/penguin-plugin/scripts/check.mjs",
+    "../../../plugins/agent-development/skills/wafh-plugin/scripts/check.mjs",
     import.meta.url,
   ),
 );
@@ -42,28 +42,28 @@ describe("Workbench Skill checker", { timeout: 30000 }, () => {
     await fs.mkdir(path.join(dir, "ui"), { recursive: true });
     const manifest = {
       name: "Workbench",
-      requires: { host: { iface: "@prismshadow/penguin-server#WorkbenchHost", from: "Host" } },
-      provides: { main: "@prismshadow/penguin-server#WorkbenchMain" },
+      requires: { host: { iface: "@waterford/waf-harness-server#WorkbenchHost", from: "Host" } },
+      provides: { main: "@waterford/waf-harness-server#WorkbenchMain" },
       contributes: { "WebModule.sessionTabs": [] as object[] },
     };
     const write = () =>
       fs.writeFile(
         path.join(dir, "package.json"),
-        JSON.stringify({ name: "Demo", type: "module", penguin: { modules: [manifest] } }),
+        JSON.stringify({ name: "Demo", type: "module", wafh: { modules: [manifest] } }),
       );
     await write();
     await fs.writeFile(
       path.join(dir, "index.ts"),
-      'import type { WorkbenchPackage } from "@prismshadow/penguin-server/plugin"; export default {modules:{Workbench:{create(){return {api:{main:{async handle(){return {body:"ok"};}}}};}}}} satisfies WorkbenchPackage;',
+      'import type { WorkbenchPackage } from "@waterford/waf-harness-server/plugin"; export default {modules:{Workbench:{create(){return {api:{main:{async handle(){return {body:"ok"};}}}};}}}} satisfies WorkbenchPackage;',
     );
     await fs.writeFile(path.join(dir, "ui/index.html"), "<h1>Demo</h1>");
     const run = () =>
       exec(process.execPath, [checker, "file_created", "demo"], {
         env: {
           ...process.env,
-          PENGUIN_API_URL: url,
-          PENGUIN_API_TOKEN: t.deps.authService.localApiToken()!,
-          PENGUIN_PROJECT_ID: "default_project",
+          WAFH_API_URL: url,
+          WAFH_API_TOKEN: t.deps.authService.localApiToken()!,
+          WAFH_PROJECT_ID: "default_project",
           HTTP_PROXY: "http://127.0.0.1:1",
           http_proxy: "http://127.0.0.1:1",
         },
@@ -95,7 +95,7 @@ describe("Workbench Skill checker", { timeout: 30000 }, () => {
   it("fails without injected credentials without probing another server", async () => {
     await expect(
       exec(process.execPath, [checker, "a", "b"], {
-        env: { ...process.env, PENGUIN_API_URL: "", PENGUIN_API_TOKEN: "", PENGUIN_PROJECT_ID: "" },
+        env: { ...process.env, WAFH_API_URL: "", WAFH_API_TOKEN: "", WAFH_PROJECT_ID: "" },
       }),
     ).rejects.toMatchObject({ code: 1, stderr: expect.stringContaining("Requires its injected") });
   });

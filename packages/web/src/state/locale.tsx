@@ -5,7 +5,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { UiStringsProvider } from "@prismshadow/penguin-ui";
+import { UiStringsProvider } from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../lib/strings";
 import { en } from "../lib/strings-en";
 import { uiStringsFor } from "../lib/ui-strings";
@@ -14,7 +14,7 @@ const DICTIONARIES = { en };
 export type Locale = keyof typeof DICTIONARIES;
 export type LangPref = Locale | "system";
 
-const STORAGE_KEY = "penguin.lang";
+const STORAGE_KEY = "wafh.lang";
 
 interface LocaleContextValue {
   lang: LangPref;

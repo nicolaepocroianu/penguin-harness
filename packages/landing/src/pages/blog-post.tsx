@@ -18,8 +18,8 @@ import {
   SITE_REMARK_PLUGINS,
   SiteToc,
   useActiveTocEntry,
-} from "@prismshadow/penguin-ui/site";
-import type { SiteMarkdownComponents, SiteRemarkPlugins } from "@prismshadow/penguin-ui/site";
+} from "@waterford/waf-harness-ui/site";
+import type { SiteMarkdownComponents, SiteRemarkPlugins } from "@waterford/waf-harness-ui/site";
 import { S } from "../lib/strings";
 import { LOCALE } from "../lib/locale";
 import { blogAssetUrl } from "../lib/links";

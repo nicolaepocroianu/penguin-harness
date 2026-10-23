@@ -14,7 +14,7 @@
  *   whatever it is running) alive — that is the entire point of a server-side terminal.
  */
 import fsp from "node:fs/promises";
-import type { Resources, Opaque, ClassCtx, Json } from "@prismshadow/penguin-core/kernel";
+import type { Resources, Opaque, ClassCtx, Json } from "@waterford/waf-harness-core/kernel";
 import path from "node:path";
 import { HttpError } from "../http/errors.js";
 import { spawnHelperHint } from "./spawn-helper.js";
@@ -26,7 +26,7 @@ import {
   type TerminalNotice,
   type TerminalSessionInfo,
 } from "./session.js";
-import { Interface, Bind, Module, Provide, Use } from "@prismshadow/penguin-core/kernel";
+import { Interface, Bind, Module, Provide, Use } from "@waterford/waf-harness-core/kernel";
 import type { AppEnv } from "../auth/middleware.js";
 import type { Hono } from "hono";
 import { Config, Hmr, ResourceGroups } from "../hmr/capabilities.js";
@@ -84,8 +84,8 @@ export class TerminalManager {
        */
       notice?: () => TerminalNotice | null;
       /**
-       * Whether new shells keep the server's PENGUIN_HOME / PENGUIN_WEB_DB because no shim
-       * names the data root for `penguin` (CreateTerminalSessionOptions.inheritDataRoot).
+       * Whether new shells keep the server's WAFH_HOME / WAFH_WEB_DB because no shim
+       * names the data root for `wafh` (CreateTerminalSessionOptions.inheritDataRoot).
        * Absent: false.
        */
       inheritDataRoot?: () => boolean;
@@ -380,14 +380,14 @@ export class TerminalModule {
       // A pushed bundle's node-pty binaries live where the host materialized them.
       assets: () => this.hmr.assetsDir() ?? null,
       beyond: (id) => this.remote.get(id) ?? apiSocketSession(id),
-      // `penguin` in a terminal is the one the Agent's commands get: this harness's own.
+      // `wafh` in a terminal is the one the Agent's commands get: this harness's own.
       pathFirst: () => {
         const dirs = this.sessionEnv.pathPrepend();
         return dirs.length === 0 ? null : { dirs, startupDir: shellStartupDir(this.config.root) };
       },
       // And the terminal says which one that is on a development instance, or why it is not.
       notice: () => terminalCliNotice(this.config, this.sessionEnv.pathPrepend()),
-      // The shell keeps the server's data root only where no shim names it for `penguin`.
+      // The shell keeps the server's data root only where no shim names it for `wafh`.
       inheritDataRoot: () => !shimNamesDataRoot(this.config, this.sessionEnv.pathPrepend()),
     });
     // Shells started before this App existed are still running in the registry: claim

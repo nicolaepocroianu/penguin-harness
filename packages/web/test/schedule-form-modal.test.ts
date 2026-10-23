@@ -16,8 +16,8 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createElement as h, useState } from "react";
-import type { ScheduleItem } from "@prismshadow/penguin-server/api";
-import { hasUnsaved } from "@prismshadow/penguin-ui";
+import type { ScheduleItem } from "@waterford/waf-harness-server/api";
+import { hasUnsaved } from "@waterford/waf-harness-ui";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { ScheduleFormModal } from "../src/features/schedules/schedule-form-modal";

@@ -22,7 +22,7 @@ export function stateDir(env: NodeJS.ProcessEnv = process.env): string {
   const local =
     env.LOCALAPPDATA ??
     path.win32.join(env.USERPROFILE ?? "C:\\Users\\Default", "AppData", "Local");
-  return path.win32.join(local, "penguin", "sandbox-wsl");
+  return path.win32.join(local, "wafh", "sandbox-wsl");
 }
 
 /** What a finished wsl.exe call said. */

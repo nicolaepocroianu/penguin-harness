@@ -62,7 +62,7 @@ const toolsPackage = (servers: unknown[], withSkill = true): Record<string, stri
   "package.json": JSON.stringify({
     name: "@acme/tools",
     version: "1.0.0",
-    penguin: { mcp_servers: servers },
+    wafh: { mcp_servers: servers },
   }),
   ...(withSkill ? { "skills/tools-guide/SKILL.md": skill("tools-guide") } : {}),
 });
@@ -72,24 +72,24 @@ const toolsPackage = (servers: unknown[], withSkill = true): Record<string, stri
  * the library lists them as installed. Returns the prefix.
  */
 async function setUp(packages: Record<string, Record<string, string>>): Promise<string> {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-plugin-mcp-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-plugin-mcp-"));
   const host = path.join(root, "host");
   await write(host, {
     "package.json": JSON.stringify({
       name: "host",
-      dependencies: { "@penguinharness/sample": "*" },
+      dependencies: { "@waf-harness/sample": "*" },
     }),
-    "node_modules/@penguinharness/sample/package.json": JSON.stringify({
-      name: "@penguinharness/sample",
+    "node_modules/@waf-harness/sample/package.json": JSON.stringify({
+      name: "@waf-harness/sample",
       version: "1.0.0",
       description: "Sample.",
     }),
-    "node_modules/@penguinharness/sample/skills/sample/SKILL.md": skill("sample"),
+    "node_modules/@waf-harness/sample/skills/sample/SKILL.md": skill("sample"),
   });
   const prefix = path.join(root, "prefix");
   await write(prefix, {
     "package.json": JSON.stringify({
-      name: "penguin-plugins",
+      name: "wafh-plugins",
       private: true,
       dependencies: Object.fromEntries(Object.keys(packages).map((name) => [name, "*"])),
     }),
@@ -174,7 +174,7 @@ describe("a plugin's MCP servers on an Agent", () => {
         "package.json": JSON.stringify({
           name: "@acme/cf",
           version: "1.0.0",
-          penguin: { mcp_servers: [cloudflare] },
+          wafh: { mcp_servers: [cloudflare] },
         }),
       },
     });

@@ -66,7 +66,7 @@ import type {
   ModelVisionDetectRequest,
   ProviderConnectionDto,
   ProviderConnectionUpdate,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { useSearchParams } from "react-router";
 import {
   Pill,
@@ -108,7 +108,7 @@ import {
   toastSuccess,
   useFormDraft,
   useGuardedClose,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
@@ -135,13 +135,13 @@ import {
   modelHomepageUrl,
   providerInfo,
   unroutableVendorModel,
-} from "@prismshadow/penguin-server/model-catalog";
-import { canonicalClientType, groupKeyReaches } from "@prismshadow/penguin-core/model-connection";
+} from "@waterford/waf-harness-server/model-catalog";
+import { canonicalClientType, groupKeyReaches } from "@waterford/waf-harness-core/model-connection";
 import type {
   FastModeProtocol,
   ModelProviderBridgeAuth,
   ModelProviderInfo,
-} from "@prismshadow/penguin-server/model-catalog";
+} from "@waterford/waf-harness-server/model-catalog";
 import {
   allGroupKeys,
   discountedPrice,
@@ -709,7 +709,7 @@ export function detectedEnvKeys(rows: readonly RowState[]): Set<string> {
  * means that client rejects `fast_mode` — or the id routes to no client at all — so arming
  * the switch could only produce a turn-killing error, and it is not offered. `show` adds
  * the one exception: a row that already stores fast mode keeps its switch regardless, because a
- * value that arrived another way (a hand-edited config, `penguin config model add
+ * value that arrived another way (a hand-edited config, `wafh config model add
  * --fast-mode`, or an upstream id renamed afterwards) has to remain switchable off — the
  * runtime rejection tells the user to turn it off in the model settings, and that has to be
  * true. `protocol` also picks the warning copy: only Anthropic's fast mode is a gated
@@ -867,7 +867,7 @@ export function rowToEntry(row: RowState, group?: ProviderConnectionDto): ModelU
  * group dragged out of the conversation list paint a drop line here (and vice versa) —
  * two unrelated orders that happen to be dragged the same way.
  */
-const MODEL_GROUP_DRAG_MIME = "application/x-penguin-model-group";
+const MODEL_GROUP_DRAG_MIME = "application/x-wafh-model-group";
 
 /**
  * Is the drag in flight one of our group reorders? `types` is readable during dragover
@@ -1765,7 +1765,7 @@ export function ModelsPage() {
     folded: groupsFolded,
   });
 
-  // The coding agents installed on the server, and (for an admin) the agents Penguin runs for
+  // The coding agents installed on the server, and (for an admin) the agents WAF Harness runs for
   // the Project: each a view of its own, beside the API providers below.
   if (view === "local" || view === "builtin") {
     return (
@@ -3229,7 +3229,7 @@ function ModelDialog({
   // base URL required-field policy: an endpoint behind a compatible OpenAI-protocol client
   // can't be inferred — needed for custom / user-defined groups and entries using one of those
   // clients; not for entries routed within a first-party vendor group, nor for an
-  // `openai-official` pin (an official client has its vendor's default endpoint). The Penguin
+  // `openai-official` pin (an official client has its vendor's default endpoint). The WAF Harness
   // Go relay needs one too: its shared key must never fall through to a vendor default. The
   // FIELD is required only where nothing else supplies the endpoint — the group's settings fill
   // a blank one, so there it may stay blank. Shared by validation and the label's required "*"

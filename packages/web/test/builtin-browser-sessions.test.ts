@@ -11,7 +11,7 @@
  */
 import { act, createElement, Fragment } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import type { BuiltinBrowserTab } from "@prismshadow/penguin-server/api";
+import type { BuiltinBrowserTab } from "@waterford/waf-harness-server/api";
 import { BuiltinBrowserLayer } from "../src/features/builtin-browser/browser-layer";
 import { BuiltinBrowserPanel } from "../src/features/builtin-browser/browser-panel";
 import {
@@ -23,7 +23,7 @@ import { guestKey } from "../src/features/builtin-browser/browser-state";
 import { mount, unmountAll } from "./helpers/dom";
 import { json, stubFetch } from "./helpers/fetch";
 
-const partition = "persist:penguin-browser-project-" + "a".repeat(64);
+const partition = "persist:wafh-browser-project-" + "a".repeat(64);
 const tab = (id: number, sessionId: string): BuiltinBrowserTab => ({
   id,
   sessionId,

@@ -6,7 +6,7 @@
  */
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { THEME_STORAGE_KEYS } from "@prismshadow/penguin-ui/boot";
+import { THEME_STORAGE_KEYS } from "@waterford/waf-harness-ui/boot";
 import {
   APP_FRAME_PATH,
   appFrameSrc,
@@ -110,13 +110,13 @@ describe("the frame URL", () => {
     expect(storage.getItem(THEME_STORAGE_KEYS.textSize)).toBe("l");
     expect(storage.getItem(THEME_STORAGE_KEYS.fontLatin)).toBe("mona-sans");
     expect(storage.getItem(THEME_STORAGE_KEYS.fontCjk)).toBe("noto-sans-sc");
-    expect(storage.getItem("penguin.nothing")).toBeNull();
+    expect(storage.getItem("wafh.nothing")).toBeNull();
     // It is a working Storage: writes stay in this document and enumerate.
-    storage.setItem("penguin.sidebarCollapsed", "1");
+    storage.setItem("wafh.sidebarCollapsed", "1");
     expect(storage.length).toBe(7);
-    expect(storage.key(6)).toBe("penguin.sidebarCollapsed");
-    storage.removeItem("penguin.sidebarCollapsed");
-    expect(storage.getItem("penguin.sidebarCollapsed")).toBeNull();
+    expect(storage.key(6)).toBe("wafh.sidebarCollapsed");
+    storage.removeItem("wafh.sidebarCollapsed");
+    expect(storage.getItem("wafh.sidebarCollapsed")).toBeNull();
     const session = window.sessionStorage as Storage;
     expect(session.length).toBe(0);
     // Dependency-free and strict-safe: no globals leak.

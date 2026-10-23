@@ -12,12 +12,12 @@ import {
   MessageBubble,
   RetryActions,
   RetryStatus,
-} from "@prismshadow/penguin-ui";
-import type { MachineCardProps, RetryStatusProps } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { MachineCardProps, RetryStatusProps } from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 
-const ROOT = "/home/ubuntu/.penguin/data";
+const ROOT = "/home/ubuntu/.waf-harness/data";
 const VERSION = "v0.2.16";
 /** The wait the demo's countdown runs; pressing Retry now starts it over, as a new attempt would. */
 const WAIT_MS = 40_000;

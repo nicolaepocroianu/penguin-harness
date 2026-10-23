@@ -15,8 +15,8 @@ import {
   collectVaultRefs,
   loadAgentVault,
   resolveMCPServer,
-} from "@prismshadow/penguin-core";
-import type { MCPServerConfig } from "@prismshadow/penguin-core";
+} from "@waterford/waf-harness-core";
+import type { MCPServerConfig } from "@waterford/waf-harness-core";
 import type {
   AgentConfigResponse,
   AgentConfigUpdateRequest,
@@ -157,7 +157,7 @@ export function agentConfigRoutes(deps: AgentConfigRouteDeps): Hono<AppEnv> {
     // A fresh empty directory stands in for the Session Workspace (a new session's
     // temporary workspace is exactly that), so a stdio server that resolves relative
     // paths behaves like it will at runtime — not like the server process's own cwd.
-    const workspaceDir = await mkdtemp(join(tmpdir(), "penguin-mcp-test-"));
+    const workspaceDir = await mkdtemp(join(tmpdir(), "wafh-mcp-test-"));
     const provider = new McpToolProvider([entry], {
       workspaceDir,
       // Only a saved entry is given the vault (see above); any other reaches here without a

@@ -19,7 +19,7 @@ import { cleanOutput, versionOf } from "../src/host.js";
 import { lastSegment } from "../src/tasks.js";
 
 const HOST = {
-  distro: "penguin-sandbox",
+  distro: "wafh-sandbox",
   exposeWindowsDrives: false,
   drives: ["c", "d"],
   kind: (p: string) =>
@@ -35,11 +35,9 @@ describe("toLinuxPath", () => {
   });
 
   it("maps this distro's own UNC path, and nothing else's", () => {
-    expect(toLinuxPath("\\\\wsl.localhost\\penguin-sandbox\\home\\x", "penguin-sandbox")).toBe(
-      "/home/x",
-    );
-    expect(toLinuxPath("\\\\wsl$\\Ubuntu\\home\\x", "penguin-sandbox")).toBeNull();
-    expect(toLinuxPath("\\\\server\\share\\x", "penguin-sandbox")).toBeNull();
+    expect(toLinuxPath("\\\\wsl.localhost\\wafh-sandbox\\home\\x", "wafh-sandbox")).toBe("/home/x");
+    expect(toLinuxPath("\\\\wsl$\\Ubuntu\\home\\x", "wafh-sandbox")).toBeNull();
+    expect(toLinuxPath("\\\\server\\share\\x", "wafh-sandbox")).toBeNull();
     expect(toLinuxPath("relative\\x")).toBeNull();
   });
 });
@@ -67,8 +65,8 @@ describe("bwrapArgs", () => {
   });
 
   it("workspace-write binds the policy's further roots (the Session's scratchpad) writable at their distro path; read-only ignores them", () => {
-    const scratchpad = "C:\\Users\\k\\.penguin\\data\\p\\a\\scratchpad\\session-1";
-    const linux = "/mnt/c/Users/k/.penguin/data/p/a/scratchpad/session-1";
+    const scratchpad = "C:\\Users\\k\\.waf-harness\\data\\p\\a\\scratchpad\\session-1";
+    const linux = "/mnt/c/Users/k/.waf-harness/data/p/a/scratchpad/session-1";
     const args = bwrapArgs(
       { mode: "workspace-write", workspaceRoot: WS, writableRoots: [scratchpad] },
       HOST,
@@ -161,15 +159,15 @@ describe("bwrapArgs", () => {
   it("refuses a Workspace with no path in the distro rather than confining nothing", () => {
     expect(() =>
       bwrapArgs({ mode: "workspace-write", workspaceRoot: "\\\\server\\share\\ws" }, HOST),
-    ).toThrow(/penguin-wsl: .*no path inside the WSL distro/);
+    ).toThrow(/wafh-wsl: .*no path inside the WSL distro/);
   });
 });
 
 describe("the launcher", () => {
   const job = {
     wsl: "C:\\Windows\\System32\\wsl.exe",
-    distro: "penguin-sandbox",
-    user: "penguin",
+    distro: "wafh-sandbox",
+    user: "wafh",
     bwrap: ["--ro-bind", "/", "/"],
     chdirRoots: chdirRoots({ mode: "workspace-write", workspaceRoot: WS }, HOST),
     command: ["/bin/bash", "-lc", "pwd"],
@@ -178,9 +176,9 @@ describe("the launcher", () => {
   it("runs bwrap as the sandbox user and changes into the cwd when it is inside the Workspace", () => {
     expect(wslArgs(job, `${WS}\\sub`)).toEqual([
       "-d",
-      "penguin-sandbox",
+      "wafh-sandbox",
       "-u",
-      "penguin",
+      "wafh",
       "--cd",
       "/",
       "--exec",
@@ -260,7 +258,7 @@ describe("host output and releases", () => {
     expect(script).toContain(
       "apt-get install -y --no-install-recommends bubblewrap ca-certificates git\n",
     );
-    expect(script).toContain("useradd -m -s /bin/bash penguin");
+    expect(script).toContain("useradd -m -s /bin/bash wafh");
     expect(script).not.toContain("sed -i");
   });
 
@@ -304,7 +302,7 @@ describe("host output and releases", () => {
         packages: ["ok", "Bad!"],
       }),
     ).toEqual({
-      distro: "penguin-sandbox",
+      distro: "wafh-sandbox",
       base: "ubuntu",
       exposeWindowsDrives: false,
       mirror: "",

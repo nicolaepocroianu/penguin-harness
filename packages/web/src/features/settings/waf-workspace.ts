@@ -9,7 +9,7 @@ import type {
   WafRepoStatus,
   WafWorkspaceSettings,
   WafWorkspaceStatus,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import { S } from "../../lib/strings";
 import type { Tone } from "../../lib/tone";
 

@@ -4,7 +4,7 @@
  * - Every script parses as the driver wraps it, always; exec's rules that need no page run in
  *   Node: the outcome as JSON text, the explicit return or else the last expression, a last
  *   line that returns after a statement, a return inside a callback, a string or a comment.
- * - Given a Chromium (a Playwright download, or PENGUIN_TEST_CHROMIUM) they run for real, over
+ * - Given a Chromium (a Playwright download, or WAFH_TEST_CHROMIUM) they run for real, over
  *   its DevTools socket through the same link, driver and actions the routes use, a small fake
  *   shell forwarding `cdp` to the page: a scan keeps the visible page, folds the long list to a
  *   `[FAKE ELEMENT]` hint (keeping the items that match the instruction), drops what is hidden,
@@ -113,7 +113,7 @@ describe("exec's rules, run in Node (the parts that need no page)", () => {
 // --- a real Chromium -------------------------------------------------------
 
 function findChromium(): string | null {
-  const fromEnv = process.env.PENGUIN_TEST_CHROMIUM;
+  const fromEnv = process.env.WAFH_TEST_CHROMIUM;
   if (fromEnv !== undefined && fromEnv !== "" && fs.existsSync(fromEnv)) return fromEnv;
   const cache =
     process.platform === "darwin"
@@ -381,7 +381,7 @@ describe.skipIf(CHROMIUM === null)("page scripts in a real Chromium", () => {
     await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
     origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-    profileDir = fs.mkdtempSync(path.join(os.tmpdir(), "penguin-bb-chromium-"));
+    profileDir = fs.mkdtempSync(path.join(os.tmpdir(), "wafh-bb-chromium-"));
     const child = spawn(
       CHROMIUM!,
       [

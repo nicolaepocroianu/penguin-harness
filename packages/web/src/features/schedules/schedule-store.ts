@@ -36,7 +36,7 @@
  * machine's.
  */
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import type { ProjectScheduleItem } from "@prismshadow/penguin-server/api";
+import type { ProjectScheduleItem } from "@waterford/waf-harness-server/api";
 import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 

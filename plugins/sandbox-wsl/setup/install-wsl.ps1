@@ -1,11 +1,11 @@
-# Installs WSL for the PenguinHarness WSL sandbox. Runs ELEVATED, once: the harness raises the
+# Installs WSL for the WAF Harness WSL sandbox. Runs ELEVATED, once: the harness raises the
 # Windows consent prompt for this script, or a person runs it from an administrator PowerShell.
 #
 #   powershell -ExecutionPolicy Bypass -File install-wsl.ps1 -Log C:\path\install.log
 #
 # It installs the WSL package and the Windows features it needs, without a Linux distribution
 # (the harness imports its own). The output goes to <Log>.out as wsl.exe writes it, so the
-# harness can show its progress; the last line of <Log> is "PENGUIN-EXIT <code>".
+# harness can show its progress; the last line of <Log> is "WAFH-EXIT <code>".
 param([Parameter(Mandatory = $true)][string]$Log)
 $ErrorActionPreference = 'Continue'
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Log) | Out-Null
@@ -21,4 +21,4 @@ try {
   "failed to start wsl.exe: $($_.Exception.Message)" | Out-File -Append -Encoding utf8 $Log
   $code = -1
 }
-"PENGUIN-EXIT $code" | Out-File -Append -Encoding utf8 $Log
+"WAFH-EXIT $code" | Out-File -Append -Encoding utf8 $Log

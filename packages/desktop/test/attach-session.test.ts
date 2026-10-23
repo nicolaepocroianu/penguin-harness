@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { MintedVia, MintTokenResult } from "@prismshadow/penguin-server/auth-token";
+import type { MintedVia, MintTokenResult } from "@waterford/waf-harness-server/auth-token";
 import {
   ATTACH_SESSION_TTL_MS,
   createSignInGuard,
@@ -19,7 +19,7 @@ import {
 import type { SessionMinter } from "../src/attach-session.js";
 
 const ORIGIN = "http://localhost:53187";
-const ROOT = "/home/someone/.penguin/data";
+const ROOT = "/home/someone/.waf-harness/data";
 
 const EXPIRES_AT = "2026-10-20T08:00:00.000Z";
 const MINTED: MintTokenResult = {
@@ -135,7 +135,7 @@ describe("signInFailureDialog", () => {
     expect(box.detail).toContain("7364");
     expect(box.detail).toContain("4242");
     expect(box.detail).toContain("the database belongs to another account");
-    expect(box.detail).toContain("penguin server reset-admin-password");
+    expect(box.detail).toContain("wafh server reset-admin-password");
     expect(box.buttons).toEqual(["Continue to the sign-in page"]);
   });
 
@@ -147,7 +147,7 @@ describe("signInFailureDialog", () => {
     });
     expect(box.detail).not.toContain("Server using it");
     expect(box.detail).toContain(ROOT);
-    expect(box.detail).toContain("penguin server reset-admin-password");
+    expect(box.detail).toContain("wafh server reset-admin-password");
   });
 });
 

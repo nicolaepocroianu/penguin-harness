@@ -11,7 +11,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement as h, useEffect } from "react";
 import { MemoryRouter } from "react-router";
-import type { OrgTicketDetail } from "@prismshadow/penguin-server/api";
+import type { OrgTicketDetail } from "@waterford/waf-harness-server/api";
 import { setActiveStrings } from "../src/lib/strings";
 import { en } from "../src/lib/strings-en";
 import { UnsavedPrompt } from "../src/lib/unsaved/unsaved-prompt";

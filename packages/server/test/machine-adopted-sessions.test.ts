@@ -20,7 +20,7 @@
  *   list this server's own; a page on it is a 503.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { sessionMeta, userText } from "@prismshadow/penguin-core";
+import { sessionMeta, userText } from "@waterford/waf-harness-core";
 import type {
   ArchivedSessionGroupsResponse,
   ArchivedSessionsBatchResponse,
@@ -106,7 +106,7 @@ describe("a machine's Sessions, read by the server that adopted it", () => {
       method,
       headers: {
         cookie: machineCookie,
-        "x-penguin-adopted-at": ADOPTED,
+        "x-wafh-adopted-at": ADOPTED,
         ...(body !== undefined ? { "content-type": "application/json" } : {}),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

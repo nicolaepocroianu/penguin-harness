@@ -15,20 +15,20 @@ Each Project has its own model table: the models its conversations can use, grou
 ## ChatGPT / Codex subscriptions (experimental)
 
 Open **Models → Connect ChatGPT**, follow the OpenAI sign-in link, and enter the displayed
-code. After authorization, Penguin imports the subscription's visible models. Select one in
+code. After authorization, WAF Harness imports the subscription's visible models. Select one in
 the chat model picker. No API key, OAuth App registration, or Codex CLI installation is needed.
-The separate `use-codex` plugin delegates work to Codex; this connection runs Penguin's own
+The separate `use-codex` plugin delegates work to Codex; this connection runs WAF Harness's own
 agent loop, tools, approvals, and history through an AgentHub model transport.
 
 This is an experimental integration with an undocumented Codex backend, not the public OpenAI
 API. Available models and request behavior can change. The backend controls output limits:
-Penguin's configured output-token cap is not enforced on this transport. Temperature is not
+WAF Harness's configured output-token cap is not enforced on this transport. Temperature is not
 supported. Subscription usage is recorded without a dollar price.
 
 The project owner connects the account; all sessions in that project use it. Access and refresh
 tokens stay server-side in each model's `chatgpt_oauth` table inside `.project_config.toml`, with
-the same file permissions as other credentials. Penguin refreshes before expiry and saves the
-rotation before inference. Use one Penguin server process for the project; refresh serialization
+the same file permissions as other credentials. WAF Harness refreshes before expiry and saves the
+rotation before inference. Use one WAF Harness server process for the project; refresh serialization
 does not coordinate separate processes sharing the same credential file.
 
 Use **Connect ChatGPT** again to change accounts or discover additional models, or
@@ -37,13 +37,13 @@ before their next request. Disconnecting here does not revoke the authorization 
 
 ## GitHub Copilot subscriptions (experimental)
 
-This development integration keeps Penguin's agent loop, tools, approvals, and history.
+This development integration keeps WAF Harness's agent loop, tools, approvals, and history.
 It uses a Copilot transport in AgentHub. It is not a Copilot CLI or SDK runtime.
 The checked-in AgentHub patch is for development; npm distribution requires an AgentHub
 release containing the adapter. Test access with your own connected account.
 
 1. Register your own [GitHub OAuth App](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow) and enable device flow.
-2. Set `PENGUIN_COPILOT_CLIENT_ID` on the Penguin server to that app's client ID and restart it.
+2. Set `WAFH_COPILOT_CLIENT_ID` on the WAF Harness server to that app's client ID and restart it.
 3. Open **Models → Connect Copilot**, open GitHub, and enter the displayed code.
 4. After discovery succeeds, review the imported models' context limits and vision settings
    and use the existing connection test before starting a session.
@@ -130,7 +130,7 @@ The group appears in the list once its first model is saved.
 2. In **API key**, enter the endpoint's key. The server's `OPENAI_*` / `ANTHROPIC_*` variables are not used for an endpoint that is not the vendor's own (see [Set API keys](#set-api-keys)), so a listing without a key is refused.
 3. In **Custom base URL**, enter the endpoint's base URL.
 4. Select **Detect** at the top-right of the field, or pick the protocol from the menu at the right edge of the field. See [Detect a custom model's protocol](#detect-a-custom-models-protocol).
-5. Select **Import all models**. PenguinHarness asks the endpoint for its model list and saves every model into the new group, in the endpoint's order.
+5. Select **Import all models**. WAF Harness asks the endpoint for its model list and saves every model into the new group, in the endpoint's order.
 
 The base URL, the protocol and the key you entered are saved once, as the group's settings; the imported models carry none of them and follow the group. Only the model id comes from the endpoint: prices, context window, and display name stay empty, and vision stays off until you detect it or turn it on. That is the same starting point as a model you add by hand.
 
@@ -173,10 +173,10 @@ Which protocol a new model uses depends on its group:
 
 ### Built-in models only
 
-Every built-in group except **Custom**, **vLLM**, **OpenRouter**, **TokenDance**, **SiliconFlow** and **Atlas Cloud** carries the models in PenguinHarness's built-in catalog and nothing else. Their keys are managed per group, and which models they hold is the catalog's to decide.
+Every built-in group except **Custom**, **vLLM**, **OpenRouter**, **TokenDance**, **SiliconFlow** and **Atlas Cloud** carries the models in WAF Harness's built-in catalog and nothing else. Their keys are managed per group, and which models they hold is the catalog's to decide.
 
 - These groups have no **Add model**, and **Model settings** does not offer them as a group to move a model into.
-- The server refuses a new model in one of these groups unless it is one of the group's built-in models: saving it fails with "This group carries its built-in models only". `penguin config model add` refuses it the same way. A built-in model you deleted can be added back, which is what **Add new models** does.
+- The server refuses a new model in one of these groups unless it is one of the group's built-in models: saving it fails with "This group carries its built-in models only". `wafh config model add` refuses it the same way. A built-in model you deleted can be added back, which is what **Add new models** does.
 - Models already in these groups stay where they are, including ones you added to a gateway group before this rule. They keep working, and you can edit them, rename them within the group, or delete them.
 - A vendor group (DeepSeek, Google Gemini, OpenAI, Anthropic, Z.AI, Moonshot, MiniMax) supports only the vendor's own API. If one of its models has an id that cannot be routed that way, the model is marked and offers **Move to Custom**. Use **Custom** for OpenAI-compatible endpoints.
 - The gateway groups keep the protocol a new Project stores for them: OpenRouter uses `openai-responses`, and the other OpenAI-compatible gateways use OpenAI Chat Completions. Penguin Go models share the group's `mmsp` protocol; OpenCode Go's built-in models each store their own protocol.
@@ -201,13 +201,13 @@ Changing **Model ID** or **Group** renames the entry; its credential and its def
 3. Select **Edit in a new conversation**. A new conversation with the Project's default agent opens with the prompt filled in.
 4. Send the prompt.
 
-The fixed instructions tell the agent to use the `penguin-config` Skill and to:
+The fixed instructions tell the agent to use the `wafh-config` Skill and to:
 
-- run `penguin config model add --provider <group> --model-id <upstream id> --project-id <project> --root <data root>` once per model, adding `--client-type openai --base-url <endpoint>` for an OpenAI-compatible endpoint. The data root is named because a command's environment does not carry it;
+- run `wafh config model add --provider <group> --model-id <upstream id> --project-id <project> --root <data root>` once per model, adding `--client-type openai --base-url <endpoint>` for an OpenAI-compatible endpoint. The data root is named because a command's environment does not carry it;
 - when the source is a web page, fetch it first and add the models you named, or the most popular ones, about ten at most;
 - ask once for a missing API key, or leave it empty for you to fill in on the **Models** page;
 - never read or edit `.project_config.toml`;
-- finish with `penguin config model list`.
+- finish with `wafh config model list`.
 
 The **Models** page reloads the table on every visit, so the new group is there when you come back from the conversation.
 
@@ -249,7 +249,7 @@ Detection never blocks a save. If you select **Confirm** while neither the model
 
 ## Detect vision support
 
-**Vision support** can stay off until you ask the model. Select **Detect** next to the switch: PenguinHarness sends the model one 1x1 PNG with a one-word prompt.
+**Vision support** can stay off until you ask the model. Select **Detect** next to the switch: WAF Harness sends the model one 1x1 PNG with a one-word prompt.
 
 - If the model answers, the switch turns on: "This model accepts images; vision turned on".
 - If the model says it does not take images, the switch turns off. That is a real answer, not an error.
@@ -285,7 +285,7 @@ Members see the status as plain text, without the menu. The key the connection g
 2. Select **Open authorization page**. The provider's authorization page opens in a new tab.
 3. Authorize there. The dialog, which shows "Waiting for the authorization to finish in the other tab…", reports the result on its own.
 
-TokenDance creates a **new** key on your account; it does not read a key you already have. The provider sends the browser back to PenguinHarness, which exchanges the one-time code and saves the key. If the page cannot redirect back, for example because the browser cannot reach the server at the address it was given, select **Page can't redirect back? Enter the code by hand**. The authorization page then shows a one-time code instead of redirecting.
+TokenDance creates a **new** key on your account; it does not read a key you already have. The provider sends the browser back to WAF Harness, which exchanges the one-time code and saves the key. If the page cannot redirect back, for example because the browser cannot reach the server at the address it was given, select **Page can't redirect back? Enter the code by hand**. The authorization page then shows a one-time code instead of redirecting.
 
 1. Paste the code into **Authorization code**.
 2. Select **Submit code**.
@@ -299,24 +299,24 @@ Penguin Go differs in four ways:
 
 ModelScope differs in three ways:
 
-- Authorization does not go through ModelScope's own pages but through an **authorization bridge**. The bridge holds ModelScope's client secret, runs the OAuth exchange on PenguinHarness's behalf, and hands back an access token that calls api-inference directly. The bridge's address comes from the server-side `MODELSCOPE_BRIDGE_URL` environment variable; see [Environment variables](/configuration#environment-variables).
+- Authorization does not go through ModelScope's own pages but through an **authorization bridge**. The bridge holds ModelScope's client secret, runs the OAuth exchange on WAF Harness's behalf, and hands back an access token that calls api-inference directly. The bridge's address comes from the server-side `MODELSCOPE_BRIDGE_URL` environment variable; see [Environment variables](/configuration#environment-variables).
 - The authorization page's address is the bridge's, opened as given, rather than assembled here the way Penguin Go's is. This group likewise has no manual-code mode.
-- The access token **expires**; PenguinHarness stores the refresh credential on the server and silently renews before model requests. Select **Reconnect** only when the refresh credential is missing or no longer valid.
+- The access token **expires**; WAF Harness stores the refresh credential on the server and silently renews before model requests. Select **Reconnect** only when the refresh credential is missing or no longer valid.
 
 Keep in mind:
 
 - Only the Project owner can connect. With TokenDance, only their own signed-in session can finish it, which in practice is the tab the dialog is open in. The redirect itself is received without a session, because the browser the provider sends back is not always the one you started in, but it only hands the code over: nothing is exchanged and no key is saved until the dialog asks for the result.
-- The whole exchange runs on the server. Neither TokenDance's PKCE verifier, Penguin Go's device secret, nor ModelScope's code and device secret ever reaches the browser, and the new key goes straight into the model table without passing through it. ModelScope's client secret is never in PenguinHarness at all; only the bridge holds it.
+- The whole exchange runs on the server. Neither TokenDance's PKCE verifier, Penguin Go's device secret, nor ModelScope's code and device secret ever reaches the browser, and the new key goes straight into the model table without passing through it. ModelScope's client secret is never in WAF Harness at all; only the bridge holds it.
 - An authorization flow waits for at most ten minutes. ModelScope delivers an access token / refresh token pair: the access token is written as the group key, while the refresh token stays only in the server DB and is never returned to the frontend or written to the Project config.
 - A delivered key is handed over only once. Penguin Go and ModelScope both keep that one delivery briefly if saving it locally fails, so the write can be retried without authorizing again. ModelScope leaves nothing to clean up in ModelScope's console — what it returns is a token for your own account, not a newly minted key.
 - TokenDance hands over the new key only once. If saving it fails, authorize again and delete the unused key in the provider's console.
-- A TokenDance key carries PenguinHarness's app URL from the [App attribution](#app-attribution) table, so calls made with it stay attributed even from another tool.
+- A TokenDance key carries WAF Harness's app URL from the [App attribution](#app-attribution) table, so calls made with it stay attributed even from another tool.
 
 ### Account balances
 
 TokenDance, Penguin Go and DeepSeek report the balance of the account a key belongs to. Once one of these groups has a key, its header shows the balance in the currency chosen under **Currency** in the settings, converted at the same fixed rate of 7 as prices. The balance is always read with the **group key**: keys set on single models never count, so models holding different keys do not change it. Without a group key, DeepSeek uses the server's `DEEPSEEK_API_KEY`, which its models already use (see [Set API keys](#set-api-keys)), while the group has no base URL or DeepSeek's own `https://api.deepseek.com`; setting any other base URL ends it. TokenDance and Penguin Go require a stored group key. An account holding several currencies shows their sum: ¥110 and $5 read `¥145`, or `$20.71`. The server asks the provider with the key, so the key never reaches the browser.
 
-Penguin Go reads `/api/me/by-key` at the same `PENGUIN_GO_ORIGIN` used for authorization, defaulting to `https://go.penguin.ooo`. The secondary domain `https://token.penguin.ooo` can be configured explicitly; requests do not switch domains automatically. Its CNY ledger balance is converted to the display currency in PenguinHarness. The group header queries once when it loads; it has no periodic refresh until the balance is pinned.
+Penguin Go reads `/api/me/by-key` at the same `PENGUIN_GO_ORIGIN` used for authorization, defaulting to `https://go.penguin.ooo`. The secondary domain `https://token.penguin.ooo` can be configured explicitly; requests do not switch domains automatically. Its CNY ledger balance is converted to the display currency in WAF Harness. The group header queries once when it loads; it has no periodic refresh until the balance is pinned.
 
 - Select the amount to open its menu of three lines: **Pin to bottom-left** (**Unpin** once pinned), **Refresh balance**, which reads the balance again, skipping the minute for which the server keeps an answer, and "Updated: YYYY-MM-DD HH:mm", when it was read, in your local time.
 - A balance that cannot be read shows "—", and the menu's last line reads "Update failed:" with the reason.
@@ -340,7 +340,7 @@ The fields show what the group stores:
 
 Saving sends only the fields you changed and detects nothing, with one exception: in **Custom** or a group you created, a base URL saved with protocol **Not set** while no model in the group sets its own is detected once first. In those groups the base URL is required while a model in the group has none of its own.
 
-The same settings are available as `penguin config model add --provider <group>` without `--model-id`, and `penguin config model list` shows them (see [CLI Reference](/cli#penguin-config)); the API is `PUT /api/projects/:id/models/providers/:provider` (owner only).
+The same settings are available as `wafh config model add --provider <group>` without `--model-id`, and `wafh config model list` shows them (see [CLI Reference](/cli#wafh-config)); the API is `PUT /api/projects/:id/models/providers/:provider` (owner only).
 
 ## Set the default model
 
@@ -371,7 +371,7 @@ To compare the models in a group:
 1. On the group's header, select the speed test icon (**Speed test**).
 2. Select **Start**.
 
-PenguinHarness sends one real request to each model in turn, which uses a small amount of your API quota, and shows on each card:
+WAF Harness sends one real request to each model in turn, which uses a small amount of your API quota, and shows on each card:
 
 - the time to first token, in milliseconds: green under 1000, yellow up to 3000, red above;
 - the output rate, in Tokens per second: green at 40 or more, yellow at 15 or more, red below.
@@ -380,7 +380,7 @@ While the test runs, the same icon stops it (**Stop speed test**): the model bei
 
 ## Add new models and restore defaults
 
-PenguinHarness updates can add preset models to the built-in catalog. While the catalog has presets the Project lacks, the Project owner sees:
+WAF Harness updates can add preset models to the built-in catalog. While the catalog has presets the Project lacks, the Project owner sees:
 
 - a red dot on **Models** in the sidebar, which counts new models only;
 - a notice on the page, "{n} new preset models to add", with **Update now** and **Dismiss**;
@@ -442,7 +442,7 @@ Fast mode sends a model's conversation requests to the provider's faster serving
 Turn fast mode on or off per model in one of three ways:
 
 - The **Fast mode** switch in the model dialog
-- `--fast-mode` / `--no-fast-mode` on `penguin config model add`
+- `--fast-mode` / `--no-fast-mode` on `wafh config model add`
 - `fast_mode = true` in the entry
 
 Turning it on asks for confirmation first, because it changes what the model costs. A model with fast mode on shows the **Fast** tag.
@@ -566,11 +566,11 @@ MiniMax's official client reads `MINIMAX_API_KEY`. The built-in MiniMax preset c
 
 ### The Penguin Go group
 
-`penguin-go` is a built-in relay group. Its preset models use the `mmsp` HTTP client with base URL `https://go.penguin.ooo/api/v1`; the SDK appends `/stream`. Authorization and model sync send `x-penguin-protocol: mmsp` and use the platform's `endpoints.mmsp`. Legacy OpenAI, Google and Anthropic endpoint fields are not required.
+`penguin-go` is a built-in relay group. Its preset models use the `mmsp` HTTP client with base URL `https://go.penguin.ooo/api/v1`; the SDK appends `/stream`. Authorization and model sync send `x-wafh-protocol: mmsp` and use the platform's `endpoints.mmsp`. Legacy OpenAI, Google and Anthropic endpoint fields are not required.
 
 Existing Projects switch their Go-managed group and model-level routes to MMSP when loaded, without a network probe, login or new key. User-created groups and Go rows redirected to other servers retain their configuration.
 
-The group's protocol is fixed to MMSP. Neither the group settings nor a model's settings offer another one, and the server and `penguin config model add` refuse one for the group or its models, except a protocol a redirected row already stores, which saves back unchanged.
+The group's protocol is fixed to MMSP. Neither the group settings nor a model's settings offer another one, and the server and `wafh config model add` refuse one for the group or its models, except a protocol a redirected row already stores, which saves back unchanged.
 
 The group's key comes from its header; see [Connect an account](#connect-an-account). It is the only key the group uses: `PENGUIN_GO_API_KEY` and `PENGUIN_GO_BASE_URL` are no longer read, so if you set only those, reconnect from the group header or paste the key in its group settings. Connecting, and **Sync models** in the **Connected** menu, also read the platform's own model catalog:
 
@@ -595,7 +595,7 @@ The platform quotes peak rates in USD per million Tokens. The group's DeepSeek r
 
 `modelscope` is an aggregate gateway group: one ModelScope api-inference endpoint behind the preset base URL `https://api-inference.modelscope.cn/v1`. Model ids are upstream repo names, so they keep their vendor prefix (`deepseek-ai/DeepSeek-V4.1-Flash`, `Qwen/Qwen3.8-27B`). A new Project stores the base URL and MMSP's generic Responses client (`client_type = "openai-responses"`) in the group's settings, so its models send inference requests to `{base_url}/responses`. A new Project gets these presets right away; a Project whose rows still store an older protocol gets the catalog's back with **Restore defaults**.
 
-The group's key comes from its header; see [Connect an account](#connect-an-account). Connecting goes through an authorization bridge, which holds the ModelScope client secret and returns an api-inference access token / refresh token pair, rather than through ModelScope's own pages. Nothing else about the group is special: inference requests go straight to `https://api-inference.modelscope.cn/v1` and never through the bridge. The access token is written into `.project_config.toml` like any other group key, while the refresh token stays only in the server DB. The access token expires, and PenguinHarness silently renews it before model requests; reconnect from the header only when the refresh token is missing or no longer valid.
+The group's key comes from its header; see [Connect an account](#connect-an-account). Connecting goes through an authorization bridge, which holds the ModelScope client secret and returns an api-inference access token / refresh token pair, rather than through ModelScope's own pages. Nothing else about the group is special: inference requests go straight to `https://api-inference.modelscope.cn/v1` and never through the bridge. The access token is written into `.project_config.toml` like any other group key, while the refresh token stays only in the server DB. The access token expires, and WAF Harness silently renews it before model requests; reconnect from the header only when the refresh token is missing or no longer valid.
 
 The preset rows carry no price. ModelScope bills for api-inference and its model pages publish no read-able rate, so the rows are left unpriced: the models page shows no price badge on them and the cost center reports their usage as uncosted. That is the catalog's way of recording "nobody has looked this up" — see [Prices and promotions](#prices-and-promotions).
 
@@ -650,7 +650,7 @@ Gemini 4 Argon is preset in Google, Penguin Go and OpenRouter, with a shared inp
 
 ## The per-Project model table
 
-Each Project's models are recorded in the hidden `.project_config.toml`. Maintain it through the **Models** page or the CLI (`penguin config model add / default / list / remove`, see [CLI Reference](/cli)).
+Each Project's models are recorded in the hidden `.project_config.toml`. Maintain it through the **Models** page or the CLI (`wafh config model add / default / list / remove`, see [CLI Reference](/cli)).
 
 > [!WARNING]
 > Do not edit `.project_config.toml` by hand.
@@ -661,7 +661,7 @@ Each `ModelEntry` has these fields:
 | --- | --- |
 | `provider` | Config group name; paired with `model_id` it forms the unique key |
 | `model_id` | Upstream request id |
-| `context_window` | Context window (tokens). Load-bearing, not just display: each request's effective output cap and the compaction threshold are derived from it, so requests never ask for more output than the window still fits. Unset (or implausibly small, under 4096): the output clamp turns off and compaction derives from an assumed 128000 — set the real value for models with smaller windows. The Web dialog writes 1,000,000 when a model that is not in the catalog leaves the field blank (a hand-added entry is a known model, not an unknown window); narrow it when the endpoint serves less. `penguin config model add` writes no default at all when `--context-window` is omitted |
+| `context_window` | Context window (tokens). Load-bearing, not just display: each request's effective output cap and the compaction threshold are derived from it, so requests never ask for more output than the window still fits. Unset (or implausibly small, under 4096): the output clamp turns off and compaction derives from an assumed 128000 — set the real value for models with smaller windows. The Web dialog writes 1,000,000 when a model that is not in the catalog leaves the field blank (a hand-added entry is a known model, not an unknown window); narrow it when the endpoint serves less. `wafh config model add` writes no default at all when `--context-window` is omitted |
 | `max_tokens` | Optional per-model output cap (max output tokens per request). When set it overrides the agent's `model.max_tokens`; unset inherits it. The cap is a ceiling, not the literal wire value: each request sends `min(max_tokens, context_window − estimated input − safety margin)`, so small-window models work without hand-tuning it. Omitting the field on a Web full-table save clears it |
 | `client_type` | MMSP client type: a generic protocol client (`openai-chat` for Chat Completions, `openai-responses` for the Responses API, `ant-messages` for Anthropic Messages, …) or a vendor's official client (`deepseek-official`, `anthropic-official`, …). When omitted, the model follows its group's; with neither, MMSP routes the model id by the vendor family it begins with (`gpt-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`). Custom endpoints use one of the generic protocol clients the Web dialog offers: those three, `google-genai` (Google's generateContent) or `mmsp` (an MMSP server); it can detect which of the three a base URL serves. The pre-0.4.2 spelling `openai` is a deprecated alias and is normalized to `openai-chat` when the config is read |
 | `display_name` | Display name |
@@ -704,7 +704,7 @@ Core decides these headers by **endpoint host** (`packages/core/src/llm/app-attr
 | Endpoint | Header | Value |
 | --- | --- | --- |
 | `openrouter.ai` | `HTTP-Referer` | `https://penguin.ooo/` |
-| `openrouter.ai` | `X-OpenRouter-Title` | `PenguinHarness` |
+| `openrouter.ai` | `X-OpenRouter-Title` | `WAF Harness` |
 | `openrouter.ai` | `X-OpenRouter-Categories` | `cli-agent,personal-agent` |
 | `tokendance.space` | `X-App-URL` | `https://penguin.ooo/` |
 | `opencode.ai` | `x-opencode-session` | The Session id; a request outside any Session (a connectivity test, a vision probe) sends a fresh id of its own |
@@ -723,7 +723,7 @@ A model's identity is always the `(provider, model_id)` pair. `provider` is a co
 
 Every interface that names a model takes the complete pair: the CLI, the HTTP API and the SDK all reject half a reference instead of completing it. The provider is never inferred from the model id and has no default, because gateways resell vendor models under their upstream ids; a guessed group would send the entry's credential to a vendor nobody named.
 
-Where a model reference is optional (`penguin run` / `chat`, Session creation, scheduled tasks), the choice is between the whole pair and nothing. Omit both halves to use the Project's default model.
+Where a model reference is optional (`wafh run` / `chat`, Session creation, scheduled tasks), the choice is between the whole pair and nothing. Omit both halves to use the Project's default model.
 
 ### Models and agents
 

@@ -14,7 +14,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { userAgent } from "@prismshadow/penguin-core";
+import { userAgent } from "@waterford/waf-harness-core";
 import { RELEASE_SOURCES } from "./diagnose.js";
 import type { CarryRelease } from "./install-server.js";
 
@@ -37,7 +37,7 @@ export function releaseCache(dir: string, fetchImpl: typeof fetch = fetch): Carr
         detail: `no release package is published for ${target} at ${version}`,
       });
     }
-    const name = `penguin-${target}.tar.gz`;
+    const name = `wafh-${target}.tar.gz`;
     const file = path.join(dir, `v${version}`, name);
     let running = inFlight.get(file);
     if (running === undefined) {

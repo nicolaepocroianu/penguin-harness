@@ -11,7 +11,7 @@
  * only while its dialog is open, so every opening starts empty.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { UserInfo } from "@prismshadow/penguin-server/api";
+import type { UserInfo } from "@waterford/waf-harness-server/api";
 import {
   Badge,
   Button,
@@ -20,7 +20,7 @@ import {
   PasswordInput,
   useFormDraft,
   useGuardedClose,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";

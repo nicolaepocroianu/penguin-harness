@@ -44,8 +44,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { agentDir } from "@prismshadow/penguin-core";
-import type { IfaceTable } from "@prismshadow/penguin-core/kernel";
+import { agentDir } from "@waterford/waf-harness-core";
+import type { IfaceTable } from "@waterford/waf-harness-core/kernel";
 import type {
   WorkbenchInfo,
   WorkbenchVersion,
@@ -60,8 +60,8 @@ import type { TestApp } from "./helpers.js";
 const PROJECT = "owner-wf";
 const AGENT = "default_agent";
 const BASE = `/api/projects/${PROJECT}/agents/${AGENT}/workbenches`;
-const HOST_KEY = "@prismshadow/penguin-server#WorkbenchHost";
-const MAIN_KEY = "@prismshadow/penguin-server#WorkbenchMain";
+const HOST_KEY = "@waterford/waf-harness-server#WorkbenchHost";
+const MAIN_KEY = "@waterford/waf-harness-server#WorkbenchMain";
 
 const TAB = {
   id: "demo.board",
@@ -84,7 +84,7 @@ function packageJson(modules: unknown[] = [MANIFEST], extra: Record<string, unkn
     name: "Demo",
     version: "1.0.0",
     type: "module",
-    penguin: { modules },
+    wafh: { modules },
     ...extra,
   });
 }
@@ -94,7 +94,7 @@ function indexSource(greeting: string): string {
   // compilation adds work without exercising another part of the workbench contract.
   return `/// <reference no-default-lib="true" />
 /// <reference lib="es2022" />
-import type { WorkbenchPackage } from "@prismshadow/penguin-server/plugin";
+import type { WorkbenchPackage } from "@waterford/waf-harness-server/plugin";
 
 export default {
   modules: {
@@ -627,7 +627,7 @@ describe("editing a workbench", { timeout: 30_000 }, () => {
       packageJson([
         {
           ...MANIFEST,
-          requires: { host: { iface: "@prismshadow/penguin-server#Workbenches", from: "Host" } },
+          requires: { host: { iface: "@waterford/waf-harness-server#Workbenches", from: "Host" } },
         },
       ]),
     );
@@ -635,7 +635,7 @@ describe("editing a workbench", { timeout: 30_000 }, () => {
     const broken = ((await res.json()) as { workbench: WorkbenchInfo }).workbench;
     // Named before anything runs: the host gave this workbench no types for that interface.
     expect(broken.error).toContain(
-      "requires.host '@prismshadow/penguin-server#Workbenches': not among the types this workbench was written against",
+      "requires.host '@waterford/waf-harness-server#Workbenches': not among the types this workbench was written against",
     );
     expect(await (await owner.get(`${base}/demo/api/`)).json()).toMatchObject({
       greeting: "hello",

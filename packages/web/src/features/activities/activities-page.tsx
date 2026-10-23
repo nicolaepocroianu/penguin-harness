@@ -23,7 +23,7 @@ import type {
   MediaStat,
   UploadedMedia,
   VoiceOption,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   toastAttention,
   toastError,
@@ -39,7 +39,7 @@ import {
   ICON_SIZE,
   ICONS,
   Segmented,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { discoverCodingAgents, listCodingAgents } from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { formatMonthDay, localYmd } from "../../lib/format";
@@ -552,7 +552,7 @@ function ActivityEditor({
   const [excerpt, setExcerpt] = useState<string | null>(null);
   const takeExcerpt = useCallback(() => setExcerpt(null), []);
   const [loadError, setLoadError] = useState("");
-  /** A Penguin agent id, or `coding:<id>` for an external coding agent. */
+  /** A WAF Harness agent id, or `coding:<id>` for an external coding agent. */
   const [agentId, setAgentId] = useState("");
   const selectedAgent = stageAgent(agentId, agents, currentAgent?.agentId);
   const { endpoint } = api;
@@ -572,7 +572,7 @@ function ActivityEditor({
   useEffect(() => {
     let cancelled = false;
     // Saved coding agents plus the ones detected as runnable on the server; either can run a
-    // stage. Unavailable coding agents simply leave the list with Penguin agents only.
+    // stage. Unavailable coding agents simply leave the list with WAF Harness agents only.
     void Promise.all([listCodingAgents(), discoverCodingAgents()])
       .then(([saved, discovered]) => {
         if (cancelled) return;
@@ -766,10 +766,10 @@ function ActivityEditor({
   }, [pipeline, endpoint]);
   const codingAgentId = selectedAgent.startsWith("coding:") ? selectedAgent.slice(7) : null;
   /** Who runs a stage, as the stage routes take it. */
-  // A coding agent's run is a Session too, owned by the Penguin agent the Project would use.
-  const penguinAgent = currentAgent?.agentId ?? agents[0]?.agentId;
+  // A coding agent's run is a Session too, owned by the WAF Harness agent the Project would use.
+  const wafHarnessAgent = currentAgent?.agentId ?? agents[0]?.agentId;
   const runner = codingAgentId
-    ? { codingAgentId, ...(penguinAgent !== undefined ? { agentId: penguinAgent } : {}) }
+    ? { codingAgentId, ...(wafHarnessAgent !== undefined ? { agentId: wafHarnessAgent } : {}) }
     : { agentId: selectedAgent };
   // Which sound providers the Media Agent can use: it makes every sound, whoever runs the
   // other stages.
@@ -839,7 +839,7 @@ function ActivityEditor({
   // Why Run cannot start the stages now. The server refuses the same cases; saying so
   // here saves the round trip, and says it in the author's terms.
   const pipelineBlocked = runBlockText(draft.can("stages"));
-  /** An agent as the Stages name it: a coding agent by its title, a Penguin agent by its name. */
+  /** An agent as the Stages name it: a coding agent by its title, a WAF Harness agent by its name. */
   const agentName = (by: { agentId?: string; codingAgentId?: string }) =>
     by.codingAgentId
       ? (codingAgents.find((agent) => agent.id === by.codingAgentId)?.title ?? by.codingAgentId)
@@ -1261,7 +1261,7 @@ function ActivityEditor({
                       onChange={(e) => setAgentId(e.target.value)}
                       disabled={busy || running || pipelineRunning}
                     >
-                      <optgroup label={S.activities.penguinAgents}>
+                      <optgroup label={S.activities.wafHarnessAgents}>
                         {agents.map((agent) => (
                           <option key={agent.agentId} value={agent.agentId}>
                             {agent.name ?? agent.agentId}

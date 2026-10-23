@@ -29,7 +29,7 @@ const USAGE_ERROR_CODES = new Set([
 
 /**
  * The deepest registered command this argv actually named, so the usage line quotes
- * `penguin schedule add` rather than `penguin`. Option tokens are skipped and the walk
+ * `wafh schedule add` rather than `wafh`. Option tokens are skipped and the walk
  * stops at the first word naming no subcommand — an argument value, or an option's
  * value, which no grammar-free walk can tell apart from one. Landing on the parent only
  * costs the usage line some precision.
@@ -46,7 +46,7 @@ export function commandForArgv(program: Command, argv: string[]): Command {
   return cmd;
 }
 
-/** Full spelling of a command including its ancestors (`penguin schedule add`). */
+/** Full spelling of a command including its ancestors (`wafh schedule add`). */
 function commandPath(cmd: Command): string {
   const parts: string[] = [];
   for (let c: Command | null = cmd; c !== null; c = c.parent) parts.unshift(c.name());
@@ -61,7 +61,7 @@ function quotedIdentifier(message: string): string | null {
 
 /** The localized sentence for one commander failure. */
 function usageErrorLine(err: CommanderError, argv: string[], atRoot: boolean, t: Messages): string {
-  // `penguin <typo>`: bare `penguin` prints help, so the root carries an action handler
+  // `wafh <typo>`: bare `wafh` prints help, so the root carries an action handler
   // and commander calls a stray word "too many arguments". For a program that is nothing
   // but subcommands, the true diagnosis is an unknown command — say that instead.
   if (err.code === "commander.excessArguments" && atRoot) {

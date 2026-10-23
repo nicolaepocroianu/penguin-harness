@@ -293,7 +293,7 @@ export async function generate({ moduleUrl, cacheDir, downloadDir, text, seconds
     const file = await graph.g.save(
       graph.output,
       graph.dims,
-      path.join(path.dirname(weights.file), `penguin-${name}-v1.onnx`),
+      path.join(path.dirname(weights.file), `wafh-${name}-v1.onnx`),
     );
     return {
       session: await ort.InferenceSession.create(file, {

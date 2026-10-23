@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneInk } from "../../lib/tone";
-import { Button } from "@prismshadow/penguin-ui";
+import { Button } from "@waterford/waf-harness-ui";
 import { useActivityClient } from "./activity-client";
 
 /** One immutable run per mount; changing the selected asset cannot display an old response. */

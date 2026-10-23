@@ -8,8 +8,8 @@
  * updates; only the drawing moves.
  */
 import { Fragment } from "react";
-import { formatNumber, formatTemp, weekdayOf } from "@prismshadow/penguin-core/a2ui";
-import type { A2uiLang, A2uiWeather, A2uiWeatherDay } from "@prismshadow/penguin-core/a2ui";
+import { formatNumber, formatTemp, weekdayOf } from "@waterford/waf-harness-core/a2ui";
+import type { A2uiLang, A2uiWeather, A2uiWeatherDay } from "@waterford/waf-harness-core/a2ui";
 import { useUiStrings } from "../../../strings";
 import type { A2uiStrings } from "../../../strings";
 import { localDay } from "./time-format";

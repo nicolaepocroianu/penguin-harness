@@ -6,7 +6,7 @@
  * dialog starts from `initialValue` again.
  */
 import { useState } from "react";
-import { Button, GlyphIcon, ICONS, Modal } from "@prismshadow/penguin-ui";
+import { Button, GlyphIcon, ICONS, Modal } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { useAiBridge } from "./ai-bridge";
 import { AiCreatePanel } from "./ai-create-panel";

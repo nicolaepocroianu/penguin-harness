@@ -63,11 +63,7 @@ export async function listInstalledWorkbenches(
       // Rollback restores package.json, but ownership stays with the plugin. Read the code's
       // version so an older restored revision can be offered the current library update.
       const version =
-        item.version === ""
-          ? ""
-          : typeof pkg.penguin?.version === "string"
-            ? pkg.penguin.version
-            : "";
+        item.version === "" ? "" : typeof pkg.wafh?.version === "string" ? pkg.wafh.version : "";
       installed.push({ name: dir.name, plugin: item.plugin, version });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT" && !(error instanceof SyntaxError))

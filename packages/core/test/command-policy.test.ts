@@ -388,7 +388,7 @@ describe("withCommandPolicy (the approval-boundary wrapper)", () => {
 describe("Session applies the policy at the approval boundary", () => {
   let tmp: string;
   beforeEach(async () => {
-    tmp = await mkdtemp(path.join(tmpdir(), "penguin-cmdpolicy-"));
+    tmp = await mkdtemp(path.join(tmpdir(), "wafh-cmdpolicy-"));
   });
   afterEach(async () => {
     await rm(tmp, { recursive: true, force: true });

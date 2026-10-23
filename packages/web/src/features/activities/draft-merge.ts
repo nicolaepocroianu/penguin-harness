@@ -13,7 +13,11 @@
  *
  * Values are compared whatever their keys' order, since the server writes them in its own.
  */
-import type { ActivityDraft, AssetManifest, VideoTimeline } from "@prismshadow/penguin-server/api";
+import type {
+  ActivityDraft,
+  AssetManifest,
+  VideoTimeline,
+} from "@waterford/waf-harness-server/api";
 
 /** One field of the draft: `description`, `spec`, `media`, `manifest#…`, `asset:…`, `timeline:…`. */
 export type FieldId = string;

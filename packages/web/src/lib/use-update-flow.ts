@@ -16,9 +16,9 @@
  */
 import { useEffect, useRef } from "react";
 import { createStore, useStore } from "zustand";
-import type { UpdateJobStatus } from "@prismshadow/penguin-server/api";
-import { RELEASE_IDENTITY } from "@prismshadow/penguin-core/release-identity";
-import { toastError, toastInfo, toastSuccess } from "@prismshadow/penguin-ui";
+import type { UpdateJobStatus } from "@waterford/waf-harness-server/api";
+import { RELEASE_IDENTITY } from "@waterford/waf-harness-core/release-identity";
+import { toastError, toastInfo, toastSuccess } from "@waterford/waf-harness-ui";
 import * as api from "../api/endpoints";
 import { S } from "./strings";
 import { apiErrorText } from "./api-error";
@@ -380,7 +380,7 @@ export function useUpdateFlowOwner(): void {
       // The deadline is checked on every tick, not only on a failed one. A poll that keeps
       // SUCCEEDING is the case that hangs: the restart window fell between two ticks and
       // the relaunched server reports the same version (the update was already installed,
-      // so `penguin update` only reinstalled it), or the restart never happened at all —
+      // so `wafh update` only reinstalled it), or the restart never happened at all —
       // `sawDown` then stays false and nothing here would ever end the wait.
       if (Date.now() - startedAt > RESTART_TIMEOUT_MS) {
         giveUp();

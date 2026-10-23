@@ -1,9 +1,9 @@
 {
-  "name": "@prismshadow/penguin-browser-extension",
+  "name": "@waterford/waf-harness-browser-extension",
   "version": "0.2.16",
   "private": true,
   "type": "module",
-  "description": "PenguinHarness Browser: the Chrome extension that lets a PenguinHarness server drive the user's own Chrome tabs over chrome.debugger.",
+  "description": "WAF Harness Browser: the Chrome extension that lets a WAF Harness server drive the user's own Chrome tabs over chrome.debugger.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
-    "@prismshadow/penguin-server": "workspace:*",
+    "@waterford/waf-harness-server": "workspace:*",
     "@types/chrome": "^0.3.4",
     "esbuild": "^0.28.1",
     "typescript": "^5.6.0",

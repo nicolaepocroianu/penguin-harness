@@ -10,7 +10,7 @@
  * - Given a re-read fails, the rows already listed stay, the note goes and the reads stop. */
 import { act, createElement as h } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { InstalledPluginsResponse } from "@prismshadow/penguin-server/api";
+import type { InstalledPluginsResponse } from "@waterford/waf-harness-server/api";
 import { mount, click, run, unmountAll } from "./helpers/dom";
 import { en } from "../src/lib/strings-en";
 import { setActiveStrings } from "../src/lib/strings";
@@ -76,8 +76,8 @@ vi.mock("../src/features/plugins/plugin-card", () => ({
       ),
     ),
 }));
-vi.mock("@prismshadow/penguin-ui", async (original) => ({
-  ...(await original<typeof import("@prismshadow/penguin-ui")>()),
+vi.mock("@waterford/waf-harness-ui", async (original) => ({
+  ...(await original<typeof import("@waterford/waf-harness-ui")>()),
   ConfirmModal: (props: { onConfirm: () => void }) =>
     h("button", { "data-confirm": true, onClick: props.onConfirm }, "confirm"),
   toastError: vi.fn(),
@@ -187,7 +187,7 @@ describe("the Plugins page's response lifecycle", () => {
   });
 
   it("does not wire package-global Delete into the page, including an installed library/module row", async () => {
-    vi.mocked(api.getInstalledPlugins).mockResolvedValue(snapshot("@penguinharness/mixed"));
+    vi.mocked(api.getInstalledPlugins).mockResolvedValue(snapshot("@waf-harness/mixed"));
     vi.mocked(api.getPluginLibrary).mockResolvedValue({
       groups: [
         {
@@ -196,7 +196,7 @@ describe("the Plugins page's response lifecycle", () => {
           plugins: [
             {
               name: "mixed",
-              package: "@penguinharness/mixed",
+              package: "@waf-harness/mixed",
               source: "installed",
               version: "1",
               description: "Mixed",
@@ -216,7 +216,7 @@ describe("the Plugins page's response lifecycle", () => {
 
 describe("the registry's sources", () => {
   const shipped = {
-    name: "@penguinharness/sandbox-bwrap",
+    name: "@waf-harness/sandbox-bwrap",
     version: "1.0.0",
     description: "Shipped",
     authors: [],

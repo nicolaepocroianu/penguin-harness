@@ -31,7 +31,7 @@ async function runHubHelper({
   providerError = false,
   credential = "fake-test-only" as string | null,
 } = {}) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-hub-sound-test-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-hub-sound-test-"));
   try {
     await fs.copyFile(
       new URL(

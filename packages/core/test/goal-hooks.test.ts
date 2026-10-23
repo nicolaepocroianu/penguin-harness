@@ -17,7 +17,7 @@ let tracePath: string;
 let goalFile: string;
 
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "penguin-goal-plugin-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "wafh-goal-plugin-"));
   scratchpad = path.join(root, "agents", "a1", "scratchpad", "s1");
   tracePath = path.join(root, "agents", "a1", "traces", "2026-08-29", "s1_001.jsonl");
   goalFile = path.join(scratchpad, "GOAL.json");

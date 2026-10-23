@@ -7,9 +7,9 @@
  * Session shows its approvals; this view reads the report again once it settles.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import { ApiError } from "../../api/client";
-import { Button, InfoPopover } from "@prismshadow/penguin-ui";
+import { Button, InfoPopover } from "@waterford/waf-harness-ui";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneDot, toneInk } from "../../lib/tone";

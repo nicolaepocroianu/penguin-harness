@@ -2,8 +2,8 @@
  * The agent browser's round trips to the server, each paired with the local change that makes
  * it feel immediate. Components call these; none of them throws.
  */
-import type { BrowserBackend, BuiltinBrowserTab } from "@prismshadow/penguin-server/api";
-import { toastAttention, toastError, toastSuccess } from "@prismshadow/penguin-ui";
+import type { BrowserBackend, BuiltinBrowserTab } from "@waterford/waf-harness-server/api";
+import { toastAttention, toastError, toastSuccess } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
 import { ApiError } from "../../api/client";
 import { apiErrorText } from "../../lib/api-error";

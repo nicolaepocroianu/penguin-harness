@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PipelineState } from "@prismshadow/penguin-server/api";
+import type { PipelineState } from "@waterford/waf-harness-server/api";
 import {
   stagesHistoryReader,
   type StagesHistoryAnswer,

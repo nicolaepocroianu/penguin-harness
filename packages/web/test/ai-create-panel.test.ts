@@ -6,12 +6,12 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { AgentSummary } from "@prismshadow/penguin-server/api";
+import type { AgentSummary } from "@waterford/waf-harness-server/api";
 import { AiCreatePanel } from "../src/features/ai-create/ai-create-panel";
 import { composeAiPrompt } from "../src/features/ai-create/ai-create-prompt";
 import { S } from "../src/lib/strings";
 
-const agents = [{ agentId: "default_agent", name: "Penguin" } as AgentSummary];
+const agents = [{ agentId: "default_agent", name: "WAF Harness" } as AgentSummary];
 const examples = [
   { key: "cli", label: "A CLI", description: "One command", prompt: "Build a CLI" },
   { key: "bot", label: "A bot", prompt: "Build a bot" },
@@ -41,7 +41,7 @@ describe("AiCreatePanel", () => {
 
   it("names who does the work and previews the composed prompt in the fold", () => {
     const html = render("Build a CLI");
-    expect(html).toContain(S.aiCreate.byAgent("Penguin"));
+    expect(html).toContain(S.aiCreate.byAgent("WAF Harness"));
     expect(html).toContain(composeAiPrompt("Build a CLI", TAIL));
     expect(html).toContain(S.aiCreate.fullPrompt);
   });

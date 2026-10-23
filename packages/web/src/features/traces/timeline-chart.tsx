@@ -28,7 +28,7 @@ import type {
   TraceModelSegment,
   TraceOtherSpan,
   TraceToolSpan,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 import {
   Pill,
   Dot,
@@ -37,8 +37,8 @@ import {
   TimelineLane,
   TimelineViewport,
   namedHint,
-} from "@prismshadow/penguin-ui";
-import type { ChartPaint, LegendItem } from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
+import type { ChartPaint, LegendItem } from "@waterford/waf-harness-ui";
 import { S } from "../../lib/strings";
 import { humanizeDuration } from "../../lib/format";
 import { packToolLanes, toolSpanBounds } from "./lane-packing";

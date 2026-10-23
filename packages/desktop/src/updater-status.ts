@@ -32,7 +32,7 @@ import type {
   DesktopUpdateStatus,
   DesktopUpdaterCommandMessage,
   DesktopUpdaterStatusMessage,
-} from "@prismshadow/penguin-server/api";
+} from "@waterford/waf-harness-server/api";
 
 /** electron-updater's events, reduced to what the status needs. */
 export type UpdaterEvent =

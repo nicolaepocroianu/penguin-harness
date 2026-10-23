@@ -4,7 +4,7 @@
  * once, and any view can say the run history changed.
  */
 import { createContext, useContext } from "react";
-import type { ActivityRun, ActivityRunSummary } from "@prismshadow/penguin-server/api";
+import type { ActivityRun, ActivityRunSummary } from "@waterford/waf-harness-server/api";
 import type { ActivityApi, ProjectActivitiesApi } from "./activity-api";
 import type { ResourceCache } from "./resource-cache";
 

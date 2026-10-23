@@ -7,7 +7,7 @@
  * One-shot calls stay on fetch (`isOpen()` false, as before the first handshake): a page's calls
  * do not depend on which transport carries them.
  */
-import type { ServerEvent } from "@prismshadow/penguin-server/api";
+import type { ServerEvent } from "@waterford/waf-harness-server/api";
 import type { StreamConnection, StreamHandlers } from "../../src/api/sse";
 
 interface OpenStream {

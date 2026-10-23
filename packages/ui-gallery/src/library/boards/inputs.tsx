@@ -10,7 +10,7 @@ import {
   RadioGroup,
   SearchInput,
   Textarea,
-} from "@prismshadow/penguin-ui";
+} from "@waterford/waf-harness-ui";
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 

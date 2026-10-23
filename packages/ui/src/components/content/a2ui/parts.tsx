@@ -6,7 +6,7 @@
  * the looks the blocks share so they read as one family: the title, the chip, the card.
  */
 import type { ReactNode } from "react";
-import type { A2uiOption } from "@prismshadow/penguin-core/a2ui";
+import type { A2uiOption } from "@waterford/waf-harness-core/a2ui";
 import { ICONS } from "../../icons/icons";
 import { Pill } from "../../feedback/pill/pill";
 import { Notice } from "../../feedback/notice/notice";

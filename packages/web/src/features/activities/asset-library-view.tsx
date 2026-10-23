@@ -10,10 +10,10 @@
  * table. A table narrower than its columns need (a side panel open beside it) lays out one
  * row per asset instead (narrow-table.ts), so a key never breaks one letter per line.
  */
-import type { BadgeStyle } from "@prismshadow/penguin-ui";
+import type { BadgeStyle } from "@waterford/waf-harness-ui";
 import { useState, type ReactNode } from "react";
-import type { AssetManifest, UploadedMedia } from "@prismshadow/penguin-server/api";
-import { Badge, Input, ICON_GAP } from "@prismshadow/penguin-ui";
+import type { AssetManifest, UploadedMedia } from "@waterford/waf-harness-server/api";
+import { Badge, Input, ICON_GAP } from "@waterford/waf-harness-ui";
 import { ChipGroup } from "../../components/ui/chip-group";
 import {
   TABLE,

@@ -231,7 +231,7 @@ export function mergeOmniToUniMessage(messages: OmniMessage[]): UniMessage {
 // ---------------------------------------------------------------------------
 
 /**
- * Converts MMSP `UsageMetadata` into PenguinHarness `TokenCounts`.
+ * Converts MMSP `UsageMetadata` into WAF Harness `TokenCounts`.
  *
  * Conversion rules (MMSP UsageMetadata → OmniMessage TokenCounts, null treated as 0):
  *   - `cache_read  = cached_tokens` (input tokens served from cache hits);
@@ -746,7 +746,7 @@ export class GenerativeModel implements LLMInterface {
     // Chat Completions compatible; the bare `openai` spelling is a deprecated upstream alias);
     // when omitted, MMSP infers it from model_id, so it only needs to be specified
     // explicitly for custom-named models. `defaultHeaders` goes on every request the routed
-    // client makes. It names PenguinHarness in the User-Agent, which each provider SDK lets
+    // client makes. It names WAF Harness in the User-Agent, which each provider SDK lets
     // replace its own; the name is spelled `User-Agent` exactly, because the Gemini SDK
     // merges these into its own defaults as a plain object, where `user-agent` would sit
     // beside its `User-Agent` and both values would go out joined. It also carries the app
@@ -855,7 +855,7 @@ export class GenerativeModel implements LLMInterface {
     ) {
       this.lastWarnedCap = derived;
       process.stderr.write(
-        `[penguin] output cap clamped hard: max_tokens ${this.configuredMaxTokens} -> ${derived} ` +
+        `[wafh] output cap clamped hard: max_tokens ${this.configuredMaxTokens} -> ${derived} ` +
           `(context_window ${this.contextWindow}, estimated input ${estimatedInput})\n`,
       );
     }

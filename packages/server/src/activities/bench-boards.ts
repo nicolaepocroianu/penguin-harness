@@ -18,8 +18,8 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { isValidId } from "@prismshadow/penguin-core";
-import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
+import { isValidId } from "@waterford/waf-harness-core";
+import { Bind, Component, Use } from "@waterford/waf-harness-core/kernel";
 import { Hono } from "hono";
 import type {
   ActivityBenchBoard,
@@ -148,13 +148,13 @@ export class ActivityBenchRoutes {
     const root = await fs.realpath(this.paths.root).catch(() => this.paths.root);
     if (overlaps(home, root))
       throw refuse("A bench home is a folder of its own, apart from this server's data folder.");
-    // As the bench itself refuses: Penguin's default home, the user's home folder holding it, and
+    // As the bench itself refuses: WAF Harness's default home, the user's home folder holding it, and
     // anything inside it.
-    const penguinHome = path.join(os.homedir(), ".penguin");
-    const resolvedPenguinHome = await fs.realpath(penguinHome).catch(() => penguinHome);
-    if (overlaps(home, resolvedPenguinHome))
+    const wafHarnessHome = path.join(os.homedir(), ".waf-harness");
+    const resolvedWafHarnessHome = await fs.realpath(wafHarnessHome).catch(() => wafHarnessHome);
+    if (overlaps(home, resolvedWafHarnessHome))
       throw refuse(
-        "A bench home is a folder of its own, apart from the home folder and ~/.penguin.",
+        "A bench home is a folder of its own, apart from the home folder and ~/.waf-harness.",
       );
     return home;
   }

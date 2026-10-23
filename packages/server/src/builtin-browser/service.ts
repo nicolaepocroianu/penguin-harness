@@ -285,7 +285,7 @@ export class BuiltinBrowser {
         405,
         "not_supported",
         backend === "builtin"
-          ? "This server has no built-in browser; it runs outside the PenguinHarness desktop app."
+          ? "This server has no built-in browser; it runs outside the WAF Harness desktop app."
           : "This server does not offer driving your own Chrome.",
       );
     }
@@ -573,8 +573,8 @@ export class BuiltinBrowser {
     const project =
       (sessionId === undefined ? null : this.deps.projectOf?.(sessionId)) ?? projectId;
     return project === undefined || project === null
-      ? "persist:penguin-browser"
-      : `persist:penguin-browser-project-${createHash("sha256").update(project).digest("hex")}`;
+      ? "persist:wafh-browser"
+      : `persist:wafh-browser-project-${createHash("sha256").update(project).digest("hex")}`;
   }
 
   // --- internals ---------------------------------------------------------------
