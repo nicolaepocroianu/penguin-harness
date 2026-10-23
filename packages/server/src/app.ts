@@ -448,17 +448,21 @@ export function createApp(boot: ServerBoot): Hono<AppEnv> {
   // previews on its counterpart, but the SAME process answers on both. Without this, Agent-
   // written preview HTML on the preview host could call /api same-origin and — if a session
   // cookie had ever been set on that host — act as the user. So the preview host serves ONLY
-  // /preview/*: /api answers 401 (it never sets or honors a cookie there, closing both the
+  // /preview/* and Loom's /player.html (see player-html-routes.ts): /api answers 401 (it never sets or honors a cookie there, closing both the
   // login and the stale-cookie paths), and everything else 302s to the canonical App host.
   // Off when PENGUIN_PREVIEW_ORIGIN is set: previews then
   // use that origin rather than the loopback counterpart, so 127.0.0.1 is an ordinary App
   // access point and must not be locked down — deployments enforce the equivalent at the
-  // reverse proxy (route only /preview/* to the App on the preview origin).
+  // reverse proxy (route only /preview/* and /player.html to the App on the preview origin).
   const previewRoles = deps.config.previewOrigin ? null : loopbackHostRoles(deps.config.host);
   if (previewRoles) {
     app.use("*", async (c, next) => {
       const host = hostOnly(requestAuthority(c.req.url, c.req.header("host"))).toLowerCase();
-      if (host === previewRoles.preview && !c.req.path.startsWith("/preview/")) {
+      if (
+        host === previewRoles.preview &&
+        !c.req.path.startsWith("/preview/") &&
+        c.req.path !== "/player.html"
+      ) {
         if (c.req.path.startsWith("/api/")) {
           throw new HttpError(401, "unauthorized", "The API is not served on the preview host.");
         }

@@ -1,50 +1,28 @@
 /**
- * Play links: the signed tokens a played activity is served behind (see `play-routes`).
+ * Play links: the fixed address a played activity is served at (see `play-routes`).
  *
- * Kept apart from the sandbox so that what signs a link needs nothing but a secret. The
- * test browser signs links for the checks it runs, and a module run signs one for its own
- * workspace before its agent starts; neither can depend on the sandbox, which depends on
- * the runs it plays.
+ * As in Loom's dev-sandbox, a link is the activity's address and nothing more: no signature,
+ * no expiry, the same link every time and across restarts. Whoever can reach the preview
+ * origin can play any activity, which is Loom's model. What keeps a module's code away from
+ * the App is where the page is served, not the link: on the App's own host it always runs
+ * sandboxed (see `play-routes`).
+ *
+ * Kept apart from the sandbox so that what makes a link needs nothing. The test browser makes
+ * links for the checks it runs, and a module run makes one for its own workspace before its
+ * agent starts; neither can depend on the sandbox, which depends on the runs it plays.
  */
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { Component, Interface } from "@prismshadow/penguin-core/kernel";
 
 /**
- * How long a play link works. Every file the page fetches rides on it, and a book fetches
- * its pages as they are turned, so it has to outlast a working session, not one play
- * through. The page says when it has run out (see `sandbox-player`); Reload issues a new one.
+ * How long a module run counts as played after a link to it was made, so cleanup leaves its
+ * folder alone while a check or an author may still be playing it (see `liveRunIds`).
  */
-export const PLAY_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+export const PLAY_RUN_LIVE_MS = 12 * 60 * 60 * 1000;
 
-/** How finely a play link's expiry is rounded up; see `playLinkExpiry`. */
-const PLAY_TOKEN_STEP_MS = 60 * 60 * 1000;
-
-/**
- * When a link signed now stops working: at least the full lifetime, rounded up to the hour.
- *
- * Rounded so every link to the same activity signed within the hour is the SAME link. The
- * token is part of every URL the player fetches, and Reload signs a new one; without this,
- * each reload would start from an empty browser cache however long its media may be kept.
- */
-export function playLinkExpiry(nowMs: number): number {
-  return Math.ceil((nowMs + PLAY_TOKEN_TTL_MS) / PLAY_TOKEN_STEP_MS) * PLAY_TOKEN_STEP_MS;
-}
-
-/** What a play token grants: one activity's preview, on one host, until it expires. */
+/** What a play link names: one activity's preview, or one of its module runs. */
 export interface PlayTarget {
   projectId: string;
   activityId: string;
-  /** Host (no port) the preview must be served from; anything else is refused. */
-  host: string;
-  /** True when that host is the App's own, so the page must be sandboxed off its origin. */
-  shared: boolean;
-  expiresAt: number;
-  /**
-   * The App origin that asked for the link, which the page reports its state to (see the
-   * player's inspector bridge). Signed with the rest, so a page is never told to talk to
-   * an origin other than the one that opened it. Absent on links minted before it existed.
-   */
-  parentOrigin?: string;
   /**
    * The module run whose workspace the link plays, while it is still running or once it
    * has succeeded, instead of the activity's playing build. An assembly checks its module
@@ -53,82 +31,46 @@ export interface PlayTarget {
   runId?: string;
 }
 
-/** What a caller asks a link for; the expiry is the signer's to set. */
-export type PlayGrant = Omit<PlayTarget, "expiresAt">;
+/** Ids are `[A-Za-z0-9_-]+` (see `isValidId`), so `~` can never be part of one. */
+const KEY_SEPARATOR = "~";
+const KEY_PART = /^[A-Za-z0-9_-]+$/;
+
+/** The path segment that names a play target: `<project>~<activity>[~<run>]`. */
+export function playKey(target: PlayTarget): string {
+  return [target.projectId, target.activityId, ...(target.runId ? [target.runId] : [])].join(
+    KEY_SEPARATOR,
+  );
+}
+
+/** The play target a key names, or null when it is not one. */
+export function readPlayKey(key: string): PlayTarget | null {
+  const parts = key.split(KEY_SEPARATOR);
+  if (parts.length < 2 || parts.length > 3 || !parts.every((part) => KEY_PART.test(part)))
+    return null;
+  const [projectId, activityId, runId] = parts as [string, string, string?];
+  return { projectId, activityId, ...(runId ? { runId } : {}) };
+}
 
 export abstract class ActivityPlayLinks extends Interface<{
-  /** Signs a link for a caller already authorised for the activity it names. */
-  sign(grant: PlayGrant): { token: string; expiresAt: number };
-  /** What a play token grants, or null when it is forged, expired or for another host. */
-  verify(token: string, host: string): PlayTarget | null;
-  /** The module runs a link signed for one of them still plays (see `PlayTarget.runId`). */
+  /** The link segment for a play target; a run's is remembered as played (see `liveRunIds`). */
+  link(target: PlayTarget): string;
+  /** The module runs a link was made for recently, which cleanup must leave alone. */
   liveRunIds(): string[];
 }>() {}
 
 @Component()
 export class ActivityPlayLinksService implements ActivityPlayLinks {
-  /** Per process: a restart ends every open preview, which is fine. */
-  private readonly secret = randomBytes(32);
-  /** When the last link signed for each module run stops working; per process, as the secret is. */
+  /** When each module run stops counting as played; per process, which is enough for cleanup. */
   private readonly runLinks = new Map<string, number>();
 
-  sign(grant: PlayGrant): { token: string; expiresAt: number } {
-    const target: PlayTarget = {
-      projectId: grant.projectId,
-      activityId: grant.activityId,
-      host: grant.host.toLowerCase(),
-      shared: grant.shared,
-      expiresAt: playLinkExpiry(Date.now()),
-      ...(grant.parentOrigin ? { parentOrigin: grant.parentOrigin } : {}),
-      ...(grant.runId ? { runId: grant.runId } : {}),
-    };
-    if (target.runId)
-      this.runLinks.set(
-        target.runId,
-        Math.max(this.runLinks.get(target.runId) ?? 0, target.expiresAt),
-      );
-    const body = Buffer.from(JSON.stringify(target), "utf8").toString("base64url");
-    return {
-      token: `${body}.${this.mac(body).toString("base64url")}`,
-      expiresAt: target.expiresAt,
-    };
+  link(target: PlayTarget): string {
+    if (target.runId) this.runLinks.set(target.runId, Date.now() + PLAY_RUN_LIVE_MS);
+    return playKey(target);
   }
 
   liveRunIds(): string[] {
     const now = Date.now();
-    for (const [runId, expiresAt] of this.runLinks)
-      if (now >= expiresAt) this.runLinks.delete(runId);
+    for (const [runId, until] of this.runLinks) if (now >= until) this.runLinks.delete(runId);
     return [...this.runLinks.keys()];
-  }
-
-  private mac(body: string): Buffer {
-    return createHmac("sha256", this.secret).update(body).digest();
-  }
-
-  verify(token: string, host: string): PlayTarget | null {
-    const dot = token.indexOf(".");
-    if (dot <= 0 || dot === token.length - 1) return null;
-    const body = token.slice(0, dot);
-    const provided = Buffer.from(token.slice(dot + 1), "base64url");
-    const expected = this.mac(body);
-    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
-    let target: PlayTarget;
-    try {
-      target = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as PlayTarget;
-    } catch {
-      return null;
-    }
-    if (
-      typeof target?.projectId !== "string" ||
-      typeof target.activityId !== "string" ||
-      typeof target.host !== "string" ||
-      typeof target.expiresAt !== "number" ||
-      (target.runId !== undefined && typeof target.runId !== "string")
-    )
-      return null;
-    if (Date.now() >= target.expiresAt) return null;
-    // The host binding is what keeps a preview on the origin it was issued for.
-    if (target.host !== host.toLowerCase()) return null;
-    return target;
   }
 }

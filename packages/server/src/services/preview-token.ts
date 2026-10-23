@@ -132,6 +132,22 @@ export function loopbackHostRoles(bindHost: string): { app: string; preview: str
 }
 
 /**
+ * Whether `host` (no port) is a preview host: the configured preview origin's, or, with none
+ * configured, the loopback name the canonical-host guard keeps free of the App (see
+ * `loopbackHostRoles`). Anything else may be the App's own host, where a page that runs
+ * untrusted code has to be sandboxed.
+ */
+export function isPreviewHost(
+  host: string,
+  configuredOrigin: string | null,
+  bindHost: string,
+): boolean {
+  const h = host.toLowerCase();
+  if (configuredOrigin) return new URL(configuredOrigin).hostname.toLowerCase() === h;
+  return loopbackHostRoles(bindHost)?.preview === h;
+}
+
+/**
  * The host:port this request was addressed to. Prefers the Host header (what the browser
  * actually sent, and what decides the origin), falling back to the request URL's
  * authority — some server runtimes and test harnesses build a Request from a full URL

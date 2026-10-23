@@ -11,7 +11,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ActivityPlayLinksService } from "../src/activities/play-links.js";
+import { ActivityPlayLinksService, playKey, readPlayKey } from "../src/activities/play-links.js";
 import { ActivitySandboxService } from "../src/activities/sandbox-service.js";
 import { checkoutOutputRoot, definitionMediaFolders } from "../src/activities/sandbox-source.js";
 import { fakeModuleBuilder, wiredSandbox } from "./activity-sandbox-wiring.js";
@@ -270,55 +270,21 @@ describe("previewing a module from the WAF checkout", () => {
   });
 });
 
-describe("the link a played preview is served behind", () => {
-  const service = new ActivitySandboxService();
-  Object.assign(service, {
-    activities: { getActivity: async () => ({ id: ACTIVITY }) },
-    links: new ActivityPlayLinksService(),
+describe("the link a played preview is served at", () => {
+  it("is the activity's fixed address, the same every time and on every server", () => {
+    const key = new ActivityPlayLinksService().link({ projectId: PROJECT, activityId: ACTIVITY });
+    expect(key).toBe(playKey({ projectId: PROJECT, activityId: ACTIVITY }));
+    expect(readPlayKey(key)).toEqual({ projectId: PROJECT, activityId: ACTIVITY });
   });
 
-  it("grants one activity on the host it was issued for", async () => {
-    const { token } = await service.play(PROJECT, ACTIVITY, "127.0.0.1", false);
-    expect(service.verifyPlay(token, "127.0.0.1")).toMatchObject({
-      projectId: PROJECT,
-      activityId: ACTIVITY,
-      shared: false,
-    });
+  it("names the module run it plays", () => {
+    const key = playKey({ projectId: PROJECT, activityId: ACTIVITY, runId: "run_2" });
+    expect(readPlayKey(key)).toEqual({ projectId: PROJECT, activityId: ACTIVITY, runId: "run_2" });
   });
 
-  it("refuses the link on any other host", async () => {
-    const { token } = await service.play(PROJECT, ACTIVITY, "127.0.0.1", false);
-    expect(service.verifyPlay(token, "localhost")).toBeNull();
-  });
-
-  it("refuses a link whose contents were changed", async () => {
-    const { token } = await service.play(PROJECT, ACTIVITY, "127.0.0.1", false);
-    const [body, mac] = token.split(".");
-    const altered = JSON.parse(Buffer.from(body!, "base64url").toString("utf8"));
-    altered.activityId = "someone_else";
-    const forged = `${Buffer.from(JSON.stringify(altered)).toString("base64url")}.${mac}`;
-    expect(service.verifyPlay(forged, "127.0.0.1")).toBeNull();
-    expect(service.verifyPlay("not-a-token", "127.0.0.1")).toBeNull();
-  });
-
-  it("carries the module run a link plays, signed with the rest", async () => {
-    const { token } = await service.play(PROJECT, ACTIVITY, "127.0.0.1", false, undefined, "run_2");
-    expect(service.verifyPlay(token, "127.0.0.1")).toMatchObject({ runId: "run_2" });
-    const [body, mac] = token.split(".");
-    const altered = JSON.parse(Buffer.from(body!, "base64url").toString("utf8"));
-    altered.runId = "run_other";
-    const forged = `${Buffer.from(JSON.stringify(altered)).toString("base64url")}.${mac}`;
-    expect(service.verifyPlay(forged, "127.0.0.1")).toBeNull();
-  });
-
-  it("refuses a link another server signed", async () => {
-    const other = new ActivitySandboxService();
-    Object.assign(other, {
-      activities: { getActivity: async () => ({ id: ACTIVITY }) },
-      links: new ActivityPlayLinksService(),
-    });
-    const { token } = await other.play(PROJECT, ACTIVITY, "127.0.0.1", false);
-    expect(service.verifyPlay(token, "127.0.0.1")).toBeNull();
+  it("reads nothing from a key that is not one", () => {
+    for (const key of ["", "only", "a~b~c~d", "a~b/c", "a~~b", "../x~y"])
+      expect(readPlayKey(key)).toBeNull();
   });
 });
 

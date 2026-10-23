@@ -123,7 +123,7 @@ describe("the ref a /player.html link names", () => {
     expect(pickPlayable([ref("a", 1), ref("b", 1)], "m2ab01", 1, null)).toEqual({
       status: 409,
       message:
-        '"m2ab01" ref 1 is open in more than one of your projects: a, b. Add project=<id> to the link to choose one.',
+        '"m2ab01" ref 1 is open in more than one project: a, b. Add project=<id> to the link to choose one.',
     });
     // A root the link names can tell them apart.
     expect(pickPlayable([ref("a", 1), ref("b", 1, "legacy")], "m2ab01", 1, "legacy")).toEqual({
