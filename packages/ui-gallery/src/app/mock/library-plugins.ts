@@ -68,7 +68,7 @@ function libraryPlugin(manifest: Manifest, icon: string, skills: SkillMetadataIt
 }
 
 /** Default frontmatter version for the demo's unchanged Skills. */
-const SKILL_VERSION = "2026.10.12.1";
+const SKILL_VERSION = "2026.10.23.1";
 
 const skill = (name: string, description: string, version = SKILL_VERSION): SkillMetadataItem => ({
   name,
@@ -122,7 +122,7 @@ export function agentEvaluationPlugin(): PluginItem {
     skill(
       "benchmark-design",
       "Design and calibrate a multi-Case capability Benchmark and establish a traceable Formal Baseline, or import a published Benchmark package.",
-      "2026.10.14.1",
+      "2026.10.23.1",
     ),
   ]);
 }
