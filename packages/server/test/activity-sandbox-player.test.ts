@@ -24,7 +24,6 @@ const input: PlayerPageInput = {
   resolution: "1024x768",
   languageCode: "en-US",
   startSceneId: null,
-  expiresAt: 1_790_000_000_000,
   parentOrigin: "http://localhost:7364",
 };
 
@@ -36,10 +35,10 @@ function configuration(html: string): Record<string, unknown> {
 }
 
 describe("the page a played preview is served as", () => {
-  it("tells the player the activity and when its link expires", () => {
+  it("tells the player the activity it plays", () => {
     const html = playerPage(input);
-    expect(configuration(html)).toMatchObject({ refNum: 156, expiresAt: 1_790_000_000_000 });
-    expect(html).toContain('id="playerExpired"');
+    expect(configuration(html)).toMatchObject({ refNum: 156 });
+    expect(html).not.toContain("playerExpired");
     expect(html).toContain('src="/preview/activity/token/player/player.js"');
   });
 

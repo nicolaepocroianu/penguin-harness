@@ -6,7 +6,7 @@ import { Bind, Component, Use } from "@prismshadow/penguin-core/kernel";
 import type { Context, Hono } from "hono";
 import { Hono as HonoApp } from "hono";
 import type { AppEnv } from "../auth/middleware.js";
-import type { Access } from "../mechanisms/projects.js";
+import type { Access, Projects } from "../mechanisms/projects.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../mechanisms/activities.js";
 import type { ActivitySandbox } from "./sandbox-service.js";
 import { videoMimeType } from "./video-render.js";
@@ -15,7 +15,7 @@ import type { ModuleDocumentKind } from "./domain.js";
 import type { ActivitySummaries } from "./summary-service.js";
 import type { Config } from "../hmr/capabilities.js";
 import { hostOnly, requestAuthority, resolvePreviewTarget } from "../services/preview-token.js";
-import { signedPlayLocation } from "./play-link.js";
+import { playLocation } from "./play-link.js";
 import { readPlayQuery, type PlayQuery } from "./play-query.js";
 import { playBase } from "./play-routes.js";
 import { requestOrigin } from "../http/routes/model-oauth.js";
@@ -120,6 +120,7 @@ export class ActivityRoutes {
   @Use() private readonly compositions!: ActivityCompositions;
   @Use() private readonly videoRenders!: ActivityVideoRenders;
   @Use() private readonly config!: Config;
+  @Use() private readonly projects!: Projects;
   @Use() private readonly outcomes!: ActivityOutcomes;
   @Bind("activities") routes!: Hono<AppEnv>;
 
@@ -709,9 +710,9 @@ export class ActivityRoutes {
         ),
       );
     });
-    // Plays the activity. The page itself is served on the preview origin behind a signed,
-    // short-lived link (see play-routes.ts), so the module's code never runs with the
-    // author's session; this route is where an authorised author is handed that link.
+    // Plays the activity. The page itself is served on the sandbox origin at Loom's
+    // `/player.html` address (see play-link.ts), so the module's code never runs with the
+    // author's session; this route is where the author is sent there.
     // Loom's player.html query (see play-query.ts); `language` and `scene` are the older names.
     // A link to an activity checks its query against it; one the query itself found
     // (`findPlayable`) already matches, and is not looked up twice.
@@ -729,9 +730,9 @@ export class ActivityRoutes {
         if (mismatch) throw new HttpError(400, "play_link_mismatch", mismatch);
       }
       return c.redirect(
-        await signedPlayLocation(
+        await playLocation(
           c,
-          { config: this.config, sandbox: this.sandbox },
+          { config: this.config, sandbox: this.sandbox, projects: this.projects },
           projectId,
           activityId,
           query,

@@ -1,36 +1,20 @@
 /**
- * Loom's `/player.html` address, wired by hand around a fake sign-in, so what it answers can
- * be pinned without a project on disk: Loom's order and words for a link it cannot play, and
- * a renewed sign-in that survives those answers. The way to a played ref is
- * activity-play-routes.test.ts's.
+ * Loom's `/player.html` address, wired by hand, so what it answers can be pinned without a
+ * project on disk: Loom's order and words for a link it cannot play, and no sign-in asked
+ * for. The way to a played ref is activity-play-routes.test.ts's.
  */
 import { describe, expect, it } from "vitest";
 import { wire } from "@prismshadow/penguin-core/kernel";
 import { ActivityPlayerHtmlRoutes } from "../src/activities/player-html-routes.js";
 
-function player(options: { renewed?: boolean } = {}) {
+function player() {
   const routes = wire(ActivityPlayerHtmlRoutes, {
-    auth: {
-      sessionTtlMs: 60_000,
-      authenticateApiToken: () => null,
-      authenticateWithMeta: (token: string) =>
-        token === "good"
-          ? {
-              user: { userId: "u1", isAdmin: false },
-              via: "password",
-              renewed: options.renewed ?? false,
-            }
-          : null,
-    },
     config: { trustProxy: false },
-    access: { accessibleProjectIds: () => ["p1"] },
+    projects: { listAll: () => [{ projectId: "p1" }] },
     sandbox: { playCandidates: async () => [] },
   });
   routes.setup();
-  return (query: string, cookie = "good") =>
-    routes.routes.request(`http://localhost/?${query}`, {
-      headers: cookie ? { cookie: `penguin_session=${cookie}` } : {},
-    });
+  return (query: string) => routes.routes.request(`http://localhost/?${query}`);
 }
 
 const words = async (response: Response) =>
@@ -46,15 +30,9 @@ describe("Loom's /player.html address", () => {
     }
   });
 
-  it("keeps a renewed sign-in on a link it cannot play", async () => {
-    const response = await player({ renewed: true })("module=m2ab01&ref=1");
+  it("answers a visitor with no sign-in as Loom's player does", async () => {
+    const response = await player()("module=m2ab01&ref=1");
     expect(response.status).toBe(404);
-    expect(response.headers.get("set-cookie")).toContain("penguin_session=good");
-  });
-
-  it("sends a visitor who is not signed in to sign in", async () => {
-    const response = await player()("module=m2ab01&ref=1", "");
-    expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/login");
+    expect(await words(response)).toBe("Failed to load module metadata for &quot;m2ab01&quot;.");
   });
 });

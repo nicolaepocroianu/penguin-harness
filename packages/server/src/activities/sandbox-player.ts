@@ -233,18 +233,6 @@ function highlightInteractable(id) {
 
 pubSub.on(Activity.Events.Started, hideLoading);
 
-// Every file this page fetches rides on a link that expires. Past that, pages and sounds
-// fail one by one as they are asked for, which looks like a broken activity; saying so
-// once, over the activity, is the honest version.
-if (typeof sandbox.expiresAt === 'number') {
-    const showExpired = () => {
-        const notice = document.getElementById('playerExpired');
-        if (notice) notice.hidden = false;
-    };
-    const remaining = sandbox.expiresAt - Date.now();
-    if (remaining <= 0) showExpired();
-    else setTimeout(showExpired, Math.min(remaining, 2147483647));
-}
 pubSub.on(Activity.Events.ActivityLoadFailed, handleActivityFailed);
 
 function hideLoading() {
@@ -444,8 +432,6 @@ export interface PlayerPageInput {
   playResolution?: string | null;
   languageCode: string | null;
   startSceneId: string | null;
-  /** When the page's link stops working, epoch milliseconds; null when it does not. */
-  expiresAt: number | null;
   /** The App origin the page reports its state to; null when it reports nothing. */
   parentOrigin: string | null;
 }
@@ -499,12 +485,7 @@ export function playerPage(
         position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
         object-position: center;
       }
-      #playerLoading[hidden], #playerExpired[hidden] { display: none; }
-      #playerExpired {
-        position: fixed; inset: 0; z-index: 100001; display: flex; align-items: center;
-        justify-content: center; padding: 24px; text-align: center; background: rgba(11, 17, 23, 0.92);
-        color: #fff; font: 600 1.1rem/1.4 sans-serif;
-      }
+      #playerLoading[hidden] { display: none; }
     </style>
   </head>
   <body>
@@ -522,9 +503,6 @@ export function playerPage(
       <div id="playerLoading" role="status" aria-live="polite">
         <span>Loading preview…</span>
         ${loadingVideo ? `<video id="playerLoadingVideo" src="${base}${LOADING_VIDEO_PATH}" autoplay loop muted playsinline preload="auto" aria-hidden="true" onerror="this.remove()"></video>` : ""}
-      </div>
-      <div id="playerExpired" role="alert" hidden>
-        This preview link has expired, so its pictures and sounds can no longer load. Reload the preview to keep playing.
       </div>
     </main>
     <script type="application/json" id="penguin-sandbox">${json}</script>

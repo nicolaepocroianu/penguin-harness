@@ -21,8 +21,8 @@ export function sandboxHasModule(status: SandboxStatusLike | null): boolean {
 }
 
 /**
- * The link that plays an activity. The server answers it with a redirect to a signed,
- * short-lived link on the preview origin, where the module's code runs away from the App.
+ * The link that plays an activity. The server answers it with a redirect to the activity's
+ * fixed link on the preview origin, where the module's code runs away from the App.
  * The query uses Loom's player.html names, so a link reads the same in both.
  */
 export function playUrl(

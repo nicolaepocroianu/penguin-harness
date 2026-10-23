@@ -230,11 +230,9 @@ describe("cleaning up activity runs", () => {
 
     const authoring = api<ActivityAuthoring>("ActivityAuthoring");
     await authoring.pinModuleRun(PROJECT, activity.id, pinned, activity.draft.contentRevision);
-    api<ActivityPlayLinks>("ActivityPlayLinks").sign({
+    api<ActivityPlayLinks>("ActivityPlayLinks").link({
       projectId: PROJECT,
       activityId: activity.id,
-      host: "localhost",
-      shared: false,
       runId: linked,
     });
     t.deps.db
