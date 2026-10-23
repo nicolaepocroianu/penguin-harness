@@ -2403,6 +2403,10 @@ export const en: Strings = {
       open: "Open",
       opening: "Opening…",
       opened: "Opened",
+      listHeading: "In the modules",
+      listHelp:
+        "Products in the WAF workspace's modules that this project has not opened. They are read from the modules only; nothing is written to them until you open one from Open from modules.",
+      notOpen: "Not opened",
     },
     search: "Search activities",
     noMatches: "No activities match this search.",

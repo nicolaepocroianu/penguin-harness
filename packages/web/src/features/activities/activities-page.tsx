@@ -21,6 +21,7 @@ import type {
   SpeechProviderStatus,
   ElevenLabsVoicesProblem,
   MediaStat,
+  ModuleProduct,
   UploadedMedia,
   VoiceOption,
 } from "@waterford/waf-harness-server/api";
@@ -210,6 +211,8 @@ function ActivityWorkspace({
   const navigate = useNavigate();
   const media = useMatch("/activities/media") !== null;
   const [items, setItems] = useState<ActivityRecord[]>([]);
+  // The products in the modules this project has not opened, read only, listed under its own.
+  const [moduleProducts, setModuleProducts] = useState<ModuleProduct[]>([]);
   const [summaries, setSummaries] = useState<Record<string, ActivitySummary>>({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -247,12 +250,23 @@ function ActivityWorkspace({
     // fan out over every activity, and the return-to-list reload fetches them fresh.
     const withSummaries = openActivityId.current === undefined;
     const request = ++requested.current;
+    const api = projectActivitiesApi(projectId);
     try {
-      const result = await projectActivitiesApi(projectId).list(withSummaries);
+      // A workspace that is not ready has no modules to read; the project's own list stands.
+      const [result, inModules] = await Promise.all([
+        api.list(withSummaries),
+        withSummaries
+          ? api.moduleProducts().then(
+              (value) => value.products,
+              () => [],
+            )
+          : null,
+      ]);
       if (mounted.current) {
         if (request > appliedItems.current) {
           appliedItems.current = request;
           setItems(result.activities);
+          if (inModules) setModuleProducts(inModules);
           setError("");
         }
         if (withSummaries && request > appliedSummaries.current) {
@@ -388,6 +402,7 @@ function ActivityWorkspace({
     <>
       <ActivityList
         items={items}
+        moduleProducts={moduleProducts}
         loading={loading}
         error={error}
         editable={editable}

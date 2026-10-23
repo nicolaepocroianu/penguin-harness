@@ -2112,6 +2112,9 @@ export type Strings = {
       open: string;
       opening: string;
       opened: string;
+      listHeading: string;
+      listHelp: string;
+      notOpen: string;
     };
     search: string;
     noMatches: string;

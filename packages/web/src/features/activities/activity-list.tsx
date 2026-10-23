@@ -8,6 +8,9 @@
  * in its summary, decoded here from wherever the file plays as the studio's posters are;
  * nothing about it is stored. New ref lives in the row's menu, offered where a new ref can be
  * made from the product's canonical ref and said why not where it cannot.
+ *
+ * Under the project's own activities, the products in the WAF workspace's modules it has not
+ * opened, read from the modules only: listing them writes nothing to them.
  */
 import { useId, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -15,6 +18,7 @@ import type {
   ActivityPoster,
   ActivityRecord,
   ActivitySummary,
+  ModuleProduct,
 } from "@waterford/waf-harness-server/api";
 import {
   Button,
@@ -23,6 +27,7 @@ import {
   GlyphIcon,
   EmptyState,
   IconButton,
+  InfoPopover,
   Input,
   Pill,
   SkeletonList,
@@ -52,6 +57,7 @@ import { mediaPreview } from "./media-preview";
 import { MediaThumb } from "./media-thumb";
 import { NO_PLACEHOLDERS } from "./placeholder-media";
 import { runKindLabel } from "./run-toasts";
+import { filterModuleProducts, moduleProductKey } from "./module-products";
 
 /**
  * The columns every row shares, from the picture to the menu. Wide, the name and the status
@@ -62,6 +68,7 @@ const ROW =
 
 export function ActivityList({
   items,
+  moduleProducts = [],
   loading,
   error,
   editable,
@@ -83,6 +90,8 @@ export function ActivityList({
   onMedia,
 }: {
   items: readonly ActivityRecord[];
+  /** The products in the modules this project has not opened, listed below its own. */
+  moduleProducts?: readonly ModuleProduct[];
   loading: boolean;
   error: string;
   editable: boolean;
@@ -124,6 +133,12 @@ export function ActivityList({
     () => lensCounts(items, summaries, { search, tag }),
     [items, summaries, search, tag],
   );
+  // A product not opened has no state for a lens or tags of its own, so only the search narrows it.
+  const unopened = useMemo(
+    () => (lens === "all" && !tag ? filterModuleProducts(moduleProducts, search) : []),
+    [moduleProducts, search, lens, tag],
+  );
+  const listed = items.length > 0 || moduleProducts.length > 0;
   const [collapsed, setCollapsed] = useState(() => readCollapsed(projectId));
   function toggle(key: string) {
     setCollapsed((current) => {
@@ -189,7 +204,7 @@ export function ActivityList({
             {error}
           </p>
         )}
-        {items.length > 0 && (
+        {listed && (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
               <Input
@@ -243,8 +258,8 @@ export function ActivityList({
           <div role="status" aria-label={S.activities.loading}>
             <SkeletonList rows={4} />
           </div>
-        ) : groups.length === 0 ? (
-          <EmptyState title={items.length === 0 ? S.activities.empty : S.activities.noMatches} />
+        ) : groups.length === 0 && unopened.length === 0 ? (
+          <EmptyState title={listed ? S.activities.noMatches : S.activities.empty} />
         ) : (
           <div>
             {runs(groups).map((run) =>
@@ -279,10 +294,53 @@ export function ActivityList({
                 </ul>
               ),
             )}
+            {unopened.length > 0 && <UnopenedProducts products={unopened} />}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/** The products in the modules this project has not opened: one row each, read only. */
+function UnopenedProducts({ products }: { products: readonly ModuleProduct[] }) {
+  const words = S.activities.openFromModules;
+  const headingId = useId();
+  return (
+    <section aria-labelledby={headingId}>
+      <h2
+        id={headingId}
+        className="flex items-center gap-2 border-b border-gray-200 px-1 pt-4 pb-1.5 dark:border-gray-800"
+      >
+        <span className="text-sm font-semibold">{words.listHeading}</span>
+        <span className="text-xs font-normal text-gray-500 tabular-nums dark:text-gray-400">
+          {products.length}
+        </span>
+        <InfoPopover label={words.listHeading}>{words.listHelp}</InfoPopover>
+      </h2>
+      <ul className="divide-y divide-gray-100 dark:divide-gray-900">
+        {products.map((product) => (
+          <li key={moduleProductKey(product)} className={`${ROW} px-3 py-1.5`}>
+            <span className="block h-10 w-14 rounded-md border border-dashed border-gray-200 dark:border-gray-800" />
+            <span className="min-w-0">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-sm font-medium">
+                  {product.title || product.productCode}
+                </span>
+                {product.activityType === "book" && <Pill>{S.activities.book}</Pill>}
+              </span>
+              <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
+                <span className="font-mono">{product.productCode}</span>
+                {` · ${product.moduleFolder} · ${words.refs(product.refNums.length)}`}
+              </span>
+            </span>
+            <span className="truncate text-xs text-gray-500 dark:text-gray-400">
+              {words.notOpen}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
