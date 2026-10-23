@@ -214,7 +214,7 @@ describe("test browser", () => {
     expect((await status()).error).toBe("timed_out");
   });
 
-  it("signs a link that plays the activity on this server's loopback address", async () => {
+  it("links to the activity on this server's loopback preview address", async () => {
     const { t, browser } = await setup();
     const { cookie } = await provisionUser(t.app, "player");
     const owner = apiClient(t.app, cookie);
@@ -231,17 +231,16 @@ describe("test browser", () => {
       await browser.playUrl("player-browser", activity.id, { scene: "intro", language: "es-MX" }),
     );
     expect(link.origin).toBe("http://127.0.0.1:7364");
-    expect(link.pathname).toMatch(/^\/preview\/activity\/[^/]+\/play$/);
+    expect(link.pathname).toBe(`/preview/activity/player-browser~${activity.id}/play`);
     expect(link.searchParams.get("scene")).toBe("intro");
     expect(link.searchParams.get("language")).toBe("es-MX");
 
-    // The token works where it was issued and nowhere else.
+    // Served as is there, the preview host; on the App's host the page would be sandboxed.
     const here = await t.app.request(`${link.pathname}${link.search}`, {
       headers: { host: "127.0.0.1:7364" },
     });
-    expect(await here.text()).not.toBe("Not found");
-    const elsewhere = await t.app.request(link.pathname, { headers: { host: "localhost:7364" } });
-    expect(elsewhere.status).toBe(404);
+    expect(await here.clone().text()).not.toBe("Not found");
+    expect(here.headers.get("content-security-policy")).toBeNull();
   });
 
   it("finds the loopback address for any bind", () => {

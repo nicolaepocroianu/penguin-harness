@@ -12,7 +12,6 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mediaVersion } from "../src/activities/media-origin.js";
 import type { ModuleBuilder } from "../src/activities/module-builder.js";
-import { playLinkExpiry, PLAY_TOKEN_TTL_MS } from "../src/activities/sandbox-service.js";
 import { HttpError } from "../src/http/errors.js";
 import { fakeModuleBuilder, wiredSandbox } from "./activity-sandbox-wiring.js";
 
@@ -671,20 +670,5 @@ describe("the payload a preview serves", () => {
     });
     const payload = await service.payload(PROJECT, ACTIVITY, {});
     expect(payload.configuration.sightWords).toEqual({ intro: "Edited" });
-  });
-});
-
-describe("a play link's expiry", () => {
-  const hour = 60 * 60 * 1000;
-
-  it("never lasts less than the full lifetime", () => {
-    for (const now of [0, 1, hour - 1, hour, 1_790_000_123_456])
-      expect(playLinkExpiry(now) - now).toBeGreaterThanOrEqual(PLAY_TOKEN_TTL_MS);
-  });
-
-  it("is the same within the hour, so a reload reuses the cached media", () => {
-    const start = 1_790_000_000_000 - (1_790_000_000_000 % hour) + 1;
-    expect(playLinkExpiry(start)).toBe(playLinkExpiry(start + hour - 2));
-    expect(playLinkExpiry(start + hour)).toBe(playLinkExpiry(start) + hour);
   });
 });

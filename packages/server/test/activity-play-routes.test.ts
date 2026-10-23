@@ -1,11 +1,12 @@
 /**
  * Playing an imported Loom activity, over HTTP.
  *
- * An author asks the API to play an activity and is sent to a signed link on the preview
- * origin; everything the learner runtime then fetches -- its configuration, the module's
- * files, the media, the assessment -- hangs off that link and answers only to it. What this
- * proves is the whole path from a checkout on disk to the payload a runtime would load,
- * and that the link is the only credential and works only where it was issued.
+ * An author asks the API to play an activity and is sent to Loom's dev-sandbox address on
+ * the sandbox origin, `/player.html?module=…&ref=…`; everything the learner runtime then
+ * fetches -- its configuration, the module's files, the media, the assessment -- hangs off the
+ * activity's play key. What this proves is the whole path from a checkout on disk to the
+ * payload a runtime would load, that the link is the same every time, as Loom's are, and that
+ * off the sandbox host the page only runs sandboxed.
  */
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -97,8 +98,8 @@ describe("playing an imported activity", () => {
       `/api/projects/${projectId}/activities/${activityId}/sandbox/play?language=en-US`,
     );
     const location = new URL(redirect.headers.get("location")!);
-    const base = location.pathname.slice(0, location.pathname.lastIndexOf("/") + 1);
-    /** A request on the host the link was issued for, with no cookie at all. */
+    const base = `/preview/activity/${projectId}~${activityId}/`;
+    /** A request on the preview host, with no cookie at all. */
     const onPreview = (pathname: string, init: RequestInit = {}) =>
       t.app.request(new URL(pathname, location.origin).toString(), {
         ...init,
@@ -107,22 +108,29 @@ describe("playing an imported activity", () => {
     return { t, client, redirect, location, base, onPreview, projectId, activityId };
   }
 
-  it("sends an author to a signed link on the preview origin", async () => {
-    const { redirect, location } = await setup();
+  it("sends an author to Loom's dev-sandbox address on the sandbox origin", async () => {
+    const { redirect, location, client, projectId, activityId } = await setup();
     expect(redirect.status).toBe(302);
     expect(location.hostname).toBe("127.0.0.1");
-    expect(location.pathname).toMatch(/^\/preview\/activity\/[^/]+\/play$/);
-    // The older `language` is read, and carried on under Loom's name.
-    expect(location.searchParams.get("languageCode")).toBe("en-US");
+    expect(location.pathname).toBe("/player.html");
+    // Named as Loom names it; the older `language` is carried on under Loom's name.
+    expect(Object.fromEntries(location.searchParams)).toEqual({
+      module: CODE,
+      ref: "1",
+      source: "legacy",
+      languageCode: "en-US",
+      parent: "http://localhost",
+    });
+    // The same link every time.
+    const again = await client.get(
+      `/api/projects/${projectId}/activities/${activityId}/sandbox/play?language=en-US`,
+    );
+    expect(again.headers.get("location")).toBe(location.toString());
   });
 
-  it("signs the App origin that asked into the link, for the page to report its state to", async () => {
+  it("names the App origin that asked as the parent the page reports its state to", async () => {
     const { location } = await setup();
-    const token = location.pathname.split("/")[3]!;
-    const body = JSON.parse(
-      Buffer.from(token.slice(0, token.indexOf(".")), "base64url").toString("utf8"),
-    ) as { parentOrigin?: string };
-    expect(body.parentOrigin).toBe("http://localhost");
+    expect(location.searchParams.get("parent")).toBe("http://localhost");
   });
 
   it("answers the framework's configuration request with the activity, under the link", async () => {
@@ -160,18 +168,25 @@ describe("playing an imported activity", () => {
     expect(response.status).toBe(400);
   });
 
-  it("refuses the link on any other host, and a link that was tampered with", async () => {
-    const { base, t, location } = await setup();
-    const elsewhere = await t.app.request(
-      new URL(`${base}module/layout.html`, "http://localhost").toString(),
-      { headers: { host: "localhost" } },
+  it("serves the page sandboxed anywhere but the preview host, and refuses what is no key", async () => {
+    const { base, t, location, onPreview } = await setup();
+    const onApp = (pathname: string) =>
+      t.app.request(new URL(pathname, "http://localhost").toString(), {
+        headers: { host: "localhost" },
+      });
+    expect((await onApp(`${base}play`)).headers.get("content-security-policy")).toContain(
+      "sandbox allow-scripts",
     );
-    expect(elsewhere.status).toBe(404);
-    const forged = await t.app.request(
-      new URL("/preview/activity/forged.token/module/layout.html", location.origin).toString(),
-      { headers: { host: location.host } },
-    );
-    expect(forged.status).toBe(404);
+    expect((await onPreview(`${base}play`)).headers.get("content-security-policy")).toBeNull();
+    const page = `${location.pathname}${location.search}`;
+    expect((await onPreview(page)).headers.get("content-security-policy")).toBeNull();
+    // On the App's host, Loom's address sends the visitor to the sandbox origin instead.
+    const fromApp = await onApp(page);
+    expect(fromApp.status).toBe(302);
+    expect(new URL(fromApp.headers.get("location")!).host).toBe(location.host);
+    expect((await onApp(`${base}module/layout.html`)).status).toBe(200);
+    for (const key of ["forged.token", "only-one-part", "a~b~c~d"])
+      expect((await onPreview(`/preview/activity/${key}/module/layout.html`)).status).toBe(404);
   });
 
   it("allows the sandboxed page's cross-origin requests, which carry no credential", async () => {
@@ -188,7 +203,7 @@ describe("playing an imported activity", () => {
   it("shows why there is nothing to play when the module does not build", async () => {
     // The fixture has no webpack anywhere; the page says so with the build's own output.
     const { location, onPreview } = await setup();
-    const page = await onPreview(location.pathname);
+    const page = await onPreview(`${location.pathname}${location.search}`);
     expect(page.status).toBe(500);
     expect(await page.text()).toContain("did not build");
   });
@@ -204,9 +219,17 @@ describe("playing an imported activity", () => {
       if (response.status !== 302)
         return { status: response.status, error: ((await response.json()) as any).error };
       const location = new URL(response.headers.get("location")!);
+      // Every link names the ref as Loom does and carries the App origin that asked; what is
+      // checked here is the rest.
+      const named = {
+        module: location.searchParams.get("module"),
+        ref: location.searchParams.get("ref"),
+        source: location.searchParams.get("source"),
+      };
+      for (const name of ["parent", "module", "ref", "source"]) location.searchParams.delete(name);
       return {
         status: 302,
-        token: location.pathname.split("/")[3]!,
+        named,
         query: Object.fromEntries(location.searchParams),
       };
     }
@@ -240,7 +263,7 @@ describe("playing an imported activity", () => {
           status: 400,
           error: { code: "play_ref_invalid", message: expect.stringContaining(`"${bad}"`) },
         });
-      expect((await play(s, "ref=1")).query).toEqual({ ref: "1" });
+      expect((await play(s, "ref=1")).named).toEqual({ module: CODE, ref: "1", source: "legacy" });
     });
 
     it("never lets module, ref or source switch the activity a link plays", async () => {
@@ -254,7 +277,7 @@ describe("playing an imported activity", () => {
         error: { code: "play_link_mismatch" },
       });
       // The product is in the checkout's own modules, Loom's `legacy` root.
-      expect((await play(s, `module=${CODE}&ref=1&source=legacy`)).query).toEqual({
+      expect((await play(s, `module=${CODE}&ref=1&source=legacy`)).named).toEqual({
         module: CODE,
         ref: "1",
         source: "legacy",
@@ -275,12 +298,9 @@ describe("playing an imported activity", () => {
       const found = await play(s, `module=${CODE}&ref=1&languageCode=es-MX`, at);
       expect(found).toMatchObject({
         status: 302,
-        query: { module: CODE, ref: "1", languageCode: "es-MX" },
+        named: { module: CODE, ref: "1", source: "legacy" },
+        query: { languageCode: "es-MX" },
       });
-      const body = JSON.parse(
-        Buffer.from(found.token!.slice(0, found.token!.indexOf(".")), "base64url").toString(),
-      ) as { activityId: string };
-      expect(body.activityId).toBe(s.activityId);
       expect(await play(s, `module=${CODE}&ref=1&source=legacy`, at)).toMatchObject({
         status: 302,
       });
@@ -302,12 +322,12 @@ describe("playing an imported activity", () => {
       });
     });
 
-    it("refuses on the signed page too a query that names another ref", async () => {
-      const { location, onPreview } = await setup();
-      const page = await onPreview(`${location.pathname}?ref=3`);
+    it("refuses under a play key too a query that names another ref", async () => {
+      const { base, onPreview } = await setup();
+      const page = await onPreview(`${base}play?ref=3`);
       expect(page.status).toBe(400);
       expect(await page.text()).toBe(`This link plays ${CODE} ref 1, not ref 3.`);
-      const bad = await onPreview(`${location.pathname}?ref=abc`);
+      const bad = await onPreview(`${base}play?ref=abc`);
       expect(bad.status).toBe(400);
       expect(await bad.text()).toContain('Invalid ref "abc"');
     });
@@ -333,6 +353,7 @@ describe("playing an imported activity", () => {
       const response = await get(`/player.html?${query}`);
       if (response.status === 302) {
         const location = new URL(response.headers.get("location")!, "http://localhost");
+        location.searchParams.delete("parent");
         return {
           status: 302,
           pathname: location.pathname,
@@ -343,7 +364,7 @@ describe("playing an imported activity", () => {
       return { status: response.status, message: /<p id="activity">([^<]*)<\/p>/.exec(html)?.[1] };
     }
 
-    it("sends the ref a Loom link names to its signed play link, the query in Loom's names", async () => {
+    it("sends a Loom link on the App's host to the same address on the sandbox origin", async () => {
       const s = await setup();
       const sent = await player(
         (url) => s.client.get(url),
@@ -351,7 +372,7 @@ describe("playing an imported activity", () => {
       );
       expect(sent).toMatchObject({
         status: 302,
-        pathname: expect.stringMatching(/^\/preview\/activity\/[^/]+\/play$/),
+        pathname: "/player.html",
         query: {
           module: CODE,
           ref: "1",
@@ -361,12 +382,7 @@ describe("playing an imported activity", () => {
           source: "legacy",
         },
       });
-      const token = sent.pathname!.split("/")[3]!;
-      const body = JSON.parse(
-        Buffer.from(token.slice(0, token.indexOf(".")), "base64url").toString(),
-      ) as { projectId: string; activityId: string };
-      expect(body).toMatchObject({ projectId: s.projectId, activityId: s.activityId });
-      // The signed page it leads to plays that ref, the query and all.
+      // The page it leads to plays that ref, the query and all.
       const page = await s.onPreview(
         `${sent.pathname}?${new URLSearchParams(sent.query as Record<string, string>)}`,
       );
@@ -379,11 +395,12 @@ describe("playing an imported activity", () => {
       ).toEqual({ module: CODE, ref: "1" });
     });
 
-    it("sends a visitor who is not signed in to sign in, as the App's pages do", async () => {
+    it("asks for no sign-in, as Loom's does", async () => {
       const s = await setup();
-      const response = await s.t.app.request(`/player.html?module=${CODE}&ref=1`);
-      expect(response.status).toBe(302);
-      expect(response.headers.get("location")).toBe("/login");
+      expect(await player((url) => s.t.app.request(url), `module=${CODE}&ref=1`)).toMatchObject({
+        status: 302,
+        pathname: "/player.html",
+      });
     });
 
     it("answers a bad ref and an unknown module with Loom's player's words", async () => {
@@ -411,11 +428,11 @@ describe("playing an imported activity", () => {
       });
     });
 
-    it("finds only refs in projects the visitor can see, and the one project= names", async () => {
+    it("finds refs in every project, and only in the one project= names", async () => {
       const s = await setup();
       const outsider = apiClient(s.t.app, (await provisionUser(s.t.app, "play_outsider")).cookie);
       expect(await player((url) => outsider.get(url), `module=${CODE}&ref=1`)).toMatchObject({
-        status: 404,
+        status: 302,
       });
       const get = (url: string) => s.client.get(url);
       expect(await player(get, `module=${CODE}&ref=1&project=${s.projectId}`)).toMatchObject({

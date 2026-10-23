@@ -29,7 +29,7 @@ import {
 import { HttpError } from "../http/errors.js";
 import type { Config } from "../hmr/capabilities.js";
 import type { Settings } from "../mechanisms/settings.js";
-import { hostOnly } from "../services/preview-token.js";
+import { loopbackHostRoles } from "../services/preview-token.js";
 import { PLAYER_BROWSER_ARGS } from "./browser-session.js";
 import {
   runConfinedChecks,
@@ -469,23 +469,24 @@ export class TestBrowserService implements TestBrowser {
     if (this.config.port === 0) {
       throw new HttpError(503, "server_not_listening", "The server has not started listening yet.");
     }
-    const authority = loopbackAuthority(this.config);
-    // Not shared: the page is opened by a browser holding no App session, so there is
-    // nothing to sandbox it from, and an opaque origin would only break the player's storage.
-    // Signed here rather than by the sandbox, which plays module runs and so cannot be
-    // depended on by the run that stages this link. Every caller has already loaded the
-    // activity, so the sandbox's existence check would add nothing.
-    const { token } = this.links.sign({
+    // The loopback preview host where there is one, so the page is served as is: sandboxed,
+    // with an opaque origin, it would lose the player's storage (see play-routes.ts). Made
+    // here rather than by the sandbox, which plays module runs and so cannot be depended on
+    // by the run that stages this link. Every caller has already loaded the activity, so the
+    // sandbox's existence check would add nothing.
+    const roles = this.config.previewOrigin ? null : loopbackHostRoles(this.config.host);
+    const authority = roles
+      ? loopbackAuthority({ host: roles.preview, port: this.config.port })
+      : loopbackAuthority(this.config);
+    const key = this.links.link({
       projectId,
       activityId,
-      host: hostOnly(authority),
-      shared: false,
       ...(options.runId ? { runId: options.runId } : {}),
     });
     const query = new URLSearchParams();
     if (options.language) query.set("language", options.language);
     if (options.scene) query.set("scene", options.scene);
     const search = query.toString();
-    return `http://${authority}${playBase(token)}play${search ? `?${search}` : ""}`;
+    return `http://${authority}${playBase(key)}play${search ? `?${search}` : ""}`;
   }
 }

@@ -315,10 +315,12 @@ describe("ActivityRuns", () => {
     await fs.writeFile(path.join(module, "definition.json"), "{}");
     const sandbox = `/api/projects/runstore-work/activities/${activity.id}/sandbox`;
     const link = new URL((await client.get(`${sandbox}/play`)).headers.get("location")!);
+    // The page's files hang off the activity's play key, on the sandbox origin it was sent to.
     const played = (file: string) =>
-      t.app.request(new URL(link.pathname.replace(/play$/, file), link.origin).toString(), {
-        headers: { host: link.host },
-      });
+      t.app.request(
+        new URL(`/preview/activity/runstore-work~${activity.id}/${file}`, link.origin).toString(),
+        { headers: { host: link.host } },
+      );
     expect((await played("module/definition.json")).status).toBe(200);
 
     const build = client.post(`${sandbox}/build`, { force: true });
@@ -334,7 +336,7 @@ describe("ActivityRuns", () => {
 
     expect((await deleting).status).toBe(204);
     await expect(fs.stat(runs.workspace(run.runId))).rejects.toMatchObject({ code: "ENOENT" });
-    // A link signed for the run plays nothing once its project is gone.
+    // The link plays nothing once its project is gone.
     expect((await played("module/definition.json")).status).toBe(404);
   });
 

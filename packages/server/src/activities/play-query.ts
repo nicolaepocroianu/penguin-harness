@@ -29,6 +29,12 @@ export interface PlayQuery {
   source: PlaySource | null;
   /** Why `source` was refused; null when it was fine or absent. */
   sourceError: string | null;
+  /**
+   * `parent`: the App origin that opened the page, the only one it reports its state to and
+   * takes requests from (see the player's inspector bridge). Not Loom's; null when absent or
+   * not a bare http(s) origin.
+   */
+  parentOrigin: string | null;
 }
 
 /** Reads one parameter, by Loom's name first and then any alias. */
@@ -78,6 +84,19 @@ export function parsePlayRef(
   return { ref: parsed };
 }
 
+/** A bare `http(s)://host[:port]` origin, as `URL.origin` writes it, or null. */
+export function parsePlayParent(value: string | null | undefined): string | null {
+  const text = String(value ?? "").trim();
+  try {
+    const url = new URL(text);
+    return (url.protocol === "http:" || url.protocol === "https:") && url.origin === text
+      ? text
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function readPlayQuery(read: Read): PlayQuery {
   const refText = optional(read("ref"));
   const language = first(read, "languageCode", "language");
@@ -97,6 +116,7 @@ export function readPlayQuery(read: Read): PlayQuery {
       sourceText !== null && source === null
         ? `Invalid source "${sourceText}". Use monorepo or legacy.`
         : null,
+    parentOrigin: parsePlayParent(read("parent")),
   };
 }
 
@@ -109,5 +129,6 @@ export function playQueryString(query: PlayQuery): string {
   if (query.startSceneId) params.set("startSceneId", query.startSceneId);
   if (query.resolution) params.set("resolution", query.resolution);
   if (query.source) params.set("source", query.source);
+  if (query.parentOrigin) params.set("parent", query.parentOrigin);
   return params.toString();
 }

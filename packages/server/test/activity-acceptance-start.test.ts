@@ -30,6 +30,7 @@ import {
   runAcceptanceSource,
 } from "../src/activities/acceptance-harness.js";
 import type { ChecksOutcome, ConfinedChecksRequest } from "../src/activities/confined-checks.js";
+import { readPlayKey } from "../src/activities/play-links.js";
 import { INSTALL_MARKER } from "../src/activities/test-browser.js";
 import { PLAYER_CHECK_DIR } from "../src/activities/waf-module.js";
 import { SandboxService } from "../src/sandbox/service.js";
@@ -626,12 +627,7 @@ describe("acceptance test runs", () => {
     const projectId = "tests_owner-tests";
     const activityId = f.endpoint.split("/").at(-1)!;
     const playedRun = (playUrl: string) => {
-      const token = new URL(playUrl).pathname.split("/")[3]!;
-      return (
-        JSON.parse(
-          Buffer.from(token.slice(0, token.indexOf(".")), "base64url").toString("utf8"),
-        ) as { runId?: string }
-      ).runId;
+      return readPlayKey(new URL(playUrl).pathname.split("/")[3]!)?.runId;
     };
     // The module in the WAF checkout is no build of the activity's: none is recorded.
     const checkout = await f.runToEnd(writesResults({ results: [] }));
@@ -728,10 +724,9 @@ describe("acceptance test runs", () => {
       scenes: activitySpec.scenes.map((scene) => scene.id),
       browserPath: executableIn(f.home),
     });
-    const token = new URL(input.playUrl).pathname.split("/")[3]!;
-    expect(
-      JSON.parse(Buffer.from(token.slice(0, token.indexOf(".")), "base64url").toString("utf8")),
-    ).toMatchObject({ runId: run.runId });
+    expect(readPlayKey(new URL(input.playUrl).pathname.split("/")[3]!)).toMatchObject({
+      runId: run.runId,
+    });
     expect(await fs.readFile(path.join(check, "activity-harness.mjs"), "utf8")).toBe(
       activityHarnessSource,
     );

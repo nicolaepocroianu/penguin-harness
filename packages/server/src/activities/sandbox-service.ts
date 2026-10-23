@@ -103,7 +103,6 @@ import {
   NAVBAR_FOLDER,
   WafLayout,
 } from "./waf-layout.js";
-import type { ActivityPlayLinks, PlayTarget } from "./play-links.js";
 import {
   readModuleStateMachine,
   syncStateMachineConfiguration,
@@ -171,7 +170,7 @@ const NAVBAR_CONFIGURATION = "none_navBar.json";
 const ASSESSMENT_SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_ASSESSMENT_SESSIONS = 500;
 
-export { PLAY_TOKEN_TTL_MS, playLinkExpiry, type PlayTarget } from "./play-links.js";
+export { type PlayTarget } from "./play-links.js";
 
 export interface SandboxMediaResponse {
   status: number;
@@ -276,19 +275,14 @@ export abstract class ActivitySandbox extends Interface<{
     rawPath: string,
     request: RangeRequest,
   ): Promise<SandboxMediaResponse>;
-  /** Signs a link that plays this activity on `host`, for a caller already authorised. */
-  play(
+  /**
+   * What Loom's `/player.html` link names this activity by: its product, its ref and the
+   * module root its module is in. 404 when the activity does not exist.
+   */
+  playAddress(
     projectId: string,
     activityId: string,
-    host: string,
-    shared: boolean,
-    /** The App origin asking; the page reports its state there and nowhere else. */
-    parentOrigin?: string,
-    /** A module run of this activity to play instead of its playing build. */
-    runId?: string,
-  ): Promise<{ token: string; expiresAt: number }>;
-  /** What a play token grants, or null when it is forged, expired or for another host. */
-  verifyPlay(token: string, host: string): PlayTarget | null;
+  ): Promise<{ productCode: string; refNum: number; source: PlaySource }>;
   /**
    * The activity a Loom play link names: product `productCode`, ref `refNum`, in the module
    * root `source` when it names one. 404 `play_ref_not_open` when this project has no such
@@ -319,8 +313,6 @@ export abstract class ActivitySandbox extends Interface<{
     activityId: string,
     base: string,
     options: PayloadOptions,
-    /** When the page's link stops working, so the page can say so rather than break. */
-    expiresAt: number | null,
     /** The App origin the page may report its state to; null reports nothing. */
     parentOrigin?: string | null,
   ): Promise<PlayerPageResult>;
@@ -358,7 +350,6 @@ export class ActivitySandboxService implements ActivitySandbox {
   @Use() private readonly projectWork!: ProjectActivityWork;
 
   @Use() private readonly wafWorkspace!: WafWorkspace;
-  @Use() private readonly links!: ActivityPlayLinks;
   @Use() private readonly settings!: Settings;
   @Use(SandboxModule) private readonly sessionSandbox!: Sandbox;
 
@@ -1103,31 +1094,6 @@ export class ActivitySandboxService implements ActivitySandbox {
     }
   }
 
-  /** Signs a play link. The caller has already been authorised for this activity. */
-  async play(
-    projectId: string,
-    activityId: string,
-    host: string,
-    shared: boolean,
-    parentOrigin?: string,
-    runId?: string,
-  ): Promise<{ token: string; expiresAt: number }> {
-    // Refuses a link to an activity that does not exist while the caller can still be told.
-    const activity = await this.activities.getActivity(projectId, activityId);
-    return this.links.sign({
-      projectId,
-      activityId: activity.id,
-      host,
-      shared,
-      ...(parentOrigin ? { parentOrigin } : {}),
-      ...(runId ? { runId } : {}),
-    });
-  }
-
-  verifyPlay(token: string, host: string): PlayTarget | null {
-    return this.links.verify(token, host);
-  }
-
   /** The checkout's layout, read once for a request that asks about several products. */
   private async playLayout(): Promise<WafLayout | null> {
     const root = await this.wafWorkspace.root();
@@ -1140,6 +1106,18 @@ export class ActivitySandboxService implements ActivitySandbox {
       this.activities.productOf(activity)?.moduleFolder ??
       defaultModuleFolder(activity.productCode);
     return layout?.inMonorepo(folder) ? "monorepo" : "legacy";
+  }
+
+  async playAddress(
+    projectId: string,
+    activityId: string,
+  ): Promise<{ productCode: string; refNum: number; source: PlaySource }> {
+    const activity = await this.activities.getActivity(projectId, activityId);
+    return {
+      productCode: activity.productCode,
+      refNum: activity.refNum,
+      source: this.playSource(activity, await this.playLayout()),
+    };
   }
 
   async findPlayable(
@@ -1212,7 +1190,6 @@ export class ActivitySandboxService implements ActivitySandbox {
     activityId: string,
     base: string,
     options: PayloadOptions,
-    expiresAt: number | null = null,
     parentOrigin: string | null = null,
   ): Promise<PlayerPageResult> {
     const activity = await this.activities.getActivity(projectId, activityId);
@@ -1292,7 +1269,6 @@ export class ActivitySandboxService implements ActivitySandbox {
           playResolution: options.resolution ?? null,
           languageCode: options.languageCode ?? null,
           startSceneId: options.startSceneId ?? null,
-          expiresAt,
           parentOrigin,
         },
         { loadingVideo },
