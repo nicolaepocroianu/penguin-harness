@@ -3,6 +3,12 @@
  * WorkbenchService watches and reloads the data root's plugins itself. Letting tsx
  * watch their dynamic imports also restarts the whole server during compilation.
  * tsx/chokidar needs absolute exclusions for dependencies outside its working directory.
+ *
+ * tsx watch gets no stdin. It reads stdin for its restart-on-Return key, and on Windows a
+ * pipe with a read pending in one process blocks any other process that opens it. The
+ * server opens it while booting (importing `node:process` as ESM reads every getter on
+ * `process`, `stdin` included), so under `pnpm dev`, where concurrently hands each command
+ * a stdin pipe, the server hung before it could listen.
  */
 import { spawn } from "node:child_process";
 import { mkdir, realpath } from "node:fs/promises";
@@ -21,7 +27,7 @@ const child = spawn(
     ...[...roots].flatMap((dir) => ["--exclude", `${dir.replaceAll("\\", "/")}/**`]),
     ...process.argv.slice(2),
   ],
-  { stdio: "inherit" },
+  { stdio: ["ignore", "inherit", "inherit"] },
 );
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => child.kill(signal));
