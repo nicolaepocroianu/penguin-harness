@@ -147,7 +147,9 @@ describe("glyph paths outside the registry", () => {
       problems,
       "A glyph belongs in the shared registry (ICONS), named for what it draws.",
     ).toEqual([]);
-  });
+    // It parses every source with a candidate token: quick alone, but past vitest's 5 s default
+    // on a CI runner busy with coverage and the rest of the suite.
+  }, 30_000);
 
   it("recognizes each shape — the check is exercised on known sources", () => {
     expect(
