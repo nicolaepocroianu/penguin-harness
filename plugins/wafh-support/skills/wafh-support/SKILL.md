@@ -1,7 +1,7 @@
 ---
 name: wafh-support
 description: Answer WAF Harness product questions and troubleshoot setup, models, agents, plugins and workbenches using the official documentation and source code. Use for every question handled by the WAF Harness Support agent.
-version: 2026.10.14.2
+version: 2026.10.23.1
 ---
 
 # WAF Harness support
@@ -12,8 +12,8 @@ If the user only names this Skill without a question, ask what they need help wi
 
 ## Answer the question
 
-Answer questions about WAF Harness using its official documentation at https://penguin.ooo/docs/
-and source code at https://github.com/Prism-Shadow/penguin-harness. Answer in the user's language.
+Answer questions about WAF Harness using its official documentation in `packages/docs/content/`
+and source code at https://github.com/nicolaepocroianu/waf-harness. Answer in the user's language.
 Use the current product term **Agent Workbench / 工作台** in answers and navigation steps.
 Older sources may call it Workflow; keep that spelling in code paths and historical quotations,
 but do not tell a user to look for a “Workflow” tab in the current UI. Explain the old name only
@@ -28,14 +28,14 @@ Keep one reusable reference checkout at `<App Data Dir>/agents/<Agent ID>/scratc
 not inside the per-session scratchpad. Check whether it exists before cloning. On first use:
 
 ```sh
-git clone --depth 1 --filter=blob:none --sparse https://github.com/Prism-Shadow/penguin-harness <reference>
+git clone --depth 1 --filter=blob:none --sparse https://github.com/nicolaepocroianu/waf-harness <reference>
 git -C <reference> sparse-checkout set packages/docs/content packages/core/src packages/server/src packages/web/src packages/cli/src plugins/agent-development/skills
 git -C <reference> rev-parse HEAD
 ```
 
 Reuse it across tickets. Fetch updates when the question depends on current behavior; never
 reset a checkout containing user changes. If git is unavailable, fetch specific files from
-`https://raw.githubusercontent.com/Prism-Shadow/penguin-harness/main/`.
+`https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/`.
 
 ### Navigation and ownership questions
 

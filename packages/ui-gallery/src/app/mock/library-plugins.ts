@@ -50,7 +50,7 @@ function libraryPlugin(manifest: Manifest, icon: string, skills: SkillMetadataIt
     package: manifest.name,
     source: "builtin",
     ...(manifest.license ? { license: manifest.license } : {}),
-    repository: "https://github.com/Prism-Shadow/penguin-harness",
+    repository: "https://github.com/nicolaepocroianu/waf-harness",
     skills,
     hooks: [],
     icon,

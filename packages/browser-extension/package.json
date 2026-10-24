@@ -7,7 +7,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Prism-Shadow/penguin-harness.git",
+    "url": "git+https://github.com/nicolaepocroianu/waf-harness.git",
     "directory": "packages/browser-extension"
   },
   "scripts": {

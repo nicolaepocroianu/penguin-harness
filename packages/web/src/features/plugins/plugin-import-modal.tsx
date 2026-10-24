@@ -329,7 +329,7 @@ export function ImportPluginTabs({
         <AiExamples
           examples={S.plugins.importExamples.map((example) => ({
             ...example,
-            prompt: `https://github.com/Prism-Shadow/penguin-harness/tree/main/plugins/${example.key}`,
+            prompt: `https://github.com/nicolaepocroianu/waf-harness/tree/main/plugins/${example.key}`,
           }))}
           value={source}
           onChange={(source) => form.patch({ source })}

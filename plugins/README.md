@@ -33,9 +33,9 @@ The four `sandbox-*` packages are not library content but server modules: Agent 
 
 ## Documentation
 
-- [Skills & Plugins](https://penguin.ooo/docs/skills)
-- [Goal Mode](https://penguin.ooo/docs/goal-mode)
-- [Self-Improvement](https://penguin.ooo/docs/self-improvement)
+- [Skills & Plugins](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/skills.en.md)
+- [Goal Mode](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/goal-mode.en.md)
+- [Self-Improvement](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/self-improvement.en.md)
 
 ## Development
 
