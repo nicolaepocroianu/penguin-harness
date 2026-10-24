@@ -22,7 +22,6 @@ import { requestOrigin } from "../http/routes/model-oauth.js";
 import { IMAGE_MODEL } from "./generated-image.js";
 import { audioMimeType } from "./sound.js";
 import { UPLOAD_MAX_BYTES } from "./upload.js";
-import type { ClaimModuleProductResponse, ModuleProductsResponse } from "./module-product-types.js";
 import type { ProductRefNumber } from "./ref-template-types.js";
 import { BUNDLE_FILE_NAME, BUNDLE_MAX_ITEMS } from "./media-bundle.js";
 import { placeholderPaths } from "./media.js";
@@ -155,22 +154,6 @@ export class ActivityRoutes {
         activities,
         ...(summaries ? { summaries } : {}),
       });
-    });
-    // Products in the WAF workspace's modules no project has open, and opening one here.
-    app.get("/module-products", async (c) =>
-      c.json({
-        products: await this.activities.moduleProducts(requireValidId(c, "projectId")),
-      } satisfies ModuleProductsResponse),
-    );
-    app.post("/module-products/claim", async (c) => {
-      const body = await readJson(c);
-      return c.json(
-        (await this.activities.claimModuleProduct(requireValidId(c, "projectId"), {
-          moduleFolder: requireString(body, "moduleFolder", { minLen: 1, maxLen: 128 }),
-          productCode: requireString(body, "productCode", { minLen: 1, maxLen: 128 }),
-          collectionId: optionalString(body, "collectionId", { maxLen: 128 }),
-        })) satisfies ClaimModuleProductResponse,
-      );
     });
     // The number a new activity of a product code would take, as the create dialog fills it.
     app.get("/ref-number", async (c) =>

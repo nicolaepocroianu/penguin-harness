@@ -2035,7 +2035,8 @@ describe("activity generation through Harness sessions", () => {
     const release = deferred();
     const rename = fs.rename.bind(fs);
     vi.spyOn(fs, "rename").mockImplementation(async (from, to) => {
-      if (String(to).endsWith("wafh.json")) {
+      // The last file a draft write renames into place.
+      if (String(to).endsWith("activity_metadata.json")) {
         entered.resolve();
         await release.promise;
       }

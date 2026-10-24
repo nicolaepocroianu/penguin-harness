@@ -130,3 +130,48 @@ export function refFilesDir(
 export function refMediaDir(root: string, productCode: string, refNum: number): string {
   return path.join(root, "waf-checkout", "media", "loom", productCode, `${productCode}-${refNum}`);
 }
+
+/** A database as a test app holds one: enough to read and write the draft index. */
+interface IndexDatabase {
+  prepare(sql: string): {
+    get(...params: unknown[]): unknown;
+    run(...params: unknown[]): unknown;
+  };
+}
+
+/**
+ * WAF Harness's bookkeeping for an activity's draft (ref-files.ts WafHarnessRefState), as the
+ * index holds it; null for a ref never saved here, whose draft is Loom's files as they are.
+ */
+export function refState(db: IndexDatabase, activityId: string): Record<string, any> | null {
+  const row = db
+    .prepare("SELECT state FROM activity_drafts WHERE activity_id = ?")
+    .get(activityId) as { state: string | null } | undefined;
+  return row?.state ? (JSON.parse(row.state) as Record<string, any>) : null;
+}
+
+/** Replaces the bookkeeping the index holds for an activity's draft. */
+export function setRefState(db: IndexDatabase, activityId: string, state: unknown): void {
+  db.prepare("UPDATE activity_drafts SET state = ? WHERE activity_id = ?").run(
+    JSON.stringify(state),
+    activityId,
+  );
+}
+
+/** Forgets the bookkeeping the index holds for an activity's draft, as before it had any. */
+export function clearRefState(db: IndexDatabase, activityId: string): void {
+  db.prepare("UPDATE activity_drafts SET state = NULL WHERE activity_id = ?").run(activityId);
+}
+
+/** Every file under `dir`, by its path inside it, with its bytes: to tell a tree was not written. */
+export async function treeSnapshot(dir: string): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const entry of await fs.readdir(dir, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const file = path.join(entry.parentPath, entry.name);
+    out[path.relative(dir, file).split(path.sep).join("/")] = (await fs.readFile(file)).toString(
+      "base64",
+    );
+  }
+  return out;
+}

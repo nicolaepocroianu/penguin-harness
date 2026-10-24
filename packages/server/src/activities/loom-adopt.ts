@@ -1,14 +1,13 @@
 /**
- * Turning what Loom authored into what WAF Harness stores, when a project adopts a Loom product
- * in place (service.claimModuleProduct).
+ * Turning what Loom authored into what WAF Harness reads it as, when a Loom ref is opened in
+ * place (service.loomDraft): nothing is written until the ref is first changed.
  *
  * Loom's specification is used as it is, with one repair. The media plan is made again from
  * it, as WAF Harness makes every plan, and Loom's bindings (paths, scripts, descriptions, voices,
  * timings, playback, book words, and assets the plan does not make) are carried onto it.
  * Loom's own manifest stays where it is, WAF Harness's plan merged into it (loom-manifest.ts), so
- * what WAF Harness's plan has no field for is still Loom's; a copy is kept as
- * `asset_manifest.loom.json`. Everything that cannot be carried is named, so an author sees
- * what was lost rather than finding it by eye.
+ * what WAF Harness's plan has no field for is still Loom's. Everything that cannot be carried is
+ * named, so an author sees what was lost rather than finding it by eye.
  */
 import { validateActivitySpec } from "./domain.js";
 import { DEFAULT_LANGUAGE_CODE, findLanguage } from "./languages.js";

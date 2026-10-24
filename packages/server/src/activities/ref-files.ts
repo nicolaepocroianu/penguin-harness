@@ -3,20 +3,21 @@
  *
  *     <wafRoot>/modules/<moduleFolder>/generated/<pc>/
  *       spec/activity_metadata.json        the product: code, module, type, canonical ref, tags
- *       spec/wafh.json                  WAF Harness's own: which project owns the product
  *       refs/<pc>-<ref>/spec/
  *         activity_metadata.json           the ref: number, title, display name, stability
  *         activity_spec.json               the specification (`{}` until one is saved)
  *         activity_description.txt         what the author wrote
  *         asset_manifest.json              the media plan's manifest (no assets until planned)
  *         implementation_features.json     `{ selectedIds }`
- *         wafh.json                     WAF Harness's bookkeeping for the draft
  *
- * WAF Harness is the only writer, so its own fields may sit inside Loom's files; what Loom's
- * files have no place for (the draft's status and revision, which specification the media
- * plan was made from, module document edits, a pinned build) is `wafh.json`, committed
- * with the module like the rest. `wafh.json` is written last: a draft whose other files
+ * The module holds only Loom's own files, as Loom leaves them (user decision, 2026-10-24).
+ * What they have no place for (the draft's status and revision, which specification the media
+ * plan was made from, module document edits, a pinned build) is `WafHarnessRefState`, which
+ * the index keeps beside the draft's row. It is recorded after the files: a draft whose files
  * changed after it reads as "draft" until it is saved again, as `draft.json` did before.
+ *
+ * Earlier builds kept that state in a `wafh.json` beside the ref, and the product's owner in
+ * one beside the product. Those files are read, never written or removed.
  *
  * Loom lists a ref only when its spec, manifest, description and metadata are all there (and
  * the module's `configurations/<pc>-<ref>.json`), so none of them is ever removed: a draft
@@ -39,13 +40,14 @@ export const REF_SPEC_FILE = "activity_spec.json";
 export const REF_DESCRIPTION_FILE = "activity_description.txt";
 export const REF_MANIFEST_FILE = "asset_manifest.json";
 export const REF_FEATURES_FILE = "implementation_features.json";
-/** Loom's manifest as it was when a project adopted the ref, kept beside WAF Harness's. */
+/** Loom's manifest as it was when an earlier build adopted the ref, kept beside its own. */
 export const LOOM_MANIFEST_COPY = "asset_manifest.loom.json";
+/** Where earlier builds kept WAF Harness's bookkeeping in the module; read, never written. */
 export const WAFH_FILE = "wafh.json";
 /** The behaviour machine, on the product (Loom's canonical one) or on a ref once implemented. */
 export const STATE_MACHINE_FILE = "state-machine.json";
 
-/** What `wafh.json` holds for a ref: the draft less what Loom's files carry. */
+/** WAF Harness's bookkeeping for a ref: the draft less what Loom's files carry. */
 export interface WafHarnessRefState {
   schemaVersion: 1;
   draftId: string;
@@ -89,14 +91,6 @@ export interface ProductMetadata {
   tags: string[];
 }
 
-/** Which WAF Harness project owns a product, as the product's `wafh.json` records it. */
-export interface WafHarnessProductState {
-  schemaVersion: 1;
-  projectId: string;
-  productId: string;
-  collectionId: string;
-}
-
 /** Written whole to a sibling temporary file, then renamed over the target. */
 export async function writeFileAtomic(file: string, text: string): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true });
@@ -131,20 +125,42 @@ export async function readText(file: string): Promise<string | null> {
   }
 }
 
-async function readJson(file: string): Promise<unknown | undefined> {
+/** What the JSON in `file` holds; undefined when there is no such file. Bad JSON throws. */
+export async function readJson(file: string): Promise<unknown | undefined> {
   const text = await readText(file);
   return text === null ? undefined : (JSON.parse(text) as unknown);
 }
 
-/**
- * The draft the ref's files make, or null when the ref has no `wafh.json` (a ref WAF Harness
- * never saved). A file that does not parse is an error: the caller reports the draft corrupt.
- */
-export async function readRefDraft(specDir: string): Promise<ActivityDraft | null> {
-  const state = (await readJson(path.join(specDir, WAFH_FILE))) as WafHarnessRefState | undefined;
-  if (state === undefined) return null;
+/** The bookkeeping the index holds for a draft; a value that is not one is an error. */
+export function parseRefState(text: string): WafHarnessRefState {
+  const state = JSON.parse(text) as WafHarnessRefState;
   if (!state || typeof state !== "object" || state.schemaVersion !== 1)
+    throw new Error("Activity draft bookkeeping is corrupt.");
+  return state;
+}
+
+/**
+ * The bookkeeping an earlier build left beside the ref in `wafh.json`, or null when there is
+ * none. A file that does not parse is an error: the caller reports the draft corrupt.
+ */
+export async function readLegacyRefState(specDir: string): Promise<WafHarnessRefState | null> {
+  const text = await readText(path.join(specDir, WAFH_FILE));
+  if (text === null) return null;
+  try {
+    return parseRefState(text);
+  } catch {
     throw new Error("wafh.json is corrupt.");
+  }
+}
+
+/**
+ * The draft the ref's files make with WAF Harness's bookkeeping for it. A file that does not
+ * parse is an error: the caller reports the draft corrupt.
+ */
+export async function readRefDraft(
+  specDir: string,
+  state: WafHarnessRefState,
+): Promise<ActivityDraft> {
   const spec = state.noSpec ? undefined : await readJson(path.join(specDir, REF_SPEC_FILE));
   const manifest = await readJson(path.join(specDir, REF_MANIFEST_FILE));
   const description = await fs
@@ -172,28 +188,29 @@ export async function readRefDraft(specDir: string): Promise<ActivityDraft | nul
 }
 
 /**
- * Writes the draft into the ref's files, `wafh.json` last. A specification or plan the
- * draft lacks leaves the file as Loom has it, unless WAF Harness wrote it, when it becomes Loom's
- * empty stub; a missing file becomes the stub, so Loom still lists the ref.
+ * Writes the draft into the ref's files, and hands back the bookkeeping the caller records
+ * for it. `previous` is what was recorded before, null for a ref never saved here. A
+ * specification or plan the draft lacks leaves the file as Loom has it, unless WAF Harness
+ * wrote it, when it becomes Loom's empty stub; a missing file becomes the stub, so Loom still
+ * lists the ref.
  */
 export async function writeRefDraft(
   specDir: string,
   draft: ActivityDraft,
   address: ActivityAddress,
-): Promise<{ specCleared: boolean }> {
+  previous: WafHarnessRefState | null,
+): Promise<{ specCleared: boolean; state: WafHarnessRefState }> {
   await fs.mkdir(specDir, { recursive: true });
   const specFile = path.join(specDir, REF_SPEC_FILE);
   const manifestFile = path.join(specDir, REF_MANIFEST_FILE);
-  const previous = (await readJson(path.join(specDir, WAFH_FILE)).catch(() => undefined)) as
-    WafHarnessRefState | undefined;
-  const ours = !!previous && typeof previous === "object" && previous.schemaVersion === 1;
+  const ours = previous !== null;
   // The draft had a specification WAF Harness wrote, and has none now.
   const specCleared = draft.spec === null && ours && !previous.noSpec;
   if (draft.spec !== null) await writeFileAtomic(specFile, json(draft.spec));
   else if (specCleared || !(await exists(specFile))) await writeFileAtomic(specFile, json({}));
   const onDisk = await readJson(manifestFile).catch(() => undefined);
   if (draft.mediaPlan || (ours && previous.mediaPlan) || onDisk === undefined) {
-    // An adopted ref's manifest as Loom left it (see loom-manifest.ts).
+    // A ref an earlier build adopted: its manifest as Loom left it (see loom-manifest.ts).
     const original = await readJson(path.join(specDir, LOOM_MANIFEST_COPY)).catch(() => undefined);
     await writeFileAtomic(
       manifestFile,
@@ -221,8 +238,7 @@ export async function writeRefDraft(
     ...(draft.spec === null ? { noSpec: true as const } : {}),
     updatedAt: draft.updatedAt,
   };
-  await writeFileAtomic(path.join(specDir, WAFH_FILE), json(state));
-  return { specCleared };
+  return { specCleared, state };
 }
 
 /**
@@ -260,14 +276,10 @@ export async function writeRefMetadata(specDir: string, ref: RefMetadata): Promi
 }
 
 /**
- * Loom's product metadata, and which project owns the product, in the product's `spec/`. What
- * else the file has (Loom's `templateStable`, `runtime`, `deploymentName`, ...) stays.
+ * Loom's product metadata in the product's `spec/`. What else the file has (Loom's
+ * `templateStable`, `runtime`, `deploymentName`, ...) stays.
  */
-export async function writeProductFiles(
-  spec: string,
-  product: ProductMetadata,
-  owner: WafHarnessProductState,
-): Promise<void> {
+export async function writeProductFiles(spec: string, product: ProductMetadata): Promise<void> {
   // Loom's tags stay as Loom wrote them, beyond WAF Harness's own limits, until the tags WAF Harness
   // keeps are no longer the ones it took from them.
   const onDisk = await readProductTags(spec);
@@ -282,7 +294,6 @@ export async function writeProductFiles(
     canonicalRefNum: product.canonicalRefNum ?? undefined,
     tags,
   });
-  await writeFileAtomic(path.join(spec, WAFH_FILE), json(owner));
 }
 
 /** The tags the product's metadata lists; none when it lists none or cannot be read. */
@@ -301,12 +312,6 @@ export async function ensureConfigurationFile(file: string): Promise<boolean> {
   if (await exists(file)) return false;
   await writeFileAtomic(file, json({}));
   return true;
-}
-
-/** The product's owner from its `spec/`, or null when no WAF Harness project owns it yet. */
-export async function readProductOwner(spec: string): Promise<WafHarnessProductState | null> {
-  const state = (await readJson(path.join(spec, WAFH_FILE))) as WafHarnessProductState | undefined;
-  return state && typeof state === "object" && state.schemaVersion === 1 ? state : null;
 }
 
 /** The selected implementation features, or null when none are (or the file is unreadable). */

@@ -11,7 +11,7 @@ import type { ModuleDocuments } from "../src/activities/module-documents.js";
 import { wiredSandbox } from "./activity-sandbox-wiring.js";
 import { scaffoldModule } from "../src/activities/waf-module.js";
 import type { ActivityAuthoring, ActivityGeneration } from "../src/mechanisms/activities.js";
-import { activitySpec, refFilesDir } from "./activity-fixtures.js";
+import { activitySpec, refState } from "./activity-fixtures.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
 import type { ActivityRuns } from "../src/activities/run-store.js";
 
@@ -100,11 +100,8 @@ describe("module document edits", () => {
       editable: true,
     });
 
-    // The edit lives in the draft: WAF Harness's bookkeeping in the ref's folder of the module.
-    const draftFile = path.join(refFilesDir(t.root, PRODUCT, 1), "wafh.json");
-    expect(
-      JSON.parse(await fs.readFile(draftFile, "utf8")).moduleDocuments.configuration.value,
-    ).toEqual(configuration);
+    // The edit lives in the draft: WAF Harness's bookkeeping for it, which the index keeps.
+    expect(refState(t.deps.db, one.id)!.moduleDocuments.configuration.value).toEqual(configuration);
 
     // A stale revision is refused.
     const stale = await put(one.id, "configuration", {}, planned.contentRevision);

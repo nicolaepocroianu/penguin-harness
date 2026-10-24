@@ -11,11 +11,16 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js";
-import type { ClaimModuleProductResponse } from "../src/activities/module-product-types.js";
+import type { ActivityDetail, ActivityDraft, ActivityRecord } from "../src/activities/domain.js";
 import { loomGenerationFingerprint } from "../src/activities/ref-media.js";
 import { ELEVENLABS_DEFAULT_VOICE, SPEECH_MODEL } from "../src/activities/voice-catalogue.js";
-import { activitySpec, refFilesDir } from "./activity-fixtures.js";
+import {
+  activitySpec,
+  refFilesDir,
+  refState,
+  setRefState,
+  treeSnapshot,
+} from "./activity-fixtures.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
 
 const FIXTURES = path.join(
@@ -49,17 +54,16 @@ describe("a Loom product opened and saved in WAF Harness", () => {
     const api = apiClient(t.app, owner.cookie);
     expect((await api.post("/api/projects", { projectId })).status).toBe(201);
     const base = `/api/projects/${projectId}/activities`;
-    const claimed = await api.post(`${base}/module-products/claim`, {
-      moduleFolder: folder,
-      productCode: code,
-    });
-    expect(claimed.status, await claimed.clone().text()).toBe(200);
-    const result = (await claimed.json()) as ClaimModuleProductResponse;
-    // The trimmed fixtures leave out Loom's state machines, which is noted and nothing more.
-    expect(result.problems.filter((problem) => !problem.includes("state machine"))).toEqual([]);
-    expect(result.activityIds).toHaveLength(1);
-    const id = result.activityIds[0]!;
+    const before = await treeSnapshot(modules);
+    const listed = (
+      (await (await api.get(base)).json()) as { activities: ActivityRecord[] }
+    ).activities.filter((activity) => activity.productCode === code);
+    expect(listed).toHaveLength(1);
+    const id = listed[0]!.id;
     const detail = async () => (await (await api.get(`${base}/${id}`)).json()) as ActivityDetail;
+    // Listed and opened, the module is as Loom left it.
+    expect((await detail()).draft.mediaPlan).toBeDefined();
+    expect(await treeSnapshot(modules)).toEqual(before);
     // Saving: the media plan sent back as the author has it, and the description edited.
     const save = async () => {
       const before = await detail();
@@ -285,20 +289,21 @@ describe("a configuration edit, in the module's own file", () => {
       revision,
       put,
       discard,
-      wafh: path.join(refFilesDir(t.root, "edits", 1), "wafh.json"),
+      state: () => refState(t.deps.db, id)!,
+      setState: (state: unknown) => setRefState(t.deps.db, id, state),
     };
   }
 
   it("puts back the module's file on a discard of an edit made before edits were written there", async () => {
-    const { file, revision, put, discard, wafh } = await fresh();
+    const { file, revision, put, discard, state: read, setState } = await fresh();
     expect((await put({ a: 1 }, await revision())).status).toBe(200);
     // As an edit saved before this change left things: no record of the module's file, which
     // still holds what Loom wrote.
-    const state = JSON.parse(await fs.readFile(wafh, "utf8")) as {
+    const state = read() as {
       moduleDocuments: { configuration: Record<string, unknown> };
     };
     delete state.moduleDocuments.configuration["replaced"];
-    await fs.writeFile(wafh, JSON.stringify(state));
+    setState(state);
     await fs.writeFile(file, '{ "loom": true }');
     expect((await put({ a: 2 }, await revision())).status).toBe(200);
     expect(JSON.parse(await fs.readFile(file, "utf8"))).toEqual({ a: 2 });
@@ -315,11 +320,11 @@ describe("a configuration edit, in the module's own file", () => {
   });
 
   it("leaves the file holding the edit the draft holds when two arrive at once", async () => {
-    const { file, revision, put, wafh } = await fresh();
+    const { file, revision, put, state: read } = await fresh();
     const expected = await revision();
     const answers = await Promise.all([put({ a: 1 }, expected), put({ a: 2 }, expected)]);
     expect(answers.map((answer) => answer.status).sort()).toEqual([200, 409]);
-    const state = JSON.parse(await fs.readFile(wafh, "utf8")) as {
+    const state = read() as {
       moduleDocuments: { configuration: { value: unknown } };
     };
     expect(JSON.parse(await fs.readFile(file, "utf8"))).toEqual(
@@ -358,14 +363,10 @@ describe("metadata WAF Harness writes over Loom's", () => {
     const api = apiClient(t.app, owner.cookie);
     expect((await api.post("/api/projects", { projectId: "tagger-work" })).status).toBe(201);
     const base = "/api/projects/tagger-work/activities";
-    const claimed = await api.post(`${base}/module-products/claim`, {
-      moduleFolder: folder,
-      productCode: "r2pt01",
-    });
-    expect(claimed.status, await claimed.clone().text()).toBe(200);
+    const listed = (await (await api.get(base)).json()) as { activities: ActivityRecord[] };
     expect((await readJson(metadata))["tags"]).toEqual(loomTags);
     // WAF Harness keeps the ones it can, within its limits.
-    const id = ((await claimed.json()) as ClaimModuleProductResponse).activityIds[0]!;
+    const id = listed.activities.find((activity) => activity.productCode === "r2pt01")!.id;
     const opened = (await (await api.get(`${base}/${id}`)).json()) as ActivityDetail;
     expect(opened.tags).toEqual(loomTags.slice(0, 20));
     // An author's own tags replace them.
