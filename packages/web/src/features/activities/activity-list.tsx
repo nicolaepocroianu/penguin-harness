@@ -312,11 +312,13 @@ function UnopenedProducts({ products }: { products: readonly ModuleProduct[] }) 
         id={headingId}
         className="flex items-center gap-2 border-b border-gray-200 px-1 pt-4 pb-1.5 dark:border-gray-800"
       >
-        <span className="text-sm font-semibold">{words.listHeading}</span>
+        <span className="flex items-center gap-1 text-sm font-semibold">
+          {words.listHeading}
+          <InfoPopover label={words.listHeading}>{words.listHelp}</InfoPopover>
+        </span>
         <span className="text-xs font-normal text-gray-500 tabular-nums dark:text-gray-400">
           {products.length}
         </span>
-        <InfoPopover label={words.listHeading}>{words.listHelp}</InfoPopover>
       </h2>
       <ul className="divide-y divide-gray-100 dark:divide-gray-900">
         {products.map((product) => (
