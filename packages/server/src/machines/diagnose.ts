@@ -9,9 +9,8 @@
  *   this server stores for the machine);
  * - platform: an OS and architecture a release is published for;
  * - tools: what the release installer runs on the far side (curl, tar, gzip, a sha256 tool);
- * - download: whether the machine itself reaches the release for its platform — on GitHub or
- *   the OSS mirror, the two sources install.sh downloads from — for the version this server
- *   would install;
+ * - download: whether the machine itself reaches the release for its platform on GitHub,
+ *   the source install.sh downloads from, for the version this server would install;
  * - disk: free space in the home the program and its data root go to;
  * - port: whether the port this server starts the machine's server on is free, or already
  *   that server's own.
@@ -27,13 +26,12 @@ import { explainSshFailure } from "./ssh-failure.js";
 import type { SshSignIn } from "./ssh-failure.js";
 
 /**
- * Where install.sh downloads a release from — its OSS_RELEASE_ROOT and GITHUB_RELEASE_ROOT,
- * repeated here because an installer is a standalone file this module cannot import.
- * machines-diagnose.test.ts reads install.sh and fails when the two drift.
+ * Where install.sh downloads a release from — its GITHUB_RELEASE_ROOT, repeated here because an
+ * installer is a standalone file this module cannot import. machines-diagnose.test.ts reads
+ * install.sh and fails when the two drift.
  */
 export const RELEASE_SOURCES = {
-  oss: "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases",
-  github: "https://github.com/Prism-Shadow/penguin-harness/releases/download",
+  github: "https://github.com/nicolaepocroianu/waf-harness/releases/download",
 } as const;
 
 /**
@@ -69,8 +67,8 @@ function checkedVersion(version: string): string {
 }
 
 /**
- * Whether the machine itself reaches release `version` for its own platform, on each of the
- * two sources: `@@oss <http code> <curl exit>` and `@@github …`, or `@@nocurl`. A one-byte GET
+ * Whether the machine itself reaches release `version` for its own platform on GitHub:
+ * `@@github <http code> <curl exit>`, or `@@nocurl`. A one-byte GET
  * of the package's checksum rather than a HEAD: GitHub redirects a release asset to a signed
  * URL that answers only the method it was signed for.
  */
@@ -84,22 +82,20 @@ export function releaseReachCommand(version: string): string {
     `if ! command -v curl >/dev/null 2>&1; then echo "@@nocurl"; ` +
       `elif [ -n "$o" ] && [ -n "$a" ]; then ` +
       `f="wafh-$o-$a.tar.gz.sha256"; ` +
-      `c=$(${curl(`${RELEASE_SOURCES.oss}/v${v}/$f`)}); echo "@@oss $c $?"; ` +
       `c=$(${curl(`${RELEASE_SOURCES.github}/v${v}/$f`)}); echo "@@github $c $?"; fi`,
   ].join("; ");
 }
 
 /**
- * The machine's reach to the two sources from releaseReachCommand's output; both
- * `unreachable` when it has no curl to ask with (the installer needs curl to download, too).
+ * The machine's reach to GitHub from releaseReachCommand's output; `unreachable` when it has
+ * no curl to ask with (the installer needs curl to download, too).
  */
 export function parseReleaseReach(output: string): {
-  oss: MachineSourceReach;
   github: MachineSourceReach;
 } {
   const facts = tagged(output);
-  if (facts.has("nocurl")) return { oss: "unreachable", github: "unreachable" };
-  return { oss: reach(facts.get("oss")?.[0]), github: reach(facts.get("github")?.[0]) };
+  if (facts.has("nocurl")) return { github: "unreachable" };
+  return { github: reach(facts.get("github")?.[0]) };
 }
 
 /**
@@ -139,7 +135,7 @@ function tagged(output: string): Map<string, string[]> {
 }
 
 /**
- * What curl said about one source: 200 or 206 is there; 404 is reachable and not there (that
+ * What curl said about the source: 200 or 206 is there; 404 is reachable and not there (that
  * version or target is not published); anything else — curl could not connect, a proxy
  * refused, a timeout — is out of reach.
  */
@@ -234,14 +230,9 @@ export function parseDiagnosis(
   if (opts.version === null || missing.includes("curl")) {
     checks.push({ id: "download", state: "skip" });
   } else {
-    const { github, oss } = parseReleaseReach(output);
-    const state =
-      github === "ok" || oss === "ok"
-        ? "pass"
-        : github === "missing" && oss === "missing"
-          ? "fail"
-          : "warn";
-    checks.push({ id: "download", state, version: opts.version, github, oss });
+    const { github } = parseReleaseReach(output);
+    const state = github === "ok" ? "pass" : github === "missing" ? "fail" : "warn";
+    checks.push({ id: "download", state, version: opts.version, github });
   }
 
   const freeKb = Number(first("disk"));

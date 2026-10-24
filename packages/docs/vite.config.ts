@@ -1,11 +1,7 @@
 /**
- * Vite config: static docs site (React SPA + Tailwind CSS 4), a sibling of the
- * landing page but its own package so either site can evolve independently.
+ * Vite config: static docs site (React SPA + Tailwind CSS 4).
  *
- * BASE_PATH is injected by the GitHub Pages workflow as "/docs/" (the site lives at the
- * custom apex domain https://penguin.ooo/) — the docs build is copied into the landing
- * dist under docs/ so both sites ship as one Pages artifact (see scripts/build-site.mjs
- * at the repo root). Local dev defaults to "/".
+ * BASE_PATH sets the public path the site is served under; it defaults to "/".
  * Doc pages are local Markdown files imported at build time via import.meta.glob
  * (?raw), so the built site is fully static — no server or CMS involved.
  */

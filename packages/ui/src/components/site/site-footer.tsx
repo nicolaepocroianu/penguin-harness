@@ -1,5 +1,5 @@
 /**
- * The public sites' footer, in two shapes framed like the header (max-w-7xl): the landing page's
+ * The public sites' footer, in two shapes framed like the header (max-w-7xl): the multi-column
  * brand with link columns over the copyright, and the docs' single line of copyright and links.
  * Hosts supply the routes and the words; an internal route renders through the host's router
  * with `render`, as in the header.

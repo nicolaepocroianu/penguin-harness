@@ -1,5 +1,5 @@
 /**
- * A framed app as the guest of a page that goes on scrolling around it — the public landing page,
+ * A framed app as the guest of a page that goes on scrolling around it — the public site,
  * which frames the app with `embed=1` (frame.ts). Until the reader clicks into the frame, the app
  * must not behave as if it owned the window:
  *

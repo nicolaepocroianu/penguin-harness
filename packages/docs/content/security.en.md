@@ -170,7 +170,7 @@ The one usable credential a backup can hold is the local API token of the server
 
 Windows updates keep electron-updater's SHA-512 check against the update feed and require a valid Authenticode signature. The client pins no signer name, certificate fingerprint or certificate authority, so a certificate rotation at the signing service does not block an update. A cached installer is verified before it is offered and again right before installation; a failed or unavailable check refuses the update, discards the installer and offers a retry. Updates never install on exit.
 
-Trust therefore rests on the GitHub and OSS publishing channels and the accounts that control them. WAF Harness does not sign the update metadata, so someone able to replace both the metadata and the installer can ship a different, validly signed executable with a matching hash. Clients installed from 0.2.16 or earlier still check the old publisher name and need one manual installation of a newer release.
+Trust therefore rests on the GitHub publishing channel and the accounts that control it. WAF Harness does not sign the update metadata, so someone able to replace both the metadata and the installer can ship a different, validly signed executable with a matching hash. Clients installed from 0.2.16 or earlier still check the old publisher name and need one manual installation of a newer release.
 
 ## How it works
 

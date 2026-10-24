@@ -580,13 +580,7 @@ export function checkLine(check: MachineCheck, alias: string): CheckLine {
         ? line(c.toolsNoCurl)
         : line(c.toolsMissing(check.missing.join(", ")));
     case "download":
-      if (check.state === "pass") {
-        const github = check.github === "ok";
-        const oss = check.oss === "ok";
-        return line(
-          c.downloadFrom(check.version, github && oss ? "both" : github ? "github" : "oss"),
-        );
-      }
+      if (check.state === "pass") return line(c.downloadFrom(check.version));
       return check.state === "warn"
         ? line(c.downloadCarried(check.version))
         : line(c.downloadMissing(check.version));

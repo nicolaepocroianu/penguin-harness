@@ -32,16 +32,12 @@ export interface SurfaceCopy {
 }
 export interface GalleryStrings {
   /**
-   * The site navbar's copy (site/nav.tsx), the landing page's own words: its dictionary's `nav`,
+   * The site navbar's copy (site/nav.tsx), the site's own words: its dictionary's `nav`,
    * `theme` and `siteName`, under one key here.
    */
   sitebar: {
     siteName: string;
     nav: {
-      home: string;
-      blog: string;
-      download: string;
-      docs: string;
       gallery: string;
       github: string;
       openMenu: string;

@@ -1,7 +1,7 @@
 /**
  * The public sites' light / dark / system preference: applied as the `html.dark` class (the
  * sites' Tailwind `dark:` variant), tracked live against prefers-color-scheme while it is
- * `system`, and stored under the key the landing page, the docs and the gallery share. Each
+ * `system`, and stored under the key the docs and the gallery share. Each
  * site's index.html applies the stored value before first paint; this takes over once React runs.
  */
 import { createContext, useCallback, useContext, useEffect, useState } from "react";

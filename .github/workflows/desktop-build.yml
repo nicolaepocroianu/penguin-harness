@@ -1,60 +1,13 @@
 # Desktop packages: Electron installers for the desktop shell.
 #
-# Reusable three-OS matrix: build the workspace, run electron-builder, and upload the
-# installers as workflow artifacts named desktop-<OS>. release.yml calls this
-# BEFORE creating the Release — assets are immutable once published, so the desktop
-# installers must exist at creation time. workflow_dispatch runs it standalone as a dry
-# run on any branch.
+# A three-OS matrix, run by hand (workflow_dispatch) on any branch: build the workspace, run
+# electron-builder, and upload the installers as workflow artifacts named desktop-<OS>.
 #
-# macOS release artifacts are Developer ID signed and notarized when release.yml calls
-# this workflow with require_macos_signing=true. Windows release installers are signed
-# with EVSign when release.yml calls this workflow with require_windows_signing=true.
-# Standalone dry-runs can still build unsigned artifacts when signing secrets are absent.
-# Signing is only ever required in the upstream repository (Prism-Shadow/penguin-harness),
-# whose environments hold the credentials: a fork's runs, whoever calls them, build unsigned
-# installers and never look for the secrets.
-#
-# A push to a `release/**` branch runs the same signed matrix on its own: signing depends on
-# the hosted runner image as much as on this repository, and CI never exercises it, so a
-# release branch proves its installers before the tag is cut. (0.2.10 was tagged on a green
-# CI and lost its macOS installers to a keychain change in the runner image two days old;
-# the code shipped again as 0.2.11.) Signing is required on that path, as it is for a
-# release, and the version stamp stays at the dev version — the tag's own run stamps it.
+# The installers are unsigned: this repository holds no macOS Developer ID or Windows
+# code-signing credentials, and it publishes no releases.
 name: Desktop packages
 
 on:
-  workflow_call:
-    inputs:
-      ref:
-        description: "Git ref to check out; release.yml passes the tag being published."
-        required: false
-        type: string
-        default: ""
-      tag:
-        description: Release tag (vX.Y.Z) stamped into the app; empty keeps dev versions.
-        required: false
-        type: string
-        default: ""
-      require_macos_signing:
-        description: "Sign/notarize macOS artifacts, failing the job if credentials are missing."
-        required: false
-        type: boolean
-        default: false
-      require_windows_signing:
-        description: "Sign Windows installers with EVSign, failing the job if credentials are missing."
-        required: false
-        type: boolean
-        default: false
-    # No `secrets:` declarations here, deliberately. Signing secrets live in the
-    # job environments referenced by the matrix, and environment secrets resolve
-    # inside the job itself — in reusable-workflow calls included. Declaring them
-    # as workflow_call secrets rebinds those names to caller-passed values, which
-    # are empty when the caller passes none, shadowing the environment's real
-    # values: exactly the v0.2.2 release failure ("Missing macOS signing secrets"
-    # with all six configured). release.yml still passes `secrets: inherit` so
-    # repo-level secrets, if any, also remain visible.
-  push:
-    branches: ["release/**"]
   workflow_dispatch:
     inputs:
       ref:
@@ -67,26 +20,8 @@ on:
         required: false
         type: string
         default: ""
-      require_macos_signing:
-        description: "Sign/notarize macOS artifacts, failing the job if credentials are missing."
-        required: false
-        type: boolean
-        default: false
-      require_windows_signing:
-        description: "Sign Windows installers with EVSign, failing the job if credentials are missing."
-        required: false
-        type: boolean
-        default: false
 
 env:
-  # Whether signing is required, decided once for every event: release.yml and a dispatch
-  # say so through the inputs, a push to a release branch always requires it. Steps read
-  # these instead of `inputs.*`, which is empty on a push. Only the upstream repository can
-  # require it: a fork has no signing credentials, so it builds unsigned instead of failing.
-  REQUIRE_MACOS_SIGNING: ${{ github.repository == 'Prism-Shadow/penguin-harness' && (github.event_name == 'push' || inputs.require_macos_signing) && 'true' || 'false' }}
-  REQUIRE_WINDOWS_SIGNING: ${{ github.repository == 'Prism-Shadow/penguin-harness' && (github.event_name == 'push' || inputs.require_windows_signing) && 'true' || 'false' }}
-  # Keep in sync with release.yml (its header comment is the source of truth; duplicated
-  # here because reusable workflows do not inherit the caller's env).
   MINGIT_VERSION: 2.55.0.3
   MINGIT_TAG: v2.55.0.windows.3
 
@@ -98,19 +33,11 @@ jobs:
         include:
           - os: ubuntu-latest
             args: --linux
-            environment: desktop-build
           - os: macos-latest
             args: --mac
-            environment: apple-signing
           - os: windows-latest
             args: --win
-            environment: desktop-build
     runs-on: ${{ matrix.os }}
-    # Plain `environment:` reference (no extra keys): the job must genuinely enter the
-    # environment for its secrets to attach; the nonstandard `deployment: false` that sat
-    # here is not part of the jobs.<id>.environment schema and risked exactly that.
-    environment:
-      name: ${{ matrix.environment }}
     permissions:
       contents: read
     steps:
@@ -126,16 +53,11 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      # Stamp the release version the same way release.yml stamps the CLI artifacts —
-      # core's VERSION/BUILD_DATE constants (what the app and server report) plus the
-      # desktop package.json electron-builder reads its installer metadata from;
-      # otherwise every installer carries the in-repo dev version (v0.2.1 shipped
-      # Windows metadata saying 0.2.0 this way). node instead of sed -i: this matrix
-      # includes macOS, whose BSD sed spells in-place editing differently. Dry runs
-      # (no tag) keep the dev versions. BUILD_COMMIT is stamped as release.yml stamps it
-      # (and tolerated absent, as there): the install image this app packs and the one the
-      # tarballs carry are then compiled from the same source, so a machine installed from
-      # either reads as carrying the other's build.
+      # Stamp the version given as `tag` into core's VERSION/BUILD_DATE/BUILD_COMMIT
+      # constants (what the app and server report) and the desktop package.json
+      # electron-builder reads its installer metadata from; otherwise every installer carries
+      # the in-repo dev version. node instead of sed -i: this matrix includes macOS, whose BSD
+      # sed spells in-place editing differently. Runs without a tag keep the dev versions.
       - name: Stamp release version
         if: inputs.tag != ''
         shell: bash
@@ -164,8 +86,7 @@ jobs:
       - run: pnpm -r build
 
       # Windows carries MinGit under resources/git so the packaged agent shell has the
-      # same deterministic POSIX bash as the npm package (release.yml bundles the
-      # identical MinGit into the CLI win-x64 zip; the shell advertises it as
+      # same deterministic POSIX bash as the npm package (the shell advertises it as
       # WAFH_BUNDLED_SHELL).
       - name: Bundle MinGit (Windows)
         if: runner.os == 'Windows'
@@ -176,123 +97,11 @@ jobs:
             "https://github.com/git-for-windows/git/releases/download/$MINGIT_TAG/$mingit"
           unzip -q "$mingit" -d packages/desktop/build/minigit
 
-      - name: Prepare macOS signing credentials
+      # No identity on the runner: electron-builder must not go looking for one.
+      - name: Build unsigned on macOS
         if: runner.os == 'macOS'
         shell: bash
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          if [[ "$REQUIRE_MACOS_SIGNING" != "true" ]]; then
-            echo "macOS signing not required for this dry-run; building unsigned."
-            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
-            exit 0
-          fi
-
-          missing=()
-          [[ -z "${CSC_LINK:-}" ]] && missing+=("CSC_LINK")
-          [[ -z "${CSC_KEY_PASSWORD:-}" ]] && missing+=("CSC_KEY_PASSWORD")
-          [[ -z "${APPLE_API_KEY_BASE64:-}" ]] && missing+=("APPLE_API_KEY")
-          [[ -z "${APPLE_API_KEY_ID:-}" ]] && missing+=("APPLE_API_KEY_ID")
-          [[ -z "${APPLE_API_ISSUER:-}" ]] && missing+=("APPLE_API_ISSUER")
-
-          if ((${#missing[@]})); then
-            printf '::error title=Missing macOS signing secrets::%s\n' "${missing[*]}"
-            exit 1
-          fi
-
-          multiline=()
-          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_BASE64 APPLE_API_KEY_ID APPLE_API_ISSUER APPLE_TEAM_ID; do
-            value="${!name:-}"
-            if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
-              multiline+=("$name")
-            fi
-          done
-          if ((${#multiline[@]})); then
-            printf '::error title=Invalid macOS signing secrets::Secrets must be stored as single-line values: %s\n' "${multiline[*]}"
-            exit 1
-          fi
-
-          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
-          printf '%s' "$APPLE_API_KEY_BASE64" | base64 -D > "$api_key_path"
-          chmod 600 "$api_key_path"
-
-          if ! grep -q "BEGIN PRIVATE KEY" "$api_key_path"; then
-            echo "::error title=Invalid APPLE_API_KEY::Decoded App Store Connect key is not a .p8 private key."
-            exit 1
-          fi
-
-          {
-            echo "CSC_LINK=$CSC_LINK"
-            echo "CSC_KEY_PASSWORD=$CSC_KEY_PASSWORD"
-            echo "APPLE_API_KEY=$api_key_path"
-            echo "APPLE_API_KEY_ID=$APPLE_API_KEY_ID"
-            echo "APPLE_API_ISSUER=$APPLE_API_ISSUER"
-            if [[ -n "${APPLE_TEAM_ID:-}" ]]; then
-              echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
-            fi
-          } >> "$GITHUB_ENV"
-
-      - name: Prepare Windows signing credentials
-        if: runner.os == 'Windows'
-        shell: pwsh
-        env:
-          EVSIGN_KEY: ${{ secrets.EVSIGN_KEY }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $ProgressPreference = "SilentlyContinue"
-
-          "EVSIGN_REQUIRE=$($env:REQUIRE_WINDOWS_SIGNING)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-          if ([string]::IsNullOrWhiteSpace($env:EVSIGN_KEY)) {
-            if ($env:REQUIRE_WINDOWS_SIGNING -eq "true") {
-              Write-Error "Missing EVSIGN_KEY secret required for Windows release signing."
-            }
-
-            Write-Host "EVSIGN_KEY is not configured; Windows dry-run artifacts will remain unsigned."
-            exit 0
-          }
-
-          Write-Output "::add-mask::$env:EVSIGN_KEY"
-
-          $client = Join-Path $env:RUNNER_TEMP "evsign-client.exe"
-          $expectedSigner = "Keroro Software Ltd"
-
-          # Keep using the vendor's latest CLI so compatible updates roll forward,
-          # but authenticate the downloaded executable before passing it EVSIGN_KEY.
-          Invoke-WebRequest `
-            -Uri "https://mc.evsign.cn/evsign-client-cli-windows-latest" `
-            -OutFile $client `
-            -MaximumRedirection 5 `
-            -TimeoutSec 120
-
-          if (-not (Test-Path -LiteralPath $client)) {
-            Write-Error "EVSign CLI was not downloaded to $client."
-          }
-
-          $hash = (Get-FileHash -LiteralPath $client -Algorithm SHA256).Hash
-          Write-Host "EVSign CLI SHA256: $hash"
-
-          $signature = Get-AuthenticodeSignature -LiteralPath $client
-          $signature | Format-List `
-            Status, `
-            StatusMessage, `
-            @{Label="SignerSubject"; Expression={$_.SignerCertificate.Subject}}, `
-            @{Label="SignerIssuer"; Expression={$_.SignerCertificate.Issuer}}
-
-          if ($signature.Status -ne "Valid") {
-            Write-Error "EVSign CLI Authenticode signature is not valid: $($signature.Status) $($signature.StatusMessage)"
-          }
-
-          if ($null -eq $signature.SignerCertificate -or $signature.SignerCertificate.Subject -notlike "*$expectedSigner*") {
-            Write-Error "EVSign CLI signer does not contain expected publisher '$expectedSigner'."
-          }
-
-          "EVSIGN_CLIENT=$client" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        run: echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
 
       # The same check the local pack scripts run: electron-builder skips an absent
       # `from:` source in silence, and a tree without the web build is a 404 app.
@@ -306,175 +115,13 @@ jobs:
         run: pnpm --dir packages/desktop run image
 
       - name: Build packages
-        env:
-          EVSIGN_REQUIRE: ${{ runner.os == 'Windows' && env.REQUIRE_WINDOWS_SIGNING == 'true' && 'true' || 'false' }}
-          EVSIGN_KEY: ${{ runner.os == 'Windows' && secrets.EVSIGN_KEY || '' }}
-        run: pnpm --dir packages/desktop exec electron-builder ${{ matrix.args }} --publish never ${{ runner.os == 'macOS' && env.REQUIRE_MACOS_SIGNING == 'true' && '-c.mac.forceCodeSigning=true' || '' }}
+        run: pnpm --dir packages/desktop exec electron-builder ${{ matrix.args }} --publish never
 
-      - name: Verify Windows signing and update metadata
+      - name: Verify Windows update metadata
         if: runner.os == 'Windows'
         env:
-          EVSIGN_REQUIRE: ${{ env.REQUIRE_WINDOWS_SIGNING }}
+          EVSIGN_REQUIRE: "false"
         run: node packages/desktop/scripts/verify-windows-artifacts.mjs
-
-      - name: Notarize and staple macOS DMGs
-        if: runner.os == 'macOS' && env.REQUIRE_MACOS_SIGNING == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          shopt -s nullglob
-          dmgs=(packages/desktop/out/*.dmg)
-          if ((${#dmgs[@]} == 0)); then
-            echo "::error title=Missing macOS DMG::No DMG files were produced."
-            exit 1
-          fi
-
-          for dmg in "${dmgs[@]}"; do
-            echo "::group::notarize and staple $dmg"
-            echo "started_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            xcrun notarytool submit "$dmg" \
-              --key "$APPLE_API_KEY" \
-              --key-id "$APPLE_API_KEY_ID" \
-              --issuer "$APPLE_API_ISSUER" \
-              --wait
-            xcrun stapler staple "$dmg"
-            xcrun stapler validate "$dmg"
-            rm -f "$dmg.blockmap"
-            echo "Removed stale $dmg.blockmap because stapling changes the DMG bytes."
-            echo "completed_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            echo "::endgroup::"
-          done
-
-      - name: Clean macOS update metadata
-        if: runner.os == 'macOS' && env.REQUIRE_MACOS_SIGNING == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          metadata="packages/desktop/out/latest-mac.yml"
-          if [[ ! -f "$metadata" ]]; then
-            echo "::error title=Missing macOS update metadata::$metadata was not produced."
-            exit 1
-          fi
-
-          node <<'NODE'
-          const fs = require("node:fs");
-
-          const metadata = "packages/desktop/out/latest-mac.yml";
-          const text = fs.readFileSync(metadata, "utf8");
-          const lines = text.split(/\r?\n/);
-          const output = [];
-          let removed = 0;
-          let inFiles = false;
-
-          for (let index = 0; index < lines.length; ) {
-            const line = lines[index];
-
-            if (/^files:\s*$/.test(line)) {
-              inFiles = true;
-              output.push(line);
-              index += 1;
-              continue;
-            }
-
-            if (inFiles && /^\S/.test(line)) {
-              inFiles = false;
-            }
-
-            if (inFiles && /^  - /.test(line)) {
-              const block = [line];
-              index += 1;
-              while (index < lines.length && (/^    /.test(lines[index]) || lines[index] === "")) {
-                block.push(lines[index]);
-                index += 1;
-              }
-
-              if (block.join("\n").includes(".dmg")) {
-                removed += 1;
-                continue;
-              }
-
-              output.push(...block);
-              continue;
-            }
-
-            output.push(line);
-            index += 1;
-          }
-
-          const next = output.join("\n");
-          if (next.includes(".dmg")) {
-            console.error("latest-mac.yml still references .dmg after cleanup.");
-            process.exit(1);
-          }
-          if (!/\.zip\b/.test(next)) {
-            console.error("latest-mac.yml no longer references a zip update artifact.");
-            process.exit(1);
-          }
-
-          fs.writeFileSync(metadata, next, "utf8");
-          console.log(`Removed ${removed} DMG update metadata entr${removed === 1 ? "y" : "ies"} from ${metadata}.`);
-          NODE
-
-      - name: Verify macOS signing and notarization
-        if: runner.os == 'macOS' && env.REQUIRE_MACOS_SIGNING == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Same line as the Windows verify step: a missing artifact or a code signature that
-          # does not validate stops the release; a notarization ticket or Gatekeeper assessment
-          # that does not come back clean is reported with what it printed and the release
-          # continues. Notarization is performed and checked by the notarize step above, which
-          # is where a genuine notarization failure stops the run.
-          warn() {
-            echo "::warning title=macOS notarization::$1"
-          }
-
-          apps=(
-            packages/desktop/out/mac-arm64/WAF Harness.app
-            packages/desktop/out/mac/WAF Harness.app
-          )
-          for app in "${apps[@]}"; do
-            if [[ ! -d "$app" ]]; then
-              echo "::error title=Missing macOS app::$app was not produced."
-              exit 1
-            fi
-
-            echo "::group::verify app $app"
-            echo "started_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            codesign --verify --deep --strict --verbose=4 "$app"
-            codesign -dv --verbose=4 "$app"
-            if ! xcrun stapler validate "$app"; then
-              warn "stapler validate did not pass for $app; it is signed, but its notarization ticket did not validate."
-            fi
-            if ! spctl --assess --type execute --verbose=4 "$app"; then
-              warn "spctl assessment did not pass for $app; it is signed, but Gatekeeper did not accept it."
-            fi
-            echo "completed_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            echo "::endgroup::"
-          done
-
-          shopt -s nullglob
-          dmgs=(packages/desktop/out/*.dmg)
-          if ((${#dmgs[@]} == 0)); then
-            echo "::error title=Missing macOS DMG::No DMG files were produced."
-            exit 1
-          fi
-
-          for dmg in "${dmgs[@]}"; do
-            echo "::group::verify dmg $dmg"
-            echo "started_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            if ! xcrun stapler validate "$dmg"; then
-              warn "stapler validate did not pass for $dmg; its notarization ticket did not validate."
-            fi
-            echo "completed_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            echo "::endgroup::"
-          done
-
-          echo "macOS verification complete: code signatures are valid. Any warnings above are non-fatal by policy."
-          exit 0
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

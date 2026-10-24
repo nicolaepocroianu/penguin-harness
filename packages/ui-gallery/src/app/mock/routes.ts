@@ -793,22 +793,17 @@ router
   .delete("/api/projects/:projectId/model-oauth/:flowId", (): { ok: boolean } => ({ ok: false }))
   .post("/api/projects/:projectId/model-oauth/:flowId/code", () => notFound("Authorization flow"));
 
-for (const route of ["platform-auth", "modelscope-auth"]) {
-  router
-    .post(`/api/projects/:projectId/${route}/start`, () => readOnly("start a key authorization"))
-    .get(`/api/projects/:projectId/${route}/:flowId/status`, () =>
-      fail(404, `${route.replace("-", "_")}_flow_not_found`, "No such flow."),
-    )
-    .post(`/api/projects/:projectId/${route}/:flowId/retry`, () =>
-      fail(404, `${route.replace("-", "_")}_flow_not_found`, "No such flow."),
-    )
-    .post(`/api/projects/:projectId/${route}/:flowId/cancel`, () => ({ ok: true }));
-}
-router.post("/api/projects/:projectId/platform-auth/sync", ({ store }): unknown => ({
-  ...store.f.models,
-  added: 0,
-  updated: 0,
-}));
+router
+  .post("/api/projects/:projectId/modelscope-auth/start", () =>
+    readOnly("start a key authorization"),
+  )
+  .get("/api/projects/:projectId/modelscope-auth/:flowId/status", () =>
+    fail(404, "modelscope_auth_flow_not_found", "No such flow."),
+  )
+  .post("/api/projects/:projectId/modelscope-auth/:flowId/retry", () =>
+    fail(404, "modelscope_auth_flow_not_found", "No such flow."),
+  )
+  .post("/api/projects/:projectId/modelscope-auth/:flowId/cancel", () => ({ ok: true }));
 
 // ---------------------------------------------------------------------------------------------
 // Vault, template placeholders, memory

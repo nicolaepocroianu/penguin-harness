@@ -53,7 +53,6 @@ import type {
 // server uses.
 import {
   catalogEntryFor,
-  PENGUIN_GO_PROVIDER_ID,
   presetModelEntries,
   presetPromotions,
   presetProviderTable,
@@ -436,7 +435,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
   // Every preset the catalog seeds a Project with, in catalog order, each row exactly as the
   // server serves a fresh table — name, context window, vision, list price and the running
   // promotion, and a protocol or endpoint only where it differs from its group's table (an
-  // OpenCode Go Messages row, Penguin Go's pins, Atria in custom) — beside the group tables a new
+  // OpenCode Go Messages row, Atria in custom) — beside the group tables a new
   // Project writes, so every gateway row follows its group and the app's catalog check finds
   // nothing to add. Two groups hold a group key and one is covered by the environment; the rest
   // wait for a key, as in a fresh install.
@@ -479,7 +478,7 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
             },
           }
         : {}),
-      ...(discount !== undefined && entry.provider !== PENGUIN_GO_PROVIDER_ID ? { discount } : {}),
+      ...(discount !== undefined ? { discount } : {}),
       ...(envKeys[entry.provider] ?? {}),
       isDefault:
         entry.provider === DEFAULT_MODEL.provider && entry.model_id === DEFAULT_MODEL.modelId,
@@ -1281,8 +1280,8 @@ export function buildFixtures(lang: Lang, now: number): DemoFixtures {
           skipped: [
             {
               projectId: IDS.project,
-              provider: "penguin-go",
-              modelId: "gemini-3.7-flash",
+              provider: "deepseek",
+              modelId: "deepseek-v4-preview",
               code: "model_not_addable",
               reason: "cannot be added",
             },

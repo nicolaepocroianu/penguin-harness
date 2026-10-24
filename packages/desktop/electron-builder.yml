@@ -24,7 +24,7 @@ productName: WAF Harness
 # it collected. electron-updater reads the same metadata from the Release.
 publish:
   provider: github
-  owner: Prism-Shadow
+  owner: nicolaepocroianu
   repo: waf-harness
 directories:
   output: out
@@ -72,7 +72,7 @@ extraResources:
 # src/app-identity.ts chooses per form.
 extraMetadata:
   name: waf-harness-desktop
-  homepage: https://github.com/Prism-Shadow/penguin-harness
+  homepage: https://github.com/nicolaepocroianu/waf-harness
 asar: false
 # Nothing to rebuild: the only native module is node-pty, staged into dist/node_modules as
 # the binaries its npm tarball prebuilds (darwin, win32) or as the binding pnpm's install
@@ -103,8 +103,7 @@ mac:
     NSRemovableVolumesUsageDescription: WAF Harness needs access to removable volumes when an agent's workspace is on one.
     NSNetworkVolumesUsageDescription: WAF Harness needs access to network volumes when an agent's workspace is on one.
   # Version-less artifact names, following the CLI bundles (wafh-darwin-arm64.tar.gz):
-  # the version lives in the Release tag and SHA256SUMS.desktop, so the download page and
-  # the OSS mirror manifest can address every installer by a stable name — and GitHub's
+  # the version lives in the Release tag and SHA256SUMS.desktop, so and GitHub's
   # `releases/latest/download/<name>` stays a working static link across releases.
   artifactName: wafh-desktop-darwin-${arch}.${ext}
   target:
@@ -158,8 +157,7 @@ linux:
   executableName: waf-harness
   # ${arch} expands to each Linux target's own convention — x86_64 for AppImage, amd64
   # for deb — so the published names are wafh-desktop-linux-x86_64.AppImage and
-  # wafh-desktop-linux-amd64.deb; the OSS mirror manifest and the landing download
-  # page name them accordingly.
+  # wafh-desktop-linux-amd64.deb.
   artifactName: wafh-desktop-linux-${arch}.${ext}
   category: Development
   maintainer: Prism Shadow <zheng@prismshadow.com>

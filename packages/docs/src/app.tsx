@@ -1,5 +1,5 @@
 /**
- * App root: Locale -> Theme -> LocaleScope -> Router, the same composition as the landing page.
+ * App root: Locale -> Theme -> LocaleScope -> Router.
  * The shared providers own the preferences; this site supplies its dictionary. The site is
  * English only, so every locale reads the English dictionary and there is no language menu.
  */

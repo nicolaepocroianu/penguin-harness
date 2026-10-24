@@ -1,4 +1,4 @@
-/** Cursor policy shared by the app, landing, docs and component gallery. */
+/** Cursor policy shared by the app, docs and component gallery. */
 @layer base {
   /* App controls keep the arrow across their labels, icons and padding. Content links retain
      the browser's hand; text inputs retain their caret. Utilities can still name a specific

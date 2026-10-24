@@ -27,7 +27,6 @@ import {
 } from "../src/lib/routes";
 import type { Route } from "../src/lib/routes";
 import { DEFAULT_STATE } from "../src/lib/url-state";
-import { PUBLIC_SITE_URL, siteUrlOf } from "../src/site/links";
 
 const PREFS = "theme=modern&mode=light&size=m&latin=theme&cjk=theme&accent=neutral";
 
@@ -108,18 +107,5 @@ describe("on a static host", () => {
     const served = deepPagePaths().map((path) => parseRoute(`${path}/`));
     expect(new Set(served)).toEqual(new Set(everyPage));
     expect(served).toHaveLength(everyPage.length);
-  });
-});
-
-describe("the site navbar's links", () => {
-  it("lead to the site the gallery is built into at <site>/gallery/", () => {
-    expect(siteUrlOf("/gallery/")).toBe("/");
-    expect(siteUrlOf("/waf-harness/gallery/")).toBe("/waf-harness/");
-  });
-
-  it("lead to the public site in dev, or from a build of the gallery alone", () => {
-    expect(siteUrlOf("/")).toBe(PUBLIC_SITE_URL);
-    expect(siteUrlOf("/ui/")).toBe(PUBLIC_SITE_URL);
-    expect(siteUrlOf("/my-gallery/")).toBe(PUBLIC_SITE_URL);
   });
 });

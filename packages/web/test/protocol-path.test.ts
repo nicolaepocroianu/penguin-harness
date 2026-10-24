@@ -52,16 +52,6 @@ describe("protocolPathForModel", () => {
     expect(protocolPathForModel("myproxy", "moonshot-official")).toBe("/chat/completions");
   });
 
-  it("Penguin Go presets display the MMSP stream path", () => {
-    const rows = MODEL_CATALOG.filter((m) => m.provider === "penguin-go");
-    expect(rows.length).toBeGreaterThan(0);
-    for (const m of rows) {
-      expect(protocolPathForModel(m.provider, m.clientType ?? "", m.modelId), m.modelId).toBe(
-        "/stream",
-      );
-    }
-  });
-
   it("ModelScope aggregate presets display the Responses path", () => {
     expect(protocolPathForModel("modelscope", "openai-responses")).toBe("/responses");
   });

@@ -1,6 +1,6 @@
 /**
  * A public-site article body: Markdown rendered in the sites' prose (site-prose.css), the same
- * for blog posts and doc pages. The renderer owns what both share — ## and ### headings carry
+ * for article and doc pages. The renderer owns what both share — ## and ### headings carry
  * the ids `extractToc` lists, fenced blocks render as `SiteCodeBlock` (highlighted by the
  * `highlight` it is handed), and a tab group from `remarkTabs` renders as `SiteCodeTabs`. The
  * host owns the rest: its plugin list (which Markdown it accepts, raw HTML included or not), and
@@ -9,12 +9,12 @@
  * pipeline on a new plugin list, so a fresh object per render remounts the body.
  *
  * Tables are the one thing the renderer adds to the host's rehype stage rather than leaving to
- * it: `rehypeMarkdownTables` runs after the host's own plugins (after the blog's `rehype-raw`, so
+ * it: `rehypeMarkdownTables` runs after the host's own plugins (after the host's `rehype-raw`, so
  * a table written as raw HTML is shaped too), boxing every table and classifying its cells for
  * markdown-table.css, exactly as a chat reply's are. The list is rebuilt only when the host's own
  * list changes, so a host's module-level constant keeps one pipeline.
  *
- * `variant` picks the heading rhythm: `post` for a blog post's flowing text, `doc` for a
+ * `variant` picks the heading rhythm: `post` for flowing article text, `doc` for a
  * reference page's ruled sections.
  */
 import { useMemo } from "react";

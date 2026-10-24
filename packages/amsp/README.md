@@ -51,8 +51,8 @@ const result = collector.result(); // throws AmspStreamError when the stream end
 
 ## Documentation
 
-- [Agent API](https://penguin.ooo/docs/agent-api): turning an agent's API on, keys, approval modes, routes, errors, the client in Node and browsers
-- [AMSP](https://penguin.ooo/docs/amsp): the protocol, event by event
+- [Agent API](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/agent-api.en.md): turning an agent's API on, keys, approval modes, routes, errors, the client in Node and browsers
+- [AMSP](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/amsp.en.md): the protocol, event by event
 
 ## Development
 
@@ -62,4 +62,4 @@ pnpm --filter @waterford/waf-harness-amsp typecheck
 pnpm --filter @waterford/waf-harness-amsp test
 ```
 
-Part of [WAF Harness](https://github.com/Prism-Shadow/penguin-harness) · Apache-2.0
+Part of [WAF Harness](https://github.com/nicolaepocroianu/waf-harness) · Apache-2.0

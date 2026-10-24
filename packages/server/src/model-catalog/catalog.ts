@@ -19,9 +19,7 @@
  * rows (direct + OpenRouter): 2026-09-09; the whole Gemini 3.x line-up, direct + OpenRouter —
  * the 3.6 / 3.8 Flash launch discounts declared, every other row re-read and unchanged:
  * 2026-09-09; the OpenRouter and TokenDance V4.1 Flash rows, and TokenDance's running
- * promotions plus its Doubao Seed display names: 2026-09-10; the Penguin Go resale lineup,
- * matched to the relay's current generic-client model export: 2026-09-11, its DeepSeek rows to
- * DeepSeek's own lineup: 2026-09-16; the OpenRouter z-ai/glm-5.3-flash row: 2026-09-16; and
+ * promotions plus its Doubao Seed display names: 2026-09-10; the OpenRouter z-ai/glm-5.3-flash row: 2026-09-16; and
  * the 2026-09-16 refresh — the direct DeepSeek group down to the two names its pricing page
  * lists, TokenDance's deepseek-v4-flash-0731 / deepseek-v4-pro-0813 / kimi-k3 promotions, the
  * OpenRouter qwen/qwen3.8-27b row, the Fireworks AI and SiliconFlow additions, and both Qwen
@@ -37,7 +35,7 @@
  * and MiMo-V2.6-Flash rows, SiliconFlow's GLM-5.3 Flash and Hy4 preview rows, and Gemini 3.7
  * Flash dropped from every group, Google rerouting the id to 3.8 Flash: 2026-10-10; and the
  * Atlas Cloud group, from its public catalog API and pricing page: 2026-10-11; Gemini 4 Argon
- * (Google, Penguin Go and OpenRouter): 2026-10-14).
+ * (Google and OpenRouter): 2026-10-14).
  * Docs: packages/docs/content/models.en.md (site path /docs/models) documents the
  * provider groups and credential resolution described here.
  *
@@ -109,7 +107,6 @@ import {
   routedClientType,
 } from "@prismshadow/mmsp/credentials";
 import type { ModelPricing } from "@waterford/waf-harness-core";
-import { sameClientType } from "@waterford/waf-harness-core/model-connection";
 
 /** Model provider info (used for web grouping/logo and the "API key blank falls back to env var" hint). */
 /**
@@ -136,14 +133,14 @@ export interface ModelProviderOAuth {
  *
  * The bridge's own address is deliberately NOT here: this file is bundled for the browser and
  * cannot read configuration, so the App resolves the bridge server-side from its environment
- * (PENGUIN_GO_ORIGIN / MODELSCOPE_BRIDGE_URL), keyed by the group's id.
+ * (MODELSCOPE_BRIDGE_URL), keyed by the group's id.
  */
 export interface ModelProviderBridgeAuth {
   /**
    * Which App-side flow serves this group — one route family and one service per value, so
    * the Web App picks from the group's descriptor rather than from its id.
    */
-  flow: "penguin-go" | "modelscope";
+  flow: "modelscope";
 }
 
 /**
@@ -160,9 +157,8 @@ export interface ModelProviderBalance {
    *   (1 CNY = 1,000,000);
    * - `deepseek`: `{ is_available, balance_infos: [{ currency, total_balance, … }] }`, one entry
    *   per currency the account holds.
-   * - `penguin-go`: `{ balance: { units, currency } }`, a CNY ledger integer in 10^-12 yuan.
    */
-  format: "tokendance" | "deepseek" | "penguin-go";
+  format: "tokendance" | "deepseek";
 }
 
 export interface ModelProviderInfo {
@@ -339,7 +335,6 @@ const TOKENDANCE_BASE_URL = "https://tokendance.space/gateway/v1";
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 const MODELSCOPE_BASE_URL = "https://api-inference.modelscope.cn/v1";
 const ATLASCLOUD_BASE_URL = "https://api.atlascloud.ai/v1";
-export const PENGUIN_GO_BASE_URL = "https://go.penguin.ooo/api/v1";
 
 /** OpenCode Go's OpenAI-protocol base: the clients append /chat/completions or /responses. */
 const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go/v1";
@@ -348,45 +343,6 @@ const OPENCODE_GO_MESSAGES_BASE_URL = "https://opencode.ai/zen/go";
 /** Go's generateContent base: the Google SDK appends /v1beta/models/<id>:streamGenerateContent. */
 const OPENCODE_GO_GOOGLE_BASE_URL = "https://opencode.ai/inference/go/google";
 
-/** Provider id for the preconfigured Penguin Go relay group. */
-export const PENGUIN_GO_PROVIDER_ID = "penguin-go";
-
-/**
- * The protocol a group is fixed to, or undefined where the group's protocol is the user's to
- * choose. Penguin Go's platform endpoint speaks MMSP alone, so neither its group nor its rows
- * offer a protocol: the Web App shows MMSP without a picker, and the server's model writes and
- * the CLI refuse any other value (fixedClientTypeRefuses).
- */
-export function fixedClientType(providerId: string): string | undefined {
-  return providerId === PENGUIN_GO_PROVIDER_ID ? "mmsp" : undefined;
-}
-
-/**
- * Whether writing `next` as the protocol of a group (`target: "group"`) or of one of its rows
- * (`"row"`) is refused because the group's protocol is fixed (fixedClientType). `next` is the
- * value written, blank or absent for none; `stored` is what that group, or that same row in that
- * same group, stores now.
- *
- * The fixed protocol is always accepted, and so is `stored` written back unchanged: a row a user
- * pointed at their own proxy on another protocol before the protocol was fixed (left alone by
- * migrateWafHarnessGoRoutes) keeps it, and a whole-table save carrying it is not refused. A row
- * with no protocol of its own follows its group, so clearing a row's is accepted; clearing the
- * group's would leave its rows routed by model id, and is refused.
- */
-export function fixedClientTypeRefuses(
-  providerId: string,
-  target: "group" | "row",
-  next: string | null | undefined,
-  stored: string | undefined,
-): boolean {
-  const fixed = fixedClientType(providerId);
-  if (fixed === undefined) return false;
-  const value = next?.trim() ?? "";
-  if (value === "") return target === "group" && (stored?.trim() ?? "") !== "";
-  if (sameClientType(value, fixed)) return false;
-  return stored === undefined || !sameClientType(value, stored);
-}
-
 /** Provider id for the ModelScope group. */
 export const MODELSCOPE_PROVIDER_ID = "modelscope";
 
@@ -394,7 +350,7 @@ export const MODELSCOPE_PROVIDER_ID = "modelscope";
  * Provider list (web model page groups in this order BY DEFAULT — a user's dragged
  * arrangement is stored per Project and wins over this sequence; see the web's
  * model-group-order.ts). The sequence is a hand-curated display order: TokenDance leads as
- * the recommended group, Penguin Go follows, then OpenCode Go, then DeepSeek as the default
+ * the recommended group, OpenCode Go follows, then DeepSeek as the default
  * model's provider, and custom
  * (custom OpenAI-protocol models) is always last; in between, gateways and first-party
  * vendors are interleaved by expected use rather than sorted by kind. Only this default
@@ -438,24 +394,6 @@ export const MODEL_PROVIDERS: ModelProviderInfo[] = [
     balance: {
       url: "https://tokendance.space/portal/api/v1/user/balance",
       format: "tokendance",
-    },
-  },
-  {
-    id: PENGUIN_GO_PROVIDER_ID,
-    label: "Penguin Go",
-    // The authorization flow writes the relay key once, on the group's `[providers.penguin-go]`
-    // table, and that key is the only one the group's rows use: a third-party adapter takes
-    // keys from the config alone, and every row names the relay, so none is handed the
-    // environment's. The env pair records what the mmsp client reads, as a fact. Every row names the relay and speaks MMSP, so a new
-    // Project writes both on the group; the protocol is fixed (fixedClientType).
-    envKey: "MMSP_API_KEY",
-    envBaseUrlKey: "MMSP_BASE_URL",
-    apiKeyUrl: "https://go.penguin.ooo/",
-    modelsUrl: "https://go.penguin.ooo/",
-    bridgeAuth: { flow: "penguin-go" },
-    balance: {
-      url: "https://go.penguin.ooo/api/me/by-key",
-      format: "penguin-go",
     },
   },
   {
@@ -2287,107 +2225,6 @@ export const MODEL_CATALOG: ModelCatalogEntry[] = [
     clientType: "openai-chat",
     baseUrl: TOKENDANCE_BASE_URL,
   },
-  // -- Penguin Go. All models use MMSP HTTP; the SDK appends /stream to /api/v1.
-  // List prices are preset; authorization and sync supply the platform's promotions.
-  // The DeepSeek rows follow
-  // DeepSeek's own lineup (re-read 2026-09-16): V4.1 Flash as `deepseek-flash` and V4 Pro 0813
-  // as `deepseek-v4-pro`; the two retired V4 Flash ids, served from V4.1 Flash, are not resold.
-  // Gemini 3.7 Flash is no longer preset (2026-10-10): Google retires the id and reroutes it to
-  // 3.8 Flash.
-  {
-    // Owner-confirmed relay list prices (2026-10-14), matching Google's introductory
-    // rates. Any further Penguin Go promotion comes from authorization or model sync.
-    modelId: "gemini-4-argon",
-    displayName: "Gemini 4 Argon",
-    provider: PENGUIN_GO_PROVIDER_ID,
-    contextWindow: 1048576,
-    pricing: usd(0.1, 2, 10),
-    supportsVision: true,
-    clientType: "mmsp",
-    baseUrl: PENGUIN_GO_BASE_URL,
-  },
-  {
-    modelId: "gemini-3.8-flash",
-    displayName: "Gemini 3.8 Flash",
-    provider: PENGUIN_GO_PROVIDER_ID,
-    contextWindow: 1048576,
-    pricing: usd(0.075, 0.75, 3.75),
-    supportsVision: true,
-    clientType: "mmsp",
-    baseUrl: PENGUIN_GO_BASE_URL,
-  },
-  {
-    modelId: "gemini-3.6-flash",
-    displayName: "Gemini 3.6 Flash",
-    provider: PENGUIN_GO_PROVIDER_ID,
-    contextWindow: 1048576,
-    pricing: usd(0.075, 0.75, 3.75),
-    supportsVision: true,
-    clientType: "mmsp",
-    baseUrl: PENGUIN_GO_BASE_URL,
-  },
-  {
-    modelId: "gemini-3.5-flash",
-    displayName: "Gemini 3.5 Flash",
-    provider: PENGUIN_GO_PROVIDER_ID,
-    contextWindow: 1048576,
-    pricing: usd(0.15, 1.5, 9),
-    supportsVision: true,
-    clientType: "mmsp",
-    baseUrl: PENGUIN_GO_BASE_URL,
-  },
-  {
-    modelId: "gemini-3.5-flash-lite",
-    displayName: "Gemini 3.5 Flash-Lite",
-    provider: PENGUIN_GO_PROVIDER_ID,
-    contextWindow: 1048576,
-    pricing: usd(0.03, 0.3, 2.5),
-    supportsVision: true,
-    clientType: "mmsp",
-    baseUrl: PENGUIN_GO_BASE_URL,
-  },
-  {
-    modelId: "gemini-3.1-flash-lite",
-    displayName: "Gemini 3.1 Flash-Lite",
-    provider: PENGUIN_GO_PROVIDER_ID,
-    contextWindow: 1048576,
-    pricing: usd(0.025, 0.25, 1.5),
-    supportsVision: true,
-    clientType: "mmsp",
-    baseUrl: PENGUIN_GO_BASE_URL,
-  },
-  {
-    modelId: "gemini-3.1-pro-preview",
-    displayName: "Gemini 3.1 Pro (Preview)",
-    provider: PENGUIN_GO_PROVIDER_ID,
-    contextWindow: 1048576,
-    pricing: usd(0.2, 2, 12),
-    supportsVision: true,
-    clientType: "mmsp",
-    baseUrl: PENGUIN_GO_BASE_URL,
-  },
-  {
-    modelId: "deepseek-flash",
-    displayName: "DeepSeek V4.1 Flash",
-    provider: PENGUIN_GO_PROVIDER_ID,
-    contextWindow: 1000000,
-    pricing: cny(0.04, 2, 8),
-    offPeakDiscount: DEEPSEEK_OFF_PEAK,
-    supportsVision: true,
-    clientType: "mmsp",
-    baseUrl: PENGUIN_GO_BASE_URL,
-  },
-  {
-    modelId: "deepseek-v4-pro",
-    displayName: "DeepSeek V4 Pro 0813",
-    provider: PENGUIN_GO_PROVIDER_ID,
-    contextWindow: 1000000,
-    pricing: cny(0.3, 9, 27),
-    offPeakDiscount: DEEPSEEK_OFF_PEAK,
-    supportsVision: false,
-    clientType: "mmsp",
-    baseUrl: PENGUIN_GO_BASE_URL,
-  },
   // -- OpenCode Go. Latest generation of each model tier from opencode.ai/v2/docs/console/go/
   // (2026-10-14); context and vision from OpenCode's models.dev registry. The Code, Pro,
   // Flash, Max and Plus tiers are independent: a newer Flash does not replace a Pro.
@@ -3604,15 +3441,12 @@ export function providerClientType(providerId: string): string | undefined {
 /**
  * A first-party vendor group: one this catalog knows, that is not `custom`, carries no
  * gateway endpoint and pins no protocol of its own — DeepSeek, Google, OpenAI, Anthropic,
- * Z.AI, Moonshot, MiniMax, and the Penguin Go relay.
+ * Z.AI, Moonshot and MiniMax.
  *
  * What distinguishes it is that nothing in it decides a protocol: its entries persist no
  * `client_type`, so MMSP places every one of them by the spelling of the upstream model
  * id alone — the vendor family it begins with. An id of no known family cannot be started at
- * all, whatever else is configured on the entry (the Penguin Go rows pin their protocol
- * instead: the relay serves Gemini through generateContent, not the API a `gemini-` id routes
- * to). Every
- * surface that has to answer "is this one routable?" reads the group's shape through this one
+ * all, whatever else is configured on the entry. Every surface that has to answer "is this one routable?" reads the group's shape through this one
  * predicate rather than re-deriving it: the models page's cards and its config dialog, the
  * models PUT, and the CLI's `config model add`. Whether a model may be added to the group at
  * all is a separate, wider rule: isAddableGroup.

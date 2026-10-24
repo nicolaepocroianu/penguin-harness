@@ -5,10 +5,6 @@ export const en: GalleryStrings = {
   sitebar: {
     siteName: "WAF Harness",
     nav: {
-      home: "Home",
-      blog: "Blog",
-      download: "Download",
-      docs: "Docs",
       gallery: "Gallery",
       github: "GitHub",
       openMenu: "Open menu",
@@ -487,7 +483,7 @@ export const en: GalleryStrings = {
       site: {
         title: "Public site",
         description:
-          "What the landing page and the docs share: the footer, the code card and copy button, pills, an article's contents, the docs sidebar, search, the external-link confirmation and article prose.",
+          "What the docs and the gallery's own site chrome share: the footer, the code card and copy button, pills, an article's contents, the docs sidebar, search, the external-link confirmation and article prose.",
       },
       files: {
         title: "Files",
@@ -990,11 +986,10 @@ export const en: GalleryStrings = {
     },
     site: {
       footer: "Footer",
-      footerHint:
-        "The landing page's brand and link columns; the docs' single line of copyright and links.",
+      footerHint: "The brand and link columns; the docs' single line of copyright and links.",
       tagline: "Unified and Stable RSI Framework.",
       columns: [
-        { title: "Product", links: ["Cases", "Quick start", "Blog", "Download"] },
+        { title: "Product", links: ["Cases", "Quick start", "Download"] },
         { title: "Resources", links: ["GitHub repository", "Docs", "Gallery"] },
       ],
       lineLinks: ["Home", "GitHub repository", "Apache-2.0 License"],
@@ -1007,7 +1002,7 @@ export const en: GalleryStrings = {
       copyMarkdown: "Copy Markdown",
       copyLink: "Copy page link",
       pills: "Pills",
-      pillsHint: "A blog post's category and pinned mark: the tone names a kind, not a state.",
+      pillsHint: "An article's category and pinned mark: the tone names a kind, not a state.",
       pillTones: {
         brand: "Product news",
         "brand-outline": "Practice",
@@ -1016,9 +1011,9 @@ export const en: GalleryStrings = {
       },
       article: "Article",
       articleHint:
-        "The prose blog posts and doc pages share. Headings carry anchors, fenced code is highlighted, and tab groups and callouts are the docs' Markdown extensions; its contents sit on the right.",
+        "The prose articles and doc pages share. Headings carry anchors, fenced code is highlighted, and tab groups and callouts are the docs' Markdown extensions; its contents sit on the right.",
       articleBody:
-        '## Install\n\nOne command in a terminal installs it:\n\n```bash\ncurl -fsSL https://penguin.ooo/install.sh | sh\n```\n\n### By platform\n\n```bash tab="Linux / macOS"\ncurl -fsSL https://penguin.ooo/install.sh | sh\n```\n\n```powershell tab="Windows"\nirm https://penguin.ooo/install.ps1 | iex\n```\n\n> [!INFO]- Blocked on first launch\n>\n> Allow it in the system settings.\n\n## Next steps\n\n- Run `wafh web` to open the Web App\n- Back to [Install](#install)\n\n| Command | What it does |\n| --- | --- |\n| `wafh` | Chat in the terminal |\n| `wafh web` | Start the Web App |\n\n## API\n\n| Method | Path | Description |\n| --- | --- | --- |\n| POST | `/api/auth/login` | Logs in: `{userId, password}` → `{user}` |\n| GET | `/api/auth/claim?token=…` | Redeems a sign-in link: sets the cookie and redirects to `/` |\n| PUT | `/api/me/prefs` | Writes UI preferences (shallow merge); `browserBackend` is refused (`400`), since the built-in browser chooses it through its own endpoint |\n| GET | `/api/me/archived-sessions` | One group\'s archived Sessions: `?projectId=&workspace=&limit=&before=&q=&source=` → `{sessions, hasMore}` |',
+        '## Install\n\nOne command in a terminal installs it:\n\n```bash\ncurl -fsSL https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.sh | sh\n```\n\n### By platform\n\n```bash tab="Linux / macOS"\ncurl -fsSL https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.sh | sh\n```\n\n```powershell tab="Windows"\nirm https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.ps1 | iex\n```\n\n> [!INFO]- Blocked on first launch\n>\n> Allow it in the system settings.\n\n## Next steps\n\n- Run `wafh web` to open the Web App\n- Back to [Install](#install)\n\n| Command | What it does |\n| --- | --- |\n| `wafh` | Chat in the terminal |\n| `wafh web` | Start the Web App |\n\n## API\n\n| Method | Path | Description |\n| --- | --- | --- |\n| POST | `/api/auth/login` | Logs in: `{userId, password}` → `{user}` |\n| GET | `/api/auth/claim?token=…` | Redeems a sign-in link: sets the cookie and redirects to `/` |\n| PUT | `/api/me/prefs` | Writes UI preferences (shallow merge); `browserBackend` is refused (`400`), since the built-in browser chooses it through its own endpoint |\n| GET | `/api/me/archived-sessions` | One group\'s archived Sessions: `?projectId=&workspace=&limit=&before=&q=&source=` → `{sessions, hasMore}` |',
       toc: "On this page",
       sidebar: "Docs sidebar",
       sidebarHint:
@@ -1129,7 +1124,7 @@ export const en: GalleryStrings = {
       inline: { before: "Run ", code: "pnpm install", after: " to install the dependencies." },
       prose: "Markdown prose",
       proseSample:
-        "## Release checks\n\nConfirm **three things** before you release, then run `pnpm -r build`. See the [release notes](https://penguin.ooo).\n\n- Type checks pass\n- Every test passes\n- The changelog is written\n\n> When a data root is taken, use another one — never end someone else's process.\n\n| Check | Command |\n| --- | --- |\n| Types | `pnpm typecheck` |\n| Tests | `pnpm test` |\n\n```bash\npnpm -r build && pnpm test\n```\n\nThe cache hit rate is \\(r = h / (h + m)\\).",
+        "## Release checks\n\nConfirm **three things** before you release, then run `pnpm -r build`. See the [release notes](https://github.com/nicolaepocroianu/waf-harness/releases).\n\n- Type checks pass\n- Every test passes\n- The changelog is written\n\n> When a data root is taken, use another one — never end someone else's process.\n\n| Check | Command |\n| --- | --- |\n| Types | `pnpm typecheck` |\n| Tests | `pnpm test` |\n\n```bash\npnpm -r build && pnpm test\n```\n\nThe cache hit rate is \\(r = h / (h + m)\\).",
       reader: "Markdown reader",
       readerHint:
         "The reader the plugin README, the file browser and the handbook share: two or more headings add an outline (a rail when there is room, behind a button in the title row when not), and the find button in the host's title row, or Mod+F while the reader has the focus, searches the rendered text.",
@@ -1181,10 +1176,6 @@ export const en: GalleryStrings = {
         "### Release notes",
         "",
         "`changelog/<version>/RELEASE.md` becomes the GitHub Release body as written, and must be committed before the tag — the release workflow reads it from the tag's checkout.",
-        "",
-        "### Blog",
-        "",
-        "The blog post and its screenshots are prepared with the release; screenshots use the Frost theme, light mode, default text size.",
         "",
         "## Rolling back",
         "",

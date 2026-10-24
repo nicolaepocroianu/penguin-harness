@@ -92,9 +92,8 @@ import type {
   ModelOAuthStartRequest,
   ModelOAuthStartResponse,
   ModelOAuthStatusResponse,
-  PlatformAuthFlowStatusResponse,
-  PlatformAuthStartResponse,
-  PlatformModelSyncResponse,
+  ModelScopeAuthFlowStatusResponse,
+  ModelScopeAuthStartResponse,
   ModelProtocolDetectRequest,
   ModelProtocolDetectResponse,
   MachinesUseResponse,
@@ -681,11 +680,11 @@ export const submitModelOAuthCode = (projectId: string, flowId: string, code: st
 
 // Bridge-authorized groups (owner) -----------------------------------------------
 //
-// Penguin Go and ModelScope both hand a group an API key by creating a server-side flow,
-// polling it, and reporting the same six states and seven failure codes; only the route and
-// the name of the "this flow is gone" code differ. Each group therefore gets one descriptor
-// here rather than four loose exports, and the dialog they share takes one as a prop — a
-// third such group is an entry in this section, not a third copy of the dialog.
+// ModelScope hands a group an API key by creating a server-side flow, polling it, and
+// reporting six states and seven failure codes; only the route and the name of the "this
+// flow is gone" code vary. The group therefore gets one descriptor here rather than four
+// loose exports, and the dialog takes one as a prop — a second such group is an entry in
+// this section, not a second copy of the dialog.
 
 export interface KeyAuthEndpoints {
   /**
@@ -693,9 +692,9 @@ export interface KeyAuthEndpoints {
    * dialog drops its handle on it and offers a fresh start instead of a retry.
    */
   flowNotFoundCode: string;
-  start: (projectId: string) => Promise<PlatformAuthStartResponse>;
-  status: (projectId: string, flowId: string) => Promise<PlatformAuthFlowStatusResponse>;
-  retryApply: (projectId: string, flowId: string) => Promise<PlatformAuthFlowStatusResponse>;
+  start: (projectId: string) => Promise<ModelScopeAuthStartResponse>;
+  status: (projectId: string, flowId: string) => Promise<ModelScopeAuthFlowStatusResponse>;
+  retryApply: (projectId: string, flowId: string) => Promise<ModelScopeAuthFlowStatusResponse>;
   cancel: (projectId: string, flowId: string) => Promise<{ ok: boolean }>;
 }
 
@@ -707,14 +706,14 @@ function keyAuth(route: string, flowNotFoundCode: string): KeyAuthEndpoints {
   return {
     flowNotFoundCode,
     start: (projectId) =>
-      apiFetch<PlatformAuthStartResponse>(`${prefix(projectId)}/start`, {
+      apiFetch<ModelScopeAuthStartResponse>(`${prefix(projectId)}/start`, {
         method: "POST",
         body: {},
       }),
     status: (projectId, flowId) =>
-      apiFetch<PlatformAuthFlowStatusResponse>(`${flow(projectId, flowId)}/status`),
+      apiFetch<ModelScopeAuthFlowStatusResponse>(`${flow(projectId, flowId)}/status`),
     retryApply: (projectId, flowId) =>
-      apiFetch<PlatformAuthFlowStatusResponse>(`${flow(projectId, flowId)}/retry`, {
+      apiFetch<ModelScopeAuthFlowStatusResponse>(`${flow(projectId, flowId)}/retry`, {
         method: "POST",
         body: {},
       }),
@@ -723,17 +722,8 @@ function keyAuth(route: string, flowNotFoundCode: string): KeyAuthEndpoints {
   };
 }
 
-/** Penguin Go's relay authorization. */
-export const platformAuthEndpoints = keyAuth("platform-auth", "platform_auth_flow_not_found");
-
 /** ModelScope's, run through the harness's own authorization bridge. */
 export const modelScopeAuthEndpoints = keyAuth("modelscope-auth", "modelscope_auth_flow_not_found");
-
-export const syncPlatformModels = (projectId: string) =>
-  apiFetch<PlatformModelSyncResponse>(
-    `/api/projects/${encodeURIComponent(projectId)}/platform-auth/sync`,
-    { method: "POST", body: {} },
-  );
 
 // Vault environment variables (Agent-level) -------------------------------------------------------
 

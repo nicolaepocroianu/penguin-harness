@@ -34,12 +34,12 @@ run. Use these names throughout:
 
 2. **Fetch the product.** Decide the channel from `ref`:
    - **A tag with a GitHub Release.** Download from
-     `https://github.com/Prism-Shadow/penguin-harness/releases/download/<ref>/` the installer
+     `https://github.com/nicolaepocroianu/waf-harness/releases/download/<ref>/` the installer
      (`install.sh`, or `install.ps1` on Windows), this platform's CLI archive and desktop
-     packages, `SHA256SUMS`, `SHA256SUMS.desktop` and `release-download-manifest.tsv`. Give every
+     packages, `SHA256SUMS` and `SHA256SUMS.desktop`. Give every
      download a stall limit (with curl: `--connect-timeout 30 --speed-limit 20000 --speed-time 60`)
-     so a hung transfer fails instead of waiting forever. Check every file's size against the
-     manifest and its checksum against the sums files.
+     so a hung transfer fails instead of waiting forever. Check every file's checksum against
+     the sums files.
    - **A tag without a release, or a revision.** Clone the repository into `<SCRATCH>/src`, check
      out `ref`, then `pnpm install --frozen-lockfile` and `pnpm -r build` (Node >= 24). The CLI is
      `packages/cli/dist/wafh.js`. Desktop packages are out of scope for this channel; say so in

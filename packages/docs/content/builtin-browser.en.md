@@ -124,7 +124,7 @@ We recommend installing from the Chrome Web Store, which keeps the extension up 
 
 Where the Chrome Web Store cannot be reached, install the zip file published with each release instead:
 
-1. Download [wafh-browser-extension.zip](https://github.com/Prism-Shadow/penguin-harness/releases/latest/download/penguin-browser-extension.zip) and unzip it.
+1. Download [wafh-browser-extension.zip](https://github.com/nicolaepocroianu/waf-harness/releases/latest/download/penguin-browser-extension.zip) and unzip it.
 2. In Chrome, open `chrome://extensions` and turn on **Developer mode** at the top right.
 3. Select **Load unpacked** and pick the unzipped folder.
 4. Pin the extension to the toolbar as above.

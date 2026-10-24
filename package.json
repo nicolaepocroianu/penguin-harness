@@ -23,9 +23,7 @@
     "dev:server": "pnpm --filter @waterford/waf-harness-server dev",
     "dev:web": "node scripts/dev-prebuild.mjs && pnpm --filter @waterford/waf-harness-web dev",
     "dev:docs": "node scripts/dev-prebuild.mjs --install-only && pnpm --filter @waterford/waf-harness-docs dev",
-    "dev:landing": "node scripts/dev-prebuild.mjs --install-only && pnpm --filter @waterford/waf-harness-landing dev",
     "dev:gallery": "node scripts/dev-prebuild.mjs --install-only && pnpm --filter @waterford/waf-harness-ui-gallery dev",
-    "build:site": "node scripts/build-site.mjs",
     "bench": "tsx scripts/activity-bench/cli.ts",
     "build:a2ui-check": "node scripts/build-a2ui-check.mjs",
     "desktop": "pnpm -r build && node scripts/run-with-env.mjs --unset=WAFH_CLI_ENTRY WAFH_HOME=~/.waf-harness/dev-data -- pnpm --dir packages/desktop start"

@@ -631,7 +631,7 @@ export abstract class ModelScopeAuth extends Interface<
   Pick<ModelScopeAuthService, "start" | "status" | "retryApply" | "cancel" | "ensureFresh">
 >() {}
 
-/** Keep in-flight flows on the current bridge, like PlatformAuthProvider keeps them on Penguin Go. */
+/** Keep in-flight flows on the current bridge. */
 @Module()
 export class ModelScopeAuthProvider {
   @Use() private readonly config!: Config;

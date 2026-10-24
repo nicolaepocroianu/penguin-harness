@@ -17,7 +17,6 @@
 /** Groups pinned until the user says otherwise; every other group, a later or user-defined one included, starts collapsible. */
 export const DEFAULT_PINNED_MODEL_GROUPS: ReadonlySet<string> = new Set([
   "tokendance",
-  "penguin-go",
   "deepseek",
   "openrouter",
   "google",

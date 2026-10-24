@@ -1,9 +1,8 @@
 /**
- * Preferences shared by the landing page, the docs site and the gallery.
+ * Preferences shared by the docs site and the gallery.
  *
- * The three are separate SPAs but ship to one origin (penguin.ooo, penguin.ooo/docs/ and
- * penguin.ooo/gallery/), so a single localStorage key is all it takes for a language or theme
- * choice to survive the hop between them. The landing page and the docs once wrote
+ * The two are separate SPAs that may share an origin, so a single localStorage key is all it takes
+ * for a language or theme choice to survive the hop between them. They once wrote
  * `wafh-landing.*` and `wafh-docs.*`; those keys are still read as a fallback, so a visitor
  * who chose before the sites shared a key keeps that choice.
  *
@@ -47,7 +46,7 @@ export function writeSitePref(key: string, value: string): void {
 
 /**
  * Live sync for the both-tabs-open case. The storage event fires in every *other* tab on
- * the origin, so switching theme on the landing page updates an already-open docs tab
+ * the origin, so switching theme on the gallery updates an already-open docs tab
  * without a reload. Navigating between the sites is a full page load and is covered
  * by the read on mount instead.
  */

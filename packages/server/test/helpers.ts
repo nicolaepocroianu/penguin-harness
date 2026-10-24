@@ -211,7 +211,6 @@ export function testConfig(root: string): ServerConfig {
     port: 7364,
     dbPath: ":memory:",
     previewOrigin: null,
-    wafHarnessGoOrigin: "https://token.penguin.ooo",
     // The production bridge address, path prefix included. Nothing reaches it in tests: the
     // ModelScope cases construct the service themselves with a stubbed fetch.
     modelscopeBridgeUrl: "https://go.penguin.ooo/modelscope",

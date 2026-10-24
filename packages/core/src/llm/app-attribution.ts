@@ -18,7 +18,7 @@
  * why it is exported: a stable app URL is required there, and a second copy would let the two
  * attributions drift apart.
  */
-export const APP_URL = "https://penguin.ooo/";
+export const APP_URL = "https://github.com/nicolaepocroianu/waf-harness";
 const APP_TITLE = "WAF Harness";
 /**
  * OpenRouter marketplace categories, comma-separated. OpenRouter accepts at most **two per

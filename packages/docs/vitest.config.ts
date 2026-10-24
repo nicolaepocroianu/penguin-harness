@@ -1,6 +1,5 @@
 /**
- * Vitest config kept separate from vite.config.ts (same convention as the landing
- * package: vitest's embedded vite types conflict with this package's vite 7 plugin
+ * Vitest config kept separate from vite.config.ts (vitest's embedded vite types conflict with this package's vite 7 plugin
  * types). Tests cover pure modules and content integrity only, so a node
  * environment with no plugins suffices.
  */

@@ -3,11 +3,11 @@
 AI slop is the look a generated product falls into when nobody decides anything: every default
 switched on at once — a gradient, a glow, emoji, a pill on every row, a card around every card,
 "it's not just X — it's Y". It reads as designed in a thumbnail and falls apart on a second look.
-The Web App, the landing site, the docs and the Electron shell are all written by agents, which is
+The Web App, the docs and the Electron shell are all written by agents, which is
 exactly why they drift there; this page is the brake.
 
 It applies to **every** change that renders something or says something to a user: a component,
-a class list, a string in `strings-en.ts` / `strings.ts`, a docs page, a blog post, a changelog
+a class list, a string in `strings-en.ts` / `strings.ts`, a docs page, a changelog
 entry, a PR body.
 
 ## The six rules, held on every change
@@ -61,7 +61,7 @@ scanner over what you touched — it is dependency-free Node and never edits any
 
 ```sh
 node .agents/skills/waf-harness-dev/reference/ai-slop/scan.mjs packages/web/src
-node .agents/skills/waf-harness-dev/reference/ai-slop/scan.mjs packages/landing --only=14,15,29
+node .agents/skills/waf-harness-dev/reference/ai-slop/scan.mjs packages/docs --only=14,15,29
 node .agents/skills/waf-harness-dev/reference/ai-slop/scan.mjs <dir> --json   # for triage
 ```
 

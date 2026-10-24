@@ -89,7 +89,6 @@ import { UsageRecorder } from "./runtime/usage-recorder.js";
 import { UsageService } from "./services/usage-service.js";
 import { ProjectConfigService } from "./services/project-config-service.js";
 import { ModelOAuthService } from "./services/model-oauth-service.js";
-import { PlatformAuth, PlatformAuthProvider } from "./services/platform-auth-service.js";
 import { ModelScopeAuth, ModelScopeAuthProvider } from "./services/modelscope-auth-service.js";
 import { TraceIndexService } from "./services/trace-index.js";
 import { TraceService } from "./services/trace-service.js";
@@ -299,9 +298,8 @@ export class Startup {
 
   async setup() {
     // Every Project's config through the server's read path once, before anything opens one:
-    // its one-time migrations (core's, and the server's own that need the catalog) write back
-    // there, and a Session the schedulers resume reads its file with core's loader, which runs
-    // only core's. A failure must not block the boot; each file is read again, and written
+    // core's one-time migrations write back there, so the file is migrated before a Session the
+    // schedulers resume reads it. A failure must not block the boot; each file is read again, and written
     // back, at its next read through the server. Goes with the migrations at 0.3.0.
     await this.projectConfig.migrateStoredConfigs().catch((err: unknown) => {
       this.errors.record({ source: "process", err, code: "config_migration_failed" });
@@ -400,7 +398,6 @@ export class IdentityModule {}
     ProjectActivityWorkService,
     ProjectConfigService,
     ModelOAuthService,
-    PlatformAuthProvider,
     ModelScopeAuthProvider,
     ProjectsRoutes,
     ProjectAdminRoutes,
@@ -415,7 +412,6 @@ export class IdentityModule {}
     ProjectConfigStore,
     ModelProviderAuthTokens,
     ModelOAuth,
-    PlatformAuth,
     ModelScopeAuth,
     InitialProjectProvisioner,
     ProjectEvents,

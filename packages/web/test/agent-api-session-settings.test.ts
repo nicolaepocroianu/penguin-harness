@@ -198,7 +198,9 @@ describe("API Session settings", () => {
     const link = [...document.querySelectorAll("a")].find(
       (el) => el.textContent === en.agent.apiReadDocs,
     )!;
-    expect(link.href).toBe("https://penguin.ooo/docs/agent-api");
+    expect(link.href).toBe(
+      "https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/agent-api.en.md",
+    );
     expect(link.target).toBe("_blank");
     const copy = button(en.agent.apiCopyAgentPrompt);
     expect(link.compareDocumentPosition(copy) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);

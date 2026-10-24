@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type {
-  PlatformAuthFlowErrorCode,
-  PlatformAuthFlowStatusResponse,
-  PlatformAuthStartResponse,
+  ModelScopeAuthFlowErrorCode,
+  ModelScopeAuthFlowStatusResponse,
+  ModelScopeAuthStartResponse,
 } from "@waterford/waf-harness-server/api";
 import type { KeyAuthEndpoints } from "../../api/endpoints";
 import { ApiError } from "../../api/client";
@@ -23,16 +23,16 @@ type Phase = "starting" | "ready" | "waiting" | "applying" | "failed" | "done";
 export interface KeyAuthTexts {
   intro: (count: number) => string;
   appliedBody: (applied: number) => string;
-  errors: Record<PlatformAuthFlowErrorCode, string>;
+  errors: Record<ModelScopeAuthFlowErrorCode, string>;
 }
 
 /**
  * A group whose credential the server fetches for the user, presented like any other provider's
  * "authorize a key" action. The wire protocol behind it is a device-style start/poll rather
- * than OAuth/PKCE, and which one applies is the `endpoints` prop's business: Penguin Go polls
- * its own relay, ModelScope polls the harness's authorization bridge. Account metadata never
- * enters this component; a completed flow writes the group key and only reports how many models
- * use it (those without a key of their own).
+ * than OAuth/PKCE, and which one applies is the `endpoints` prop's business: ModelScope polls
+ * the harness's authorization bridge. Account metadata never enters this component; a
+ * completed flow writes the group key and only reports how many models use it (those without
+ * a key of their own).
  */
 export function KeyAuthDialog({
   projectId,
@@ -59,7 +59,7 @@ export function KeyAuthDialog({
   // (see lib/desktop-renderer).
   const bridge = !isElectronRenderer(navigator.userAgent);
   const [phase, setPhase] = useState<Phase>("ready");
-  const [flow, setFlow] = useState<PlatformAuthStartResponse | null>(null);
+  const [flow, setFlow] = useState<ModelScopeAuthStartResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [applied, setApplied] = useState(0);
   const [retrySeconds, setRetrySeconds] = useState(0);
@@ -76,7 +76,7 @@ export function KeyAuthDialog({
   const textsRef = useRef(texts);
   textsRef.current = texts;
 
-  const flowError = (code: PlatformAuthFlowErrorCode | undefined): string =>
+  const flowError = (code: ModelScopeAuthFlowErrorCode | undefined): string =>
     (code !== undefined ? textsRef.current.errors[code] : undefined) ??
     textsRef.current.errors.upstream_failed;
 
@@ -207,7 +207,7 @@ export function KeyAuthDialog({
     setError(null);
     setPhase("applying");
     try {
-      const next: PlatformAuthFlowStatusResponse = await endpoints.retryApply(
+      const next: ModelScopeAuthFlowStatusResponse = await endpoints.retryApply(
         projectId,
         flow.flowId,
       );
@@ -288,9 +288,9 @@ export function KeyAuthDialog({
           <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
             <Spinner size="xs" label={S.common.loading} />
             {phase === "starting"
-              ? S.models.platformKeyStarting
+              ? S.models.keyAuthStarting
               : phase === "applying"
-                ? S.models.platformKeyApplying
+                ? S.models.keyAuthApplying
                 : S.models.oauthWaiting}
           </p>
         )}

@@ -657,8 +657,7 @@ export interface ModelInfo {
    * ANTHROPIC_API_KEY): only for a row with no key in the file whose routed MMSP client reads
    * that variable for its endpoint — no base URL on the row or its group, or the client's own
    * default endpoint. Unset for a row with a key (its own or a group key that reaches it), a row
-   * sent to any other base URL (a gateway, Penguin Go, ModelScope, a vendor's second host or a
-   * proxy), or an id nothing routes.
+   * sent to any other base URL (a gateway, ModelScope, a vendor's second host or a proxy), or an id nothing routes.
    */
   envKey?: string;
   /**
@@ -781,8 +780,7 @@ export interface ModelsUpdateRequest {
  * added rows' promotions, touching nothing else; `restore` makes the model configuration a new
  * Project's and keeps only the API keys: the presets in catalog order, the catalog's group
  * tables, default model and promotions, no vision model, and every other row and every
- * user-defined group deleted. Penguin Go included: its platform's next sync brings back the
- * platform's own models and promotions.
+ * user-defined group deleted.
  */
 export type PresetSyncMode = "add" | "restore";
 
@@ -1114,16 +1112,16 @@ export interface ModelOAuthCodeResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Penguin Go key authorization (/api/projects/:p/platform-auth, owner)
+// ModelScope key authorization (/api/projects/:p/modelscope-auth, owner)
 // ---------------------------------------------------------------------------
 
-export interface PlatformAuthStartResponse {
+export interface ModelScopeAuthStartResponse {
   flowId: string;
   authorizeUrl: string;
   expiresAt: string;
 }
 
-export type PlatformAuthFlowErrorCode =
+export type ModelScopeAuthFlowErrorCode =
   | "unreachable"
   | "upstream_failed"
   | "invalid_key"
@@ -1132,33 +1130,11 @@ export type PlatformAuthFlowErrorCode =
   | "already_delivered"
   | "apply_failed";
 
-export interface PlatformAuthFlowStatusResponse {
+export interface ModelScopeAuthFlowStatusResponse {
   status: "pending" | "applying" | "completed" | "cancelled" | "apply_failed" | "error";
-  error?: PlatformAuthFlowErrorCode;
+  error?: ModelScopeAuthFlowErrorCode;
   applied?: number;
 }
-
-/** Result of refreshing Penguin Go's catalog with the Project's stored platform key. */
-export interface PlatformModelSyncResponse extends ModelsResponse {
-  added: number;
-  updated: number;
-}
-
-// ---------------------------------------------------------------------------
-// ModelScope key authorization (/api/projects/:p/modelscope-auth, owner)
-// ---------------------------------------------------------------------------
-
-/**
- * The wire shapes are Penguin Go's, deliberately: both flows create a request, poll it, and
- * report the same six states and the same seven failure codes, so the App drives both with one
- * dialog. They are aliases rather than a second declaration because a copy would be the same
- * fields with the same meaning, and a shape that drifted apart in one of the two would be a
- * bug rather than a distinction. The endpoints stay separate regardless — a flow id issued by
- * one is not accepted by the other.
- */
-export type ModelScopeAuthStartResponse = PlatformAuthStartResponse;
-export type ModelScopeAuthFlowErrorCode = PlatformAuthFlowErrorCode;
-export type ModelScopeAuthFlowStatusResponse = PlatformAuthFlowStatusResponse;
 
 // ---------------------------------------------------------------------------
 // New-chat defaults (the `[default_chat]` block of .project_config.toml)
@@ -5765,7 +5741,7 @@ export type MachineSshFailure =
   | "ssh-config"
   | "other";
 
-/** Whether a machine reaches one release source: the package is there, the source answered without it, or no answer. */
+/** Whether a machine reaches the release source: the package is there, the source answered without it, or no answer. */
 export type MachineSourceReach = "ok" | "missing" | "unreachable";
 
 /**
@@ -5812,15 +5788,14 @@ export type MachineCheck =
   | { id: "tools"; state: "pass" | "warn" | "fail"; missing: string[] }
   /**
    * Whether the machine itself reaches release `version` for its platform. `warn`: out of
-   * reach, so an install cannot download it there; `fail`: both sources answered and neither
-   * has it (not published).
+   * reach, so an install cannot download it there; `fail`: GitHub answered and does not
+   * have it (not published).
    */
   | {
       id: "download";
       state: "pass" | "warn" | "fail";
       version: string;
       github: MachineSourceReach;
-      oss: MachineSourceReach;
     }
   /** Free space in the machine's home against what an install needs, in MB. */
   | { id: "disk"; state: "pass" | "warn" | "fail"; freeMb: number; needMb: number }

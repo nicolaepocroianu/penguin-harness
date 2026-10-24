@@ -95,14 +95,14 @@ wafh update             # upgrade to the latest release, after confirming
 > [!NOTE]
 > On Windows, `wafh update` does not upgrade in place and tells you what to run instead. To upgrade an install made with the Windows installer, run the installer again.
 
-Running the install script again also upgrades an install; its files are swapped atomically. See [wafh update](/cli#wafh-update) for every option and the download source rules, and the [Installation reference](/quickstart-cli#installation-reference) for the installers.
+Running the install script again also upgrades an install; its files are swapped atomically. See [wafh update](/cli#wafh-update) for every option and the download rules, and the [Installation reference](/quickstart-cli#installation-reference) for the installers.
 
 ## Update a Docker deployment
 
-Pull a newer tag and recreate the container. The data root is on the volume and carries over:
+Update the checkout, rebuild the image and recreate the container. The data root is on the volume and carries over:
 
 ```bash
-docker compose pull && docker compose up -d
+git pull && docker compose -f docker/compose.yaml up -d --build
 ```
 
 Updating from inside the container is not supported. See [Upgrade the container](/quickstart-docker#upgrade-the-container) for the details.

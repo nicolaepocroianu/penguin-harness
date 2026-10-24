@@ -1,7 +1,7 @@
 /*
  * The gallery chrome: the gallery's bar under the site navbar, a section's navigation list, the
  * content column with its sections and toolbars, "on this page", the framed app, the framed
- * component library and the fonts pages. The site navbar itself is the landing page's Tailwind
+ * component library and the fonts pages. The site navbar itself is the site's Tailwind
  * markup, rendered in its own scope (site/site.css), not here.
  * Deliberately UNTHEMED — every colour is a `--g-*` variable and every length is px, never rem or
  * em — so switching the theme, the accent or the root size under test never moves the chrome; only
@@ -50,7 +50,7 @@
   --g-gutter: 24px;
 }
 
-/* Dark: a calm neutral, the landing site's and the app's Primer dark — a near-neutral canvas
+/* Dark: a calm neutral, the site's and the app's Primer dark — a near-neutral canvas
    lifted off black, surfaces a step lighter, ink at 15:1 on the canvas, the muted ink at 7:1 and
    the subtle one above 4.5:1 on every chrome surface, one brand blue. */
 :root.dark {

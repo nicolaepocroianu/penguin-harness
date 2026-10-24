@@ -183,7 +183,7 @@ describe("planModelSync", () => {
         providers: {
           tokendance: { api_key: "td-group-0123456789", created_at: "2026-10-01T00:00:00Z" },
           "my-lab": { base_url: "https://lab.example/v1", client_type: "openai-chat" },
-          "penguin-go": { client_type: "google-genai", api_key: "pg-group-0123456789" },
+          "opencode-go": { client_type: "openai-chat", api_key: "oc-group-0123456789" },
         },
       },
       remoteTable({ providers: { tokendance: { apiKeyMasked: "td-t…heir" } } }),
@@ -191,7 +191,7 @@ describe("planModelSync", () => {
     expect(plan.providers).toEqual({
       tokendance: { apiKey: "td-group-0123456789" },
       "my-lab": { baseUrl: "https://lab.example/v1", clientType: "openai-chat" },
-      "penguin-go": { clientType: "google-genai", apiKey: "pg-group-0123456789" },
+      "opencode-go": { clientType: "openai-chat", apiKey: "oc-group-0123456789" },
     });
     expect(JSON.stringify(plan)).not.toContain("…");
   });
@@ -526,8 +526,8 @@ describe("syncModelsToMachine, against a running server", () => {
         password: machine.adminPassword,
       });
       const cookie = login.setCookie.map((line) => line.split(";")[0]?.trim() ?? "").join("; ");
-      // Penguin Go carries only its built-in models; this id is none of them.
-      const handAdded = { provider: "penguin-go", model_id: "gemini-9.9-not-a-preset" };
+      // OpenCode Go carries only its built-in models; this id is none of them.
+      const handAdded = { provider: "opencode-go", model_id: "gemini-9.9-not-a-preset" };
 
       const outcome = await syncModelsToMachine({
         api: machineApi(new http.Agent(), port, cookie),
@@ -544,7 +544,7 @@ describe("syncModelsToMachine, against a running server", () => {
         skipped: [
           {
             projectId: "default_project",
-            provider: "penguin-go",
+            provider: "opencode-go",
             modelId: "gemini-9.9-not-a-preset",
             code: "model_not_addable",
           },

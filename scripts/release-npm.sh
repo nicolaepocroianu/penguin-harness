@@ -5,7 +5,8 @@
 #   bash scripts/release-npm.sh test          the suites the npm job runs on the stamped, built tree
 #   bash scripts/release-npm.sh test-smoke    known stamp regressions for pull-request packaging checks
 #
-# release.yml's publish-npm job stamps, builds and runs the full suites on the tag's checkout.
+# Upstream's release workflow ran these on the tag's checkout before publishing to npm; this fork
+# publishes nothing, but the steps still define what a published package must survive.
 # CI's npm packaging job stamps with the repo's own version, builds, then runs the focused suites
 # below so known failures on a stamped tree are caught at review time instead of after the tag.
 # v0.2.14 was lost that way: the job stamped the sandbox backends but not the server's embedded

@@ -76,7 +76,6 @@ import {
   requireValidId,
 } from "../validate.js";
 import type { ServerConfig } from "../../config.js";
-import { normalizeWafHarnessGoOrigin } from "../../config.js";
 import type { ChannelHub } from "../../runtime/channel.js";
 import type { MessagingBridge } from "../../runtime/messaging/bridge.js";
 import type { SessionManager, RecallStore } from "../../runtime/session-manager.js";
@@ -142,7 +141,6 @@ import { agentConfigRoutes } from "./agent-config.js";
 import { vaultRoutes } from "./vault.js";
 import { modelsRoutes } from "./models.js";
 import { modelOAuthCallbackRoutes, modelOAuthRoutes } from "./model-oauth.js";
-import { platformAuthRoutes } from "./platform-auth.js";
 import { modelScopeAuthRoutes } from "./modelscope-auth.js";
 import { chatDefaultsRoutes } from "./chat-defaults.js";
 import { commandPolicyRoutes } from "./command-policy.js";
@@ -157,7 +155,6 @@ import type {
   ProjectConfigStore,
   ProjectEvents,
 } from "../../mechanisms/projects.js";
-import type { PlatformAuth } from "../../services/platform-auth-service.js";
 import type { ModelScopeAuth } from "../../services/modelscope-auth-service.js";
 import type {
   Schedules,
@@ -1908,12 +1905,6 @@ export function sessionsRoutes(deps: SessionsRouteDeps): Hono<AppEnv> {
         order: 110,
       },
       {
-        id: "session-api.platform-auth",
-        prefix: "/api/projects/:projectId/platform-auth",
-        auth: "user",
-        order: 115,
-      },
-      {
         id: "session-api.modelscope-auth",
         prefix: "/api/projects/:projectId/modelscope-auth",
         auth: "user",
@@ -2008,7 +1999,6 @@ export class SessionApiRoutes {
   @Use() private readonly projectEvents!: ProjectEvents;
   @Use() private readonly projectConfig!: ProjectConfigStore;
   @Use() private readonly modelOAuth!: ModelOAuth;
-  @Use() private readonly platformAuth!: PlatformAuth;
   @Use() private readonly modelScopeAuth!: ModelScopeAuth;
   @Use() private readonly traceIndex!: TraceIndex;
   @Use() private readonly traces!: Traces;
@@ -2031,7 +2021,6 @@ export class SessionApiRoutes {
   @Bind("session-api.model-oauth-callback") modelOauthCallbackRoutes!: Hono<AppEnv>;
   @Bind("session-api.models") modelsRoutes!: Hono<AppEnv>;
   @Bind("session-api.model-oauth") modelOauthRoutes!: Hono<AppEnv>;
-  @Bind("session-api.platform-auth") platformAuthRoutes!: Hono<AppEnv>;
   @Bind("session-api.modelscope-auth") modelScopeAuthRoutes!: Hono<AppEnv>;
   @Bind("session-api.chat-defaults") chatDefaultsRoutes!: Hono<AppEnv>;
   @Bind("session-api.command-policy") commandPolicyRoutes!: Hono<AppEnv>;
@@ -2097,12 +2086,8 @@ export class SessionApiRoutes {
       codingAgents: this.codingAgents,
     };
     this.modelOauthCallbackRoutes = modelOAuthCallbackRoutes(modelOAuthDeps);
-    this.modelsRoutes = modelsRoutes({
-      ...modelDeps,
-      wafHarnessGoOrigin: this.config.wafHarnessGoOrigin ?? normalizeWafHarnessGoOrigin(undefined),
-    });
+    this.modelsRoutes = modelsRoutes(modelDeps);
     this.modelOauthRoutes = modelOAuthRoutes(modelOAuthDeps);
-    this.platformAuthRoutes = platformAuthRoutes({ ...modelDeps, platformAuth: this.platformAuth });
     this.modelScopeAuthRoutes = modelScopeAuthRoutes({
       ...modelDeps,
       modelScopeAuth: this.modelScopeAuth,

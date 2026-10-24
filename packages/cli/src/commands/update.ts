@@ -11,10 +11,9 @@
  * made — never by guessing. A source checkout is refused outright: overwriting a working tree
  * would destroy uncommitted work.
  *
- * Release discovery and installer download use the same environment contract as the public
- * installer entry point: an explicit WAFH_DOWNLOAD_BASE_URL has highest download priority;
- * otherwise auto prefers the OSS latest pointer and immutable release when fetching the versioned
- * installer, then lets that installer choose the large payload source for the same tag. The
+ * Release discovery and the installer download both come from the GitHub Releases of this
+ * build's own repository (core's RELEASE_IDENTITY); an explicit https WAFH_DOWNLOAD_BASE_URL
+ * (a self-hosted copy of a Release) overrides the installer and payload location. The
  * target-a-specific-release flag is spelled
  * `--release <tag>` rather than `--version <tag>`: commander's program-level
  * `-v, --version` intercepts a subcommand's own `--version` when it is written with a space, so
@@ -54,8 +53,7 @@
  * — and the confirmation prompt says so, because that is the thing users worry about.
  *
  * A build whose repository publishes no releases (core's RELEASE_IDENTITY) refuses before any
- * lookup, `--check` included: the OSS mirror below is another repository's release channel, and
- * an install must never be moved onto a build from somewhere else.
+ * lookup, `--check` included: an install must never be moved onto a build from somewhere else.
  * Docs: /docs/cli § "wafh update".
  */
 import { spawn } from "node:child_process";
@@ -83,13 +81,10 @@ export { compareVersions, normalizeVersion };
 export const REPO_SLUG = RELEASE_IDENTITY.repository;
 /** Releases API endpoint for the newest published release. */
 export const LATEST_RELEASE_API = `https://api.github.com/repos/${REPO_SLUG}/releases/latest`;
-/** Public roots shared with the stable installer entry point. */
-export const OSS_ORIGIN = "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com";
-export const OSS_RELEASE_ROOT = `${OSS_ORIGIN}/releases`;
+/** Download root of this repository's GitHub Releases. */
 export const GITHUB_RELEASE_ROOT = `https://github.com/${REPO_SLUG}/releases/download`;
 
-export type DownloadSource = "auto" | "oss" | "github";
-export type ReleaseDiscovery = "pinned" | "oss" | "github";
+export type ReleaseDiscovery = "pinned" | "github";
 
 export interface ResolvedRelease {
   version: string;
@@ -101,8 +96,6 @@ export interface InstallerCandidate {
   source: InstallerSource;
   baseUrl: string;
   url: string;
-  /** Same-tag payload fallback for an explicit configured mirror. */
-  fallbackBaseUrl?: string;
 }
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -220,8 +213,8 @@ export function globalInstallCommand(
  * - `--universal` is passed when the current install has no bundled `node/` directory, or the user
  *   would silently gain a runtime they deliberately did not install (and lose it in reverse);
  * - `WAFH_VERSION` pins the target when `--release` was given;
- * - download base values are passed only when the caller deliberately sets them; empty strings
- *   explicitly clear inherited values so install.sh can choose the large payload source itself.
+ * - the download base is passed only when the caller deliberately sets it; an empty string
+ *   explicitly clears an inherited value so install.sh downloads from the GitHub Release.
  *
  * Pure so every combination is unit-testable; the caller supplies the two facts that need the
  * filesystem (`installDir`, `hasBundledNode`).
@@ -233,7 +226,6 @@ export function buildInstallerInvocation(opts: {
   defaultInstallDir: string;
   version?: string;
   downloadBaseUrl?: string;
-  downloadFallbackBaseUrl?: string;
 }): { args: string[]; env: Record<string, string> } {
   const args = [opts.scriptPath];
   if (!opts.hasBundledNode) args.push("--universal");
@@ -243,25 +235,14 @@ export function buildInstallerInvocation(opts: {
   }
   if (opts.version) env.WAFH_VERSION = `v${normalizeVersion(opts.version)}`;
   if (opts.downloadBaseUrl !== undefined) env.WAFH_DOWNLOAD_BASE_URL = opts.downloadBaseUrl;
-  if (opts.downloadFallbackBaseUrl !== undefined)
-    env.WAFH_DOWNLOAD_FALLBACK_BASE_URL = opts.downloadFallbackBaseUrl;
   return { args, env };
 }
 
 export function payloadSourceEnv(
   candidate: InstallerCandidate,
   explicitBase: boolean,
-): Pick<
-  Parameters<typeof buildInstallerInvocation>[0],
-  "downloadBaseUrl" | "downloadFallbackBaseUrl"
-> {
-  if (explicitBase) {
-    return {
-      downloadBaseUrl: candidate.baseUrl,
-      downloadFallbackBaseUrl: candidate.fallbackBaseUrl ?? "",
-    };
-  }
-  return { downloadBaseUrl: "", downloadFallbackBaseUrl: "" };
+): Pick<Parameters<typeof buildInstallerInvocation>[0], "downloadBaseUrl"> {
+  return { downloadBaseUrl: explicitBase ? candidate.baseUrl : "" };
 }
 
 /** GitHub download URL for the installer of a given release (latest when no version is pinned). */
@@ -269,12 +250,6 @@ export function installerUrl(version?: string): string {
   return version
     ? `${GITHUB_RELEASE_ROOT}/v${normalizeVersion(version)}/install.sh`
     : `https://github.com/${REPO_SLUG}/releases/latest/download/install.sh`;
-}
-
-/** Normalizes the environment contract without silently accepting misspellings. */
-export function parseDownloadSource(value: string | undefined): DownloadSource | null {
-  const source = value || "auto";
-  return source === "auto" || source === "oss" || source === "github" ? source : null;
 }
 
 /** Accepts only absolute HTTPS bases before any remote installer code is downloaded. */
@@ -289,37 +264,9 @@ export function normalizeHttpsBaseUrl(value: string | undefined): string | null 
   }
 }
 
-/** Explicit mirror settings outrank OSS/GitHub selection, matching the public forwarder. */
-export function configuredInstallerCandidate(
-  baseUrl: string,
-  fallbackBaseUrl?: string,
-): InstallerCandidate {
-  return {
-    source: "configured",
-    baseUrl,
-    url: `${baseUrl}/install.sh`,
-    ...(fallbackBaseUrl ? { fallbackBaseUrl } : {}),
-  };
-}
-
-function isReleaseTag(value: string): boolean {
-  return /^v[0-9A-Za-z][0-9A-Za-z._-]*$/.test(value);
-}
-
-/** Validates OSS latest.json exactly like the public forwarders, including its fixed bucket base. */
-export function parseOssLatestManifest(value: unknown): ResolvedRelease | null {
-  if (typeof value !== "object" || value === null) return null;
-  const manifest = value as {
-    schemaVersion?: unknown;
-    tag?: unknown;
-    releaseBaseUrl?: unknown;
-  };
-  if (manifest.schemaVersion !== 1 || typeof manifest.tag !== "string") return null;
-  if (!isReleaseTag(manifest.tag)) return null;
-  if (manifest.releaseBaseUrl !== `${OSS_RELEASE_ROOT}/${manifest.tag}`) return null;
-  const version = normalizeVersion(manifest.tag);
-  if (!version) return null;
-  return { version, tag: manifest.tag, discoveredFrom: "oss" };
+/** An explicit download base outranks the GitHub Release. */
+export function configuredInstallerCandidate(baseUrl: string): InstallerCandidate {
+  return { source: "configured", baseUrl, url: `${baseUrl}/install.sh` };
 }
 
 /**
@@ -351,28 +298,8 @@ export async function fetchLatestVersion(t: Messages, fetcher: FetchLike = fetch
   return normalizeVersion(tag);
 }
 
-/** Resolves and validates the OSS latest pointer; callers decide whether failure is strict. */
-export async function fetchOssLatestRelease(
-  t: Messages,
-  fetcher: FetchLike = fetch,
-): Promise<ResolvedRelease> {
-  try {
-    const res = await fetcher(`${OSS_ORIGIN}/latest.json`, {
-      headers: { "user-agent": userAgent() },
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!res.ok) throw new Error(String(res.status));
-    const release = parseOssLatestManifest(await res.json());
-    if (!release) throw new Error("invalid manifest");
-    return release;
-  } catch {
-    throw new Error(t.update.ossUnavailable());
-  }
-}
-
 /** Resolves one immutable target tag before planning or downloading anything. */
 export async function resolveRelease(
-  source: DownloadSource,
   requestedRelease: string | undefined,
   t: Messages,
   fetcher: FetchLike = fetch,
@@ -381,44 +308,14 @@ export async function resolveRelease(
     const version = normalizeVersion(requestedRelease);
     return { version, tag: `v${version}`, discoveredFrom: "pinned" };
   }
-
-  if (source !== "github") {
-    try {
-      return await fetchOssLatestRelease(t, fetcher);
-    } catch (error) {
-      if (source === "oss") throw error;
-    }
-  }
-
   const version = await fetchLatestVersion(t, fetcher);
   return { version, tag: `v${version}`, discoveredFrom: "github" };
 }
 
-/**
- * Produces immutable, same-tag installer candidates. If auto had to discover the target through
- * GitHub because OSS metadata was unavailable, it follows the forwarder and stays on GitHub.
- */
-export function installerCandidates(
-  source: DownloadSource,
-  release: ResolvedRelease,
-): InstallerCandidate[] {
-  const githubBase = `${GITHUB_RELEASE_ROOT}/${release.tag}`;
-  const github: InstallerCandidate = {
-    source: "github",
-    baseUrl: githubBase,
-    url: `${githubBase}/install.sh`,
-  };
-  if (source === "github" || (source === "auto" && release.discoveredFrom === "github")) {
-    return [github];
-  }
-
-  const ossBase = `${OSS_RELEASE_ROOT}/${release.tag}`;
-  const oss: InstallerCandidate = {
-    source: "oss",
-    baseUrl: ossBase,
-    url: `${ossBase}/install.sh`,
-  };
-  return source === "auto" ? [oss, github] : [oss];
+/** The immutable same-tag installer candidate on GitHub Releases. */
+export function installerCandidates(release: ResolvedRelease): InstallerCandidate[] {
+  const base = `${GITHUB_RELEASE_ROOT}/${release.tag}`;
+  return [{ source: "github", baseUrl: base, url: `${base}/install.sh` }];
 }
 
 /** Downloads fully before execution; transport failure advances only to the next same-tag source. */
@@ -583,9 +480,7 @@ export function registerUpdateCommand(program: Command, t: Messages): void {
         return;
       }
       const current = VERSION;
-      const source = parseDownloadSource(process.env.WAFH_DOWNLOAD_SOURCE);
-      if (!source) throw new Error(t.update.invalidDownloadSource());
-      const release = await resolveRelease(source, opts.release, t);
+      const release = await resolveRelease(opts.release, t);
       const target = release.version;
       const modulePath = selfPath();
       const defaultInstallDir = path.join(homedir(), ".waf-harness");
@@ -636,22 +531,14 @@ export function registerUpdateCommand(program: Command, t: Messages): void {
       if (!(await confirmUpgrade(opts.yes, t))) return;
 
       const explicitBaseValue = process.env.WAFH_DOWNLOAD_BASE_URL;
-      const explicitFallbackValue = process.env.WAFH_DOWNLOAD_FALLBACK_BASE_URL;
       let candidates: InstallerCandidate[];
       if (explicitBaseValue) {
         const explicitBase = normalizeHttpsBaseUrl(explicitBaseValue);
         if (!explicitBase)
           throw new Error(t.update.downloadBaseMustBeHttps("WAFH_DOWNLOAD_BASE_URL"));
-        let explicitFallback: string | undefined;
-        if (explicitFallbackValue) {
-          const normalizedFallback = normalizeHttpsBaseUrl(explicitFallbackValue);
-          if (!normalizedFallback)
-            throw new Error(t.update.downloadBaseMustBeHttps("WAFH_DOWNLOAD_FALLBACK_BASE_URL"));
-          explicitFallback = normalizedFallback;
-        }
-        candidates = [configuredInstallerCandidate(explicitBase, explicitFallback)];
+        candidates = [configuredInstallerCandidate(explicitBase)];
       } else {
-        candidates = installerCandidates(source, release);
+        candidates = installerCandidates(release);
       }
       const downloaded = await downloadInstaller(candidates);
       if (!downloaded) {

@@ -72,7 +72,7 @@ export interface SkippedModel {
 
 /**
  * The entry a refused PUT names, from the error's `details` (`model_not_addable`,
- * `model_not_routable`, a Penguin Go row's `wafh_go_protocol_fixed`): structured, never read
+ * `model_not_routable`): structured, never read
  * off the message, which is prose. Null for a refusal that names no entry.
  */
 function refusedEntry(

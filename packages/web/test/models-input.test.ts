@@ -477,8 +477,8 @@ describe("fastModeState (whether the dialog offers the fast-mode switch, and on 
         show: false,
       });
     }
-    // A Gemini id pinned to the generateContent client (what the Penguin Go rows pin) loses
-    // the tier its unpinned id would have.
+    // A Gemini id pinned to the generateContent client loses the
+    // tier its unpinned id would have.
     expect(
       fastModeState(draft({ modelId: "gemini-3.5-flash", clientType: "google-genai" })),
     ).toEqual({ protocol: undefined, show: false });

@@ -62,7 +62,8 @@ import { APPROVAL_MODES } from "../chat/approval-mode";
 import { ApiSessionSettings, ApiConcurrencySettings } from "./api-session-settings";
 import { ApiTryPanel } from "./api-try-panel";
 
-export const AGENT_API_DOCS_URL = "https://penguin.ooo/docs/agent-api";
+export const AGENT_API_DOCS_URL =
+  "https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/agent-api.en.md";
 
 function ApiUsageActions({ baseUrl, agentRef }: { baseUrl: string; agentRef: string }) {
   const { copied, flash } = useCopied();

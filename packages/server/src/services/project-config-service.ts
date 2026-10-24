@@ -62,10 +62,7 @@ import {
 } from "@waterford/waf-harness-core";
 import {
   MODELSCOPE_PROVIDER_ID,
-  PENGUIN_GO_PROVIDER_ID,
   catalogEntryFor,
-  fixedClientType,
-  fixedClientTypeRefuses,
   providerInfo,
   retainedCatalogPricing,
   unaddableModel,
@@ -79,7 +76,6 @@ import {
   presetPromotions,
   presetProviderTable,
 } from "../model-catalog/seed.js";
-import { sameClientType, sameEndpoint } from "@waterford/waf-harness-core/model-connection";
 import type {
   PluginTables,
   CommandPolicyRule,
@@ -121,13 +117,7 @@ import type {
 import { badRequest } from "../http/validate.js";
 import { HttpError } from "../http/errors.js";
 import { cacheable } from "../internal/mtime-gate.js";
-import type {
-  PlatformCatalogPricing,
-  PlatformModelApplyResult,
-  PlatformModelCatalog,
-} from "./platform-auth-types.js";
 import { detectModelProtocol } from "./protocol-detect.js";
-import { migrateWafHarnessGoRoutes } from "./project-config-migrations.js";
 import { presetProjectConfig } from "./project-config-seed.js";
 import {
   VISION_PROBE_IMAGE,
@@ -171,25 +161,6 @@ function asArray(v: unknown): RawTable[] {
 
 function optNum(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
-}
-
-function platformPricingTable(pricing: PlatformCatalogPricing): RawTable {
-  return {
-    unit: pricing.unit,
-    cache_read: pricing.cacheRead,
-    cache_write: pricing.cacheWrite,
-    output: pricing.output,
-  };
-}
-
-function platformPricingMatches(value: unknown, pricing: PlatformCatalogPricing): boolean {
-  const stored = asTable(value);
-  return (
-    stored.unit === pricing.unit &&
-    stored.cache_read === pricing.cacheRead &&
-    stored.cache_write === pricing.cacheWrite &&
-    stored.output === pricing.output
-  );
 }
 
 /**
@@ -300,47 +271,6 @@ function showRef(provider: string, modelId: string): string {
 }
 
 /**
- * `400 wafh_go_protocol_fixed`: `what` is the refused write, said as a sentence's start. A
- * refused row names itself in `details`, as `model_not_addable` does, so a caller that can drop
- * one entry (a machine's config sync) skips it rather than the whole table.
- */
-function protocolFixed(
-  provider: string,
-  what: string,
-  entry?: { provider: string; modelId: string },
-): HttpError {
-  const group = providerInfo(provider)?.label ?? provider;
-  return new HttpError(
-    400,
-    "wafh_go_protocol_fixed",
-    `${what}: the ${group} group's protocol is fixed to ${fixedClientType(provider)}.`,
-    undefined,
-    entry,
-  );
-}
-
-/**
- * Refuses a group connection change whose protocol the group's fixed protocol does not allow
- * (core's fixedClientTypeRefuses, judged against what the group stores now). `clientType`
- * undefined means the change leaves the protocol alone; null or blank clears it.
- */
-function checkGroupProtocol(
-  raw: RawTable,
-  provider: string,
-  clientType: string | null | undefined,
-): void {
-  if (clientType === undefined) return;
-  const stored = optStr(asTable(asTable(raw.providers)[provider]).client_type);
-  if (!fixedClientTypeRefuses(provider, "group", clientType, stored)) return;
-  throw protocolFixed(
-    provider,
-    clientType?.trim()
-      ? `The ${provider} group cannot use client type ${JSON.stringify(clientType)}`
-      : `The ${provider} group's protocol cannot be cleared`,
-  );
-}
-
-/**
  * The `[providers]` table as the resolver reads it — core's lenient narrowing, so this service
  * and a Session can never disagree about a group's connection; `{}` when the file sets none.
  */
@@ -434,8 +364,7 @@ function providerDto(p: ProviderConnection): ProviderConnectionDto {
  * a value sets it, `null` (or a blank string) clears it, absent keeps it; a key stamps
  * `created_at`, clearing it removes that too. A member left with nothing is dropped. Rows are
  * not touched: a model with its own value keeps it — a row's own protocol always wins over its
- * group's (OpenCode Go's rows each store theirs). Penguin Go's protocol is fixed, which the
- * callers check first (checkGroupProtocol).
+ * group's (OpenCode Go's rows each store theirs).
  *
  * Returns the new table and whether the group key was written or cleared by hand.
  */
@@ -545,20 +474,6 @@ function presetAdditions(raw: RawTable): { providers: RawTable; added: ModelEntr
     (m) => !stored.has(refKey(m.provider, m.model_id)),
   );
   return { providers, added };
-}
-
-/**
- * The one value every model the platform advertises shares (an endpoint or a protocol, compared
- * with `same`) — the platform's value for its group, as the catalog derives a group's from its
- * rows — or undefined when they differ or there are none.
- */
-function sharedPlatformValue(
-  values: readonly string[],
-  same: (a: string, b: string) => boolean,
-): string | undefined {
-  const first = values[0];
-  if (first === undefined) return undefined;
-  return values.every((v) => same(v, first)) ? first : undefined;
 }
 
 /** The latest of some ISO 8601 timestamps (an unparseable one loses), or undefined when there are none. */
@@ -855,9 +770,7 @@ export class ProjectConfigService implements ProjectConfigStore {
 
   /**
    * Reads every Project's config once through readTable, so what the server's read path writes
-   * back — core's one-time migrations and the server's own (project-config-migrations.ts:
-   * Penguin Go's pre-MMSP routes) — is on disk before anything else opens a file: core's loader,
-   * which a Session created or resumed through the SDK reads with, runs none of the server's.
+   * back — core's one-time migrations — is on disk before anything else opens a file.
    * Called once as the App starts, before the schedulers. A file that does not parse is left for
    * the next read that needs it to report. Exists for the one-time migrations alone, so it goes
    * with them at the 0.3.0 release preparation
@@ -908,18 +821,12 @@ export class ProjectConfigService implements ProjectConfigStore {
       return null;
     }
     const table = asTable(parseToml(raw));
-    // The one-time migrations, both run on every call (`||` would skip the second whenever the
-    // first changed something): core's first (MMSP 0.5.0's client types, the group-level hoist),
-    // then the server's, which needs the catalog (project-config-migrations.ts): Penguin Go's
-    // pre-MMSP routes.
-    const migrated = migrateProjectConfigTable(table);
-    const routed = migrateWafHarnessGoRoutes(table) > 0;
-    if (migrated || routed) {
-      // A file from before MMSP 0.5.0 or before group-level connections, or one with pre-MMSP
-      // Penguin Go routes: rewritten once, before it is served; the next read parses the
-      // rewritten file (writeRaw drops the cache). Every file writeRaw renders carries a
-      // `[providers]` table, which is what keeps the key hoist from ever running on it again,
-      // and none of those routes, so the next read migrates nothing. All of them go at the 0.3.0
+    // Core's one-time migrations (MMSP 0.5.0's client types, the group-level hoist).
+    if (migrateProjectConfigTable(table)) {
+      // A file from before MMSP 0.5.0 or before group-level connections: rewritten once, before
+      // it is served; the next read parses the rewritten file (writeRaw drops the cache). Every
+      // file writeRaw renders carries a `[providers]` table, which is what keeps the key hoist
+      // from ever running on it again, so the next read migrates nothing. Both go at the 0.3.0
       // release preparation.
       await this.writeRaw(projectId, table);
       return table;
@@ -1738,8 +1645,7 @@ export class ProjectConfigService implements ProjectConfigStore {
    * takes no hand-added models when it is not one of that group's presets
    * (`model_not_addable`); one already stored under that key is written as it stands. Both
    * name the entry in `details` (`provider`, `modelId`). See the loops below for why the two
-   * differ. A Penguin Go row or group given a protocol other than MMSP, or the group's cleared,
-   * is `wafh_go_protocol_fixed` unless that value is the one it already stores.
+   * differ.
    *
    * `providers` changes the groups' connections, merged per group and per field like
    * `PUT /models/providers/:provider`; a group absent there keeps its table. Once the rows are
@@ -1765,31 +1671,6 @@ export class ProjectConfigService implements ProjectConfigStore {
     });
     const raw = await this.readRaw(projectId);
     const prevModels = asArray(raw.models);
-
-    // A group whose protocol is fixed (Penguin Go) takes that protocol on the group and its rows,
-    // nothing else. What is stored passes unchanged, so a row moved to the user's own proxy on
-    // another protocol before the rule round-trips; a row is judged against its own stored value
-    // (the one it was renamed from inside its group), never another group's.
-    for (const [provider, patch] of Object.entries(req.providers ?? {})) {
-      checkGroupProtocol(raw, provider, patch.clientType);
-    }
-    for (const entry of req.models) {
-      const from = entry.renamedFrom ?? entry;
-      const prev =
-        from.provider === entry.provider
-          ? prevModels.find((m) => entryMatches(m, from.provider, from.modelId))
-          : undefined;
-      if (
-        !fixedClientTypeRefuses(entry.provider, "row", entry.clientType, optStr(prev?.client_type))
-      ) {
-        continue;
-      }
-      throw protocolFixed(
-        entry.provider,
-        `Model ${showRef(entry.provider, entry.modelId)} cannot use client type ${JSON.stringify(entry.clientType)}`,
-        { provider: entry.provider, modelId: entry.modelId },
-      );
-    }
 
     // The groups' connections first: the routability rule below judges a new row on the
     // protocol it would run on, which a group's client_type in this same request decides.
@@ -2091,9 +1972,7 @@ export class ProjectConfigService implements ProjectConfigStore {
    * merged per field (see patchProviderTable). No row is touched: a model with its own base
    * URL, protocol or key keeps it. A ModelScope key set or cleared here is the user's own, so
    * the group's authorization (its refresh token) goes with the old one — "Disconnect" is
-   * `{ clearApiKey: true }` here, and for ModelScope it ends the authorization too. A protocol
-   * Penguin Go's fixed one does not allow is refused before anything is written
-   * (checkGroupProtocol). Returns the models view as it now stands.
+   * `{ clearApiKey: true }` here, and for ModelScope it ends the authorization too. Returns the models view as it now stands.
    */
   async setProviderConnection(
     projectId: string,
@@ -2102,7 +1981,6 @@ export class ProjectConfigService implements ProjectConfigStore {
   ): Promise<ModelsResponse> {
     return this.withProviderCredentialLock(projectId, MODELSCOPE_PROVIDER_ID, async () => {
       const raw = await this.readRaw(projectId);
-      checkGroupProtocol(raw, provider, patch.clientType);
       const { table, keyChanged } = patchProviderTable(asTable(raw.providers), provider, patch);
       await this.writeRaw(projectId, { ...raw, providers: table });
       if (keyChanged && provider === MODELSCOPE_PROVIDER_ID) {
@@ -2322,8 +2200,7 @@ export class ProjectConfigService implements ProjectConfigStore {
    * the group's base URL (the catalog's clientEnvKey): no base URL, or the vendor's default
    * endpoint. Only a first-party
    * vendor group has a vendor client (vendorClientType), so a gateway's variable (TokenDance's
-   * OPENAI_API_KEY, if a user clears its base URL) never reaches its balance endpoint, and
-   * Penguin Go takes its key from the config alone. Never returned to the browser.
+   * OPENAI_API_KEY, if a user clears its base URL) never reaches its balance endpoint. Never returned to the browser.
    */
   async getGroupBalanceKey(projectId: string, provider: string): Promise<string | undefined> {
     const raw = await this.readRaw(projectId);
@@ -2335,113 +2212,6 @@ export class ProjectConfigService implements ProjectConfigStore {
     }
     const envKey = clientEnvKey(vendorClient, group?.base_url);
     return envKey !== undefined ? process.env[envKey]?.trim() || undefined : undefined;
-  }
-
-  /**
-   * Penguin Go's catalog, merged into its group. Only what is new arrives: a model the
-   * platform advertises and the group lacks is added with the platform's list price, context
-   * window, vision flag, display name and routing, and its promotion is stored beside it
-   * (web.db). Its protocol and endpoint are stored per field against the group's
-   * `[providers.penguin-go]` table in the file (the built-in catalog is not consulted): a field
-   * the table holds is followed, the row storing only where it differs from the platform's
-   * group value (the relay URL every model shares); a field the table lacks is written on the
-   * row in full. A row the group
-   * already holds keeps its metadata and promotion. Go-managed routes switch to MMSP,
-   * including model overrides; user-redirected endpoints retain their configuration.
-   *
-   * Authorization (`applyKeyToExisting`) also writes the delivered key once, as the group's
-   * key (`[providers.penguin-go]`); new rows carry no key of their own and follow it.
-   *
-   * Returns how many rows were added, `updated` (routes changed),
-   * and `applied`: on authorization, how many of the group's rows now use the group key;
-   * otherwise the rows added.
-   */
-  async mergePlatformModels(
-    projectId: string,
-    provider: string,
-    catalog: PlatformModelCatalog,
-    apiKey: string,
-    applyKeyToExisting: boolean,
-  ): Promise<PlatformModelApplyResult> {
-    const raw = structuredClone(await this.readRaw(projectId));
-    const updated =
-      provider === PENGUIN_GO_PROVIDER_ID && catalog.models.length > 0
-        ? migrateWafHarnessGoRoutes(raw, catalog.models[0]!.baseUrl)
-        : 0;
-    const current = asArray(raw.models);
-    const known = new Set(
-      current.flatMap((model) =>
-        model.provider === provider && typeof model.model_id === "string" ? [model.model_id] : [],
-      ),
-    );
-    // Per field, as "Add new models" stores a catalog row against the file (presetAdditions):
-    // where the group's table in the file HAS the field, a new row stores only its difference
-    // from the platform's group value (the one endpoint or protocol every advertised model
-    // shares — the relay URL), so a group the user pointed at a proxy takes the row along;
-    // where the table LACKS it, the row stores the platform's full value, never falling to the
-    // client's default with the group's key.
-    const group = providerTableOf(raw)[provider];
-    const platformBaseUrl = sharedPlatformValue(
-      catalog.models.map((m) => m.baseUrl),
-      sameEndpoint,
-    );
-    const platformClientType = sharedPlatformValue(
-      catalog.models.map((m) => m.clientType),
-      sameClientType,
-    );
-    const added: RawTable[] = [];
-    for (const model of catalog.models) {
-      if (known.has(model.modelId)) continue;
-      known.add(model.modelId);
-      added.push({
-        provider,
-        model_id: model.modelId,
-        display_name: model.displayName,
-        context_window: model.contextWindow,
-        vision: model.supportsVision,
-        pricing: platformPricingTable(model.pricing),
-        ...(group?.client_type === undefined ||
-        platformClientType === undefined ||
-        !sameClientType(model.clientType, platformClientType)
-          ? { client_type: model.clientType }
-          : {}),
-        ...(group?.base_url === undefined ||
-        platformBaseUrl === undefined ||
-        !sameEndpoint(model.baseUrl, platformBaseUrl)
-          ? { base_url: model.baseUrl }
-          : {}),
-      });
-    }
-
-    const nextModels = [...current, ...added];
-    if (added.length > 0 || updated > 0 || applyKeyToExisting) {
-      const providers = applyKeyToExisting
-        ? patchProviderTable(asTable(raw.providers), provider, { apiKey }).table
-        : raw.providers;
-      await this.writeRaw(projectId, {
-        ...raw,
-        ...(providers !== undefined ? { providers } : {}),
-        models: nextModels,
-      });
-    }
-    // After the file write, so a promotion never lands for a row the file failed to take; the
-    // group's existing promotions are kept as they are.
-    const addedIds = new Set(added.map((row) => row.model_id));
-    const promoted = catalog.models.flatMap((model) =>
-      model.discount !== undefined && addedIds.has(model.modelId)
-        ? [{ provider, modelId: model.modelId, discount: model.discount }]
-        : [],
-    );
-    if (this.promotions !== undefined && promoted.length > 0) {
-      const kept = this.promotions
-        .list(projectId)
-        .filter((p) => p.provider === provider && !addedIds.has(p.modelId));
-      this.promotions.replaceProvider(projectId, provider, [...kept, ...promoted]);
-    }
-    const applied = applyKeyToExisting
-      ? rowsFollowingGroupKey({ providers: raw.providers, models: nextModels }, provider)
-      : added.length;
-    return { added: added.length, updated, applied };
   }
 
   /**
@@ -2459,12 +2229,6 @@ export class ProjectConfigService implements ProjectConfigStore {
    *   and those an older catalog added, retired rows included), every user-defined group,
    *   every override on a preset row, and every group setting the catalog does not write
    *   (custom's and vLLM's base URLs included). Promotions become the catalog's.
-   *
-   *   Penguin Go gets no exception. Its rows beyond the presets and its promotions came from
-   *   the platform, which prices against its own list: keeping a promotion on a row whose price
-   *   went back to the catalog's would bill a discount the platform never set on that price. So
-   *   the group is reset like the others, and the platform's next sync (connect, or "Sync
-   *   models") brings its models and promotions back under the key that is kept.
    *
    *   Keys stay where they were: a group's on its group, if the group is built-in; a row's on
    *   the same row, if that row is a preset. Then relocateSharedKeys runs over every row the

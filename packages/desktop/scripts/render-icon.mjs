@@ -1,6 +1,6 @@
 /**
  * Render the app icon PNGs from the brand mark (packages/web/public/wafh-logo.svg,
- * treated as immutable — landing/docs carry byte-identical copies).
+ * treated as immutable — docs and the gallery carry byte-identical copies).
  *
  * Outputs (COMMITTED — regenerate only when the SVG changes):
  * - build/icon.png            1024×1024. electron-builder converts it to icns (mac,
@@ -23,8 +23,8 @@
  *                             sizes and greys.
  *
  * Regenerate: node packages/desktop/scripts/render-icon.mjs
- * Rasterizes via the Playwright chromium already installed for packages/landing (no new
- * dependency; precedent: packages/landing/scripts/capture-readme-demo.mjs). Each size is
+ * Rasterizes via the Playwright chromium already installed for packages/web (no new
+ * dependency). Each size is
  * rendered at its native resolution (no downscaling), with a transparent background so
  * the SVG's rounded-rect clip keeps the corners transparent.
  */
@@ -41,10 +41,10 @@ const BUILD_DIR = path.join(PKG_DIR, "build");
 const ICON_SET_DIR = path.join(BUILD_DIR, "icons");
 const TRAY_DIR = path.join(BUILD_DIR, "tray");
 
-// Resolve @playwright/test from the landing package's context (it is not a dependency
+// Resolve @playwright/test from the web package's context (it is not a dependency
 // of this package, and must not become one).
-const requireLanding = createRequire(path.join(REPO_ROOT, "packages", "landing", "package.json"));
-const { chromium } = requireLanding("@playwright/test");
+const requireWeb = createRequire(path.join(REPO_ROOT, "packages", "web", "package.json"));
+const { chromium } = requireWeb("@playwright/test");
 
 const svgSource = readFileSync(SVG_PATH, "utf8");
 const dataUrl = (svg) => `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;

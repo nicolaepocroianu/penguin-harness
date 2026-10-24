@@ -1,11 +1,16 @@
-# Minimal WAF Harness deployment. `docker compose up -d`, then read the first-login
-# link out of `docker compose logs wafh`.
+# Minimal WAF Harness deployment. The image is built from this checkout's Dockerfile (no
+# image is published): from the repository root, `docker compose -f docker/compose.yaml up -d
+# --build`, then read the first-login link out of `docker compose -f docker/compose.yaml
+# logs wafh`.
 #
-# See https://penguin.ooo/docs/quickstart-docker for the first sign-in, upgrades, running
+# See packages/docs/content/quickstart-docker.en.md for the first sign-in, upgrades, running
 # behind a reverse proxy, and the rescue path for a forgotten admin password.
 services:
   wafh:
-    image: hiyouga/penguinharness:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: waf-harness:local
     restart: unless-stopped
     ports:
       # On the host's loopback: reachable only from the machine running Docker.

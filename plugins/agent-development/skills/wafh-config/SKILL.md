@@ -56,7 +56,7 @@ wafh config model remove --provider <group> [--project-id <id>] [--root <dir>]  
 
 - A field you do not name is left as it is. An empty value is refused: remove a field with its `--clear-*` flag.
 - The flags that describe one model (`--context-window`, `--max-tokens`, `--vision`, `--fast-mode`, `--price-*`, `--set-default`) are refused without `--model-id`; nothing is written.
-- Any group but `penguin-go` takes a protocol, `opencode-go` included: a model's own protocol always wins over its group's. `penguin-go` is fixed to `mmsp`, for its models too: another `--client-type`, or `--clear-client-type` on the group, is refused.
+- Every group takes a protocol, `opencode-go` included: a model's own protocol always wins over its group's.
 - The group key never replaces a key set on one model with `model add --api-key`; the command says how many models keep their own. It reaches only the models that go to the group's endpoint: a model whose own `--base-url` is on another host (scheme, host and port) needs its own `--api-key`.
 - For a group of your own on one endpoint, set its connection first, then add each model with only `--provider` and `--model-id`: the models store nothing and follow the group. Removing the group's last model removes its connection too.
 

@@ -38,10 +38,6 @@ import type {
 } from "@waterford/waf-harness-core";
 import type { TieredRates } from "../services/usage-service.js";
 import type {
-  PlatformModelApplyResult,
-  PlatformModelCatalog,
-} from "../services/platform-auth-types.js";
-import type {
   ModelOAuthErrorCode,
   ModelOAuthMode,
   ModelOAuthStartResult,
@@ -125,7 +121,7 @@ export abstract class ProjectLifecycle {
 @Interface()
 export abstract class ProjectConfigStore {
   abstract readRaw(projectId: string): Promise<RawTable>;
-  /** Reads every Project's config once, so what the read path's one-time migrations write back (core's and the server's) is on disk before any Session opens one. */
+  /** Reads every Project's config once, so what the read path's one-time migrations (core's) write back is on disk before any Session opens one. */
   abstract migrateStoredConfigs(): Promise<void>;
   abstract loadConfig(projectId: string): Promise<ProjectConfig>;
   abstract writeRaw(projectId: string, data: RawTable): Promise<void>;
@@ -211,13 +207,6 @@ export abstract class ProjectConfigStore {
   abstract setModelApiKeyResolver(
     resolver: (context: ModelRequestContext) => Promise<string | undefined>,
   ): void;
-  abstract mergePlatformModels(
-    projectId: string,
-    provider: string,
-    catalog: PlatformModelCatalog,
-    apiKey: string,
-    applyKeyToExisting: boolean,
-  ): Promise<PlatformModelApplyResult>;
   abstract completeOnce(projectId: string, prompt: string): Promise<UtilityCompletion>;
 }
 

@@ -1,6 +1,6 @@
 # @waterford/waf-harness-web
 
-The WAF Harness Web App — a React 19 + Vite + Tailwind CSS 4 SPA that renders the OmniMessage stream (same protocol and statistics as the CLI) and manages Agents, Skills, Models, usage and Traces. Feature tour: [Web App Guide](https://penguin.ooo/docs/web-app).
+The WAF Harness Web App — a React 19 + Vite + Tailwind CSS 4 SPA that renders the OmniMessage stream (same protocol and statistics as the CLI) and manages Agents, Skills, Models, usage and Traces. Feature tour: [Web App Guide](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/web-app.en.md).
 
 ## Layout
 
@@ -40,4 +40,4 @@ pnpm --filter @waterford/waf-harness-web build       # vite build → dist/
 
 No separate static server needed: `@waterford/waf-harness-server` auto-hosts `packages/web/dist` (or `WAFH_WEB_DIST`) with an SPA fallback — build the web app, start the server, done. The published npm packages bundle the built front end.
 
-Part of [WAF Harness](https://github.com/Prism-Shadow/penguin-harness) · Apache-2.0
+Part of [WAF Harness](https://github.com/nicolaepocroianu/waf-harness) · Apache-2.0

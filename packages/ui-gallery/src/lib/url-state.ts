@@ -9,7 +9,7 @@
  * ever changes. `view` appears only when set: `view=phone` frames every surface at phone width.
  * Pure: parsing never throws, and an unknown or missing value falls back to the caller's
  * fallback (the last-used value) and then to the default. The gallery is English only: a `lang`
- * parameter (the landing page's links name `lang=en`) is accepted and ignored.
+ * parameter (the site's links name `lang=en`) is accepted and ignored.
  *
  * The preferences are the app's own: the frame writes them under the app's storage keys, and the
  * gallery's root applies them through the package's `applyThemeAttributes`, so a size or a font
@@ -61,7 +61,7 @@ export type PrefKey = (typeof PREF_KEYS)[number];
 export type RememberedPrefs = Partial<Pick<GalleryState, PrefKey>>;
 
 /**
- * The five the gallery stores under its own keys. The mode is the site's: the landing page and
+ * The five the gallery stores under its own keys. The mode is the site's: the public site and
  * the docs keep it under a shared key, and the site navbar sets it here too.
  */
 export const GALLERY_PREF_KEYS = ["theme", "size", "latin", "cjk", "accent"] as const;

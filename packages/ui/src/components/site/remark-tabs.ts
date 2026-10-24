@@ -4,11 +4,11 @@
  * block, so the language keeps driving highlighting and nothing about the code changes.
  *
  *     ```bash tab="Linux / macOS"
- *     curl -fsSL https://penguin.ooo/install.sh | sh
+ *     curl -fsSL https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.sh | sh
  *     ```
  *
  *     ```powershell tab="Windows"
- *     irm https://penguin.ooo/install.ps1 | iex
+ *     irm https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.ps1 | iex
  *     ```
  *
  * The group becomes a `div.md-tabs` carrying its labels, in child order, as JSON on

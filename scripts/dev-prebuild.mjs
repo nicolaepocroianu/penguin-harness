@@ -35,7 +35,7 @@
  *   deliberately tiny so a human edit-then-restart cycle always rebuilds.
  *
  * Usage: `node scripts/dev-prebuild.mjs` (install + build core/hmr/server/cli) or
- * `node scripts/dev-prebuild.mjs --install-only` (dev:docs / dev:landing — no workspace
+ * `node scripts/dev-prebuild.mjs --install-only` (dev:docs — no workspace
  * deps to build, but installs must still be current).
  */
 import { createHash } from "node:crypto";

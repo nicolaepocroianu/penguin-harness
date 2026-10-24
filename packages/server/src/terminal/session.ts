@@ -201,16 +201,7 @@ const USER_SETTINGS = new Set([
   "WAFH_SHELL",
   // Where the installer and `wafh update` put a tarball install, and where they download from.
   "WAFH_INSTALL_DIR",
-  "WAFH_DOWNLOAD_SOURCE",
-  "WAFH_DOWNLOAD_SPEED_PROBE",
   "WAFH_DOWNLOAD_BASE_URL",
-  "WAFH_DOWNLOAD_FALLBACK_BASE_URL",
-  // The same choice for the desktop app's updater.
-  "WAFH_UPDATE_SOURCE",
-  "WAFH_UPDATE_SPEED_PROBE",
-  // The Penguin Go provider's key and endpoint, as OPENAI_API_KEY is OpenAI's (which stays too).
-  "PENGUIN_GO_API_KEY",
-  "PENGUIN_GO_BASE_URL",
 ]);
 
 /**

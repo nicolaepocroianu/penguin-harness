@@ -83,7 +83,7 @@ export interface ModelEntry {
    * and with neither MMSP routes the request id (`model_id`) by the vendor family it begins
    * with (`gpt-`, `claude-`, `gemini-`, `glm-`, `kimi-`, `deepseek-`, `minimax-`) — the
    * catalog is never consulted. A new Project stores one here only where the catalog's row
-   * differs from its group's (Penguin Go's and OpenCode Go's rows, custom's Atria).
+   * differs from its group's (OpenCode Go's rows, custom's Atria).
    * Third-party endpoints use one of the generic protocol clients: `openai-responses` (OpenAI
    * Responses API), `ant-messages` (Anthropic Messages API), `openai-chat` (OpenAI Chat
    * Completions; the bare `openai` spelling from configs saved before the client was renamed
@@ -330,8 +330,7 @@ function assertModelEntry(file: string, entry: unknown): ModelEntry {
  * The client types AgentHub 0.4 named after model generations, matched the way its router
  * matched them (anywhere in the lowercased value, in its branch order), and the MMSP 0.5
  * client that speaks the same wire protocol: the 0.4 Gemini client spoke generateContent,
- * which the compatible `google-genai` client still does (and what the Penguin Go relay
- * serves); the rest became their vendor's official client. No 0.5 name matches any of these.
+ * which the compatible `google-genai` client still does; the rest became their vendor's official client. No 0.5 name matches any of these.
  */
 const LEGACY_CLIENT_TYPES: readonly (readonly [RegExp, string])[] = [
   [/gemini-(3|embedding)/, "google-genai"],
@@ -446,8 +445,8 @@ function pluralityField(
 /**
  * One-time migration of a parsed `.project_config.toml` table to group-level connections.
  * Before `[providers.<id>]` existed, every preset row carried its own copy of the catalog's
- * protocol and endpoint, and every group write (Connect, Enter key, the Penguin Go and
- * ModelScope flows) copied one key onto each row of the group. Read as they are, the copies
+ * protocol and endpoint, and every group write (Connect, Enter key, the authorization
+ * flows) copied one key onto each row of the group. Read as they are, the copies
  * would all be overrides: a group key written after the upgrade would never reach a row still
  * holding the old one. So, in place, per group the rows name — built-in or user-defined —
  * except `custom`, whose rows each reach their own endpoint and keep all three fields:
@@ -538,8 +537,7 @@ export function hoistProviderConnections(table: Record<string, unknown>): boolea
  * hoist (hoistProviderConnections), which compares the rows' protocols with each other in
  * MMSP's names. Both loaders — `loadProjectConfig` here and the server's
  * `ProjectConfigService.readTable` — call this and write the raw table back once when it
- * returns true. The migration that needs the catalog (Penguin Go's pre-MMSP routes) runs in the
- * server's read path alone. All are removed at the 0.3.0 release preparation.
+ * returns true. All are removed at the 0.3.0 release preparation.
  */
 export function migrateProjectConfigTable(table: Record<string, unknown>): boolean {
   const legacy = migrateLegacyClientTypes(table);
@@ -1054,7 +1052,7 @@ export interface ProviderConnectionPatch {
 /**
  * Applies a patch to one group's connection defaults and saves (load -> patch -> save; the
  * CLI's `config model add --provider <group>` without `--model-id`). A table left with no
- * field is dropped. Any group takes any field — Penguin Go's and OpenCode Go's included: a
+ * field is dropped. Any group takes any field — OpenCode Go's included: a
  * row's own protocol always wins over its group's (effectiveConnection), so a group protocol
  * reaches only the rows that store none. Row overrides are never touched: a model with its
  * own value keeps it. Returns the saved config.

@@ -1,5 +1,5 @@
 /**
- * Public site: what the landing page and the docs share from `@waterford/waf-harness-ui/site` — the
+ * Public site: what the public site and the docs share from `@waterford/waf-harness-ui/site` — the
  * footer in both shapes, the code card and the copy button's looks, the category pills, an
  * article in the shared prose with its contents beside it, the docs sidebar, the search dialog
  * and the external-link confirmation. The site's own palette (site.css), not the theme under
@@ -112,7 +112,9 @@ export function SiteBoard() {
       <BoardGroup title={t.code} aside={t.codeHint}>
         <div className="lib-stack">
           <SiteCodeCard
-            code={"# Linux / macOS\ncurl -fsSL https://penguin.ooo/install.sh | sh"}
+            code={
+              "# Linux / macOS\ncurl -fsSL https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.sh | sh"
+            }
             label="curl | sh"
             copy={{ label: t.copy, announcement: t.copiedAnnouncement }}
           />
@@ -220,7 +222,7 @@ export function SiteBoard() {
       <BoardGroup title={t.leave} aside={t.leaveHint}>
         <SiteExternalLinkScope labels={t.leaveLabels}>
           <SiteExternalLink
-            href="https://github.com/Prism-Shadow/penguin-harness"
+            href="https://github.com/nicolaepocroianu/waf-harness"
             className="text-sm underline underline-offset-2"
           >
             {t.leaveLink}

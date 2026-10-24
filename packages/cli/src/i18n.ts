@@ -12,7 +12,7 @@ import type { OrgChannelNoticeKind } from "@waterford/waf-harness-server/api";
 export type Language = string;
 
 /** Installer locations are localized at the message boundary, not embedded in update logic. */
-export type InstallerSource = "configured" | "oss" | "github";
+export type InstallerSource = "configured" | "github";
 
 /** Readiness probe failure classes; selects which hint `webProbeFailed` appends. */
 export type WebProbeFailureKind =
@@ -954,9 +954,7 @@ export interface Messages {
     rateLimited(): string;
     apiFailed(status: number): string;
     apiMalformed(): string;
-    invalidDownloadSource(): string;
     downloadBaseMustBeHttps(name: string): string;
-    ossUnavailable(): string;
     installerFetchFailed(sources: InstallerSource[]): string;
   };
 
@@ -1146,8 +1144,6 @@ export interface Messages {
   providerBlankValue(flag: string, clearFlag: string): string;
   /** `model add` without --model-id refused: --base-url is not an absolute http(s) URL. */
   providerInvalidBaseUrl(baseUrl: string): string;
-  /** `model add` refused: a group whose protocol is fixed (Penguin Go) given another --client-type, or its group's cleared. */
-  protocolFixed(group: string, clientType: string): string;
   /** `model add` without --model-id refused: no field to set or clear. */
   providerNothingToSet(group: string): string;
   /** `model add` without --model-id done; `overriding` = the group's models a changed field passes by (their own value, or a group key that does not reach their base URL). */
@@ -1244,7 +1240,7 @@ const en: Messages = {
     addMaxTokens:
       "Per-model max output tokens (positive integer); when set it overrides the Agent's max_tokens, omit to inherit — lower it for small-context models",
     addClientType:
-      "MMSP client type (openai-responses, ant-messages, openai-chat, google-genai or mmsp, or a vendor's official client such as google-official): the model's own with --model-id, else the group's; a model without one follows its group, else MMSP routes it by id (a new custom or own-group model gets openai-chat when its group sets none); Penguin Go takes mmsp only",
+      "MMSP client type (openai-responses, ant-messages, openai-chat, google-genai or mmsp, or a vendor's official client such as google-official): the model's own with --model-id, else the group's; a model without one follows its group, else MMSP routes it by id (a new custom or own-group model gets openai-chat when its group sets none)",
     addClearClientType:
       "Remove the stored client type: the model's own with --model-id, else the group's",
     addVision: "Mark the model as supporting image input (vision)",
@@ -2098,18 +2094,10 @@ const en: Messages = {
     apiFailed: (status) => `The GitHub release lookup failed with HTTP ${status}.`,
     apiMalformed: () =>
       "The GitHub release lookup returned an unexpected response with no usable version tag.",
-    invalidDownloadSource: () => "WAFH_DOWNLOAD_SOURCE must be auto, oss, or github.",
     downloadBaseMustBeHttps: (name) => `${name} must be an absolute HTTPS URL.`,
-    ossUnavailable: () => "The OSS mirror is unavailable or its release metadata is invalid.",
     installerFetchFailed: (sources) =>
       `Could not download the installer from ${sources
-        .map((source) =>
-          source === "configured"
-            ? "the configured mirror"
-            : source === "oss"
-              ? "the OSS mirror"
-              : "GitHub",
-        )
+        .map((source) => (source === "configured" ? "the configured download location" : "GitHub"))
         .join(" or ")}. Check your network and retry.`,
   },
 
@@ -2287,8 +2275,6 @@ const en: Messages = {
     `${flag} is empty. Pass a value, or ${clearFlag} to remove the stored one.`,
   providerInvalidBaseUrl: (baseUrl) =>
     `Invalid --base-url "${baseUrl}": a group's base URL must be a full URL starting with http:// or https://.`,
-  protocolFixed: (group, clientType) =>
-    `${group}'s protocol is fixed to ${clientType}: --client-type takes ${clientType} only, and the group's protocol cannot be cleared.`,
   providerNothingToSet: (group) =>
     `Nothing to change for group ${group}: pass --api-key, --base-url or --client-type, or one of the --clear-* flags.`,
   providerSaved: (group, overriding) =>

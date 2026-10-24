@@ -17,7 +17,7 @@
  * - GET labels a row with the catalog's display name and reports the env key; a pre-rename
  *   `client_type = "openai"` reads as openai-chat; a file written before MMSP's names and group
  *   connections is rewritten once on its first read into the shape a new Project is written in
- *   (OpenCode Go's and Penguin Go's included), then served from the cache; a model the catalog
+ *   (OpenCode Go's included), then served from the cache; a model the catalog
  *   dropped still loads and stays usable; one model_id under two providers is two rows.
  * - PUT persists a custom model's vision flag and max_tokens (clearing and rejecting bad values),
  *   falls back to OPENAI_API_KEY for the openai protocol, requires a provider, refuses an id a
@@ -42,7 +42,7 @@
  *   settings, promotions and default model; no vision model) and keeps only the API keys, on
  *   their built-in group or preset row — a key a group's keyed rows share, deleted rows
  *   included, moves to the group; it deletes the user's own models and groups, retired rows and
- *   every override, Penguin Go's platform rows and promotions included, and writes nothing
+ *   every override, and writes nothing
  *   when nothing changes. Usage on a deleted model stays priced at the catalog's price when
  *   the model was once the default of new Projects, and goes uncosted otherwise.
  * - renamedFrom (and a group change) migrates the credential, the config and the default and
@@ -54,8 +54,8 @@
  *   promotion apply in both tiers.
  * - The connectivity test sends the entry's upstream model_id, no tools, works for saved and
  *   draft models, converges to ok:false with no credential, tests the draft (clearApiKey) rather
- *   than the stored key, and refuses a keyless gateway row or a Penguin Go probe without reaching
- *   for vendor environment keys or the network (a relay row with no endpoint anywhere included).
+ *   than the stored key, and refuses a keyless gateway row without reaching for vendor
+ *   environment keys or the network.
  *   Its request names WAF Harness and its version as the whole User-Agent, whichever SDK
  *   the protocol runs on.
  * - A PUT invalidates the Project's cached Session runtimes (reads do not), tells the Project's
@@ -71,7 +71,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { renderProjectConfigToml, userText, VERSION } from "@waterford/waf-harness-core";
 import {
   MODEL_CATALOG,
-  PENGUIN_GO_BASE_URL,
   catalogEntryFor,
   catalogGroupConnection,
   presetModelEntries,
@@ -343,7 +342,7 @@ describe("models preset & catalog enrichment", () => {
     expect(body.models.map(pairKey).filter((key) => retired.includes(key))).toEqual([]);
 
     // The catalog's group connections are written into the file once, as `[providers.<id>]`
-    // tables: the gateways', vLLM's protocol, Penguin Go's relay. The first-party vendors and
+    // tables: the gateways' and vLLM's protocol. The first-party vendors and
     // custom get none — their rows run on the client's defaults, or carry their own.
     const toml = await readFile(path.join(t.root, projectId, ".project_config.toml"), "utf8");
     for (const id of Object.keys(presetProviderTable())) {
@@ -384,7 +383,7 @@ describe("models preset & catalog enrichment", () => {
     expect(pick(body, "openrouter", "anthropic/claude-opus-4.8").clientType).toBeUndefined();
     // A row that speaks another protocol than its group, or on another path, stores exactly
     // that difference: OpenCode Go's Messages rows their protocol and endpoint, its Chat
-    // Completions rows their protocol on the group's endpoint. Go rows follow the shared MMSP connection.
+    // Completions rows their protocol on the group's endpoint.
     const messagesRow = pick(body, "opencode-go", "qwen3.8-max");
     expect(messagesRow.clientType).toBe("ant-messages");
     expect(messagesRow.effective).toMatchObject({
@@ -396,12 +395,6 @@ describe("models preset & catalog enrichment", () => {
       baseUrlSource: "provider",
       clientType: "openai-chat",
       clientTypeSource: "model",
-    });
-    expect(pick(body, "penguin-go", "gemini-3.8-flash").effective).toMatchObject({
-      baseUrl: PENGUIN_GO_BASE_URL,
-      baseUrlSource: "provider",
-      clientType: "mmsp",
-      clientTypeSource: "provider",
     });
     // Custom's Atria carries its own host and protocol; no group of its table reaches it.
     expect(pick(body, "custom", "Atria-Dawn").effective).toMatchObject({
@@ -456,8 +449,6 @@ describe("models preset & catalog enrichment", () => {
   it("reports and masks the env fallback only where MMSP's client reads it (no base URL, or its own default endpoint), and never leaks a value", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test-secret-value-123456");
     vi.stubEnv("OPENAI_API_KEY", "sk-openai-test-secret-value-789");
-    // A relay variable is nobody's: Penguin Go takes its key from the config alone.
-    vi.stubEnv("PENGUIN_GO_API_KEY", "sk-wafh-test-secret-value-456");
     // Empty counts as absent — it would not authenticate either.
     vi.stubEnv("DEEPSEEK_API_KEY", "");
     // Vendor-group rows no PUT may add any more, stored as a table from before would hold them.
@@ -514,13 +505,6 @@ describe("models preset & catalog enrichment", () => {
             baseUrl: "http://127.0.0.1:8000/v1",
           },
           { provider: "vllm", modelId: "Qwen/Qwen3.8-27B", clientType: "openai-chat-vllm-adapter" },
-          // The relay's rows: nothing, the relay variable notwithstanding.
-          {
-            provider: "penguin-go",
-            modelId: "gemini-3.8-flash",
-            clientType: "mmsp",
-            baseUrl: PENGUIN_GO_BASE_URL,
-          },
         ],
       });
       expect(put.status).toBe(200);
@@ -528,7 +512,6 @@ describe("models preset & catalog enrichment", () => {
       const text = await put.text();
       expect(text).not.toContain("sk-ant-test-secret-value-123456");
       expect(text).not.toContain("sk-openai-test-secret-value-789");
-      expect(text).not.toContain("sk-wafh-test-secret-value-456");
       const body = JSON.parse(text) as ModelsResponse;
       const anthropic = "sk-a…3456";
       expect(pick(body, "anthropic", "claude-sonnet-4-6")).toMatchObject({
@@ -562,7 +545,6 @@ describe("models preset & catalog enrichment", () => {
         ["anthropic", "claude-on-proxy"],
         ["openrouter", "xiaomi/mimo-v2.5"],
         ["custom", "my-local"],
-        ["penguin-go", "gemini-3.8-flash"],
       ] as const) {
         const row = pick(body, provider, modelId);
         expect(row.envKey, `${provider}/${modelId}`).toBeUndefined();
@@ -870,7 +852,7 @@ describe("models preset & catalog enrichment", () => {
       [
         'name = "Legacy"',
         ...oldRows("opencode-go", () => "oc-shared-key-0001"),
-        ...oldRows("penguin-go", () => "pg-shared-key-0002"),
+        ...oldRows("fireworks", () => "fw-shared-key-0002"),
         // Two models keyed to two accounts: no key is the group's.
         ...["glm-5.3", "glm-5.3-flash"].flatMap((modelId, i) => [
           "[[models]]",
@@ -889,15 +871,15 @@ describe("models preset & catalog enrichment", () => {
     // OpenCode Go: the Chat Completions endpoint most rows share moves to the group; the
     // Messages rows keep theirs (another path on the same host), every row keeps its own
     // protocol, and the shared key — which reaches every row — is the group's, stamped with
-    // the latest write. Penguin Go: the relay every row shares moves to the group, each row
-    // uses the group's MMSP protocol, the key is the group's. Exactly what a new
+    // the latest write. Fireworks AI: the endpoint and protocol every row shares move to the
+    // group, and the key is the group's. Exactly what a new
     // Project's file holds for those rows, plus the key.
     const init = new Map(
       presetModelEntries().map((m) => [pairKey({ provider: m.provider, modelId: m.model_id }), m]),
     );
     for (const [provider, keyMask] of [
       ["opencode-go", "oc-s…0001"],
-      ["penguin-go", "pg-s…0002"],
+      ["fireworks", "fw-s…0002"],
     ] as const) {
       const rows = body.models.filter((m) => m.provider === provider);
       expect(body.providers[provider], provider).toEqual({
@@ -936,7 +918,7 @@ describe("models preset & catalog enrichment", () => {
 
     const rewritten = await readFile(cfgFile, "utf8");
     expect(rewritten.match(/oc-shared-key-0001/g)).toHaveLength(1);
-    expect(rewritten.match(/pg-shared-key-0002/g)).toHaveLength(1);
+    expect(rewritten.match(/fw-shared-key-0002/g)).toHaveLength(1);
     expect(rewritten).not.toMatch(/gemini-3\.8"|deepseek-v4"/);
     expect(rewritten).toContain('name = "Legacy"');
     // The rewritten file is what later reads serve, and they leave it alone.
@@ -1951,50 +1933,6 @@ describe("model-reference rekeying and the connectivity test", () => {
     }
   });
 
-  it("Penguin Go probes go out with the group's key or none — never a vendor, MMSP or relay variable", async () => {
-    vi.stubEnv("GEMINI_API_KEY", "vendor-gemini-must-not-cross");
-    vi.stubEnv("OPENAI_API_KEY", "vendor-openai-must-not-cross");
-    vi.stubEnv("MMSP_API_KEY", "mmsp-env-must-not-cross");
-    vi.stubEnv("PENGUIN_GO_API_KEY", "relay-env-must-not-cross");
-    // The relay, played by a local server that records what each request carried and refuses it.
-    const seen: string[] = [];
-    const server = createServer((req, res) => {
-      seen.push(JSON.stringify(req.headers));
-      req.resume();
-      req.on("end", () => {
-        res.statusCode = 401;
-        res.setHeader("content-type", "application/json");
-        res.end(JSON.stringify({ error: { message: "test-reject", type: "invalid_request" } }));
-      });
-    });
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const port = (server.address() as AddressInfo).port;
-    const relay = `http://127.0.0.1:${port}/api/v1`;
-    try {
-      expect((await api.put(`${url()}/providers/penguin-go`, { baseUrl: relay })).status).toBe(200);
-      const probe = async () =>
-        (await (
-          await api.post(testUrl(), { provider: "penguin-go", modelId: "gemini-3.8-flash" })
-        ).json()) as ModelTestResponse;
-      // No key in the config: the request goes out keyless (an MMSP server decides), and no
-      // variable rides along.
-      expect((await probe()).ok).toBe(false);
-      expect(seen.length).toBeGreaterThan(0);
-      expect(seen.join("\n")).not.toMatch(/must-not-cross/);
-      // The group's key from the config is the one it carries.
-      seen.length = 0;
-      expect(
-        (await api.put(`${url()}/providers/penguin-go`, { apiKey: "pg-config-key" })).status,
-      ).toBe(200);
-      expect((await probe()).ok).toBe(false);
-      expect(seen.join("\n")).toContain("pg-config-key");
-      expect(seen.join("\n")).not.toMatch(/must-not-cross/);
-    } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-      vi.unstubAllEnvs();
-    }
-  });
-
   it("connectivity test: clearApiKey does not fall back to the stored key (the current draft is what gets tested)", async () => {
     // A key is already saved, but the test request carries clearApiKey — the server must **not** use
     // the saved key. Clear the env var so "don't use the saved key" == no credential at all, so construction synchronously throws missing-credential (no network request, deterministic).
@@ -2601,18 +2539,18 @@ describe("preset sync: add new models / restore defaults", () => {
     }
   });
 
-  it("restoring defaults leaves a new Project's model configuration with only the API keys kept: overrides, the user's own models and groups, retired rows, Penguin Go's platform models and promotions, and stale references go", async () => {
+  it("restoring defaults leaves a new Project's model configuration with only the API keys kept: overrides, the user's own models and groups, retired rows, hand-added rows in closed groups and their promotions, and stale references go", async () => {
     const svc = t.deps.projectConfigService;
     const retired = MODEL_CATALOG.find((m) => m.retired === true)!;
-    // Rows no PUT may add: a retired preset an older release wrote, and a model the Penguin Go
-    // platform delivered.
+    // Rows no PUT may add: a retired preset an older release wrote, and a model in a group that
+    // takes no hand-added models.
     const seeded = await svc.readRaw(projectId);
     await svc.writeRaw(projectId, {
       ...seeded,
       models: [
         ...(seeded.models as Array<Record<string, unknown>>),
         { provider: retired.provider, model_id: retired.modelId },
-        { provider: "penguin-go", model_id: "go-only-model", display_name: "Go Only" },
+        { provider: "opencode-go", model_id: "go-only-model", display_name: "Go Only" },
       ],
     });
     const preset = (await (await api.get(url())).json()) as ModelsResponse;
@@ -2636,8 +2574,7 @@ describe("preset sync: add new models / restore defaults", () => {
           };
         }
         if (isPair("tokendance", "glm-5.3-flash")(m)) return { ...m, discount: 0.33 };
-        if (isPair("penguin-go", "gemini-3.8-flash")(m)) return { ...m, discount: 0.42 };
-        if (isPair("penguin-go", "go-only-model")(m)) return { ...m, discount: 0.25 };
+        if (isPair("opencode-go", "go-only-model")(m)) return { ...m, discount: 0.25 };
         if (isPair(retired.provider, retired.modelId)(m)) return { ...m, discount: 0.5 };
         // Its own endpoint dropped: it would run on the group's Chat Completions path.
         if (isPair("opencode-go", "qwen3.8-max")(m)) return { ...m, baseUrl: null };
@@ -2683,8 +2620,7 @@ describe("preset sync: add new models / restore defaults", () => {
 
     // Beside a Project created now, keys aside, it is the same: the same rows in the same
     // order with the same facts, connections and promotions, and the same group settings.
-    // Penguin Go's platform model and promotions are gone too: the platform's next sync puts
-    // them back, on prices it set them for.
+    // The hand-added row and its promotion are gone too.
     const fresh = (await (
       await api.post("/api/projects", { projectId: `gina-fresh_${projects}`, name: "Fresh" })
     ).json()) as ProjectCreateResponse;

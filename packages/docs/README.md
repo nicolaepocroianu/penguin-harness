@@ -1,8 +1,6 @@
 # @waterford/waf-harness-docs
 
-The WAF Harness documentation site (React + Vite + Tailwind CSS 4). Its own package, sharing the landing page's visual language: English pages, light/dark themes, a sidebar + per-page table of contents, and a "Copy Markdown" button on every page.
-
-Live at <https://penguin.ooo/docs/>.
+The WAF Harness documentation site (React + Vite + Tailwind CSS 4). English pages, light/dark themes, a sidebar + per-page table of contents, and a "Copy Markdown" button on every page.
 
 ## Content model
 
@@ -28,13 +26,8 @@ pnpm --filter @waterford/waf-harness-docs test
 
 ## Deployment
 
-Deployed to GitHub Pages together with the landing page and the component gallery as one artifact: `scripts/build-site.mjs` (repo root) builds landing with `BASE_PATH=<base>`, docs with `BASE_PATH=<base>docs/` and the gallery with `BASE_PATH=<base>gallery/`, then copies this package's `dist/` into the landing dist under `docs/` (and the gallery's under `gallery/`). `.github/workflows/pages.yml` runs it on pushes to main touching any of the three packages.
-
-```bash
-BASE_PATH=/ pnpm build:site                        # assemble locally
-pnpm --filter @waterford/waf-harness-landing preview # serve the assembled site
-```
+The build is a static site. Set `BASE_PATH` (default `/`) to serve it under a sub-path.
 
 Deep links work without a 404 fallback: the post-build step copies the SPA shell to `dist/<slug>/index.html` for every content slug.
 
-Part of [WAF Harness](https://github.com/Prism-Shadow/penguin-harness) · Apache-2.0
+Part of [WAF Harness](https://github.com/nicolaepocroianu/waf-harness) · Apache-2.0

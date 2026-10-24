@@ -1,6 +1,6 @@
 ---
 name: waf-harness-manual-test
-description: Use when standing WAF Harness up to try a change by hand — launching the Web App, the desktop shell, the landing page, the docs site or the component gallery to click through it, screenshot it, or reproduce a report. Covers the dev entry points and their ports, which data root each writes to, and the four ways a healthy setup looks broken.
+description: Use when standing WAF Harness up to try a change by hand — launching the Web App, the desktop shell, the docs site or the component gallery to click through it, screenshot it, or reproduce a report. Covers the dev entry points and their ports, which data root each writes to, and the four ways a healthy setup looks broken.
 ---
 
 # Standing WAF Harness up to test by hand
@@ -15,7 +15,6 @@ workspace deps); `pnpm desktop` runs a full `pnpm -r build`, so it is slow to st
 | `pnpm dev` | http://localhost:7365 | `~/.waf-harness/dev-data` |
 | `pnpm desktop` | its own window | `~/.waf-harness/dev-data` |
 | installed app, launched with `--dev` | its own window | `~/.waf-harness/dev-data` |
-| `pnpm dev:landing` | http://localhost:7366 | none (static) |
 | `pnpm dev:docs` | http://localhost:7367 | none (static) |
 | `pnpm dev:gallery` | http://localhost:7372 | none (static) |
 

@@ -23,10 +23,7 @@
          (see site-prefs.ts in @waterford/waf-harness-ui/site), falling back to the retired per-site keys. -->
     <script>
       try {
-        var m =
-          localStorage.getItem("wafh-site.theme") ||
-          localStorage.getItem("wafh-landing.theme") ||
-          localStorage.getItem("wafh-docs.theme");
+        var m = localStorage.getItem("wafh-site.theme") || localStorage.getItem("wafh-docs.theme");
         if (m === "dark" || (m !== "light" && matchMedia("(prefers-color-scheme: dark)").matches))
           document.documentElement.classList.add("dark");
       } catch {}

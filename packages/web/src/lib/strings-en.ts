@@ -3072,12 +3072,11 @@ export const en: Strings = {
         "No curl there: the machine cannot download the release itself, so an install sends it from this server over ssh.",
       toolsMissing: (tools: string) =>
         `Missing tools the installer needs: ${tools}. Install them there, then try again.`,
-      downloadFrom: (version: string, source: "both" | "github" | "oss") =>
-        `Downloads release ${version} from ${source === "both" ? "GitHub and the mirror" : source === "github" ? "GitHub" : "the mirror"}.`,
+      downloadFrom: (version: string) => `Downloads release ${version} from GitHub.`,
       downloadCarried: (version: string) =>
-        `The machine reaches neither GitHub nor the mirror, so it cannot download release ${version}; an install sends it from this server over ssh (about 95 MB).`,
+        `The machine cannot reach GitHub, so it cannot download release ${version}; an install sends it from this server over ssh (about 95 MB).`,
       downloadMissing: (version: string) =>
-        `Release ${version} has no package for this machine yet, on GitHub or the mirror.`,
+        `Release ${version} has no package for this machine yet, on GitHub.`,
       diskPass: (free: string) => `${free} free.`,
       diskTight: (free: string) =>
         `${free} free: enough for one install, with little room to spare.`,
@@ -3982,8 +3981,7 @@ export const en: Strings = {
     title: "About WAF Harness",
     /** The avatar-menu row. */
     menuEntry: "About",
-    /** The muted labels before the two addresses the identity block links to. */
-    homepage: "Homepage",
+    /** The muted label before the address the identity block links to. */
     repository: "GitHub",
     /** Read after a link out of the app: the glyph that shows it is decorative. */
     opensInNewTab: "opens in a new tab",
@@ -5090,8 +5088,6 @@ export const en: Strings = {
         "- Never read or edit .project_config.toml; configuration goes through wafh commands only.",
         `- Finish with \`wafh config model list --project-id ${projectId} --root <data root>\` and show me the result.`,
       ].join("\n"),
-    platformSyncAdded: (n: number): string => (n === 1 ? "Added 1 model" : `Added ${n} models`),
-    platformUpToDate: "Already up to date",
     homepage: "Model page",
     speedTest: "Speed test",
     /** The same icon button while its group's run is going: stops after the probe in flight. */
@@ -5366,8 +5362,6 @@ export const en: Strings = {
     protocolRoutedById: "Routed by model ID",
     protocolEachModel: "Each model sets its own",
     protocolFollowGroup: "Follow group",
-    protocolFixedHint: (group: string, protocol: string): string =>
-      `${group} always uses ${protocol}`,
     inheritFromGroup: "Leave blank to use the group's setting",
     keyNotReachedNote:
       "The group key does not apply: this model's base URL is not on the group's endpoint",
@@ -5376,7 +5370,6 @@ export const en: Strings = {
     oauthKey: "Connect",
     connectedStatus: "Connected",
     notConnectedStatus: "Not connected",
-    syncModels: "Sync models",
     reconnect: "Reconnect",
     disconnect: "Disconnect",
     disconnectConfirm: (label: string): string =>
@@ -5435,22 +5428,8 @@ export const en: Strings = {
       apply_failed:
         "A key was created but could not be saved. Authorize again, then delete the unused key in the provider's console.",
     },
-    platformKeyIntro: (n: number): string =>
-      `Authorization automatically obtains a Penguin Go API key and sets it as this group's key, which ${n === 1 ? "1 model uses" : `${n} models use`}; models with a key of their own are unaffected.`,
-    platformKeyAppliedBody: (n: number): string =>
-      `Authorized. The Penguin Go group key is set, and ${n === 1 ? "1 model uses" : `${n} models use`} it — ready to go.`,
-    platformKeyStarting: "Starting authorization…",
-    platformKeyApplying: "Authorization completed. Writing the key to the model group…",
-    platformKeyErrors: {
-      unreachable: "Penguin Go could not be reached. Check the network and start again.",
-      upstream_failed: "Penguin Go could not complete authorization. Start again.",
-      invalid_key: "Penguin Go returned no usable API key. Start again.",
-      expired: "The authorization expired. Start again.",
-      locked: "The authorization was locked. Start again.",
-      already_delivered: "That authorization was already delivered. Start again.",
-      apply_failed:
-        "The API key was received but could not be written to the model group. Retry without authorizing again.",
-    },
+    keyAuthStarting: "Starting authorization…",
+    keyAuthApplying: "Authorization completed. Writing the key to the model group…",
     // ModelScope goes through the authorization bridge: the harness never talks to ModelScope
     // itself, and the bridge holds the client secret that buys an api-inference token. The
     // access token is written as the group key; the refresh token stays in the server DB.
@@ -9279,7 +9258,6 @@ Scenarios:
       schedule_not_found: "This scheduled task no longer exists.",
       model_not_addable:
         "This group carries its built-in models only; add the model under a custom group.",
-      wafh_go_protocol_fixed: "Penguin Go always uses the MMSP protocol; it cannot be changed.",
       model_not_routable:
         "This model ID cannot be routed: a vendor group routes a model by the vendor prefix its ID begins with (gpt-, claude-, gemini-, glm-, kimi-, deepseek-, minimax-). Add the model under a custom group and pick or detect its protocol.",
       unknown_skill: "This skill is not in the selected directory.",
@@ -9315,8 +9293,6 @@ Scenarios:
       task_in_progress: "This Session already has a task running.",
       compacting: "This Session is compacting its context and is not accepting new input.",
       shutting_down: "The server is shutting down. Please try again shortly.",
-      platform_rate_limited:
-        "Too many platform authorization requests. Try again when the countdown ends.",
       // The three "cannot compact" reasons each have their own server code, so each keeps its
       // own explanation here — collapsing them into one sentence would tell a user who just
       // compacted that they have never spoken.

@@ -351,7 +351,7 @@ describe("runtime capability handshake", () => {
   it("names no config member added after runtimes shipped, so an older runtime still claims", () => {
     // Naming one would refuse every installed runtime that predates it, and a push can never
     // replace the runtime. These are optional on ServerConfig and defaulted by their consumer.
-    for (const later of ["cliEntry", "wafHarnessGoOrigin", "modelscopeBridgeUrl"]) {
+    for (const later of ["cliEntry", "modelscopeBridgeUrl"]) {
       expect(HMR_INTERFACES.config).not.toContain(later);
     }
     // A runtime that published exactly today's list minus nothing more: the pre-#716 shape.

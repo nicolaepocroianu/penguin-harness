@@ -357,11 +357,11 @@ describe("the mocked API", () => {
     // Atria stores its own endpoint in custom, which has no table.
     const atria = models.models.find((m) => m.modelId === "Atria-Dawn")!;
     expect(atria.effective.baseUrlSource).toBe("model");
-    // Every group takes a protocol, Penguin Go included.
-    const go = await api.putProviderConnection(project, "penguin-go", {
+    // Every group takes a protocol.
+    const protocol = await api.putProviderConnection(project, "deepseek", {
       clientType: "openai-chat",
     });
-    expect(go.providers["penguin-go"]?.clientType).toBe("openai-chat");
+    expect(protocol.providers.deepseek?.clientType).toBe("openai-chat");
     // Disconnect clears the group key and leaves the group without one.
     const cleared = await api.putProviderConnection(project, "deepseek", { clearApiKey: true });
     expect(cleared.providers.deepseek?.apiKeyMasked).toBeUndefined();

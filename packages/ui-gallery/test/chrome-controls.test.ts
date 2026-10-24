@@ -4,7 +4,7 @@
  * their idiom by source contract: the select is the app's — a trigger that owns a listbox, rows
  * that are options, the chosen one checked — with no native `<select>` left; hints are the
  * chrome's tooltip, with no native `title` left on anything but the frame itself and the site
- * navbar, which is the landing page's markup and hints as it does there.
+ * navbar, which is the site's markup and hints as it does there.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";

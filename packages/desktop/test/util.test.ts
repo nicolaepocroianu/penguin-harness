@@ -153,8 +153,8 @@ describe("classifyWindowOpen", () => {
     // iframe allows popups, and the handler cannot tell that frame from the App. A blank window
     // inherits the opener's origin, so an allowed one would be a hidden window the preview could
     // script for as long as it liked. This classification is the whole rule for the main window
-    // too (main-window-open.test.ts pins that it has no exception of its own); the Penguin Go
-    // authorization URL comes here as a regular external request instead.
+    // too (main-window-open.test.ts pins that it has no exception of its own); a
+    // key-authorization URL comes here as a regular external request instead.
     for (const url of ["about:blank", "about:blank#other", "about:srcdoc"]) {
       expect(classifyWindowOpen(url, origin), url).toBe("deny");
     }

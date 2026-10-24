@@ -1,6 +1,6 @@
 /**
  * The public sites' language. The sites ship English only: whatever preference is stored under
- * the key the landing page, the docs and the gallery share (or the browser's own language), the
+ * the key the docs and the gallery share (or the browser's own language), the
  * resolved locale is always `en`. The `SiteLocale` type keeps its shape so hosts compile
  * unchanged.
  *

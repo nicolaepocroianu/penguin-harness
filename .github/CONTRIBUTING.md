@@ -22,11 +22,8 @@ pnpm dev         # backend + web app together (prefixed logs, deps built once)
 pnpm dev:server  # backend at 127.0.0.1:7368 (not the installed server's 7364)
 pnpm dev:web     # web app (Vite) at 127.0.0.1:7365, /api proxied to 7368
 pnpm dev:docs    # docs site (Vite) at 127.0.0.1:7367
-pnpm dev:landing # landing page (Vite) at 127.0.0.1:7366
 pnpm wafh ... # CLI from source; `wafh web` serves at 127.0.0.1:7369
 pnpm desktop     # desktop app from source (builds everything first, then Electron)
-
-BASE_PATH=/ pnpm build:site   # assemble landing + docs + gallery exactly like the Pages deploy
 ```
 
 Every dev command runs `scripts/dev-prebuild.mjs` first, which (behind a lock that
@@ -37,7 +34,7 @@ core) with back-to-back builds deduped: starting `dev:server` and `dev:web` at t
 time (or just `pnpm dev`) installs and builds exactly once. When that build changes
 skills/core output, the prestep also clears the web app's Vite dep cache
 (`packages/web/node_modules/.vite`), which is keyed by lockfile/config only and would
-otherwise keep serving the browser the previous core. `dev:docs` / `dev:landing`
+otherwise keep serving the browser the previous core. `dev:docs` / `dev:gallery`
 run the install check only (`--install-only`).
 
 The prestep also builds `packages/cli`, because a dev server hands the Agents it runs the
@@ -133,22 +130,21 @@ single data directory (`~/.waf-harness/data`) and a single message protocol (Omn
 | [`packages/amsp`](../packages/amsp) | `@waterford/waf-harness-amsp` | AMSP, the Agent API's event stream: its wire types, which the server imports, and a zero-dependency client for Node and browsers |
 | [`packages/web`](../packages/web)         | `@waterford/waf-harness-web`    | Web App: multi-session chat, Agent/skill/model management, Trace observability, evaluation center       |
 | [`plugins/*`](../plugins) | `@waf-harness/<name>` | The built-in plugins, one npm package each (`plugins/<name>` is `@waf-harness/<name>`): Agent plugins — skills (software development, model development, agent development/tuning, …) and session hooks (goal mode, skill summaries) — which `packages/core` depends on and loads; and server plugins a Project asks for on the Plugins page (its `[plugins]` table), such as the sandbox backends |
-| [`packages/landing`](../packages/landing) | —                             | Product landing page (this repo's website)                                                              |
-| [`packages/docs`](../packages/docs)       | —                             | Documentation site (deployed under `/docs/`)                                                 |
+| [`packages/docs`](../packages/docs)       | —                             | Documentation (Markdown under `content/`, built as a static site)                                                 |
 | [`packages/browser-extension`](../packages/browser-extension) | — | WAF Harness Browser: the Chrome extension through which the server drives the tabs a user hands it (released as a zip) |
 
 Responsibilities split by source of truth: the **SDK** owns protocol and execution
 (message parsing, the agent loop, tools), the **Server** owns the multi-user runtime
 (auth, SSE streaming, scheduled tasks), and the **file layer** under `~/.waf-harness/data`
 owns everything editable and recorded (prompts, Skills, secrets, Traces). The full map
-is in [Architecture → Division of responsibilities](https://penguin.ooo/docs/architecture).
+is in [Architecture → Division of responsibilities](../packages/docs/content/architecture.en.md).
 
 ## Quality gates
 
 PRs and pushes to `main` use pnpm's dependency graph to select changed packages and
 their downstream consumers. CI builds their dependencies, then runs typechecks and tests.
 Browser and site suites run on Linux; affected native runtime packages also run on macOS
-and Windows, but only on a ready pull request (or a manual or release run): a push to `main`
+and Windows, but only on a ready pull request (or a manual run): a push to `main`
 and a draft pull request run the ubuntu jobs only, and a change to docs, changelog entries or
 agent skills alone runs no CI. Changes to shared build scripts, the lockfile or unclassified inputs select
 the whole workspace. The plan job lists the selection and its reason.
@@ -163,9 +159,7 @@ recovery and follow-up messages. Packaging checks retain stamped version/plugin-
 installer and bundled-CLI regressions. Unpacked Electron artifacts are uploaded only on
 manual CI runs.
 
-New releases run the complete three-platform CI workflow against the release ref before
-any publishing job starts. Existing immutable releases can still retry their publishers
-and mirrors. A manual CI run defaults to full validation. Keep the aggregate `ci` job
+A manual CI run defaults to full validation. Keep the aggregate `ci` job
 required in branch protection: it rejects failed, missing and unexpectedly skipped jobs.
 
 Use the package's narrow checks while developing; these commands run the complete local suites:
@@ -202,53 +196,21 @@ pnpm test:e2e                                        # core live-model e2e, need
   and bespoke sections. There is no index file to update. The format is documented in
   [`changelog/README.md`](../changelog/README.md). Related changes may share one entry
   file (extending its sections) instead of opening a new file per small change.
-- **A release ships its own announcement**: `changelog/<version>/RELEASE.md` is published
-  verbatim as the GitHub Release body. Write it during release preparation and **commit it
-  before creating the tag** — the release workflow reads it from the tag's checkout, so a
-  file added later never reaches the Release page. Without it the workflow falls back to
-  GitHub's auto-generated notes.
-- **The official image is built from source**, by `.github/workflows/docker.yml`, and
-  pushed to Docker Hub `hiyouga/penguinharness` for `linux/amd64` and `linux/arm64`. A push
-  to `main` that changes the image's runtime or build inputs publishes that commit as
-  `latest`, the only tag a push moves. Docs, site and desktop-only source changes leave
-  the image unchanged. The release workflow's `docker` job builds the tag's own source
-  and publishes the exact version `X.Y.Z`. A PR touching the `Dockerfile`, `.dockerignore`,
-  `docker/` or that workflow runs the same file as an amd64 smoke build. The push
-  needs the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets of the `docker` GitHub Environment (whose URL is the Docker Hub repository) — the latter a
-  Docker Hub access token with read/write scope on that repository — and the Docker Hub
-  repository is created public on the first push.
 - **Release prep bumps the repo version**: the same `release: X.Y.Z` PR that renames
   `changelog/unreleased/` also bumps the root and every workspace `package.json`
   (`packages/*` and `plugins/*`)
   `version`, plus core's `VERSION` constant (`packages/core/src/index.ts`), to the release
-  version. The release workflow refuses a tag push whose version does not match the
-  repo's, so a forgotten bump fails before anything is published (v0.2.1 was tagged with a
-  0.2.0 repo, and every dev build nagged about an update until the repo caught up).
-- **The release branch proves its installers before the tag.** Name the branch
-  `release/<version>`: every push to a `release/**` branch runs `desktop-build.yml` with macOS
-  and Windows signing required, the same call the release workflow makes, and CI never
-  exercises signing. Wait for that run on the branch's final commit before merging and
-  tagging; a tag is never moved, so a failure found after it costs a version (0.2.10 was
-  tagged on a green CI, lost its macOS installers to a runner-image change, and shipped again
-  as 0.2.11). To re-check outside a release branch:
-  `gh workflow run desktop-build.yml --ref <branch> -f require_macos_signing=true -f require_windows_signing=true`.
-- README assets under `assets/readme/` are generated — the benchmark charts from the
-  landing benchmark data, and the demo screenshots via
-  `node packages/landing/scripts/capture-readme-demo.mjs` (build first; needs Playwright
-  chromium). Regenerate rather than hand-editing.
+  version.
 
 ## Reporting a bug or proposing a feature
 
-Open an issue from the [issue forms](https://github.com/Prism-Shadow/penguin-harness/issues/new/choose).
+Open an issue from the [issue forms](https://github.com/nicolaepocroianu/waf-harness/issues/new/choose).
 A bug report is worth far more with the version (`wafh version`), how WAF Harness
 was installed, the OS, and whether the problem survives a fresh data root
 (`WAFH_HOME=/tmp/wafh-check wafh ...`) — that last one separates a code defect
 from a state left behind by an earlier version. Never paste an API key, a bot token,
 `system_config.yaml`, or a `.env` into an issue: the data root holds provider credentials
 in plain text, and an issue is public and permanent.
-
-Questions and usage help belong on [Discord](https://discord.gg/eFHKqqcU3D) or in the
-WeChat group, not in the issue tracker.
 
 ## Pull requests
 

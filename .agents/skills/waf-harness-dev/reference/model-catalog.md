@@ -79,8 +79,8 @@ for no base URL or its own default endpoint, refusing any other base URL. So a f
 group gets no table in the seed (`catalogGroupConnection` gives it none), and a new vendor group
 whose ids route by family needs nothing else to read its vendor's variable. The catalog only
 names the variable for the previews (`env-keys.ts`, which calls MMSP's `environmentCredential`);
-it decides nothing about who may use it. Gateways and the third-party adapters (Penguin Go,
-ModelScope) carry a base URL on their group, so their keys come from the config.
+it decides nothing about who may use it. Gateways and the third-party adapter (ModelScope)
+carry a base URL on their group, so their keys come from the config.
 
 Existing Projects never migrate automatically: presets are copied into `.project_config.toml` at
 creation and nothing rewrites them. Users pick changes up through the models page's explicit "sync

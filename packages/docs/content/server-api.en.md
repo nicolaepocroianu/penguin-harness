@@ -475,22 +475,6 @@ What the callback may do is limited a second time: it stores the code on the flo
 
 `mode: manual` sends no callback URL, so the authorization page shows a one-time code for the user to paste back, for deployments the redirect cannot reach. Whichever route redeems the code, a completed flow invalidates cached runtimes and publishes `credentials_updated`, exactly as `PUT /models` does.
 
-### Penguin Go key authorization
-
-Penguin Go delivers its key through a device authorization the server polls, not through a redirect, so it has routes of its own. All of them are owner only. The browser is handed a local flow id and an authorization URL, and never the device secret, the delivered key or anything else the platform returns.
-
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/projects/:projectId/platform-auth/start` | Opens a one-time flow, with the platform's deadline capped locally at ten minutes: → 201 `{flowId, authorizeUrl, expiresAt}` |
-| POST | `/api/projects/:projectId/platform-auth/sync` | Fetches the platform catalog with the group key and adds the models the Project lacks: → the model table plus `added` and `updated` (always 0) counts |
-| GET | `/api/projects/:projectId/platform-auth/:flowId/status` | Polls Penguin Go from the server, then writes the delivered key as the group key and adds the platform's models: `{status: pending\|applying\|completed\|cancelled\|apply_failed\|error, error?, applied?}` |
-| POST | `/api/projects/:projectId/platform-auth/:flowId/retry` | Retries the local write after it failed; the single-use delivery is not requested again, and a flow in any other state answers `409 platform_auth_not_retryable` |
-| POST | `/api/projects/:projectId/platform-auth/:flowId/cancel` | Cancels the local flow; the platform's pending record expires on its own TTL |
-
-The server validates the delivered key, the endpoints and the catalog before it writes anything. It then writes the key once, as the group key in `[providers.penguin-go]`, which every model of the group without a key of its own uses, and adds the models the platform advertises and the Project does not have, with their list price, protocol and promotion. An added model stores its endpoint as **Add new models** does: where the group's settings hold a base URL, only where it differs from the platform's own relay URL, so a group pointed at a proxy takes it along; where they hold none, in full. Models the Project already has are never rewritten, their price, protocol and promotion included, and nothing is deleted. A completed write invalidates cached runtimes and publishes `credentials_updated`, exactly as `PUT /models` does.
-
-A flow id that names no live flow is `404 platform_auth_flow_not_found`. `sync` answers `409 platform_reauthorization_required` when there is no stored key or the platform rejects it, and `502 platform_sync_failed` when the platform refuses the catalog or returns one that does not parse; the platform being unreachable is `502 platform_unreachable`. A delivery the server could not write locally leaves the flow in `apply_failed`, which is what the retry route is for.
-
 ## Agents
 
 The paths below omit the `/api/projects/:projectId` prefix, except the global `/api/plugins` routes.

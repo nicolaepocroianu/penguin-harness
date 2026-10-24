@@ -642,24 +642,17 @@ describe("the connection check", () => {
     expect(refused.tone).toBe("danger");
   });
 
-  it("calls a missing curl a caveat — the release is carried — and a machine that reaches no source one too", () => {
+  it("calls a missing curl a caveat — the release is carried — and a machine that cannot reach GitHub one too", () => {
     expect(line({ id: "tools", state: "warn", missing: ["curl"] })).toMatchObject({
       text: S.machines.check.toolsNoCurl,
       tone: "attention",
     });
     expect(
-      line({
-        id: "download",
-        state: "warn",
-        version: "0.2.13",
-        github: "unreachable",
-        oss: "unreachable",
-      }).text,
+      line({ id: "download", state: "warn", version: "0.2.13", github: "unreachable" }).text,
     ).toBe(S.machines.check.downloadCarried("0.2.13"));
-    expect(
-      line({ id: "download", state: "pass", version: "0.2.13", github: "unreachable", oss: "ok" })
-        .text,
-    ).toBe(S.machines.check.downloadFrom("0.2.13", "oss"));
+    expect(line({ id: "download", state: "pass", version: "0.2.13", github: "ok" }).text).toBe(
+      S.machines.check.downloadFrom("0.2.13"),
+    );
   });
 
   it("names the glibc a machine has against the one the release needs, a musl system, and terminals that will not open", () => {

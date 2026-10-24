@@ -1,5 +1,5 @@
 /**
- * Pure helpers behind the public sites' Markdown pages (blog posts and doc pages): frontmatter,
+ * Pure helpers behind the public sites' Markdown pages (article and doc pages): frontmatter,
  * heading anchors and the table of contents built from them, the URL hash an anchor link
  * produces, and the reads the renderer makes on react-markdown's nodes. No React state and no
  * DOM, so content tests can call them under plain Node.

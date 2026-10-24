@@ -39,8 +39,6 @@ import { ModelBalances } from "../../services/model-balance.js";
 
 /** What this route group reaches — bound by its module (src/modules). */
 export interface ModelsRouteDeps {
-  /** Trusted server configuration, never a caller's model endpoint. */
-  wafHarnessGoOrigin?: string;
   /** The machines this Project uses receive a credential change too (machines/service.ts). */
   machines: Machines;
   channels: ChannelHub;
@@ -124,8 +122,7 @@ function requireProviderId(id: string, label: string): string {
  * string or `null` (null and a blank string clear); `apiKey` a non-empty string;
  * `clearApiKey` a boolean. A base URL that is set must be an absolute http(s) URL, as /detect
  * and /list require: every model of the group without one of its own is sent there. A row's
- * own protocol always wins over its group's; Penguin Go's is fixed to MMSP, which the service
- * checks against what the group stores (`400 wafh_go_protocol_fixed`).
+ * own protocol always wins over its group's.
  */
 function parseProviderUpdate(value: unknown, label: string): ProviderConnectionUpdate {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -299,7 +296,6 @@ export function modelsRoutes(deps: ModelsRouteDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   /** The balance reader and its 60 s cache, one per route group. */
   const balances = new ModelBalances({
-    wafHarnessGoOrigin: deps.wafHarnessGoOrigin,
     groupKey: (projectId, provider) =>
       deps.projectConfigService.getGroupBalanceKey(projectId, provider),
   });
@@ -331,8 +327,7 @@ export function modelsRoutes(deps: ModelsRouteDeps): Hono<AppEnv> {
   // One group's connection (owner): `[providers.<id>]`'s base URL, protocol and key, merged
   // per field — the group settings dialog and Disconnect (`{ clearApiKey: true }`) both land
   // here. Rows are untouched, so a model with its own value keeps it, its own protocol
-  // included. Penguin Go's protocol is fixed: another one, or clearing it, is
-  // `400 wafh_go_protocol_fixed`. An id that is neither a built-in group nor a
+  // included. An id that is neither a built-in group nor a
   // user-group name is `400 invalid_provider`; a base URL that is not an absolute http(s) URL
   // is a 400 too (parseProviderUpdate), the same check the whole-table PUT's `providers` gets.
   app.put("/providers/:provider", async (c) => {

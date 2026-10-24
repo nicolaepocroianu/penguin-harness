@@ -16,11 +16,11 @@ Install the `wafh` command with one line, configure a model, and run your first 
 Run the installer for your platform. The Linux / macOS and Windows installers bundle their own Node.js runtime; the npm route needs Node.js >= 24 already installed.
 
 ```bash tab="Linux / macOS"
-curl -fsSL https://penguin.ooo/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.sh | sh
 ```
 
 ```powershell tab="Windows"
-irm https://penguin.ooo/install.ps1 | iex
+irm https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.ps1 | iex
 ```
 
 ```bash tab="npm (any platform)"
@@ -110,19 +110,12 @@ Other POSIX platforms do not fall back automatically. The script exits and asks 
 
 ### Download source and version
 
-The stable entry point defaults to `WAFH_DOWNLOAD_SOURCE=auto`. It resolves the target through an immutable OSS release directory, and only after that release has been completely uploaded and verified. If the metadata is unavailable, it falls back to the matching GitHub Release.
+The installer downloads from the GitHub Releases of `nicolaepocroianu/waf-harness`: the bundle and its `.sha256`, from the Release's tag. To fetch from a self-hosted copy of a Release instead, set `WAFH_DOWNLOAD_BASE_URL` to an HTTPS directory that holds the same files.
 
-Which source then serves the package is measured, not assumed:
-
-- The installer times a probe file on GitHub and keeps GitHub whenever the download reaches 256 KB/s.
-- Only below that does it measure the OSS mirror, and it switches only when the mirror is more than 1.5x faster. A mirror that is only a little quicker is not worth its bandwidth bill, and a slow GitHub download still resumes.
-
-Set `WAFH_DOWNLOAD_SPEED_PROBE=0` to skip the measurement, or set `WAFH_DOWNLOAD_SOURCE` to `oss` or `github` to force a source. The normal installer output names the source without printing the mirror's full URL.
-
-The `penguin.ooo` stable entry resolves the current stable version each time it runs. A standalone script downloaded from a versioned GitHub or OSS Release is stamped with that Release's tag and installs the same version by default, which keeps the installer and the package format matched. To override the version, set `WAFH_VERSION`, or pass `--version` on POSIX systems. On Windows, set the variable before you run the installer:
+The raw `install.sh` / `install.ps1` on the main branch resolve the current stable version each time it runs. A standalone script downloaded from a versioned GitHub Release is stamped with that Release's tag and installs the same version by default, which keeps the installer and the package format matched. To override the version, set `WAFH_VERSION`, or pass `--version` on POSIX systems. On Windows, set the variable before you run the installer:
 
 ```powershell
-$env:WAFH_VERSION = "vX.Y.Z"; irm https://penguin.ooo/install.ps1 | iex
+$env:WAFH_VERSION = "vX.Y.Z"; irm https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.ps1 | iex
 ```
 
 ### Offline install
@@ -150,7 +143,7 @@ You can also point the installer at a file explicitly: `install.sh --archive <fi
 Building from source requires Node.js >= 24 and pnpm:
 
 ```bash
-git clone https://github.com/Prism-Shadow/penguin-harness.git
+git clone https://github.com/nicolaepocroianu/waf-harness.git
 cd waf-harness
 pnpm install && pnpm build
 ```
@@ -168,12 +161,12 @@ The dev entry points keep their data apart from the installed `wafh`, which uses
 | Install directory | `~/.waf-harness` by default; override it with the `WAFH_INSTALL_DIR` environment variable |
 | Command entry | A symlink, `~/.local/bin/wafh`. The script warns if `~/.local/bin` is not on `PATH`. The `--no-modify-path` flag leaves the link alone, for a second installation beside the one `wafh` belongs to |
 | Version | The `WAFH_VERSION=vX.Y.Z` environment variable, or the `--version vX.Y.Z` script flag. The stable entry installs the latest Release by default; a versioned Release installer installs its own tag |
-| Download source | `WAFH_DOWNLOAD_SOURCE=auto` (default), `oss` or `github`. `auto` times a probe file and keeps the free GitHub download unless the OSS mirror is clearly faster, and falls back to the same version on the other source. `WAFH_DOWNLOAD_SPEED_PROBE=0` skips the measurement |
+| Download source | The GitHub Release of `nicolaepocroianu/waf-harness`. `WAFH_DOWNLOAD_BASE_URL=<https directory>` downloads from a self-hosted copy of a Release instead |
 | Local archive | `WAFH_ARCHIVE=<file>` or `--archive <file>`. Accepts a Release bundle, which verifies itself with its sealed payload checksum, or a payload or legacy program archive with a `<file>.sha256` next to it. A renamed legacy file may use the platform asset's canonical `.sha256` |
 | Integrity check | Always on. Online downloads are verified against the published `.sha256`, and bundle payloads against the checksum sealed inside the bundle |
 | Upgrade | Run the install script again; files are swapped atomically |
 
-Script flags go after `sh -s --`, for example `curl -fsSL https://penguin.ooo/install.sh | sh -s -- --universal`.
+Script flags go after `sh -s --`, for example `curl -fsSL https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.sh | sh -s -- --universal`.
 
 ### Windows specifics
 

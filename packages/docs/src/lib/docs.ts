@@ -2,7 +2,7 @@
  * Docs index: local Markdown pages imported at build time via import.meta.glob.
  * File naming: content/<slug>.<lang>.md — one file per page per language; a page
  * missing the active language falls back to English, so navigation is always
- * complete for every locale. Same architecture as the landing page blog.
+ * complete for every locale.
  */
 import { parseFrontmatter } from "@waterford/waf-harness-ui/site";
 import type { SiteLocale as Locale } from "@waterford/waf-harness-ui/site";

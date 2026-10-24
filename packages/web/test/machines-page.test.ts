@@ -576,8 +576,8 @@ describe("the Machine dialog", () => {
           skipped: [
             {
               projectId: "p",
-              provider: "penguin-go",
-              modelId: "gemini-3.7-flash",
+              provider: "deepseek",
+              modelId: "deepseek-v4-preview",
               code: "model_not_addable",
               reason: "cannot be added",
             },
@@ -591,7 +591,7 @@ describe("the Machine dialog", () => {
     expect(seen).toContain(c.failed("Plugins not synced — it answered 500"));
     expect(seen).toContain(c.envOnly);
     expect(seen).toContain(
-      c.skippedModel("penguin-go/gemini-3.7-flash", S.errors.byCode.model_not_addable),
+      c.skippedModel("deepseek/deepseek-v4-preview", S.errors.byCode.model_not_addable),
     );
   });
 

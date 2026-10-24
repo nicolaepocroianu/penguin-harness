@@ -56,7 +56,7 @@ function scripted(script: Script): MachineChannel & { calls: Call[] } {
     calls.push(call);
     const { command } = call;
     if (command.includes("tar.gz.sha256")) {
-      return ok(script.reach ?? "@@oss 206 0\n@@github 206 0\n");
+      return ok(script.reach ?? "@@github 206 0\n");
     }
     if (command.startsWith("mktemp -d")) return ok("/tmp/wafh-release.Ab12Cd\n");
     if (command.includes("uname")) {
@@ -344,7 +344,7 @@ describe("installOnRemote", () => {
       const channel = scripted({
         probe: fresh,
         afterInstall: after,
-        reach: "@@oss 000 7\n@@github 000 28\n",
+        reach: "@@github 000 28\n",
       });
       const outcome = await installOnRemote({
         target,
@@ -369,12 +369,12 @@ describe("installOnRemote", () => {
       expect(channel.calls.at(-1)?.command).toBe('rm -rf "/tmp/wafh-release.Ab12Cd"');
     });
 
-    it("downloads it there after all when one source answers", async () => {
+    it("downloads it there after all when GitHub answers", async () => {
       let carried = 0;
       const channel = scripted({
         probe: fresh,
         afterInstall: after,
-        reach: "@@oss 000 7\n@@github 206 0\n",
+        reach: "@@github 206 0\n",
       });
       await installOnRemote({
         target,
@@ -393,8 +393,8 @@ describe("installOnRemote", () => {
       );
     });
 
-    it("stops before sending anything when both sources answer and neither has the release", async () => {
-      const channel = scripted({ probe: fresh, reach: "@@oss 404 0\n@@github 404 0\n" });
+    it("stops before sending anything when GitHub answers without the release", async () => {
+      const channel = scripted({ probe: fresh, reach: "@@github 404 0\n" });
       const outcome = await installOnRemote({
         target,
         plan: plan(),
@@ -416,7 +416,7 @@ describe("installOnRemote", () => {
         assets,
         channel,
         layout: RELEASE,
-        carryRelease: async () => ({ ok: false, detail: "the mirror: fetch failed; GitHub: 403" }),
+        carryRelease: async () => ({ ok: false, detail: "GitHub: 403" }),
       });
       expect(outcome).toMatchObject({ kind: "failed", step: "download the release" });
       expect((outcome as { detail: string }).detail).toContain("GitHub: 403");

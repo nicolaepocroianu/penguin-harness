@@ -32,7 +32,7 @@ vi.mock("electron", () => ({
 // The fork's own builds publish no releases and stand the updater down (updater.ts); these
 // cases are about a build that does update itself.
 vi.mock("@waterford/waf-harness-core/release-identity", () => ({
-  RELEASE_IDENTITY: { repository: "Prism-Shadow/penguin-harness", publishesReleases: true },
+  RELEASE_IDENTITY: { repository: "nicolaepocroianu/waf-harness", publishesReleases: true },
 }));
 
 vi.mock("electron-updater", async (importOriginal) => {
