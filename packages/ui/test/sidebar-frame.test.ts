@@ -123,6 +123,26 @@ describe("SidebarNavGroup", () => {
     expect(classTokens(group(false))).toContain("space-y-px");
     expect(classTokens(group(false))).not.toContain("space-y-0.5");
   });
+
+  it("with a title, its toggle is a heading row above the rows that shows the name, and there is no band below", () => {
+    const titled = (collapsed: boolean) =>
+      renderStatic(
+        createElement(SidebarNavGroup, {
+          collapsed,
+          onToggle: () => {},
+          expandLabel: "Show the harness pages",
+          collapseLabel: "Hide the harness pages",
+          title: "Harness",
+          children: createElement("a", { href: "/agents" }, "Agents"),
+        }),
+      );
+    const open = titled(false);
+    expect(open.match(/<button/g)).toHaveLength(1);
+    expect(open).toContain('aria-expanded="true" aria-label="Hide the harness pages"');
+    expect(open).toContain("<span>Harness</span>");
+    expect(open.indexOf("Harness</span>")).toBeLessThan(open.indexOf('href="/agents"'));
+    expect(titled(true)).toContain('aria-expanded="false" aria-label="Show the harness pages"');
+  });
 });
 
 describe("SidebarNavGroup's pinned entries and drop targets", () => {

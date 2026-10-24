@@ -498,7 +498,7 @@ export const en: Strings = {
       about:
         "Every file uploaded to an activity of this project, in one place. Choose files to download them together as one zip. Generated media and files in the WAF checkout are not listed here.",
       open: "Media library",
-      back: "All activities",
+      back: "Library",
       search: "Search files",
       kind: "Media type",
       kinds: { all: "All", image: "Images", audio: "Audio", video: "Video" },
@@ -2410,8 +2410,8 @@ export const en: Strings = {
     },
     search: "Search activities",
     noMatches: "No activities match this search.",
-    backToActivities: "All activities",
-    title: "Activities",
+    backToActivities: "Library",
+    title: "Library",
     create: "Create activity",
     productCode: "Product code",
     refNum: "Reference number",
@@ -2724,7 +2724,9 @@ export const en: Strings = {
     loadFailed: "Could not load coding agents.",
   },
   nav: {
-    activities: "Activities",
+    /** The activities page, home of the app: the nav's top entry. */
+    activities: "Library",
+    media: "Media",
     chat: "Chat",
     newChat: "New chat",
     agents: "Agents",
@@ -2743,6 +2745,10 @@ export const en: Strings = {
     expandSidebar: "Expand sidebar",
     collapseGroup: "Collapse",
     expandGroup: "Expand",
+    /** The nav group under the activity pages that holds chat and the harness pages, and its toggle's names. */
+    harness: "Harness",
+    collapseHarness: "Hide the harness pages",
+    expandHarness: "Show the harness pages",
     pinGroup: "Pin group",
     unpinGroup: "Unpin group",
     /** A nav entry's favourite toggle (a star): a favourite stays visible when the collapsible area folds. */

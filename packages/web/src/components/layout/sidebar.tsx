@@ -1,12 +1,12 @@
 /**
  * Single-column sidebar, top to bottom:
- * Project switcher -> nav: New chat (a draft on the Project's new-chat defaults), always pinned
- * in its fixed slot above the scroll area, then Agents → Evaluation Center. Each page entry is
- * pinned (always shown) or collapsible (folded away by a nav-row-wide chevron button under the
- * collapsible area: arrow up = click to collapse, arrow down while collapsed = the way back);
- * Agents, Models and Plugins are pinned by default, a row's hover pin button or a drag across
- * the areas moves an entry, and both the fold and the pin choices persist in localStorage
- * (nav-group-collapse.ts) -> Session area with three grouping
+ * Project switcher -> nav: the Library (the activity list, home of the app), always pinned in
+ * its fixed slot above the scroll area, then Media, then New chat (a draft on the Project's
+ * new-chat defaults) and Agents → Evaluation Center. Every entry after the Library is pinned
+ * (always shown) or collapsible (in the Harness group, folded away by its heading row); Media
+ * is pinned by default and the rest start in the Harness group, a row's hover pin button or a
+ * drag across the areas moves an entry, and both the fold and the pin choices persist in
+ * localStorage (nav-group-collapse.ts) -> Session area with three grouping
  * modes (chosen in the section header's list options; the
  * choice and each Project's group collapse and pin state persist in localStorage): by Workspace
  * (the default; groups loaded Sessions by their
@@ -136,6 +136,7 @@ import {
 } from "../../lib/activity-sessions";
 import { useActivityLabels } from "../../state/use-activity-labels";
 import {
+  HOME_NAV_KEY,
   initialNavGroupCollapsed,
   initialNavPinOverrides,
   isNavPinned,
@@ -145,7 +146,8 @@ import {
   storeNavPinOverrides,
   withNavPinned,
 } from "../../lib/nav-group-collapse";
-import type { NavEntryKey, NavGroupKey } from "../../lib/nav-group-collapse";
+import type { NavEntryKey } from "../../lib/nav-group-collapse";
+import { HOME_PATH, currentNavKey, navHref } from "../../lib/pages";
 import {
   loadPinnedSessions,
   removePinnedSession,
@@ -261,8 +263,8 @@ const isNavDrag = (e: ReactDragEvent): boolean => e.dataTransfer.types.includes(
 /** The two nav areas a dragged entry can be dropped into. */
 type NavArea = "pinned" | "collapsible";
 
-/** A page entry of the development nav: every entry but New chat, which keeps its fixed slot. */
-const isNavPage = (key: NavEntryKey): key is NavGroupKey => key !== "newChat";
+/** An entry of the development nav's two areas: every entry but the Library, which keeps its fixed slot. */
+const isNavArea = (key: NavEntryKey): boolean => key !== HOME_NAV_KEY;
 
 /** Manual drag-reordering needs a pointer that can drag (HTML5 DnD never fires from touch) — the outline rail's query. */
 const DRAG_POINTER_QUERY = "(hover: hover) and (pointer: fine)";
@@ -1341,14 +1343,14 @@ export function Sidebar({
 
   /**
    * The mode switch: company mode enters at `/org` (the organization last opened, else the
-   * first); development mode keeps whatever conversation is open and only leaves an
-   * organization page, which has no development form.
+   * first); development mode keeps whatever is open and only leaves an organization page,
+   * which has no development form, for the Library.
    */
   const switchMode = (mode: WorkMode) => {
     if (mode === company.workMode) return;
     company.setWorkMode(mode);
     if (mode === "company") go("/org");
-    else if (isOrgRoute(location.pathname)) go("/chat");
+    else if (isOrgRoute(location.pathname)) go(HOME_PATH);
   };
 
   /** agentId → display name (row hint tooltips in workspace mode). */
@@ -1806,9 +1808,15 @@ export function Sidebar({
    * collapsible, both areas in manifest order. New chat is always pinned and renders in its
    * fixed slot above the scroll area, so the pinned rows here are the pages after it.
    */
-  const navSplit = splitNavEntries(navEntryKeysFor(user?.isAdmin === true), navPins);
-  const pinnedNavPages = navSplit.pinned.filter(isNavPage);
-  const collapsibleNavPages = navSplit.collapsible.filter(isNavPage);
+  const navEntries = navEntryKeysFor(user?.isAdmin === true);
+  const navSplit = splitNavEntries(navEntries, navPins);
+  const pinnedNavPages = navSplit.pinned.filter(isNavArea);
+  const collapsibleNavPages = navSplit.collapsible.filter(isNavArea);
+  // The one page entry the path lights: the longest address it is under (Media, not the Library).
+  const currentNav = currentNavKey(
+    location.pathname,
+    navEntries.filter((key) => key !== "newChat"),
+  );
 
   /**
    * One development-mode page entry: the package's pinnable nav row, bound to its route, its
@@ -1818,20 +1826,31 @@ export function Sidebar({
    * only adds what the dot means, and the accessible name keeps the label as its prefix. The dot
    * hangs at the row's right edge, vertically centred on the row.
    */
-  const renderNavEntry = (key: NavGroupKey) => {
-    const to = `/${key}`;
-    const label = S.nav[key];
-    const note = navNoteFor(badges, to);
+  const renderNavEntry = (key: NavEntryKey) => {
+    // New chat opens a draft rather than a page: a button lit while on the draft page.
+    const isNewChat = key === "newChat";
+    const to = isNewChat ? null : navHref(key);
+    const label = isNewChat ? S.chat.newSessionMenu : S.nav[key];
+    const note = to === null ? null : navNoteFor(badges, to);
     const pinned = isNavPinned(key, navPins);
     return (
       <SidebarNavEntry
         key={key}
         label={label}
-        glyph={NAV_ICONS[key]}
-        href={to}
-        active={isCurrentPath(to, location.pathname)}
-        renderLink={renderRouterLink}
-        onClick={() => onNavigate?.()}
+        glyph={isNewChat ? NEW_CHAT_ICON : NAV_ICONS[key]}
+        {...(to === null
+          ? {
+              active: activeSessionId === DRAFT_SESSION_ID,
+              onClick: () => newChat(),
+              tooltip: newChatTitle,
+              tooltipExtra: newChatTitle !== S.chat.newSessionMenu,
+            }
+          : {
+              href: to,
+              active: currentNav === key,
+              renderLink: renderRouterLink,
+              onClick: () => onNavigate?.(),
+            })}
         {...navEntryDragProps(key)}
         pin={{
           pinned,
@@ -2162,12 +2181,11 @@ export function Sidebar({
           </Dropdown>
         )
       }
-      // New chat: always pinned, in the one slot between the switcher above and the scroll area
-      // below; it has no pin button and cannot be dragged. A page row like the nav's (no fill at
-      // rest), told apart by its place and its weight, and lit while on the draft page. Its slot
-      // belongs to the pinned area, so it also takes an entry dragged out of the collapsible
-      // one. Company mode pins nothing here: a channel is made rarely, so "New channel" is the
-      // channel list's own header action rather than a permanent row (channel-sidebar.tsx).
+      // The Library: always pinned, in the one slot between the switcher above and the scroll
+      // area below; it has no pin button and cannot be dragged. A page row like the nav's (no fill
+      // at rest), told apart by its place and its weight, and lit on the activity list and in an
+      // open activity. Its slot belongs to the pinned area, so it also takes an entry dragged out
+      // of the Harness group. Company mode pins nothing here: its pages are the organization's.
       {...(inCompany
         ? {}
         : {
@@ -2175,13 +2193,12 @@ export function Sidebar({
               <SidebarNavArea drop={navAreaDrop("pinned")}>
                 <NavRow
                   surface="muted"
-                  label={S.chat.newSessionMenu}
-                  tooltip={newChatTitle}
-                  // The title adds the shortcut when one is bound.
-                  tooltipExtra={newChatTitle !== S.chat.newSessionMenu}
-                  glyph={NEW_CHAT_ICON}
-                  active={activeSessionId === DRAFT_SESSION_ID}
-                  onClick={() => newChat()}
+                  label={S.nav[HOME_NAV_KEY]}
+                  glyph={NAV_ICONS[HOME_NAV_KEY]}
+                  href={navHref(HOME_NAV_KEY)}
+                  active={currentNav === HOME_NAV_KEY}
+                  renderLink={renderRouterLink}
+                  onClick={() => onNavigate?.()}
                   className="font-medium"
                 />
               </SidebarNavArea>
@@ -2190,8 +2207,8 @@ export function Sidebar({
       account={accountRow}
       overlays={dialogs}
     >
-      {/* The page nav: in development mode the pinned pages, then the collapsible ones folded
-          away under the slim toggle (with nothing collapsible there is no toggle); in company
+      {/* The page nav: in development mode the pinned pages, then the Harness group, folded
+          away under its heading row (with nothing collapsible there is no group); in company
           mode the organization's six pages, all under the toggle. The fold persists. Folding
           rows tween their height to zero, inert, and leave once folded. The nav and the session
           list scroll together. Mid-drag, an empty pinned run keeps a row's height and a hidden
@@ -2205,6 +2222,10 @@ export function Sidebar({
         {...(inCompany
           ? {}
           : {
+              // The harness pages under the activity ones, folded behind their own named row.
+              title: S.nav.harness,
+              expandLabel: S.nav.expandHarness,
+              collapseLabel: S.nav.collapseHarness,
               pinned:
                 pinnedNavPages.length > 0 || navDrag !== null ? (
                   <SidebarNavArea

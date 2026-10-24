@@ -204,7 +204,8 @@ test("clicking the current Project in the dropdown: Agent and Session lists must
   const projectId = (await created.json()).project.projectId;
   for (const id of [initial.projectId, projectId]) await configureModels(page.request, id);
 
-  await page.goto("/");
+  // The app opens on the Library; this test is about the chat draft page's lists.
+  await page.goto("/chat");
 
   // First wait for the initial Project's sidebar to settle: during this time it fetches the
   // Agent list and lands on the draft page (the brand heading marks the draft page); operating

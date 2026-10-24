@@ -1,18 +1,18 @@
 /**
- * The sidebar's nav entries and how they fold (lib/nav-group-collapse.ts): every entry — New
- * chat, then the viewer's pages — is pinned (always shown) or collapsible (inside the area the
- * chevron folds away), and the fold and the pin choices each persist in one global
- * localStorage key.
+ * The sidebar's nav entries and how they fold (lib/nav-group-collapse.ts): the Library holds the
+ * fixed slot; every other entry — Media, New chat and the harness pages — is pinned (always
+ * shown) or collapsible (inside the Harness group, folded away by its heading row), and the fold
+ * and the pin choices each persist in one global localStorage key.
  *
- * - New chat comes first, then the viewer's pages; a member sees the admin's pages minus the
- *   admin-only Machines page, and nothing else. New chat's nav label is its tooltip's, and the
- *   Machines page heading is its nav label.
- * - By default New chat, Agents, Models and Plugins are pinned and the rest collapsible; a
+ * - The activity pages come first, then New chat, then the harness pages; a member sees the
+ *   admin's pages minus the admin-only Machines page, and nothing else. New chat's nav label is
+ *   its tooltip's, and the Machines page heading is its nav label.
+ * - By default the Library and Media are pinned and the rest sit in the Harness group; a
  *   member's areas are cut from their own entries.
- * - A pin toggle stores only the deviation from the default, both areas keep manifest order
+ * - A pin toggle stores only the deviation from the default, both areas keep entry order
  *   whatever order the moves came in, moving back removes the stored choice, and a move that
- *   changes nothing returns the same record. New chat is always pinned.
- * - Everything pinned leaves nothing to fold; everything collapsible folds to New chat alone.
+ *   changes nothing returns the same record. The Library is always pinned; New chat can move.
+ * - Everything pinned leaves nothing to fold; everything collapsible folds to the Library alone.
  * - Expanded shows the pinned area then the collapsible one; collapsed shows the pinned area.
  * - With nothing stored the fold is expanded and no pin is moved, and reading writes nothing;
  *   each choice persists and a remount reads it back.
@@ -49,10 +49,17 @@ const hostileStorage = {
   setItem: () => undefined,
 } as unknown as NavCollapseStorage;
 
+const PINNED = ["activities", "media"];
+const HARNESS = ["newChat", "agents", "models", "plugins", "machines", "usage", "benchmark"];
+
 describe("navEntryKeysFor", () => {
-  it("puts New chat first, then this user's pages", () => {
-    expect([...navEntryKeysFor(true)]).toEqual(["newChat", ...navKeysFor(true)]);
-    expect([...navEntryKeysFor(false)]).toEqual(["newChat", ...navKeysFor(false)]);
+  it("puts the activity pages first, then New chat, then the harness pages", () => {
+    expect([...navEntryKeysFor(true)]).toEqual([...PINNED, ...HARNESS]);
+    expect([...navEntryKeysFor(false)]).toEqual([
+      ...PINNED,
+      ...HARNESS.filter((key) => key !== "machines"),
+    ]);
+    expect(navEntryKeysFor(true).filter((key) => key !== "newChat")).toEqual(navKeysFor(true));
   });
 
   it("New chat's nav label is the one its tooltip and the collapsed rail use", () => {
@@ -74,120 +81,111 @@ describe("navKeysFor", () => {
 });
 
 describe("pinned vs. collapsible", () => {
-  it("defaults: New chat, Agents, Models and Plugins pinned; the rest collapsible", () => {
+  it("defaults: the Library and Media pinned; New chat and the harness pages in the Harness group", () => {
     expect(splitNavEntries(navEntryKeysFor(true), {})).toEqual({
-      pinned: ["newChat", "agents", "activities", "models", "plugins"],
-      collapsible: ["machines", "usage", "benchmark"],
+      pinned: PINNED,
+      collapsible: HARNESS,
     });
   });
 
   it("a member's areas are cut from their own entries: an admin-only page is in neither", () => {
     expect(splitNavEntries(navEntryKeysFor(false), {})).toEqual({
-      pinned: ["newChat", "agents", "activities", "models", "plugins"],
-      collapsible: ["usage", "benchmark"],
+      pinned: PINNED,
+      collapsible: HARNESS.filter((key) => key !== "machines"),
     });
     // A choice stored for it (an admin signed in on this browser before) offers nothing.
     const { pinned, collapsible } = splitNavEntries(navEntryKeysFor(false), { machines: true });
     expect([...pinned, ...collapsible]).not.toContain("machines");
   });
 
-  it("unpinning stores the deviation, and the entry joins the collapsible area in manifest order", () => {
-    const unpinned = withNavPinned({}, "models", false);
-    expect(unpinned).toEqual({ models: false });
-    expect(isNavPinned("models", unpinned)).toBe(false);
-    // Models lands ahead of Machines (its manifest place), not at the end it was moved to.
-    expect(splitNavEntries(navEntryKeysFor(true), unpinned)).toEqual({
-      pinned: ["newChat", "agents", "activities", "plugins"],
-      collapsible: ["models", "machines", "usage", "benchmark"],
+  it("pinning stores the deviation, and the entry joins the pinned area in entry order", () => {
+    const pinnedModels = withNavPinned({}, "models", true);
+    expect(pinnedModels).toEqual({ models: true });
+    expect(isNavPinned("models", pinnedModels)).toBe(true);
+    expect(splitNavEntries(navEntryKeysFor(true), pinnedModels)).toEqual({
+      pinned: [...PINNED, "models"],
+      collapsible: HARNESS.filter((key) => key !== "models"),
     });
   });
 
-  it("pinning a collapsible entry keeps manifest order however the moves were ordered", () => {
-    const first = withNavPinned(withNavPinned({}, "benchmark", true), "usage", true);
-    const second = withNavPinned(withNavPinned({}, "usage", true), "benchmark", true);
+  it("pinning keeps entry order however the moves were ordered", () => {
+    const first = withNavPinned(withNavPinned({}, "benchmark", true), "newChat", true);
+    const second = withNavPinned(withNavPinned({}, "newChat", true), "benchmark", true);
     expect(first).toEqual(second);
     expect(splitNavEntries(navEntryKeysFor(true), first)).toEqual({
-      pinned: ["newChat", "agents", "activities", "models", "plugins", "usage", "benchmark"],
-      collapsible: ["machines"],
+      pinned: [...PINNED, "newChat", "benchmark"],
+      collapsible: ["agents", "models", "plugins", "machines", "usage"],
     });
   });
 
   it("moving an entry back to its default removes the stored choice", () => {
-    const back = withNavPinned(withNavPinned({}, "models", false), "models", true);
+    const back = withNavPinned(withNavPinned({}, "models", true), "models", false);
     expect(back).toEqual({});
     expect("models" in back).toBe(false);
-    const machines = withNavPinned(withNavPinned({}, "machines", true), "machines", false);
-    expect(machines).toEqual({});
+    const media = withNavPinned(withNavPinned({}, "media", false), "media", true);
+    expect(media).toEqual({});
   });
 
   it("a move that changes nothing returns the same object, so the caller skips the write", () => {
-    const overrides: NavPinOverrides = { models: false };
-    expect(withNavPinned(overrides, "agents", true)).toBe(overrides);
-    expect(withNavPinned(overrides, "models", false)).toBe(overrides);
-    expect(withNavPinned(overrides, "usage", false)).toBe(overrides);
+    const overrides: NavPinOverrides = { models: true };
+    expect(withNavPinned(overrides, "agents", false)).toBe(overrides);
+    expect(withNavPinned(overrides, "models", true)).toBe(overrides);
+    expect(withNavPinned(overrides, "media", true)).toBe(overrides);
   });
 
-  it("New chat is always pinned: no choice moves it, and a stored one is ignored", () => {
-    expect(isNavPinnable("newChat")).toBe(false);
-    expect(isNavPinnable("usage")).toBe(true);
+  it("the Library is always pinned: no choice moves it, and a stored one is ignored", () => {
+    expect(isNavPinnable("activities")).toBe(false);
+    expect(isNavPinnable("newChat")).toBe(true);
     const overrides: NavPinOverrides = {};
-    expect(withNavPinned(overrides, "newChat", false)).toBe(overrides);
-    expect(isNavPinned("newChat", { newChat: false })).toBe(true);
-    expect(splitNavEntries(navEntryKeysFor(true), { newChat: false }).pinned[0]).toBe("newChat");
+    expect(withNavPinned(overrides, "activities", false)).toBe(overrides);
+    expect(isNavPinned("activities", { activities: false })).toBe(true);
+    expect(splitNavEntries(navEntryKeysFor(true), { activities: false }).pinned[0]).toBe(
+      "activities",
+    );
     const storage = memoryStorage();
-    storage.setItem(NAV_PINNED_KEY, JSON.stringify({ newChat: false, usage: true }));
-    expect(initialNavPinOverrides(storage)).toEqual({ usage: true });
+    storage.setItem(NAV_PINNED_KEY, JSON.stringify({ activities: false, newChat: true }));
+    expect(initialNavPinOverrides(storage)).toEqual({ newChat: true });
   });
 
   it("everything pinned leaves the collapsible area empty, so folding hides nothing", () => {
     let overrides: NavPinOverrides = {};
     for (const key of navEntryKeysFor(true)) overrides = withNavPinned(overrides, key, true);
-    expect(overrides).toEqual({ machines: true, usage: true, benchmark: true });
+    expect(Object.keys(overrides)).toEqual(HARNESS);
     const { collapsible } = splitNavEntries(navEntryKeysFor(true), overrides);
     expect(collapsible).toEqual([]);
     expect(visibleNavKeys(true, true, overrides)).toEqual(navEntryKeysFor(true));
   });
 
-  it("everything collapsible still leaves New chat pinned, and folding shows only it", () => {
+  it("everything collapsible still leaves the Library pinned, and folding shows only it", () => {
     let overrides: NavPinOverrides = {};
     for (const key of navEntryKeysFor(true)) overrides = withNavPinned(overrides, key, false);
-    expect(splitNavEntries(navEntryKeysFor(true), overrides).pinned).toEqual(["newChat"]);
-    expect(visibleNavKeys(true, true, overrides)).toEqual(["newChat"]);
+    expect(splitNavEntries(navEntryKeysFor(true), overrides).pinned).toEqual(["activities"]);
+    expect(visibleNavKeys(true, true, overrides)).toEqual(["activities"]);
   });
 });
 
 describe("visibleNavKeys", () => {
   it("expanded shows the viewer's every entry; collapsed leaves only the pinned ones visible and reachable (the sidebar renders the folded rows inert at zero height)", () => {
     expect(visibleNavKeys(false)).toEqual(navEntryKeysFor(true));
-    expect(visibleNavKeys(true)).toEqual(["newChat", "agents", "activities", "models", "plugins"]);
+    expect(visibleNavKeys(true)).toEqual(PINNED);
     expect(visibleNavKeys(false, false)).toEqual(navEntryKeysFor(false));
-    expect(visibleNavKeys(true, false)).toEqual([
-      "newChat",
-      "agents",
-      "activities",
-      "models",
-      "plugins",
-    ]);
+    expect(visibleNavKeys(true, false)).toEqual(PINNED);
   });
 
   it("renders the pinned area first, then the collapsible one", () => {
-    const overrides = withNavPinned({}, "models", false);
+    const overrides = withNavPinned({}, "plugins", true);
     expect(visibleNavKeys(false, true, overrides)).toEqual([
+      "activities",
+      "media",
+      "plugins",
       "newChat",
       "agents",
-      "activities",
-      "plugins",
       "models",
       "machines",
       "usage",
       "benchmark",
     ]);
-    expect(visibleNavKeys(true, true, overrides)).toEqual([
-      "newChat",
-      "agents",
-      "activities",
-      "plugins",
-    ]);
+    expect(visibleNavKeys(true, true, overrides)).toEqual(["activities", "media", "plugins"]);
   });
 });
 
@@ -205,13 +203,7 @@ describe("persisted collapse state (one global localStorage key)", () => {
     expect(s.map.get(NAV_GROUP_COLLAPSED_KEY)).toBe("collapsed");
     // … and a re-mount (initialNavGroupCollapsed is the useState initializer) restores it.
     expect(initialNavGroupCollapsed(s)).toBe(true);
-    expect(visibleNavKeys(initialNavGroupCollapsed(s))).toEqual([
-      "newChat",
-      "agents",
-      "activities",
-      "models",
-      "plugins",
-    ]);
+    expect(visibleNavKeys(initialNavGroupCollapsed(s))).toEqual(PINNED);
     // Expand again: the choice round-trips both ways.
     storeNavGroupCollapsed(false, s);
     expect(s.map.get(NAV_GROUP_COLLAPSED_KEY)).toBe("expanded");
@@ -223,7 +215,7 @@ describe("persisted collapse state (one global localStorage key)", () => {
     const s = memoryStorage({ [NAV_GROUP_COLLAPSED_KEY]: "collapsed" });
     expect(initialNavGroupCollapsed(s)).toBe(true);
     const shown = visibleNavKeys(initialNavGroupCollapsed(s), true, initialNavPinOverrides(s));
-    expect(shown).toEqual(["newChat", "agents", "activities", "models", "plugins"]);
+    expect(shown).toEqual(PINNED);
   });
 
   it("unrecognized stored values fall back to expanded", () => {
@@ -255,20 +247,20 @@ describe("persisted pin choices (one global localStorage key)", () => {
 
   it("a move → store → a fresh mount-time read restores the areas", () => {
     const s = memoryStorage();
-    const moved = withNavPinned(withNavPinned({}, "models", false), "usage", true);
+    const moved = withNavPinned(withNavPinned({}, "media", false), "usage", true);
     storeNavPinOverrides(moved, s);
-    expect(JSON.parse(s.map.get(NAV_PINNED_KEY)!)).toEqual({ models: false, usage: true });
+    expect(JSON.parse(s.map.get(NAV_PINNED_KEY)!)).toEqual({ media: false, usage: true });
     const restored = initialNavPinOverrides(s);
     expect(restored).toEqual(moved);
     expect(splitNavEntries(navEntryKeysFor(true), restored)).toEqual({
-      pinned: ["newChat", "agents", "activities", "plugins", "usage"],
-      collapsible: ["models", "machines", "benchmark"],
+      pinned: ["activities", "usage"],
+      collapsible: ["media", "newChat", "agents", "models", "plugins", "machines", "benchmark"],
     });
   });
 
   it("only the deviations are stored: moving back empties the record", () => {
     const s = memoryStorage();
-    storeNavPinOverrides(withNavPinned(withNavPinned({}, "models", false), "models", true), s);
+    storeNavPinOverrides(withNavPinned(withNavPinned({}, "models", true), "models", false), s);
     expect(s.map.get(NAV_PINNED_KEY)).toBe("{}");
   });
 

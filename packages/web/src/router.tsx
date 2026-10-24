@@ -53,7 +53,7 @@ import { ChannelView } from "./features/company/channel-view";
 import { HandbookPage } from "./features/company/handbook-page";
 import { MachinesPage } from "./features/machines/machines-page";
 import { WorkbenchAppPage } from "./features/workbenches/workbench-app-page";
-import { PAGES } from "./lib/pages";
+import { HOME_PATH, PAGES } from "./lib/pages";
 import type { PageEntry } from "./lib/pages";
 
 /**
@@ -80,7 +80,7 @@ function renderPage(page: PageEntry): React.ReactNode {
     );
   }
   const Component = BUILTIN_PAGES[page.renderer.builtin];
-  return Component === undefined ? <Navigate to="/chat" replace /> : <Component />;
+  return Component === undefined ? <Navigate to={HOME_PATH} replace /> : <Component />;
 }
 
 /** Route guard: shows blank while initializing, redirects to /login when not authenticated. */
@@ -117,10 +117,10 @@ function RequireAuthBare({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** When already logged in, visiting /login redirects straight to the chat page. */
+/** When already logged in, visiting /login redirects straight to the Library. */
 function LoginRoute() {
   const { user } = useAuth();
-  if (user) return <Navigate to="/chat" replace />;
+  if (user) return <Navigate to={HOME_PATH} replace />;
   return <LoginPage />;
 }
 
@@ -174,7 +174,7 @@ function appRoutes() {
         />
       ))}
       <Route element={<RequireAuth />}>
-        <Route index element={<Navigate to="/chat" replace />} />
+        <Route index element={<Navigate to={HOME_PATH} replace />} />
         {/* Every page is a module.json entry (lib/pages.ts). Admin-only ones are refused
             server-side (403); the sidebar hides their row, so a member only ever reaches
             one by typing the URL. */}
@@ -199,7 +199,7 @@ function appRoutes() {
         </Route>
         {/* Settings and user management live in the settings dialog now (see
             SettingsDialog); their old routes fall through to the catch-all. */}
-        <Route path="*" element={<Navigate to="/chat" replace />} />
+        <Route path="*" element={<Navigate to={HOME_PATH} replace />} />
       </Route>
     </Route>,
   );

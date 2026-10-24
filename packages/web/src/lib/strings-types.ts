@@ -2417,6 +2417,7 @@ export type Strings = {
   };
   nav: {
     activities: string;
+    media: string;
     chat: string;
     newChat: string;
     agents: string;
@@ -2433,6 +2434,9 @@ export type Strings = {
     expandSidebar: string;
     collapseGroup: string;
     expandGroup: string;
+    harness: string;
+    collapseHarness: string;
+    expandHarness: string;
     pinGroup: string;
     unpinGroup: string;
     org: {

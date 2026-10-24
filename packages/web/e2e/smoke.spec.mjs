@@ -55,15 +55,20 @@ async function send(page, message) {
   await page.getByRole("button", { name: "Send", exact: true }).click();
 }
 
-test("signing in opens the chat and remains signed in after reload", async ({ page }) => {
+test("signing in opens the Library and remains signed in after reload", async ({ page }) => {
   await provisionUser("smokelogin", PASSWORD);
   expect((await page.request.get(`${BASE}/api/projects`)).status()).toBe(401);
   await page.goto("/chat");
   await page.getByLabel("Username").fill("smokelogin");
   await page.getByLabel(/^Password/).fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByPlaceholder(/Type a message/)).toBeVisible();
+  const library = page.getByRole("link", { name: "Library", exact: true }).first();
+  await expect(page).toHaveURL(/\/activities$/);
+  await expect(library).toBeVisible();
   await page.reload();
+  await expect(page).toHaveURL(/\/activities$/);
+  await expect(library).toBeVisible();
+  await page.goto("/chat");
   await expect(page.getByPlaceholder(/Type a message/)).toBeVisible();
   const projects = await page.request.get(`${BASE}/api/projects`);
   expect(projects.ok()).toBeTruthy();

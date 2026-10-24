@@ -10,9 +10,19 @@
  * - A server page with an unknown builtin renderer is skipped, and a local page wins over a
  *   same-key server one.
  * - An iframe renderer needs no registry entry.
+ * - A nav entry leads to its path without parameters, the app opens on the Library, and a path
+ *   lights the longest entry it is under.
  */
 import { describe, expect, it } from "vitest";
-import { NAV_PAGE_KEYS, PAGES, mergePages, navPagesFor } from "../src/lib/pages";
+import {
+  HOME_PATH,
+  NAV_PAGE_KEYS,
+  PAGES,
+  currentNavKey,
+  mergePages,
+  navHref,
+  navPagesFor,
+} from "../src/lib/pages";
 import { en } from "../src/lib/strings-en";
 import { NAV_ICONS } from "../src/lib/nav-icons";
 
@@ -95,5 +105,28 @@ describe("mergePages", () => {
       known,
     );
     expect(merged).toHaveLength(1);
+  });
+});
+
+describe("navHref and currentNavKey", () => {
+  it("an entry leads to its page's path without the parameter segments", () => {
+    expect(navHref("activities")).toBe("/activities");
+    expect(navHref("media")).toBe("/activities/media");
+    expect(navHref("agents")).toBe("/agents");
+    expect(navHref("unknown")).toBe("/unknown");
+  });
+
+  it("the app opens on the Library", () => {
+    expect(HOME_PATH).toBe(navHref("activities"));
+  });
+
+  it("a path lights the longest entry it is under, and none when it is under no entry", () => {
+    const keys = ["activities", "media", "agents"];
+    expect(currentNavKey("/activities", keys)).toBe("activities");
+    expect(currentNavKey("/activities/abc123", keys)).toBe("activities");
+    expect(currentNavKey("/activities/media", keys)).toBe("media");
+    expect(currentNavKey("/agents/a1", keys)).toBe("agents");
+    expect(currentNavKey("/activitiesx", keys)).toBe(null);
+    expect(currentNavKey("/chat/new", keys)).toBe(null);
   });
 });

@@ -164,6 +164,9 @@ function DropRing() {
  * resting band is the column's one fill at rest: it reads as the seam between the nav and the
  * list below it.
  *
+ * With a `title` the group is a named section: the toggle is its heading row, above the rows,
+ * showing the name and the caret, in place of the slim band below them.
+ *
  * With nothing to fold (`foldable={false}`) neither the group nor its toggle is drawn. When the
  * last entry leaves the fold (pinned), the group does not vanish in one frame: its rows fold
  * away, the band fades, and both unmount once the fold has finished. With `drop`, the group and
@@ -178,6 +181,7 @@ export function SidebarNavGroup({
   foldable = true,
   drop,
   toggleRef,
+  title,
   children,
 }: {
   collapsed: boolean;
@@ -194,6 +198,8 @@ export function SidebarNavGroup({
   drop?: SidebarDropTarget;
   /** The toggle's node: where the caller sends focus that cannot land in the folded group. */
   toggleRef?: Ref<HTMLButtonElement>;
+  /** The group's visible name: the toggle becomes its heading row, above the rows. */
+  title?: string;
   children: ReactNode;
 }) {
   const label = collapsed ? expandLabel : collapseLabel;
@@ -209,6 +215,22 @@ export function SidebarNavGroup({
       {pinned}
       {(foldable || holding) && (
         <div {...dropHandlers(drop)} className="relative flex flex-col gap-px">
+          {title !== undefined && (
+            <button
+              ref={toggleRef}
+              type="button"
+              onClick={onToggle}
+              aria-expanded={!collapsed}
+              aria-label={label}
+              data-tooltip={label}
+              className={`mt-2 flex h-6 w-full items-center justify-between rounded-md px-2 text-xs font-medium text-fg-subtle transition-[color,background-color,opacity] duration-150 hover:bg-fg/10 hover:text-fg ${
+                foldable ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            >
+              <span>{title}</span>
+              <ChevronFlip up={!collapsed} />
+            </button>
+          )}
           <Fold open={open} onClosed={() => setHolding(false)}>
             <div
               className={`space-y-px transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}${
@@ -218,18 +240,20 @@ export function SidebarNavGroup({
               {children}
             </div>
           </Fold>
-          <button
-            ref={toggleRef}
-            type="button"
-            onClick={onToggle}
-            aria-expanded={!collapsed}
-            aria-label={label}
-            className={`flex h-4 w-full items-center justify-center rounded-md ${NAV_FILL.selected} text-fg-subtle transition-[color,background-color,opacity] duration-150 hover:bg-fg/10 hover:text-fg ${
-              foldable ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          >
-            <ChevronFlip up={!collapsed} />
-          </button>
+          {title === undefined && (
+            <button
+              ref={toggleRef}
+              type="button"
+              onClick={onToggle}
+              aria-expanded={!collapsed}
+              aria-label={label}
+              className={`flex h-4 w-full items-center justify-center rounded-md ${NAV_FILL.selected} text-fg-subtle transition-[color,background-color,opacity] duration-150 hover:bg-fg/10 hover:text-fg ${
+                foldable ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            >
+              <ChevronFlip up={!collapsed} />
+            </button>
+          )}
           {drop?.over === true && <DropRing />}
         </div>
       )}

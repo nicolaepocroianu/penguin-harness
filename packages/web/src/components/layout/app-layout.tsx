@@ -29,7 +29,8 @@ import { S } from "../../lib/strings";
 import { onCommand } from "../../lib/shortcuts/dispatcher";
 import { useShortcutTitle } from "../../lib/shortcuts/use-keymap";
 import { latestOwnConversation } from "../../lib/activity-sessions";
-import { navKeysFor } from "../../lib/nav-group-collapse";
+import { HOME_NAV_KEY, navKeysFor } from "../../lib/nav-group-collapse";
+import { currentNavKey, navHref } from "../../lib/pages";
 import { navNoteFor, useUpdateBadges } from "../../lib/use-update-badges";
 import { backgroundStyle, useBackground } from "../../state/background";
 import { useAuth } from "../../state/auth";
@@ -74,8 +75,9 @@ function pinnedSidebarOnScreen(): boolean {
 }
 
 /**
- * The folded navigation column: the unfold button on top; below it, in product-specified order,
- * last conversation / new chat / Agents / Models / Plugins / Machines (admins) / Cost Center /
+ * The folded navigation column, which is also what an open activity keeps beside it: the unfold
+ * button on top; below it the activity pages (Library, Media), a hairline, then last
+ * conversation / new chat / Agents / Models / Plugins / Machines (admins) / Cost Center /
  * Evaluation Center; the user avatar at the bottom, opening the same account menu the pinned
  * sidebar's avatar does. No logo.
  *
@@ -149,11 +151,39 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
       }))
     : navKeysFor(user?.isAdmin === true).map((key) => ({
         key,
-        to: `/${key}`,
+        to: navHref(key),
         label: S.nav[key],
         icon: NAV_ICONS[key],
-        note: navNoteFor(badges, `/${key}`),
+        note: navNoteFor(badges, navHref(key)),
       }));
+  // The one page entry the path lights: the longest address it is under (Media, not the Library).
+  const currentPage = currentNavKey(
+    location.pathname,
+    pages.map((item) => item.key),
+  );
+  /** Development mode's activity pages lead the rail, ahead of the conversations. */
+  const activityPages = inCompany
+    ? []
+    : pages.filter((item) => item.key === HOME_NAV_KEY || item.key === "media");
+  const otherPages = pages.filter((item) => !activityPages.includes(item));
+  const pageItem = (item: (typeof pages)[number]) => {
+    const label = item.note !== null ? `${item.label} · ${item.note}` : item.label;
+    return (
+      <RailItem
+        key={item.key}
+        label={label}
+        glyph={item.icon}
+        href={item.to ?? ""}
+        disabled={item.to === null}
+        active={
+          item.to !== null &&
+          (inCompany ? isCurrentPath(item.to, location.pathname) : currentPage === item.key)
+        }
+        renderLink={renderRouterLink}
+        {...(item.note !== null ? { badge: <UpdateDot /> } : {})}
+      />
+    );
+  };
 
   /**
    * The rail's avatar hangs its menu off the rail's OUTER edge rather than over the rail:
@@ -244,6 +274,14 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
         />
       }
     >
+      {/* The activity pages first: the Library and Media, then a hairline before the
+          conversations and the harness pages. */}
+      {activityPages.length > 0 && (
+        <>
+          {activityPages.map(pageItem)}
+          <RailDivider />
+        </>
+      )}
       {/* 1. Last conversation: a history mark (a clock read backwards) — the entry goes BACK to
           where the user was. Lit on any non-draft conversation. Dimmed/disabled (tooltip kept)
           only once the list has settled with no non-archived Session — while it is still
@@ -277,21 +315,7 @@ function CollapsedRail({ onExpand }: { onExpand: () => void }) {
           Plugins, Models and the Cost Center. The dot is decorative: this rail's icons have no
           visible label, so the name and the hint carry both the entry and what is waiting. An
           entry with nowhere to go keeps its place, muted, with nothing to click or tab to. */}
-      {pages.map((item) => {
-        const label = item.note !== null ? `${item.label} · ${item.note}` : item.label;
-        return (
-          <RailItem
-            key={item.key}
-            label={label}
-            glyph={item.icon}
-            href={item.to ?? ""}
-            disabled={item.to === null}
-            active={item.to !== null && isCurrentPath(item.to, location.pathname)}
-            renderLink={renderRouterLink}
-            {...(item.note !== null ? { badge: <UpdateDot /> } : {})}
-          />
-        );
-      })}
+      {otherPages.map(pageItem)}
       {/* The organization's other channels, its desks and then its Temporary entries, under the
           pages the way they sit under the nav in the pinned sidebar. A hairline says where each
           run ends (the channels and the Temporary entries draw their own, and only when they

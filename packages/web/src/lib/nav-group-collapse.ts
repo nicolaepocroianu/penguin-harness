@@ -1,12 +1,13 @@
 /**
- * The sidebar's nav entries and how they fold (pure decisions, unit tested). In development
- * mode every entry — New chat, then the page manifest below — is either PINNED, always
- * shown, or COLLAPSIBLE, inside the area a nav-row-wide chevron button under it folds away
- * (arrow up = collapse; collapsed, the button stays — arrow down — as the way back). New
- * chat, Agents, Models and Plugins are pinned by default; the user moves an entry across
- * with the row's pin button or by dragging it into or out of the collapsible area. Both
- * areas keep manifest order, and with nothing collapsible there is no chevron. Company
- * mode's six entries stay outside the split: they fold as one group behind the same button.
+ * The sidebar's nav entries and how they fold (pure decisions, unit tested). The nav is
+ * activity first: the Library (the activities page) holds the fixed slot at the top and is
+ * always shown; Media follows it. Every other entry — New chat and the harness pages — is
+ * either PINNED, always shown, or COLLAPSIBLE, inside the Harness group a nav-row-wide button
+ * under it folds away. Only the activity pages are pinned by default, so the harness pages
+ * start in the Harness group; the user moves an entry across with the row's pin button or by
+ * dragging it into or out of the group. Both areas keep entry order, and with nothing
+ * collapsible there is no group. Company mode's six entries stay outside the split: they fold
+ * as one group behind the same button.
  *
  * Global storage keys, not per Project: the nav is identical everywhere, so like the
  * grouping mode (GROUP_MODE_KEY) the fold and the pin choices are single user preferences —
@@ -16,7 +17,7 @@
  */
 
 /**
- * Page entries of the nav, in rendered order. Each key names its route (`/<key>`), its
+ * Page entries of the nav, in rendered order. Each key names its route (navHref), its
  * S.nav label, and its NAV_ICONS glyph — the sidebar derives its nav rows from this
  * manifest, so the covered range is pinned here (and in the unit tests) rather than
  * duplicated. Some entries are admin-only (see below), so the sidebar renders
@@ -29,6 +30,7 @@ export type NavGroupKey =
   | "agents"
   | "coding-agents"
   | "activities"
+  | "media"
   | "plugins"
   | "models"
   | "machines"
@@ -74,27 +76,34 @@ export function navKeysFor(isAdmin: boolean): readonly NavGroupKey[] {
 
 /**
  * A development-mode nav entry: New chat or a page. New chat opens a draft rather than a
- * route, so it is not in the manifest; it is the one entry that is always pinned (see
- * isNavPinnable), while every page is pinned or collapsible at the user's choice.
+ * route, so it is not in the manifest.
  */
 export type NavEntryKey = "newChat" | NavGroupKey;
 
-/** Every entry this user sees, in rendered order: New chat first, then their pages. */
+/** The Library: the activities page, home of the app, in the nav's fixed slot and never folded away. */
+export const HOME_NAV_KEY = "activities" satisfies NavGroupKey;
+
+/** The pages about activities, ahead of New chat; every page after them is a harness page. */
+const ACTIVITY_NAV_KEYS: ReadonlySet<NavEntryKey> = new Set<NavEntryKey>(["activities", "media"]);
+
+/**
+ * Every entry this user sees, in rendered order: the activity pages, then New chat, then the
+ * harness pages.
+ */
 export function navEntryKeysFor(isAdmin: boolean): readonly NavEntryKey[] {
-  return ["newChat", ...navKeysFor(isAdmin)];
+  const pages = navKeysFor(isAdmin);
+  return [
+    ...pages.filter((key) => ACTIVITY_NAV_KEYS.has(key)),
+    "newChat",
+    ...pages.filter((key) => !ACTIVITY_NAV_KEYS.has(key)),
+  ];
 }
 
 /**
- * Entries pinned until the user says otherwise; every other entry, a page added later included,
- * starts collapsible. The Activity Studio is pinned: it is where this build's authors work.
+ * Entries pinned until the user says otherwise: the activity pages. Every other entry, a page
+ * added later included, starts in the Harness group.
  */
-export const DEFAULT_PINNED_NAV_KEYS: ReadonlySet<NavEntryKey> = new Set<NavEntryKey>([
-  "newChat",
-  "agents",
-  "activities",
-  "models",
-  "plugins",
-]);
+export const DEFAULT_PINNED_NAV_KEYS: ReadonlySet<NavEntryKey> = ACTIVITY_NAV_KEYS;
 
 /**
  * The user's pin choices that differ from the defaults, by entry: true = pinned, false =
@@ -103,9 +112,9 @@ export const DEFAULT_PINNED_NAV_KEYS: ReadonlySet<NavEntryKey> = new Set<NavEntr
  */
 export type NavPinOverrides = Readonly<Partial<Record<NavEntryKey, boolean>>>;
 
-/** Whether the user may move an entry between the areas: every page may; New chat never folds away. */
+/** Whether the user may move an entry between the areas: every entry may but the Library, which never folds away. */
 export function isNavPinnable(key: NavEntryKey): boolean {
-  return key !== "newChat";
+  return key !== HOME_NAV_KEY;
 }
 
 export function isNavPinned(key: NavEntryKey, overrides: NavPinOverrides): boolean {
@@ -200,8 +209,10 @@ export function storeNavGroupCollapsed(collapsed: boolean, storage?: NavCollapse
 /** The pin choices' single global key; holds NavPinOverrides as a JSON object. */
 export const NAV_PINNED_KEY = "wafh.sidebarNavPinned";
 
-/** Keys a stored choice may name: the whole manifest, pages this user is not offered included (New chat is never a choice). */
-const NAV_ENTRY_KEYS: ReadonlySet<string> = new Set<string>(NAV_GROUP_KEYS);
+/** Keys a stored choice may name: New chat and the whole manifest, pages this user is not offered included, but never the Library. */
+const NAV_ENTRY_KEYS: ReadonlySet<string> = new Set<string>(
+  ["newChat", ...NAV_GROUP_KEYS].filter((key) => key !== HOME_NAV_KEY),
+);
 
 /**
  * Reads the stored choices. Only a boolean under a key the manifest knows is kept, so a key

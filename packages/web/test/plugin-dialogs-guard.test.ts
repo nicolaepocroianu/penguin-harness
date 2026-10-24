@@ -151,7 +151,7 @@ describe("the plugin import dialog", () => {
     await click(example);
     const source = field(en.plugins.importSourceLabel).value;
     expect(source).toMatch(
-      /^https:\/\/github.com\/Prism-Shadow\/penguin-harness\/tree\/main\/plugins\//,
+      /^https:\/\/github.com\/nicolaepocroianu\/waf-harness\/tree\/main\/plugins\//,
     );
     expect(server.writes("/plugins/installed")).toEqual([]);
     expect(whereIs(router)).toBe("/chat/import");
