@@ -2411,12 +2411,13 @@ test("an activity collapses the sidebar without changing the stored choice", asy
   expect(f.errors).toEqual([]);
 });
 
-test("collapsed rail keeps Activities reachable through the page manifest", async ({ page }) => {
+test("collapsed rail keeps the Library reachable through the page manifest", async ({ page }) => {
   const f = await fixture(page);
   await create(page);
-  // The activity workspace already auto-collapses the sidebar to its rail.
+  // The activity workspace already auto-collapses the sidebar to its rail; the rail comes
+  // before the studio's own way back, which has the same name.
   await expect(page.getByRole("button", { name: "Collapse sidebar", exact: true })).toBeHidden();
-  const activities = page.getByRole("link", { name: "Activities", exact: true });
+  const activities = page.getByRole("link", { name: "Library", exact: true }).first();
   await expect(activities).toBeVisible();
   await activities.click();
   await expect(page).toHaveURL(/\/activities$/);
@@ -2526,13 +2527,19 @@ test("leaving with unsaved edits asks through the app's dialog", async ({ page }
   await openSection(page, "Storyboard");
   await openSection(page, "Script");
   await replaceText(description, "Keep this edit");
-  await page.getByRole("link", { name: "All activities" }).click();
+  await page
+    .getByRole("navigation", { name: "Breadcrumb" })
+    .getByRole("link", { name: "Library" })
+    .click();
   const dialog = page.getByRole("dialog", { name: "Discard unsaved changes?" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
   await expect(page).toHaveURL(/\/activities\/[^/?]+/);
-  await page.getByRole("link", { name: "All activities" }).click();
+  await page
+    .getByRole("navigation", { name: "Breadcrumb" })
+    .getByRole("link", { name: "Library" })
+    .click();
   await page
     .getByRole("dialog", { name: "Discard unsaved changes?" })
     .getByRole("button", { name: "Discard" })
@@ -5556,7 +5563,10 @@ test("tags a product, filters the list by tag, and deletes an activity after con
 
   // Back through the app, not a page load: the list open behind the activity must show the
   // tags just saved.
-  await page.getByRole("link", { name: "All activities" }).click();
+  await page
+    .getByRole("navigation", { name: "Breadcrumb" })
+    .getByRole("link", { name: "Library" })
+    .click();
   const filter = page.getByRole("group", { name: "Filter by tag" });
   await expect(filter.getByRole("button")).toHaveText([
     "All",
@@ -5827,7 +5837,7 @@ test("browses the project's media, switches to the table, and downloads two file
   ]);
   await page.getByRole("button", { name: "Clear selection", exact: true }).click();
   await expect(page.getByText("0 files selected")).toBeVisible();
-  await page.getByRole("link", { name: "All activities", exact: true }).click();
+  await page.getByRole("main").getByRole("link", { name: "Library", exact: true }).click();
   await expect(page).toHaveURL(/\/activities$/);
   expect(f.errors).toEqual([]);
 });

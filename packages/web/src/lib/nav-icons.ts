@@ -11,6 +11,8 @@ export const NAV_ICONS = {
   agents: ICONS.robot,
   /** Activity Studio (a written page): the activities a module is authored from. */
   activities: ICONS.fileLines,
+  /** The media library (a picture): the files every activity of the project draws from. */
+  media: ICONS.image,
   /** Coding agents (the bot with an antenna): the external programs a session can run. */
   "coding-agents": ICONS.robotVisor,
   /** Plugin library (the puzzle piece). */

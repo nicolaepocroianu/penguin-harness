@@ -6,6 +6,28 @@
   "contributes": {
     "web.pages": [
       {
+        "id": "web.activities",
+        "key": "activities",
+        "path": "/activities/:activityId?",
+        "nav": "main",
+        "admin": false,
+        "released": true,
+        "renderer": {
+          "builtin": "ActivitiesPage"
+        }
+      },
+      {
+        "id": "web.activities-media",
+        "key": "media",
+        "path": "/activities/media",
+        "nav": "main",
+        "admin": false,
+        "released": true,
+        "renderer": {
+          "builtin": "ActivitiesPage"
+        }
+      },
+      {
         "id": "web.chat",
         "key": "chat",
         "path": "/chat/:sessionId?",
@@ -25,28 +47,6 @@
         "released": true,
         "renderer": {
           "builtin": "AgentsPage"
-        }
-      },
-      {
-        "id": "web.activities",
-        "key": "activities",
-        "path": "/activities/:activityId?",
-        "nav": "main",
-        "admin": false,
-        "released": true,
-        "renderer": {
-          "builtin": "ActivitiesPage"
-        }
-      },
-      {
-        "id": "web.activities-media",
-        "key": "activities-media",
-        "path": "/activities/media",
-        "nav": "none",
-        "admin": false,
-        "released": true,
-        "renderer": {
-          "builtin": "ActivitiesPage"
         }
       },
       {

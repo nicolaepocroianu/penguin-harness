@@ -29,6 +29,7 @@ import type { LangPref } from "../state/locale";
 import { useTheme } from "../state/theme";
 import type { ThemeMode } from "../state/theme";
 import { LoginCircuit } from "./login-circuit";
+import { HOME_PATH } from "../lib/pages";
 
 /** Which advice a failed claim asks for; the server decides it from the deployment, not from the token. */
 type ClaimFailure = "desktop" | "server";
@@ -75,7 +76,7 @@ export function LoginPage() {
     setErrors({});
     try {
       await login(userId.trim(), password);
-      navigate("/chat", { replace: true });
+      navigate(HOME_PATH, { replace: true });
     } catch (e) {
       setErrors({ form: apiErrorText(e) });
     } finally {

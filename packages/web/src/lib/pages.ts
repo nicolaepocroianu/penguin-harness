@@ -7,6 +7,9 @@
  * The same shape arrives from the server (GET /api/contributions) for pages a pushed
  * platform or a plugin contributes; `mergePages` folds those in — a page whose
  * renderer this build does not carry is skipped, since there is nothing to draw it with.
+ *
+ * Manifest order is nav order: the activity pages (the Library, Media) come first, since
+ * activities are what this build is for; the harness pages follow.
  */
 import manifest from "../module.json";
 
@@ -27,6 +30,41 @@ export const PAGES: readonly PageEntry[] = manifest.contributes["web.pages"] as 
 export const NAV_PAGE_KEYS: readonly string[] = PAGES.filter((p) => p.nav === "main").map(
   (p) => p.key,
 );
+
+/**
+ * Where the app opens: the Library, the activity list. Signing in, the bare root and an address
+ * that names no page all land here, since activities are what this build is for.
+ */
+export const HOME_PATH = "/activities";
+
+/**
+ * Where a nav entry leads: its page's path with the parameter segments dropped, so
+ * `/activities/:activityId?` is `/activities` and `/activities/media` stays itself. A key with
+ * no page leads to `/<key>`.
+ */
+export function navHref(key: string): string {
+  const page = PAGES.find((p) => p.key === key);
+  if (page === undefined) return `/${key}`;
+  return page.path.replace(/\/:[^/]+/g, "") || "/";
+}
+
+/**
+ * The one nav entry a path lights: of the entries whose address the path is under, the
+ * longest, so the Media library (`/activities/media`) lights Media and not the Library above it.
+ */
+export function currentNavKey<K extends string>(pathname: string, keys: readonly K[]): K | null {
+  let best: K | null = null;
+  let length = -1;
+  for (const key of keys) {
+    const href = navHref(key);
+    const under = pathname === href || pathname.startsWith(`${href}/`);
+    if (under && href.length > length) {
+      best = key;
+      length = href.length;
+    }
+  }
+  return best;
+}
 
 /** The nav as this user sees it: released pages, minus admin-only ones for a non-admin. */
 export function navPagesFor(isAdmin: boolean): readonly PageEntry[] {
