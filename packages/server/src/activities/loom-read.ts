@@ -1,13 +1,11 @@
 /**
- * Reading a product Loom authored in a module, for a project to adopt in place.
+ * Reading a product Loom authored in a module, as WAF Harness opens it in place.
  *
  * Read-only: this opens a module's `generated/` files and reports what it found, and never
- * writes. Adopting (service.claimModuleProduct) is what then gives each ref WAF Harness's own
- * files beside Loom's.
+ * writes. A ref is written only when it is first changed (service.loomDraft, writeDraft).
  *
  *     <wafRoot>/modules/<moduleFolder>/generated/<productCode>/   (see waf-layout.ts)
  *       spec/activity_metadata.json      product: canonical ref, type, templateStable
- *       spec/wafh.json                which WAF Harness project owns it, once one does
  *       spec/state-machine.json          the canonical product machine
  *       refs/<productCode>-<refNum>/spec/
  *         activity_metadata.json         ref: number, display name

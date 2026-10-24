@@ -98,21 +98,25 @@ import type { WafWorkspace } from "./waf-workspace.js";
 import {
   ensureConfigurationFile,
   exists,
-  WAFH_FILE,
+  parseRefState,
   readFeatureFile,
-  readProductOwner,
+  readJson,
+  readLegacyRefState,
   readProductTags,
   readRefDraft,
   readText,
+  REF_DESCRIPTION_FILE,
   REF_FEATURES_FILE,
   REF_MANIFEST_FILE,
   REF_METADATA_FILE,
+  REF_SPEC_FILE,
   STATE_MACHINE_FILE,
   writeFeatureFile,
   writeFileAtomic,
   writeProductFiles,
   writeRefDraft,
   writeRefMetadata,
+  type WafHarnessRefState,
 } from "./ref-files.js";
 import {
   GENERATED_IMAGE_MAX_BYTES,
@@ -169,8 +173,8 @@ import {
   type RefAssetDecision,
   type RefNumberSuggestion,
 } from "./ref-template.js";
-import { adoptLoomProduct, describeAdoption, type CarriedBinding } from "./loom-adopt.js";
-import { mapProductMetadata, readLoomProduct } from "./loom-read.js";
+import { adoptLoomProduct, type CarriedBinding } from "./loom-adopt.js";
+import { mapProductMetadata, mapRefMetadata, readLoomRef } from "./loom-read.js";
 import {
   mediaSparsePath,
   moduleDocumentPath,
@@ -178,9 +182,9 @@ import {
   refMediaFolder,
   refSpecPath,
   WafLayout,
+  type ModuleLayout,
 } from "./waf-layout.js";
 import { syncStateMachineConfiguration } from "./state-machine-configuration.js";
-import type { ClaimModuleProductResponse, ModuleProduct } from "./module-product-types.js";
 
 /** A run's id, as a pinned module build names one. */
 const RUN_ID = /^run_[a-f0-9]{32}$/;
@@ -273,6 +277,11 @@ export class ActivityService implements ActivityAuthoring {
   @Use() private readonly outcomes!: ActivityOutcomes;
   /** Locks of keys other than one activity (a collection's numbering, a claimed module). */
   private readonly locks = new ActivityLocks();
+  /**
+   * Loom refs read as drafts, by draft id, with what their files were when they were read: a
+   * list's summaries read every ref, and making a media plan for each again is what costs.
+   */
+  private readonly loomDrafts = new Map<string, { key: string; draft: ActivityDraft }>();
 
   async imageContent(projectId: string, activityId: string, input: ImageRequest) {
     const activity = await this.getActivity(projectId, activityId);
@@ -1048,7 +1057,7 @@ export class ActivityService implements ActivityAuthoring {
           spec: null,
           updatedAt: now,
         };
-        await this.writeDraft(activity, draft);
+        const state = await this.writeDraft(activity, draft);
         const madeConfiguration = await this.ensureModuleConfiguration(activity);
         this.db.exec("BEGIN");
         try {
@@ -1076,9 +1085,16 @@ export class ActivityService implements ActivityAuthoring {
             .run(refNum, now, activity.productId);
           this.db
             .prepare(
-              "INSERT INTO activity_drafts (draft_id, activity_id, base_version_id, content_revision, status, updated_at) VALUES (?, ?, NULL, ?, ?, ?)",
+              "INSERT INTO activity_drafts (draft_id, activity_id, base_version_id, content_revision, status, updated_at, state) VALUES (?, ?, NULL, ?, ?, ?, ?)",
             )
-            .run(draft.draftId, activity.id, draft.contentRevision, draft.status, now);
+            .run(
+              draft.draftId,
+              activity.id,
+              draft.contentRevision,
+              draft.status,
+              now,
+              JSON.stringify(state),
+            );
           this.db.exec("COMMIT");
         } catch (error) {
           this.db.exec("ROLLBACK");
@@ -1099,6 +1115,8 @@ export class ActivityService implements ActivityAuthoring {
   }
 
   async listActivities(projectId: string, collectionId?: string): Promise<ActivityRecord[]> {
+    // Whatever the modules hold is listed, as Loom lists it.
+    await this.indexModuleProducts(projectId);
     // Every tag of the project's products in one query, rather than one per listed ref.
     const tags = new Map<string, string[]>();
     for (const row of this.db
@@ -1141,13 +1159,12 @@ export class ActivityService implements ActivityAuthoring {
       .get(activityId) as { draft_id: string } | undefined;
     if (!draftRow) throw new Error("Activity draft index is missing.");
     const filesDir = await this.draftFilesDir(activity);
-    let stored =
-      (await readRefDraft(filesDir)) ??
-      (await this.moveLegacyDraft(projectId, activity, draftRow.draft_id, filesDir));
+    let stored = await this.storedDraft(projectId, activity, draftRow.draft_id, filesDir);
     // A draft moved before its media moved with it still binds the old folders' paths.
     if (hasLegacyMedia(stored))
       stored = await this.locks.run(`legacy:${activity.id}`, async () => {
-        const again = (await readRefDraft(filesDir)) ?? stored;
+        const state = this.refState(draftRow.draft_id);
+        const again = state ? await readRefDraft(filesDir, state) : stored;
         if (!hasLegacyMedia(again)) return again;
         const workspace = this.draftWorkspace(
           projectId,
@@ -1801,58 +1818,73 @@ export class ActivityService implements ActivityAuthoring {
           "Rebuild the media plan from the saved specification before saving bindings.",
         );
       try {
-        const parsed = validateManifest(manifest, activity);
-        // A word's script follows its sounds and provider unless the author wrote it.
-        for (const [language, assets] of Object.entries(parsed.assets))
-          syncWordScripts(assets, draft.mediaPlan.manifest.assets[language]);
-        validateMediaCoverage(parsed, { ...activity, draft });
-        for (const [language, assets] of Object.entries(parsed.assets)) {
-          for (const asset of assets) {
-            if (!asset.generatedImage) continue;
-            const accepted = draft.mediaPlan.manifest.assets[language]?.find(
-              (previous) => previous.key === asset.key,
-            )?.generatedImage;
-            if (
-              !accepted ||
-              accepted.runId !== asset.generatedImage.runId ||
-              accepted.sha256 !== asset.generatedImage.sha256
-            )
-              throw new Error("Use Accept this image to bind a generated candidate.");
-          }
-          for (const asset of assets) {
-            if (!asset.generatedVideo) continue;
-            const accepted = draft.mediaPlan.manifest.assets[language]?.find(
-              (previous) => previous.key === asset.key,
-            )?.generatedVideo;
-            if (
-              !accepted ||
-              accepted.runId !== asset.generatedVideo.runId ||
-              accepted.sha256 !== asset.generatedVideo.sha256 ||
-              accepted.format !== asset.generatedVideo.format
-            )
-              throw new Error("Keep a recorded video from its comparison to bind it.");
-          }
-        }
-        // An upload is bytes this server holds, so what it actually is can be checked
-        // rather than assumed. A path alone says nothing about the media it names.
-        const home = await this.uploads(activity);
-        for (const assets of Object.values(parsed.assets))
-          for (const asset of assets) {
-            if (!isUploadReference(asset.path)) continue;
-            const { mimeType } = await readUpload(home, asset.path!);
-            const kind = mimeType.slice(0, mimeType.indexOf("/"));
-            const wanted =
-              asset.type === "image" ? "image" : asset.type === "audio" ? "audio" : "video";
-            if (kind !== wanted)
-              throw new Error(
-                `Asset ${asset.key} expects ${wanted} media, but ${asset.path} holds ${kind} media.`,
-              );
-          }
+        const parsed = await this.checkedManifest(draft, activity, manifest);
         return { ...draft, mediaPlan: { ...draft.mediaPlan, manifest: parsed } };
       } catch (error) {
         throw new HttpError(422, "media_invalid", (error as Error).message);
       }
     });
+  }
+
+  /**
+   * `manifest` as the bindings of the draft's media plan, checked as saving them checks them:
+   * it covers the plan, a generated take is one the author accepted, and an upload holds the
+   * kind of media its asset expects. Throws what is wrong.
+   */
+  private async checkedManifest(
+    draft: ActivityDraft,
+    activity: ActivityRecord,
+    manifest: unknown,
+  ): Promise<AssetManifest> {
+    const planned = draft.mediaPlan!.manifest.assets;
+    const parsed = validateManifest(manifest, activity);
+    // A word's script follows its sounds and provider unless the author wrote it.
+    for (const [language, assets] of Object.entries(parsed.assets))
+      syncWordScripts(assets, planned[language]);
+    validateMediaCoverage(parsed, { ...activity, draft });
+    for (const [language, assets] of Object.entries(parsed.assets)) {
+      for (const asset of assets) {
+        if (!asset.generatedImage) continue;
+        const accepted = planned[language]?.find(
+          (previous) => previous.key === asset.key,
+        )?.generatedImage;
+        if (
+          !accepted ||
+          accepted.runId !== asset.generatedImage.runId ||
+          accepted.sha256 !== asset.generatedImage.sha256
+        )
+          throw new Error("Use Accept this image to bind a generated candidate.");
+      }
+      for (const asset of assets) {
+        if (!asset.generatedVideo) continue;
+        const accepted = planned[language]?.find(
+          (previous) => previous.key === asset.key,
+        )?.generatedVideo;
+        if (
+          !accepted ||
+          accepted.runId !== asset.generatedVideo.runId ||
+          accepted.sha256 !== asset.generatedVideo.sha256 ||
+          accepted.format !== asset.generatedVideo.format
+        )
+          throw new Error("Keep a recorded video from its comparison to bind it.");
+      }
+    }
+    // An upload is bytes this server holds, so what it actually is can be checked
+    // rather than assumed. A path alone says nothing about the media it names.
+    const home = await this.uploads(activity);
+    for (const assets of Object.values(parsed.assets))
+      for (const asset of assets) {
+        if (!isUploadReference(asset.path)) continue;
+        const { mimeType } = await readUpload(home, asset.path!);
+        const kind = mimeType.slice(0, mimeType.indexOf("/"));
+        const wanted =
+          asset.type === "image" ? "image" : asset.type === "audio" ? "audio" : "video";
+        if (kind !== wanted)
+          throw new Error(
+            `Asset ${asset.key} expects ${wanted} media, but ${asset.path} holds ${kind} media.`,
+          );
+      }
+    return parsed;
   }
   async storeAudio(
     projectId: string,
@@ -2400,6 +2432,136 @@ export class ActivityService implements ActivityAuthoring {
       return draft;
     });
   }
+  /** The bookkeeping the index records for a draft, or null for a ref never saved here. */
+  private refState(draftId: string): WafHarnessRefState | null {
+    const row = this.db
+      .prepare("SELECT state FROM activity_drafts WHERE draft_id = ?")
+      .get(draftId) as { state: string | null } | undefined;
+    return row?.state ? parseRefState(row.state) : null;
+  }
+
+  private recordRefState(draftId: string, state: WafHarnessRefState): void {
+    this.db
+      .prepare("UPDATE activity_drafts SET state = ? WHERE draft_id = ?")
+      .run(JSON.stringify(state), draftId);
+  }
+
+  /**
+   * The ref's draft as it is stored: its files with the index's bookkeeping; with the
+   * bookkeeping an earlier build left in the module's `wafh.json`, which the index then takes;
+   * a draft saved before drafts were kept in modules, moved there; and otherwise Loom's own
+   * files as they are, read without writing anything (see loomDraft).
+   */
+  private async storedDraft(
+    projectId: string,
+    activity: ActivityRecord,
+    draftId: string,
+    filesDir: string,
+  ): Promise<ActivityDraft> {
+    const state = this.refState(draftId);
+    if (state) return readRefDraft(filesDir, state);
+    const legacy = await readLegacyRefState(filesDir);
+    if (legacy) {
+      this.recordRefState(draftId, legacy);
+      return readRefDraft(filesDir, legacy);
+    }
+    const workspace = this.draftWorkspace(projectId, activity.collectionId, activity.id, draftId);
+    if (await exists(path.join(workspace, "draft.json")))
+      return this.moveLegacyDraft(projectId, activity, draftId, filesDir);
+    return this.loomDraft(activity, draftId);
+  }
+
+  /**
+   * A ref no draft of this server's has been saved for, as WAF Harness reads Loom's files:
+   * its description, its specification when WAF Harness accepts it, and a media plan carrying
+   * Loom's bindings when it has any — what opening a Loom ref used to write, made in memory.
+   * Nothing is written: the first change saves it (see writeDraft), as Loom writes a ref only
+   * when it is edited. Its revision is its content's, so reading it again gives the same draft.
+   */
+  private async loomDraft(activity: ActivityRecord, draftId: string): Promise<ActivityDraft> {
+    const moduleFolder = this.moduleFolderOf(activity);
+    const module = (await this.checkout()).module(moduleFolder);
+    const specDir = module.refSpecDir(activity.productCode, activity.refNum);
+    // The files the draft is read from, as they are now, and what of the row it carries.
+    const stamps = await Promise.all(
+      [
+        path.join(module.productSpecDir(activity.productCode), REF_METADATA_FILE),
+        ...[
+          REF_METADATA_FILE,
+          REF_SPEC_FILE,
+          REF_MANIFEST_FILE,
+          REF_DESCRIPTION_FILE,
+          REF_FEATURES_FILE,
+        ].map((name) => path.join(specDir, name)),
+      ].map((file) =>
+        fs.stat(file).then(
+          (stat) => `${stat.size}:${stat.mtimeMs}`,
+          () => "-",
+        ),
+      ),
+    );
+    const key = JSON.stringify([
+      specDir,
+      activity.updatedAt,
+      activity.activityType,
+      activity.id,
+      ...stamps,
+    ]);
+    const cached = this.loomDrafts.get(draftId);
+    if (cached?.key === key) return structuredClone(cached.draft);
+    const draft = await this.readLoomDraft(activity, draftId, module, moduleFolder);
+    this.loomDrafts.set(draftId, { key, draft: structuredClone(draft) });
+    return draft;
+  }
+
+  private async readLoomDraft(
+    activity: ActivityRecord,
+    draftId: string,
+    module: ModuleLayout,
+    moduleFolder: string,
+  ): Promise<ActivityDraft> {
+    const productJson = await readJson(
+      path.join(module.productSpecDir(activity.productCode), REF_METADATA_FILE),
+    ).catch(() => null);
+    const product = mapProductMetadata(activity.productCode, moduleFolder, productJson);
+    const ref = await readLoomRef(module, product, activity.refNum);
+    const mapped = adoptLoomProduct(product, [ref]).activities[0]!;
+    let draft: ActivityDraft = {
+      draftId,
+      activityId: activity.id,
+      baseVersionId: null,
+      contentRevision: "",
+      status: "draft",
+      description: mapped.description,
+      spec: null,
+      updatedAt: activity.updatedAt,
+    };
+    if (mapped.spec) {
+      try {
+        const spec = validateActivitySpec(mapped.spec);
+        if (activity.activityType === "book") validateBookSpec(spec);
+        draft = { ...draft, spec, status: "valid" };
+      } catch {
+        // A specification WAF Harness will not accept stays Loom's: the draft has none.
+      }
+    }
+    if (draft.status === "valid" && Object.keys(mapped.media).length) {
+      try {
+        const planned: ActivityDraft = { ...draft, mediaPlan: planMedia({ ...activity, draft }) };
+        const manifest = await this.checkedManifest(
+          planned,
+          activity,
+          this.carriedManifest(planned, mapped.media),
+        );
+        draft = { ...planned, mediaPlan: { ...planned.mediaPlan!, manifest } };
+      } catch {
+        // Bindings WAF Harness cannot plan stay in Loom's manifest: the draft has no plan.
+      }
+    }
+    draft.contentRevision = draftRevision(draft);
+    return draft;
+  }
+
   /**
    * A draft saved before activities were stored in their modules, written into the ref's
    * module files the first time it is read. The old `draft.json` is left where it was, as a
@@ -2413,8 +2575,8 @@ export class ActivityService implements ActivityAuthoring {
     filesDir: string,
   ): Promise<ActivityDraft> {
     return this.locks.run(`legacy:${activity.id}`, async () => {
-      const again = await readRefDraft(filesDir);
-      if (again) return again;
+      const state = this.refState(draftId);
+      if (state) return readRefDraft(filesDir, state);
       const workspace = this.draftWorkspace(projectId, activity.collectionId, activity.id, draftId);
       const text = await fs.readFile(path.join(workspace, "draft.json"), "utf8").catch(() => null);
       if (text === null) throw new Error("Activity draft is missing from its module.");
@@ -2518,12 +2680,24 @@ export class ActivityService implements ActivityAuthoring {
   }
 
   /**
-   * The ref's draft into its module's files, with its identity beside it. The folder is the
-   * ref's address, so `activity` must carry the number the files are to be under.
+   * The ref's draft into its module's files, with its identity beside it, and its bookkeeping
+   * into the index after them; the bookkeeping is handed back for a draft not indexed yet. The
+   * folder is the ref's address, so `activity` must carry the number the files are to be under.
+   *
+   * A ref saved here for the first time is Loom's until now: the placeholders its media plan
+   * binds go into the media repository with it, as planning one does.
    */
-  private async writeDraft(activity: ActivityRecord, draft: ActivityDraft): Promise<void> {
+  private async writeDraft(
+    activity: ActivityRecord,
+    draft: ActivityDraft,
+  ): Promise<WafHarnessRefState> {
     const dir = await this.draftFilesDir(activity);
-    const { specCleared } = await writeRefDraft(dir, draft, activity);
+    const previous = this.refState(draft.draftId);
+    const { specCleared, state } = await writeRefDraft(dir, draft, activity, previous);
+    if (!previous && draft.mediaPlan) {
+      const wafRoot = await this.wafWorkspace.root();
+      if (wafRoot) await seedMediaPlaceholders(wafRoot, activity, draft.mediaPlan.manifest.assets);
+    }
     await writeRefMetadata(dir, {
       productCode: activity.productCode,
       refNum: activity.refNum,
@@ -2535,6 +2709,8 @@ export class ActivityService implements ActivityAuthoring {
       // Loom ref WAF Harness has no specification for keeps Loom's.
       ...(draft.spec !== null || specCleared ? { runtime: draft.spec?.runtime } : {}),
     });
+    this.recordRefState(draft.draftId, state);
+    return state;
   }
 
   /**
@@ -2697,7 +2873,12 @@ export class ActivityService implements ActivityAuthoring {
     // The product's media folder, checked out of the partial media clone with its LFS files.
     await this.wafWorkspace.ensureMedia([mediaSparsePath(productCode)]);
     const module = checkout.module(moduleFolder);
-    const owner = await readProductOwner(module.productSpecDir(productCode));
+    // The index says who owns a product; the module records no owner, as Loom's never did.
+    const owner = this.db
+      .prepare(
+        "SELECT project_id AS projectId FROM activity_products WHERE module_folder = ? AND product_code = ?",
+      )
+      .get(moduleFolder, productCode) as { projectId: string } | undefined;
     if (owner && owner.projectId !== projectId)
       throw new HttpError(
         409,
@@ -2720,7 +2901,7 @@ export class ActivityService implements ActivityAuthoring {
       );
   }
 
-  /** The product's metadata and owner in its module, as the index has them now. */
+  /** The product's metadata in its module, as the index has it now. */
   private async syncProductFiles(productId: string): Promise<void> {
     const row = this.db
       .prepare("SELECT * FROM activity_products WHERE product_id = ?")
@@ -2745,12 +2926,6 @@ export class ActivityService implements ActivityAuthoring {
         bookMode: product.bookMode,
         canonicalRefNum: product.canonicalRefNum,
         tags: this.productTags(productId),
-      },
-      {
-        schemaVersion: 1,
-        projectId: product.projectId,
-        productId: product.productId,
-        collectionId: product.collectionId,
       },
     );
   }
@@ -3383,165 +3558,79 @@ export class ActivityService implements ActivityAuthoring {
   }
 
   /**
-   * The products in the WAF workspace's modules no project has open: what a Loom-authored
-   * module holds under `generated/`, and a product this project owned before its index was
-   * lost. Read from each product's metadata and its refs' folders only.
+   * Indexes into this project the products in the WAF workspace's modules no project has
+   * indexed, and the refs added since to one of its own, as Loom lists whatever its modules
+   * hold. Only the index is written: a ref stays Loom's files as they are until it is first
+   * changed (see loomDraft). A product another project has, or whose code this project already
+   * has from another module, is left out; so is one whose files cannot be read.
    */
-  async moduleProducts(projectId: string): Promise<ModuleProduct[]> {
+  private async indexModuleProducts(projectId: string): Promise<void> {
+    if (!(await this.wafWorkspace.root())) return;
     const checkout = await this.checkout();
-    const indexed = new Map(
-      (
-        this.db
-          .prepare(
-            "SELECT module_folder AS folder, product_code AS code, project_id AS projectId, product_id AS productId FROM activity_products",
-          )
-          .all() as { folder: string; code: string; projectId: string; productId: string }[]
-      ).map((row) => [`${row.folder}\u0000${row.code}`, row]),
-    );
-    const found: ModuleProduct[] = [];
-    for (const { moduleFolder: folder, productCode: code } of await checkout.products()) {
-      // Open in another project: not offered. Open in this one: offered with the refs it
-      // does not have yet (one that failed to open, or one added to the module since).
-      const open = indexed.get(`${folder}\u0000${code}`);
-      if (open && open.projectId !== projectId) continue;
-      const have = new Set(
-        open
-          ? (
-              this.db
-                .prepare("SELECT ref_num AS refNum FROM activities WHERE product_id = ?")
-                .all(open.productId) as { refNum: number }[]
-            ).map((row) => row.refNum)
-          : [],
-      );
-      const module = checkout.module(folder);
-      const spec = module.productSpecDir(code);
-      const owner = await readProductOwner(spec).catch(() => null);
-      if (owner && owner.projectId !== projectId) continue;
-      const metadata = mapProductMetadata(
-        code,
-        folder,
-        await fs
-          .readFile(path.join(spec, REF_METADATA_FILE), "utf8")
-          .then((text) => JSON.parse(text) as unknown)
-          .catch(() => null),
-      );
-      const refNums = (await fs.readdir(module.refsDir(code)).catch(() => [] as string[]))
-        .map((name) => parseRefFolderName(code, name))
-        .filter((refNum): refNum is number => refNum !== null && !have.has(refNum))
-        .sort((left, right) => left - right);
-      if (!refNums.length) continue;
-      found.push({
-        moduleFolder: folder,
-        productCode: code,
-        title: metadata.title,
-        activityType: metadata.activityType,
-        refNums,
-      });
-    }
-    return found;
+    // One pass at a time, across projects: two would both find a product unindexed.
+    await this.locks.run("index-modules", async () => {
+      let collectionId: string | null = null;
+      const collection = async () =>
+        (collectionId ??= (await this.ensureCollection(projectId)).collectionId);
+      for (const { moduleFolder, productCode } of await checkout.products())
+        await this.indexModuleProduct(projectId, checkout, moduleFolder, productCode, collection)
+          // A product whose files cannot be read is left out until they can be.
+          .catch(() => {});
+    });
   }
 
-  /**
-   * Opens a product that is in the modules into this project, in place: the product and its
-   * refs are indexed, the project is recorded as its owner, and each ref Loom authored gets
-   * WAF Harness's files beside Loom's. Loom's specification is used as it is (its module folder
-   * repaired), the media plan is made from it again and Loom's bindings carried onto it, and
-   * Loom's own specification and manifest are kept as `*.loom.json`. A ref WAF Harness already
-   * wrote (this project's, before its index was lost) keeps its draft and ids.
-   */
-  async claimModuleProduct(
-    projectId: string,
-    input: { moduleFolder: string; productCode: string; collectionId?: string },
-  ): Promise<ClaimModuleProductResponse> {
-    const checkout = await this.checkout();
-    const moduleFolder = normalizeModuleFolder(input.moduleFolder, input.productCode);
-    let productCode: string;
-    try {
-      productCode = normalizeProductCode(input.productCode);
-    } catch (error) {
-      throw new HttpError(400, "activity_invalid", (error as Error).message);
-    }
-    // One claim of a product at a time: two would both find it unowned.
-    return this.locks.run(`claim:${moduleFolder}/${productCode}`, () =>
-      this.claimLocked(projectId, checkout, moduleFolder, productCode, input.collectionId),
-    );
-  }
-
-  private async claimLocked(
+  private async indexModuleProduct(
     projectId: string,
     checkout: WafLayout,
     moduleFolder: string,
     productCode: string,
-    collectionId: string | undefined,
-  ): Promise<ClaimModuleProductResponse> {
+    collection: () => Promise<string>,
+  ): Promise<void> {
     const module = checkout.module(moduleFolder);
-    if (!(await exists(module.refsDir(productCode))))
-      throw new HttpError(404, "module_product_not_found", "No such product in the modules.");
-    const owner = await readProductOwner(module.productSpecDir(productCode));
-    if (owner && owner.projectId !== projectId)
-      throw new HttpError(
-        409,
-        "product_taken",
-        `Product ${productCode} belongs to another project.`,
-      );
-    const openRow = this.db
+    const refNums = (await fs.readdir(module.refsDir(productCode)).catch(() => [] as string[]))
+      .map((name) => parseRefFolderName(productCode, name))
+      .filter((refNum): refNum is number => refNum !== null)
+      .sort((left, right) => left - right);
+    if (!refNums.length) return;
+    const indexed = this.db
       .prepare("SELECT * FROM activity_products WHERE module_folder = ? AND product_code = ?")
       .get(moduleFolder, productCode) as Record<string, unknown> | undefined;
-    // Open in this project already: opening it again opens the refs it does not have yet,
-    // one that failed to open before or one added to the module since.
-    const reopened = openRow ? this.mapProduct(openRow) : null;
-    if (reopened && reopened.projectId !== projectId)
-      throw new HttpError(409, "product_open", `Product ${productCode} is already open.`);
-    const read = await readLoomProduct(checkout, moduleFolder, productCode);
-    if (!read.refs.length)
-      throw new HttpError(404, "module_product_not_found", "This product has no refs.");
-    const adoption = adoptLoomProduct(read.product, read.refs);
-    const collection = reopened
-      ? await this.ensureCollection(projectId, reopened.collectionId)
-      : await this.ensureCollection(projectId, collectionId);
-    if (
-      !reopened &&
-      this.db
-        .prepare("SELECT 1 FROM activity_products WHERE collection_id = ? AND product_code = ?")
-        .get(collection.collectionId, productCode)
-    )
-      throw new HttpError(
-        409,
-        "activity_exists",
-        `This project already has a product ${productCode}, in another module.`,
-      );
-    const opened = new Set(
-      reopened
-        ? (
-            this.db
-              .prepare("SELECT ref_num AS refNum FROM activities WHERE product_id = ?")
-              .all(reopened.productId) as { refNum: number }[]
-          ).map((row) => row.refNum)
-        : [],
-    );
-    const pending = adoption.activities.filter((mapped) => !opened.has(mapped.refNum));
-    if (reopened && !pending.length)
-      throw new HttpError(409, "product_open", `Product ${productCode} is already open.`);
-    const problems = [
-      ...read.problems,
-      ...read.refs
-        .filter((ref) => !opened.has(ref.refNum))
-        .flatMap((ref) => ref.problems.map((problem) => `Ref ${ref.refNum}: ${problem}`)),
-    ];
-    const now = new Date().toISOString();
-    const product: ActivityProduct = reopened ?? {
-      productId: owner?.productId ?? newId("prd"),
-      projectId,
-      collectionId: collection.collectionId,
+    const known = indexed ? this.mapProduct(indexed) : null;
+    if (known && known.projectId !== projectId) return;
+    const spec = module.productSpecDir(productCode);
+    const metadata = mapProductMetadata(
       productCode,
       moduleFolder,
-      canonicalRefNum: adoption.product.canonicalRefNum,
-      activityType: adoption.product.activityType,
-      bookMode: adoption.product.bookMode,
-      createdAt: now,
-      updatedAt: now,
-    };
-    if (!reopened) {
+      await readJson(path.join(spec, REF_METADATA_FILE)),
+    );
+    const now = new Date().toISOString();
+    let product = known;
+    if (!product) {
+      const collectionId = await collection();
+      if (
+        this.db
+          .prepare("SELECT 1 FROM activity_products WHERE collection_id = ? AND product_code = ?")
+          .get(collectionId, productCode)
+      )
+        return;
+      // The canonical ref is the one the product names, or its lowest when it names none
+      // that exists (the repair opening a Loom product made, adoptLoomProduct).
+      const canonicalRefNum =
+        metadata.canonicalRefNum !== null && refNums.includes(metadata.canonicalRefNum)
+          ? metadata.canonicalRefNum
+          : refNums[0]!;
+      product = {
+        productId: newId("prd"),
+        projectId,
+        collectionId,
+        productCode,
+        moduleFolder,
+        canonicalRefNum,
+        activityType: metadata.activityType,
+        bookMode: metadata.bookMode,
+        createdAt: now,
+        updatedAt: now,
+      };
       this.db
         .prepare(
           `INSERT INTO activity_products
@@ -3552,10 +3641,10 @@ export class ActivityService implements ActivityAuthoring {
         .run(
           product.productId,
           projectId,
-          product.collectionId,
+          collectionId,
           productCode,
           moduleFolder,
-          product.canonicalRefNum,
+          canonicalRefNum,
           product.activityType,
           product.bookMode,
           now,
@@ -3565,146 +3654,62 @@ export class ActivityService implements ActivityAuthoring {
       const insert = this.db.prepare(
         "INSERT INTO activity_product_tags (product_id, tag, position) VALUES (?, ?, ?)",
       );
-      acceptedTags(await readProductTags(module.productSpecDir(productCode))).forEach(
-        (tag, position) => insert.run(product.productId, tag, position),
+      acceptedTags(await readProductTags(spec)).forEach((tag, position) =>
+        insert.run(product!.productId, tag, position),
       );
     }
-    const activityIds: string[] = [];
-    for (const mapped of pending) {
-      const specDir = module.refSpecDir(productCode, mapped.refNum);
-      const wafh = await readRefDraft(specDir).catch(() => null);
-      const activity: ActivityRecord = {
-        id: wafh?.activityId ?? newId("act"),
-        collectionId: collection.collectionId,
-        productId: product.productId,
-        productCode,
-        refNum: mapped.refNum,
-        title: mapped.title,
-        displayName: mapped.displayName,
-        stable: mapped.stable,
-        activityType: product.activityType,
-        createdAt: now,
-        updatedAt: now,
-        archived: false,
-        tags: [],
-      };
-      const draftId = wafh?.draftId ?? newId("draft");
+    // Every ref the index has, archived or not: one deleted here is not listed again.
+    const have = new Set(
+      (
+        this.db
+          .prepare("SELECT ref_num AS refNum FROM activities WHERE product_id = ?")
+          .all(product.productId) as { refNum: number }[]
+      ).map((row) => row.refNum),
+    );
+    for (const refNum of refNums) {
+      if (have.has(refNum)) continue;
+      const specDir = module.refSpecDir(productCode, refNum);
+      const ref = mapRefMetadata(
+        await readJson(path.join(specDir, REF_METADATA_FILE)).catch(() => null),
+      );
+      // A ref an earlier build saved keeps the ids its bookkeeping names.
+      const legacy = await readLegacyRefState(specDir).catch(() => null);
+      const activityId = legacy?.activityId ?? newId("act");
+      const draftId = legacy?.draftId ?? newId("draft");
+      // WAF Harness requires a title, and Loom does not (adoptLoomProduct's titleFor).
+      const title = ref.title?.trim() || metadata.title?.trim() || `${productCode}-${refNum}`;
+      const stable = product.canonicalRefNum === refNum && metadata.templateStable;
       this.db
         .prepare(
           "INSERT INTO activities (id, collection_id, product_id, product_code, ref_num, title, display_name, stable, activity_type, created_at, updated_at, archived) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
         )
         .run(
-          activity.id,
-          activity.collectionId,
+          activityId,
+          product.collectionId,
           product.productId,
           productCode,
-          mapped.refNum,
-          activity.title,
-          activity.displayName,
-          activity.stable ? 1 : 0,
-          activity.activityType,
+          refNum,
+          title,
+          ref.displayName,
+          stable ? 1 : 0,
+          product.activityType,
           now,
           now,
         );
       this.db
         .prepare(
-          "INSERT INTO activity_drafts (draft_id, activity_id, base_version_id, content_revision, status, updated_at) VALUES (?, ?, NULL, ?, ?, ?)",
+          "INSERT INTO activity_drafts (draft_id, activity_id, base_version_id, content_revision, status, updated_at, state) VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .run(
           draftId,
-          activity.id,
-          wafh?.contentRevision ?? contentRevision({ description: "", spec: null }),
-          wafh?.status ?? "draft",
+          activityId,
+          legacy?.baseVersionId ?? null,
+          legacy?.contentRevision ?? contentRevision({ description: "", spec: null }),
+          legacy?.status ?? "draft",
           now,
+          legacy ? JSON.stringify(legacy) : null,
         );
-      if (wafh) {
-        activityIds.push(activity.id);
-        continue;
-      }
-      try {
-        await this.adoptLoomRef(projectId, activity, draftId, specDir, mapped);
-        activityIds.push(activity.id);
-      } catch (error) {
-        // Put back as Loom left it, so opening the product again retries this ref.
-        await this.undoLoomRef(activity.id, specDir);
-        problems.push(
-          `Ref ${mapped.refNum} was not opened: ${(error as Error).message} Open the product again to retry it.`,
-        );
-      }
     }
-    await this.syncProductFiles(product.productId);
-    return {
-      collectionId: collection.collectionId,
-      activityIds,
-      message: describeAdoption(adoption),
-      problems,
-    };
-  }
-
-  /**
-   * A Loom ref whose opening failed, put back as Loom left it: its rows go, WAF Harness's
-   * bookkeeping goes, and Loom's specification and manifest come back from their
-   * `*.loom.json` copies. The product's next opening then finds it not yet open.
-   */
-  private async undoLoomRef(activityId: string, specDir: string): Promise<void> {
-    this.db.prepare("DELETE FROM activity_drafts WHERE activity_id = ?").run(activityId);
-    this.db.prepare("DELETE FROM activities WHERE id = ?").run(activityId);
-    await fs.rm(path.join(specDir, WAFH_FILE), { force: true, recursive: true });
-    for (const name of ["activity_spec", "asset_manifest"]) {
-      const kept = path.join(specDir, `${name}.loom.json`);
-      if (await exists(kept)) await fs.copyFile(kept, path.join(specDir, `${name}.json`));
-    }
-  }
-
-  /**
-   * Gives one Loom-authored ref WAF Harness's files: Loom's specification and manifest are kept
-   * as `*.loom.json`, an empty draft is written, and then the specification, media plan and
-   * Loom's bindings are applied through the ordinary authoring calls, so an adopted ref is
-   * checked exactly as one made here is.
-   */
-  private async adoptLoomRef(
-    projectId: string,
-    activity: ActivityRecord,
-    draftId: string,
-    specDir: string,
-    mapped: {
-      description: string;
-      spec: Record<string, unknown> | null;
-      media: Record<string, CarriedBinding[]>;
-    },
-  ): Promise<void> {
-    for (const name of ["activity_spec", "asset_manifest"]) {
-      const from = path.join(specDir, `${name}.json`);
-      const to = path.join(specDir, `${name}.loom.json`);
-      if ((await exists(from)) && !(await exists(to))) await fs.copyFile(from, to);
-    }
-    const now = new Date().toISOString();
-    const empty: ActivityDraft = {
-      draftId,
-      activityId: activity.id,
-      baseVersionId: null,
-      contentRevision: contentRevision({ description: mapped.description, spec: null }),
-      status: "draft",
-      description: mapped.description,
-      spec: null,
-      updatedAt: now,
-    };
-    empty.contentRevision = draftRevision(empty);
-    await this.writeDraft(activity, empty);
-    this.db
-      .prepare(
-        "UPDATE activity_drafts SET content_revision = ?, status = ?, updated_at = ? WHERE draft_id = ?",
-      )
-      .run(empty.contentRevision, empty.status, now, draftId);
-    if (!mapped.spec) return;
-    const specified = await this.applySpec(
-      projectId,
-      activity.id,
-      mapped.spec,
-      empty.contentRevision,
-    );
-    if (specified.status !== "valid" || !Object.keys(mapped.media).length) return;
-    await this.carryLoomMedia(projectId, activity.id, mapped.media, specified.contentRevision);
   }
 
   /**
@@ -3712,13 +3717,10 @@ export class ActivityService implements ActivityAuthoring {
    * language Loom held besides the default holds what Loom listed for it; the rest falls
    * back to the default.
    */
-  private async carryLoomMedia(
-    projectId: string,
-    activityId: string,
+  private carriedManifest(
+    planned: ActivityDraft,
     media: Record<string, CarriedBinding[]>,
-    expectedRevision: string,
-  ): Promise<ActivityDraft> {
-    const planned = await this.planMedia(projectId, activityId, expectedRevision);
+  ): AssetManifest {
     const manifest = structuredClone(planned.mediaPlan!.manifest);
     const defaults = manifest.assets[DEFAULT_LANGUAGE_CODE] ?? [];
     const sceneIds = new Set(
@@ -3860,7 +3862,7 @@ export class ActivityService implements ActivityAuthoring {
         manifest.assets[language]!.push(extra);
       }
     }
-    return this.applyMedia(projectId, activityId, manifest, planned.contentRevision);
+    return manifest;
   }
 }
 

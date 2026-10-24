@@ -395,7 +395,10 @@ activity_id TEXT NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
 base_version_id TEXT,
 content_revision TEXT NOT NULL,
 status TEXT NOT NULL CHECK (status IN ('draft', 'valid', 'invalid')),
-updated_at TEXT NOT NULL
+updated_at TEXT NOT NULL,
+-- WAF Harness's bookkeeping for the draft (ref-files.ts WafHarnessRefState), as JSON. NULL
+-- until the ref is first saved here: the draft is then Loom's files as they are.
+state TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_activity_drafts_activity ON activity_drafts(activity_id, updated_at);
 -- Saved versions of an activity; their files are content-addressed blobs in the

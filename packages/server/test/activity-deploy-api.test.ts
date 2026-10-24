@@ -303,7 +303,9 @@ describe("activity deploy routes", () => {
     const module = path.join(t.root, "waf", "modules", "waf-module-words");
     const clones = git.calls.filter((call) => call.op === "cloneFrom");
     expect(clones.map((call) => [call.dir, call.args[0]])).toEqual([[module, MODULE_REMOTE]]);
-    await fs.stat(path.join(module, "generated", "words", "refs", "words-1", "spec", "wafh.json"));
+    await fs.stat(
+      path.join(module, "generated", "words", "refs", "words-1", "spec", "activity_spec.json"),
+    );
     // Prepare clones adds only the product's media folder to the sparse set.
     const prepared = await client.post(`${endpoint}/deploy/clones`);
     expect(prepared.status).toBe(200);

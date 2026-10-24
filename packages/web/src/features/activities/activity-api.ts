@@ -15,7 +15,6 @@ import type {
   AssetManifest,
   BookWordsRefresh,
   BookWordsState,
-  ClaimModuleProductResponse,
   DeployContextResponse,
   DeployLogResponse,
   DeployRunResponse,
@@ -28,7 +27,6 @@ import type {
   ModuleDocuments,
   StateMachineCheck,
   StateMachineDocument,
-  ModuleProductsResponse,
   ProductRefNumber,
   PipelineState,
   ProjectMediaListing,
@@ -125,9 +123,6 @@ export function projectActivitiesApi(projectId: string, send: ApiSend = apiFetch
     /** The number a new activity of this product code would take, deleted refs counted. */
     refNumber: (productCode: string) =>
       send<ProductRefNumber>(`${base}/ref-number?${new URLSearchParams({ productCode })}`),
-    moduleProducts: () => send<ModuleProductsResponse>(`${base}/module-products`),
-    claimModuleProduct: (body: { moduleFolder: string; productCode: string }) =>
-      send<ClaimModuleProductResponse>(`${base}/module-products/claim`, { method: "POST", body }),
     /** The project's media, by activity. */
     mediaLibrary: () => send<ProjectMediaListing>(`${base}/media-library`),
     /** Another activity of the project: a ref just made from this one, say. */

@@ -13,8 +13,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js";
-import type { ClaimModuleProductResponse } from "../src/activities/module-product-types.js";
+import type { ActivityDetail, ActivityDraft, ActivityRecord } from "../src/activities/domain.js";
 import type {
   StateMachineCheck,
   StateMachineDocument,
@@ -54,12 +53,8 @@ describe("state machine edits", () => {
     const project = await api.post("/api/projects", { projectId: "machine-work" });
     expect(project.status, await project.clone().text()).toBe(201);
     const base = "/api/projects/machine-work/activities";
-    const claimed = await api.post(`${base}/module-products/claim`, {
-      moduleFolder: folder,
-      productCode: code,
-    });
-    expect(claimed.status, await claimed.clone().text()).toBe(200);
-    const id = ((await claimed.json()) as ClaimModuleProductResponse).activityIds[0]!;
+    const listed = (await (await api.get(base)).json()) as { activities: ActivityRecord[] };
+    const id = listed.activities.find((activity) => activity.productCode === code)!.id;
     const file = (relative: string) => path.join(module, relative);
     /** Each file a save touches, as text; null when it is not there. */
     const files = async () => {

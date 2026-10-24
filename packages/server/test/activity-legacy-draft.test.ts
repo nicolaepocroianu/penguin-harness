@@ -9,7 +9,13 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { projectDir } from "@waterford/waf-harness-core";
 import type { ActivityDetail } from "../src/activities/domain.js";
-import { activitySpec, refFilesDir, refMediaDir } from "./activity-fixtures.js";
+import {
+  activitySpec,
+  clearRefState,
+  refFilesDir,
+  refMediaDir,
+  setRefState,
+} from "./activity-fixtures.js";
 import { imagePng } from "./image-fixtures.js";
 import { writeRefDraft } from "../src/activities/ref-files.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
@@ -58,6 +64,8 @@ describe("drafts saved before activities moved into modules", () => {
     );
     const refFolder = path.dirname(refFilesDir(t.root, "words", 1));
     await fs.rm(refFolder, { recursive: true });
+    // An earlier build kept no bookkeeping in the index either.
+    clearRefState(t.deps.db, saved.id);
     return { t, client, endpoint, saved, workspace, refFolder };
   }
 
@@ -158,12 +166,18 @@ describe("drafts saved before activities moved into modules", () => {
       await fs.writeFile(path.join(workspace, "draft.json"), JSON.stringify(draft));
       await fs.rm(refMediaDir(t.root, "words", 1), { recursive: true, force: true });
       // Either nothing is in the module yet, or the draft is, still binding the old paths.
-      if (movedAlready)
-        await writeRefDraft(refFilesDir(t.root, "words", 1), draft, {
-          productCode: "words",
-          refNum: 1,
-        });
-      else await fs.rm(path.dirname(refFilesDir(t.root, "words", 1)), { recursive: true });
+      if (movedAlready) {
+        const { state } = await writeRefDraft(
+          refFilesDir(t.root, "words", 1),
+          draft,
+          { productCode: "words", refNum: 1 },
+          null,
+        );
+        setRefState(t.deps.db, saved.id, state);
+      } else {
+        await fs.rm(path.dirname(refFilesDir(t.root, "words", 1)), { recursive: true });
+        clearRefState(t.deps.db, saved.id);
+      }
 
       const read = await client.get(endpoint);
       expect(read.status, await read.clone().text()).toBe(200);
@@ -189,7 +203,7 @@ describe("drafts saved before activities moved into modules", () => {
 
   it("never overwrites files already at the ref's address in the module", async () => {
     const { client, endpoint, refFolder } = await legacyRef();
-    // A Loom-authored ref at the same address: its spec, but no wafh.json.
+    // A Loom-authored ref at the same address: its spec, and no bookkeeping anywhere.
     await fs.mkdir(path.join(refFolder, "spec"), { recursive: true });
     await fs.writeFile(path.join(refFolder, "spec", "activity_spec.json"), '{"loom":true}');
     const read = await client.get(endpoint);

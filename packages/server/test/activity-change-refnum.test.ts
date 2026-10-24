@@ -10,7 +10,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { projectDir } from "@waterford/waf-harness-core";
 import type { ActivityDetail, ActivityDraft } from "../src/activities/domain.js";
 import type { ActivityAuthoring } from "../src/mechanisms/activities.js";
-import { activitySpec, refFilesDir, refMediaDir } from "./activity-fixtures.js";
+import {
+  activitySpec,
+  refFilesDir,
+  refMediaDir,
+  refState,
+  setRefState,
+} from "./activity-fixtures.js";
 import { imagePng } from "./image-fixtures.js";
 import { apiClient, createTestApp, provisionUser } from "./helpers.js";
 
@@ -168,10 +174,11 @@ describe("POST /:activityId/ref-number", () => {
       await authoring().storeImage("renumberer-work", one.id, runId, imagePng(2, 2)),
       planned.contentRevision,
     );
-    const names = ["asset_manifest.json", "wafh.json"];
+    const names = ["asset_manifest.json"];
     const before = await Promise.all(
       names.map((name) => fs.readFile(path.join(refFilesDir(t.root, "words", 12), name), "utf8")),
     );
+    const stateBefore = refState(t.deps.db, one.id);
     const response = await renumber(one.id, 13, draft.contentRevision);
     expect(response.status, await response.clone().text()).toBe(200);
     const changed = (await response.json()) as ActivityDetail;
@@ -179,6 +186,7 @@ describe("POST /:activityId/ref-number", () => {
     // and the draft write, or after a crash there.
     for (const [index, name] of names.entries())
       await fs.writeFile(path.join(refFilesDir(t.root, "words", 13), name), before[index]!, "utf8");
+    setRefState(t.deps.db, one.id, stateBefore);
 
     const fetched = await read(one.id);
     expect(fetched.refNum).toBe(13);
@@ -304,7 +312,7 @@ describe("POST /:activityId/ref-number", () => {
     const moved = await renumber(one.id, 2, one.draft.contentRevision);
     expect(moved.status, await moved.clone().text()).toBe(200);
     expect(numbers(one.id).refNum).toBe(2);
-    await fs.access(path.join(refFilesDir(t.root, "words", 2), "wafh.json"));
+    await fs.access(path.join(refFilesDir(t.root, "words", 2), "activity_spec.json"));
     await expect(fs.access(refFilesDir(t.root, "words", 1))).rejects.toThrow();
     expect(await fs.readFile(path.join(module, "assessments", "words-2.json"), "utf8")).toBe(
       '{"items":[]}',
@@ -324,7 +332,7 @@ describe("POST /:activityId/ref-number", () => {
     expect(refused.status).toBe(409);
     expect(await refused.json()).toMatchObject({ error: { code: "activity_exists" } });
     expect(numbers(one.id).refNum).toBe(1);
-    await fs.access(path.join(refFilesDir(t.root, "words", 1), "wafh.json"));
+    await fs.access(path.join(refFilesDir(t.root, "words", 1), "activity_spec.json"));
   });
 
   it("is for owners only", async () => {
