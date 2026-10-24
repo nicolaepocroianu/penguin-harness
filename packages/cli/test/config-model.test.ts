@@ -393,20 +393,20 @@ describe("wafh config model add/list (--root plus provider / model_id stored as 
     await runModel([
       "remove",
       "--model-id",
-      "gemini-3.8-flash",
+      "accounts/fireworks/models/glm-5p3",
       "--provider",
-      "penguin-go",
+      "fireworks",
       "--root",
       tmpRoot,
     ]);
     await runModel([
       "add",
       "--model-id",
-      "gemini-3.8-flash",
+      "accounts/fireworks/models/glm-5p3",
       "--provider",
-      "penguin-go",
+      "fireworks",
       "--client-type",
-      "mmsp",
+      "openai-chat",
       "--root",
       tmpRoot,
     ]);
@@ -442,53 +442,54 @@ describe("wafh config model add/list (--root plus provider / model_id stored as 
       tmpRoot,
     ]);
     expect(elsewhere.code).toBe(1);
-    // An explicit --client-type and --base-url are the entry's own, whatever the group says;
-    // Penguin Go's protocol is fixed, so there --client-type takes mmsp only.
+    // An explicit --client-type and --base-url are the entry's own, whatever the group says.
     await runModel([
       "remove",
       "--model-id",
-      "deepseek-v4-pro",
+      "accounts/fireworks/models/deepseek-v4-pro",
       "--provider",
-      "penguin-go",
+      "fireworks",
       "--root",
       tmpRoot,
     ]);
-    const proxied = (clientType: string) =>
-      runModel([
-        "add",
-        "--model-id",
-        "deepseek-v4-pro",
-        "--provider",
-        "penguin-go",
-        "--client-type",
-        clientType,
-        "--base-url",
-        "https://proxy.example/v1",
-        "--root",
-        tmpRoot,
-      ]);
-    expect((await proxied("openai-chat")).code).toBe(1);
-    expect((await proxied("mmsp")).code).toBe(0);
+    const proxied = await runModel([
+      "add",
+      "--model-id",
+      "accounts/fireworks/models/deepseek-v4-pro",
+      "--provider",
+      "fireworks",
+      "--client-type",
+      "openai-responses",
+      "--base-url",
+      "https://proxy.example/v1",
+      "--root",
+      tmpRoot,
+    ]);
+    expect(proxied.code).toBe(0);
 
     const parsed = parseToml(
       await fs.readFile(projectConfigPath(tmpRoot, DEFAULT_PROJECT_ID), "utf8"),
     ) as { models: Array<Record<string, unknown>> };
     const by = (p: string, id: string) =>
       parsed.models.find((m) => m.provider === p && m.model_id === id)!;
-    expect(by("penguin-go", "gemini-3.8-flash").client_type).toBe("mmsp");
-    expect(by("penguin-go", "gemini-3.8-flash").base_url).toBeUndefined();
+    expect(by("fireworks", "accounts/fireworks/models/glm-5p3").client_type).toBe("openai-chat");
+    expect(by("fireworks", "accounts/fireworks/models/glm-5p3").base_url).toBeUndefined();
     expect(by("deepseek", "deepseek-flash").client_type).toBeUndefined();
     expect(by("deepseek", "deepseek-flash").base_url).toBeUndefined();
     expect(by("fireworks", "deepseek-flash")).toBeUndefined();
-    expect(by("penguin-go", "deepseek-v4-pro").client_type).toBe("mmsp");
-    expect(by("penguin-go", "deepseek-v4-pro").base_url).toBe("https://proxy.example/v1");
+    expect(by("fireworks", "accounts/fireworks/models/deepseek-v4-pro").client_type).toBe(
+      "openai-responses",
+    );
+    expect(by("fireworks", "accounts/fireworks/models/deepseek-v4-pro").base_url).toBe(
+      "https://proxy.example/v1",
+    );
 
     const list = await runModel(["list", "--root", tmpRoot]);
     const line = (re: RegExp) => list.out.split("\n").find((l) => re.test(l));
-    // The relay endpoint is the group's; the protocol is the row's own.
-    const gemini = line(/penguin-go\s+gemini-3\.8-flash\s/);
-    expect(gemini).toContain("base_url=https://go.penguin.ooo/api/v1 (provider)");
-    expect(gemini).toMatch(/client_type=mmsp(\s|$)/);
+    // The gateway endpoint is the group's; the protocol is the row's own.
+    const glm = line(/fireworks\s+accounts\/fireworks\/models\/glm-5p3\s/);
+    expect(glm).toContain("base_url=https://api.fireworks.ai/inference/v1 (provider)");
+    expect(glm).toMatch(/client_type=openai-chat(\s|$)/);
     // No table, nothing stored: no endpoint and no protocol, MMSP routes the id.
     const direct = line(/deepseek\s+deepseek-flash\s/);
     expect(direct).not.toContain("base_url=");

@@ -8,8 +8,6 @@
  *   seed generates its own); a value is kept trimmed; desktop mode changes neither.
  * - WAFH_CLI_ENTRY: a value is kept trimmed; a blank one falls through to the checkout
  *   lookup like an unset one.
- * - PENGUIN_GO_ORIGIN accepts a loopback HTTP origin for integration work and refuses anything
- *   that is not a bare origin, or plaintext HTTP to another host.
  * - MODELSCOPE_BRIDGE_URL may carry a path prefix but refuses plaintext HTTP, credentials, a
  *   query and a fragment.
  */
@@ -81,37 +79,6 @@ describe("resolveServerConfig: WAFH_CLI_ENTRY parsing", () => {
     expect(blank.cliEntry).toBe(unset.cliEntry);
     expect(blank.cliLaunch).toEqual(unset.cliLaunch);
     expect(blank.cliEntry?.endsWith(path.join("packages", "cli", "src", "wafh.ts"))).toBe(true);
-  });
-});
-
-describe("resolveServerConfig: PENGUIN_GO_ORIGIN parsing", () => {
-  // Without an override, authorize on the primary domain; an explicit secondary stays selected.
-  it("defaults to the primary Go domain and keeps an explicitly selected secondary domain", () => {
-    expect(resolveServerConfig(base).wafHarnessGoOrigin).toBe("https://go.penguin.ooo");
-    expect(
-      resolveServerConfig({ ...base, PENGUIN_GO_ORIGIN: "https://token.penguin.ooo" })
-        .wafHarnessGoOrigin,
-    ).toBe("https://token.penguin.ooo");
-  });
-
-  it("accepts a loopback HTTP origin for integration work, trimmed", () => {
-    expect(
-      resolveServerConfig({ ...base, PENGUIN_GO_ORIGIN: " http://127.0.0.1:3000 " })
-        .wafHarnessGoOrigin,
-    ).toBe("http://127.0.0.1:3000");
-  });
-
-  it("refuses anything but a bare origin, and plaintext HTTP to another host", () => {
-    for (const bad of [
-      "http://token.penguin.ooo",
-      "https://token.penguin.ooo/path",
-      "https://user:pass@token.penguin.ooo",
-      "https://token.penguin.ooo?next=x",
-    ]) {
-      expect(() => resolveServerConfig({ ...base, PENGUIN_GO_ORIGIN: bad }), bad).toThrow(
-        /Invalid PENGUIN_GO_ORIGIN/,
-      );
-    }
   });
 });
 

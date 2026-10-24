@@ -9,7 +9,7 @@
  * - Given a zoom gesture, or a page of another origin, then the wheel is left to the browser.
  *
  * The window is faked at its edge: its document's focus, its parent, its prototypes and its
- * event registration; the real Chromium behaviour is checked on the landing page itself.
+ * event registration; the real Chromium behaviour is checked on the public site itself.
  */
 import { describe, expect, it } from "vitest";
 import { installGuestFrame } from "../src/app/guest-frame";

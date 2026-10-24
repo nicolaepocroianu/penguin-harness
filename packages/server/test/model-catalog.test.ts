@@ -28,7 +28,6 @@ import {
   DEEPSEEK_OFF_PEAK,
   MODEL_CATALOG,
   MODEL_PROVIDERS,
-  PENGUIN_GO_BASE_URL,
   PRESET_DEFAULT_MODEL,
   QWEN_OFF_PEAK,
   catalogEntryFor,
@@ -89,14 +88,12 @@ describe("model-catalog", () => {
     const ids = MODEL_CATALOG.map((m) => m.modelId);
     expect(MODEL_CATALOG[0]!.provider).toBe("deepseek");
     // Group order is hand-curated, interleaving gateways and first-party vendors: the
-    // recommended TokenDance first, the prebuilt Penguin Go group next, OpenCode Go third,
-    // DeepSeek after it, and vLLM last
+    // recommended TokenDance first, OpenCode Go next, DeepSeek after it, and vLLM last
     // among the vendors (self-hosted, so nothing in it runs until the user names a server)
     // and custom always last. This is the page's DEFAULT only — a Project that has reordered
     // its groups stores every key and keeps its own arrangement (web's model-group-order.ts).
     expect(MODEL_PROVIDERS.map((p) => p.id)).toEqual([
       "tokendance",
-      "penguin-go",
       "opencode-go",
       "deepseek",
       "openrouter",
@@ -125,7 +122,6 @@ describe("model-catalog", () => {
     expect(providerInfo("siliconflow")!.label).toBe("SiliconFlow");
     expect(providerInfo("minimax")!.label).toBe("MiniMax");
     expect(providerInfo("minimax")!.envKey).toBe("MINIMAX_API_KEY");
-    expect(providerInfo("penguin-go")!.label).toBe("Penguin Go");
     // The catalog no longer includes GLM-5-Turbo.
     expect(ids).not.toContain("glm-5-turbo");
     // The OpenRouter and SiliconFlow gateway listings of GLM-5.1 were delisted 2026-08-06;
@@ -196,17 +192,14 @@ describe("model-catalog", () => {
       p.id,
       p.bridgeAuth!.flow,
     ]);
-    expect(withBridgeAuth).toEqual([
-      ["penguin-go", "penguin-go"],
-      ["modelscope", "modelscope"],
-    ]);
+    expect(withBridgeAuth).toEqual([["modelscope", "modelscope"]]);
     // No group publishes both flows: a credential comes from one place.
     for (const p of MODEL_PROVIDERS) {
       expect(p.oauth === undefined || p.bridgeAuth === undefined).toBe(true);
     }
   });
 
-  it("TokenDance, Penguin Go and DeepSeek publish account balance endpoints", () => {
+  it("TokenDance and DeepSeek publish account balance endpoints", () => {
     // The descriptor is what puts a balance in a group's header, so the Web App never names a
     // group; each one names the reader for its vendor's response shape.
     const withBalance = MODEL_PROVIDERS.filter((p) => p.balance !== undefined).map((p) => [
@@ -215,7 +208,6 @@ describe("model-catalog", () => {
     ]);
     expect(withBalance).toEqual([
       ["tokendance", "tokendance"],
-      ["penguin-go", "penguin-go"],
       ["deepseek", "deepseek"],
     ]);
     // The server sends the group's stored key to this URL, so it is the vendor's own https
@@ -224,66 +216,6 @@ describe("model-catalog", () => {
       "https://tokendance.space/portal/api/v1/user/balance",
     );
     expect(providerInfo("deepseek")!.balance!.url).toBe("https://api.deepseek.com/user/balance");
-    expect(providerInfo("penguin-go")!.balance!.url).toBe("https://go.penguin.ooo/api/me/by-key");
-  });
-
-  it("prebuilds Penguin Go with fixed relay routes and list prices, leaving promotions to the platform", () => {
-    const wafHarnessGoModels = MODEL_CATALOG.filter((model) => model.provider === "penguin-go");
-    // The DeepSeek rows follow DeepSeek's own lineup: V4.1 Flash and V4 Pro 0813. The two
-    // retired V4 Flash ids are not resold.
-    expect(wafHarnessGoModels.map((model) => model.modelId)).toEqual([
-      "gemini-4-argon",
-      "gemini-3.8-flash",
-      "gemini-3.6-flash",
-      "gemini-3.5-flash",
-      "gemini-3.5-flash-lite",
-      "gemini-3.1-flash-lite",
-      "gemini-3.1-pro-preview",
-      "deepseek-flash",
-      "deepseek-v4-pro",
-    ]);
-    expect(
-      wafHarnessGoModels.every((model) => model.baseUrl === "https://go.penguin.ooo/api/v1"),
-    ).toBe(true);
-    expect(
-      wafHarnessGoModels.every(
-        (model) => model.pricing !== undefined && model.pricing.unit === "usd_per_mtok",
-      ),
-    ).toBe(true);
-    expect(
-      wafHarnessGoModels
-        .filter((model) => model.modelId.startsWith("gemini-"))
-        .every((model) => model.clientType === "mmsp"),
-    ).toBe(true);
-    expect(
-      wafHarnessGoModels
-        .filter((model) => model.modelId.startsWith("deepseek-"))
-        .every((model) => model.clientType === "mmsp"),
-    ).toBe(true);
-    expect(catalogEntryFor("penguin-go", "deepseek-flash")?.supportsVision).toBe(true);
-    expect(catalogEntryFor("penguin-go", "deepseek-v4-pro")).toMatchObject({
-      displayName: "DeepSeek V4 Pro 0813",
-      supportsVision: false,
-    });
-    // No static promotion: the platform delivers whatever it runs at authorization and Sync,
-    // so every row here is its list price and nothing else.
-    expect(wafHarnessGoModels.filter((model) => model.discount !== undefined)).toEqual([]);
-    for (const modelId of ["gemini-3.8-flash", "gemini-3.6-flash"]) {
-      expect(catalogEntryFor("penguin-go", modelId)!.pricing, modelId).toEqual({
-        unit: "usd_per_mtok",
-        cache_read: 0.075,
-        cache_write: 0.75,
-        output: 3.75,
-      });
-    }
-    expect(catalogEntryFor("penguin-go", "deepseek-flash")).toMatchObject({
-      pricing: {
-        cache_read: 0.005714,
-        cache_write: 0.285714,
-        output: 1.142857,
-      },
-      offPeakDiscount: DEEPSEEK_OFF_PEAK,
-    });
   });
 
   const GET_NUMBER = {
@@ -395,7 +327,7 @@ describe("model-catalog", () => {
   });
 
   it("the app URL a minted key is stamped with is the same one attribution headers carry", () => {
-    expect(APP_URL).toBe("https://penguin.ooo/");
+    expect(APP_URL).toBe("https://github.com/nicolaepocroianu/waf-harness");
     expect(attributionHeaders("https://tokendance.space/gateway/v1")).toEqual({
       "X-App-URL": APP_URL,
     });
@@ -689,7 +621,6 @@ describe("model-catalog", () => {
     const BOTH = ["base_url", "client_type"];
     expect(fields).toEqual({
       tokendance: BOTH,
-      "penguin-go": BOTH,
       // Three protocols and two bases: the group takes its gateway endpoint only.
       "opencode-go": ["base_url"],
       openrouter: BOTH,
@@ -708,7 +639,7 @@ describe("model-catalog", () => {
       vllm: ["client_type"],
     });
     // A group with no gateway endpoint or group pin takes the one its rows all carry.
-    expect(table["penguin-go"]!.base_url).toBe(PENGUIN_GO_BASE_URL);
+    expect(table["zhipu-coding-plan"]!.base_url).toBe("https://api.z.ai/api/coding/paas/v4/");
     expect(table.fireworks!.client_type).toBe("openai-chat");
     expect(table.modelscope!.client_type).toBe("openai-responses");
     // First-party vendors route by id to their official clients' own endpoints: no table.
@@ -740,7 +671,7 @@ describe("model-catalog", () => {
         base_url: "https://proxy.example/openrouter/v1",
         client_type: "openai-responses",
       },
-      "penguin-go": { base_url: PENGUIN_GO_BASE_URL },
+      "zhipu-coding-plan": { base_url: "https://api.z.ai/api/coding/paas/v4/" },
     };
     const rows = presetModelEntries(file);
     for (const entry of rows) {
@@ -758,18 +689,16 @@ describe("model-catalog", () => {
       "openai-chat",
       "https://tokendance.space/gateway/v1",
     ]);
-    expect(rows.find((e) => e.provider === "penguin-go")!.base_url).toBeUndefined();
+    expect(rows.find((e) => e.provider === "zhipu-coding-plan")!.base_url).toBeUndefined();
   });
 
-  it("presetPromotions: a promoted row is seeded with its fraction, a Penguin Go row never is", () => {
+  it("presetPromotions: a promoted row is seeded with its fraction", () => {
     const promotions = presetPromotions();
     expect(promotions).toContainEqual({
       provider: "tokendance",
       modelId: "glm-5.3-flash",
       discount: 0.1,
     });
-    // Penguin Go's promotions are the platform's to deliver, at authorization and Sync.
-    expect(promotions.filter((p) => p.provider === "penguin-go")).toEqual([]);
   });
 
   it("gateway models pin explicit protocols and preset base URLs; env fallback stays OPENAI_API_KEY", () => {
@@ -1282,7 +1211,6 @@ describe("model-catalog", () => {
         ...gateway,
         ...customPresets,
         ...codingPlanPresets,
-        ...MODEL_CATALOG.filter((m) => m.provider === "penguin-go"),
         ...MODEL_CATALOG.filter((m) => m.provider === "opencode-go"),
       ]
         // A retired gateway row keeps its pin in the catalog but is not a preset.
@@ -1758,7 +1686,7 @@ describe("MMSP's clients as the catalog reads them", () => {
       moonshot: "moonshot-official",
       minimax: "minimax-official",
     });
-    for (const id of ["penguin-go", "tokendance", "openrouter", "vllm", "custom", "my-group"]) {
+    for (const id of ["tokendance", "openrouter", "vllm", "custom", "my-group"]) {
       expect(vendorClientType(id), id).toBeUndefined();
     }
   });
@@ -1836,9 +1764,6 @@ describe("MMSP's clients as the catalog reads them", () => {
     for (const id of vendors) {
       expect(isVendorGroup(id), id).toBe(true);
     }
-    // The Penguin Go relay pins its protocol per row rather than per group, so a model added
-    // there by hand would be routed by its id exactly as in any other vendor group.
-    expect(isVendorGroup("penguin-go")).toBe(true);
     // Gateways carry an endpoint, two groups pin a protocol, and custom / user-defined
     // groups exist precisely so the protocol can be chosen.
     for (const id of ["tokendance", "openrouter", "fireworks", "siliconflow", "vllm", "custom"]) {
@@ -1852,10 +1777,9 @@ describe("MMSP's clients as the catalog reads them", () => {
     for (const id of [...open, "my-own-group"]) {
       expect(isAddableGroup(id), id).toBe(true);
     }
-    // Every first-party vendor and every other gateway, the relays included.
+    // Every first-party vendor and every other gateway.
     const closed = MODEL_PROVIDERS.map((p) => p.id).filter((id) => !open.includes(id));
     expect(closed).toContain("fireworks");
-    expect(closed).toContain("penguin-go");
     expect(closed).toContain("deepseek");
     for (const id of closed) {
       expect(isAddableGroup(id), id).toBe(false);
@@ -2053,8 +1977,6 @@ describe("fastModeProtocol (which models may be offered MMSP's fast_mode, and on
     expect(verdictOf("openai", "gpt-5.4-pro")).toBe("openai");
     expect(verdictOf("minimax", "MiniMax-M3")).toBe("openai");
     expect(verdictOf("google", "gemini-3.8-flash")).toBe("openai");
-    // The relay's Gemini rows speak generateContent, which has no priority tier.
-    expect(verdictOf("penguin-go", "gemini-3.8-flash")).toBeUndefined();
   });
 });
 
@@ -2064,9 +1986,13 @@ describe("attribution on the catalog's endpoints (core's attributionHeaders)", (
     for (const m of MODEL_CATALOG) {
       const headers = attributionHeaders(m.baseUrl);
       if (m.provider === "openrouter") {
-        expect(headers?.["HTTP-Referer"], m.modelId).toBe("https://penguin.ooo/");
+        expect(headers?.["HTTP-Referer"], m.modelId).toBe(
+          "https://github.com/nicolaepocroianu/waf-harness",
+        );
       } else if (m.provider === "tokendance") {
-        expect(headers?.["X-App-URL"], m.modelId).toBe("https://penguin.ooo/");
+        expect(headers?.["X-App-URL"], m.modelId).toBe(
+          "https://github.com/nicolaepocroianu/waf-harness",
+        );
       } else if (m.provider === "opencode-go") {
         // Both OpenCode Go bases, Messages included, name the Session they are serving, and
         // name a conversation of their own outside one.
@@ -2088,7 +2014,7 @@ describe("off-peak schedules", () => {
 
   it("the DeepSeek rows store the peak price and declare the schedule", () => {
     // Every direct row, plus the resold rows whose sellers pass DeepSeek's own windows through:
-    // two on Penguin Go, four on OpenCode Go, four on TokenDance and one on OpenRouter. The
+    // four on OpenCode Go, four on TokenDance and one on OpenRouter. The
     // retired rows keep the schedule too. A seller's promotion on top of the schedule
     // (TokenDance's on V4.1 Flash) comes off both tiers alike.
     const rows = MODEL_CATALOG.filter((m) => m.offPeakDiscount === S);
@@ -2102,8 +2028,6 @@ describe("off-peak schedules", () => {
       "tokendance/deepseek-v4-flash-vision-exp",
       "tokendance/deepseek-v4-pro-0813",
       "tokendance/deepseek-v4.1-flash",
-      "penguin-go/deepseek-flash",
-      "penguin-go/deepseek-v4-pro",
       "opencode-go/deepseek-v4.1-flash",
       "opencode-go/deepseek-v4-flash",
       "opencode-go/deepseek-v4-flash-vision-exp",
@@ -2328,8 +2252,8 @@ describe("environment variable names (what MMSP's routed client reads)", () => {
     // The vendor's own default endpoint written on the group is no endpoint change.
     expect(hint("deepseek", { base_url: "https://api.deepseek.com" })).toBe("DEEPSEEK_API_KEY");
     expect(hint("minimax", { base_url: "https://api.minimax.io/v1/" })).toBe("MINIMAX_API_KEY");
-    // Gateways and the third-party adapters carry a base URL; custom has no table.
-    for (const id of ["tokendance", "openrouter", "penguin-go", "modelscope", "custom"]) {
+    // Gateways and the third-party adapter carry a base URL; custom has no table.
+    for (const id of ["tokendance", "openrouter", "modelscope", "custom"]) {
       expect(hint(id, table[id]), id).toBeUndefined();
     }
     // A group with a protocol and no base URL: the protocol's variable, whoever the group is —
@@ -2410,8 +2334,8 @@ describe("environment variable names (what MMSP's routed client reads)", () => {
     // An open MMSP server is called keyless; an id nothing routes reads nothing.
     expect(
       modelEnvironment(
-        { provider: "penguin-go", modelId: "gemini-3.8-flash" },
-        { baseUrl: PENGUIN_GO_BASE_URL, clientType: "mmsp" },
+        { provider: "my-group", modelId: "gemini-3.8-flash" },
+        { baseUrl: "https://mmsp.example/api/v1", clientType: "mmsp" },
       ),
     ).toEqual({});
     expect(modelEnvironment({ provider: "deepseek", modelId: "qwen/qwen3.8" }, undefined)).toEqual(
@@ -2427,25 +2351,30 @@ describe("environment variable names (what MMSP's routed client reads)", () => {
  */
 describe("catalog presets under the connection rules", () => {
   it("an explicitly pinned row keeps its own protocol while the group sets another", () => {
+    // OpenCode Go's rows each pin their protocol; the group's endpoint is the one they share.
     const table: ProviderTable = {
-      "penguin-go": { base_url: PENGUIN_GO_BASE_URL, client_type: "openai-chat", api_key: "pg" },
+      "opencode-go": {
+        base_url: providerInfo("opencode-go")!.gatewayBaseUrl!,
+        client_type: "ant-messages",
+        api_key: "oc",
+      },
     };
-    const rows = presetModelEntries()
-      .filter((e) => e.provider === "penguin-go")
-      .map((row) => ({ ...row, client_type: "mmsp" }));
+    const rows = presetModelEntries().filter(
+      (e) => e.provider === "opencode-go" && e.base_url === undefined,
+    );
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
       const effective = storedConnection(row, table);
       expect(effective.clientType, row.model_id).toBe(
-        catalogEntryFor("penguin-go", row.model_id)!.clientType,
+        canonicalClientType(catalogEntryFor("opencode-go", row.model_id)!.clientType),
       );
       expect(effective.clientTypeSource, row.model_id).toBe("model");
-      expect(effective, row.model_id).toMatchObject({ apiKey: "pg", apiKeySource: "provider" });
+      expect(effective, row.model_id).toMatchObject({ apiKey: "oc", apiKeySource: "provider" });
     }
     // A model the group's protocol does reach: one that stores none.
     expect(
-      storedConnection({ provider: "penguin-go", model_id: "added-later" }, table),
-    ).toMatchObject({ clientType: "openai-chat", clientTypeSource: "provider" });
+      storedConnection({ provider: "opencode-go", model_id: "added-later" }, table),
+    ).toMatchObject({ clientType: "ant-messages", clientTypeSource: "provider" });
   });
 
   it("custom's group connection never redirects Atria or lends it a key, while a model the user typed there follows it", () => {

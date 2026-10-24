@@ -101,8 +101,7 @@ export const HMR_INTERFACES: HmrInterfaces = {
   // A config member added after runtimes shipped does NOT go in this list: naming it here
   // refuses every installed runtime that predates it, and a push can never replace the
   // runtime — only a reinstall can. Such a member is optional on ServerConfig and its
-  // consumer defaults it when the runtime does not publish it: cliEntry, wafHarnessGoOrigin,
-  // modelscopeBridgeUrl.
+  // consumer defaults it when the runtime does not publish it: cliEntry, modelscopeBridgeUrl.
   config: [
     "root",
     "host",

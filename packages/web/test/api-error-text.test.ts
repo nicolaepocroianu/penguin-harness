@@ -97,7 +97,6 @@ describe("apiErrorText", () => {
       "memory_file_not_found",
       "memory_scope_not_found",
       "trace_not_found",
-      "platform_rate_limited",
       // The Workspace picker's "Allow access" in the desktop app: no shell, or no answer.
       "shell_unreachable",
       "timeout",
@@ -122,11 +121,11 @@ describe("apiErrorText", () => {
   });
 
   it("keeps a numeric Retry-After header on the ApiError", async () => {
-    stubFetch(() => apiError(429, "platform_rate_limited", "slow down", { "retry-after": "7" }));
+    stubFetch(() => apiError(429, "rate_limited", "slow down", { "retry-after": "7" }));
 
-    await expect(apiFetch("/api/platform-rate-limit-test")).rejects.toMatchObject({
+    await expect(apiFetch("/api/rate-limit-test")).rejects.toMatchObject({
       status: 429,
-      code: "platform_rate_limited",
+      code: "rate_limited",
       retryAfterSeconds: 7,
     });
   });

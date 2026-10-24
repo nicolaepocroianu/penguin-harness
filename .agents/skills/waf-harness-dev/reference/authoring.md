@@ -1,25 +1,9 @@
-# Authoring: blog posts, prose hygiene, and proposing simplifications
+# Authoring: release screenshots, prose hygiene, and proposing simplifications
 
-Loaded on demand from `SKILL.md`. Three things that come up when you are writing rather than
+Loaded on demand from `SKILL.md`. Things that come up when you are writing rather than
 changing behavior.
 
-## Blog posts, and where their images live
-
-Write a post under `packages/landing/content/blog/`: `<slug>.en.md`,
-with `title` / `date` / `category` / `excerpt` frontmatter. Write the post in English;
-translated counterparts are not required or shipped.
-
-**The images are not in this repo.** Screenshots and demo videos live in the sibling
-`Prism-Shadow/penguin-harness-community` repo, under `blog-assets/` and `videos/`. A published
-post's screenshots are never deleted, so that asset class grows without bound in the number of
-posts written; keeping it out of this history keeps everyone's clone small.
-
-**Posts still write a repo-local path.** Reference an image as `/blog-assets/<name>` — both
-`![alt](…)` and the raw `<img src="…">` some posts use — and let the renderer resolve it:
-`blogAssetUrl` in `packages/landing/src/lib/links.ts`, applied by the `img` adapter in
-`src/pages/blog-post.tsx`. Never paste the raw `raw.githubusercontent` URL into a post. One source
-of truth for the host, Markdown that stays readable and diffable, and moving the host again is a
-one-line change instead of a sweep over every post.
+## Release screenshots
 
 Release screenshots are captured, not mocked up: drive the app through the Playwright e2e harness
 in `packages/web/e2e/` with its mock LLM, against a scratch `WAFH_HOME` — never `~/.waf-harness`,

@@ -7,8 +7,7 @@
  *   given one field changed, exactly that field is sent — a cleared base URL or protocol as
  *   `null`, a key only when typed, the clear box only on a stored key.
  * - Every group takes a protocol, OpenCode Go included: its rows store their own, which a group
- *   protocol never overrides. Penguin Go's is fixed: its dialog offers no protocol menu and no
- *   Detect, and names MMSP under the base URL instead.
+ *   protocol never overrides.
  * - Given Detect, the probe names the group and never a model (so the server backs it with the
  *   GROUP key), on the URL in the field or — left blank — the one the group stores; with neither
  *   there is nothing to probe, and the catalog's endpoint is never probed in their place.
@@ -419,16 +418,10 @@ describe("what the group settings dialog shows", () => {
     }
   });
 
-  it("offers Penguin Go no protocol menu and no Detect, and names its fixed protocol", () => {
-    const go = dialog("penguin-go", presetGroup("penguin-go"));
-    expect(go).not.toContain('aria-haspopup="menu"');
-    expect(go).not.toContain(S.models.detectProtocol);
-    expect(go).toContain(S.models.protocolFixedHint("Penguin Go", "MMSP"));
-    expect(go).toContain("/stream");
-    // Another built-in group keeps both.
-    const other = dialog("opencode-go", presetGroup("opencode-go"));
-    expect(other).toContain('aria-haspopup="menu"');
-    expect(other).toContain(S.models.detectProtocol);
+  it("offers every built-in group a protocol menu and Detect", () => {
+    const html = dialog("opencode-go", presetGroup("opencode-go"));
+    expect(html).toContain('aria-haspopup="menu"');
+    expect(html).toContain(S.models.detectProtocol);
   });
 
   it("has no model-list link where the catalog names none", () => {

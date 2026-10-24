@@ -15,8 +15,8 @@
  * (credentials, context, pricing, vision toggle, plus set as default / set as vision model /
  * delete). The group header's right side holds the group's actions in a fixed order
  * (group-header.ts): its balance (one menu: pin, refresh, when it was read), the connection
- * ("Not connected", which connects, or one "Connected" menu: Sync models on Penguin Go,
- * Reconnect, Disconnect — group-connection.tsx), Add model (an icon) on the groups
+ * ("Not connected", which connects, or one "Connected" menu: Reconnect, Disconnect —
+ * group-connection.tsx), Add model (an icon) on the groups
  * that take hand-added models (custom, vLLM, OpenRouter, TokenDance, SiliconFlow, Atlas Cloud,
  * user-defined), the speed test, and the gear last on every group: a menu with the group's sort
  * and the group settings (group-settings-menu.tsx, provider-settings-dialog.tsx).
@@ -110,7 +110,6 @@ import {
   useGuardedClose,
 } from "@waterford/waf-harness-ui";
 import * as api from "../../api/endpoints";
-import { ApiError } from "../../api/client";
 import { S } from "../../lib/strings";
 import { apiErrorText } from "../../lib/api-error";
 import { cardBodyClick } from "../../lib/card-open";
@@ -127,7 +126,6 @@ import { BuiltinPanel } from "./builtin-panel";
 import { formatDateTime, humanizeTokens } from "../../lib/format";
 import {
   MODEL_PROVIDERS,
-  PENGUIN_GO_PROVIDER_ID,
   catalogEntryFor,
   fastModeProtocol,
   isAddableGroup,
@@ -239,7 +237,7 @@ import { TOKENDANCE_PROVIDER_ID, TokenDanceBanner } from "./tokendance-banner";
 
 /**
  * The authorization flows a group's Connect dialog can run, keyed by the flow named in that
- * group's catalog descriptor. Everything the two differ in lives here — the four
+ * group's catalog descriptor. Everything groups differ in lives here — the four
  * endpoint calls and the copy — because everything else about the dialog is shared, and a
  * group picks its entry by carrying `bridgeAuth` rather than by being named in this file.
  */
@@ -247,14 +245,6 @@ const KEY_AUTH: Record<
   ModelProviderBridgeAuth["flow"],
   { endpoints: api.KeyAuthEndpoints; texts: KeyAuthTexts }
 > = {
-  "penguin-go": {
-    endpoints: api.platformAuthEndpoints,
-    texts: {
-      intro: S.models.platformKeyIntro,
-      appliedBody: S.models.platformKeyAppliedBody,
-      errors: S.models.platformKeyErrors,
-    },
-  },
   modelscope: {
     endpoints: api.modelScopeAuthEndpoints,
     texts: {
@@ -1187,28 +1177,6 @@ export function ModelsPage() {
       }
     : null;
 
-  const syncPlatformModels = async () => {
-    if (!projectId) return;
-    setBusy(true);
-    try {
-      const res = await api.syncPlatformModels(projectId);
-      adopt(res);
-      // The platform's sync only adds the models it newly offers; the ones already here keep
-      // their prices, protocols and promotions.
-      if (res.added === 0) toastInfo(S.models.platformUpToDate);
-      else toastSuccess(S.models.platformSyncAdded(res.added));
-    } catch (error) {
-      if (error instanceof ApiError && error.code === "platform_reauthorization_required") {
-        keyLanded.current = false;
-        setOauthFor(PENGUIN_GO_PROVIDER_ID);
-      } else {
-        toastError(apiErrorText(error));
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
   /**
    * Group speed test: one real request per model, strictly sequential (concurrent probes
    * trip provider rate limits), each result written to the card as it lands. The
@@ -1454,8 +1422,8 @@ export function ModelsPage() {
       case "balance":
         return <GroupBalance projectId={projectId} provider={provider} />;
       case "connect":
-        // One control: "Not connected", which connects when pressed, or a "Connected" menu (Sync
-        // models on Penguin Go, Reconnect, Disconnect); a member reads the status alone.
+        // One control: "Not connected", which connects when pressed, or a "Connected" menu
+        // (Reconnect, Disconnect); a member reads the status alone.
         return (
           <GroupConnection
             provider={provider}
@@ -1467,7 +1435,6 @@ export function ModelsPage() {
                 keyLanded.current = false;
                 setOauthFor(group.provider.id);
               },
-              onSyncModels: () => void syncPlatformModels(),
               onDisconnect: () =>
                 group.provider.deviceOAuth
                   ? setSubscriptionDisconnectFor(group.provider.id)
@@ -3229,18 +3196,14 @@ function ModelDialog({
   // base URL required-field policy: an endpoint behind a compatible OpenAI-protocol client
   // can't be inferred — needed for custom / user-defined groups and entries using one of those
   // clients; not for entries routed within a first-party vendor group, nor for an
-  // `openai-official` pin (an official client has its vendor's default endpoint). The WAF Harness
-  // Go relay needs one too: its shared key must never fall through to a vendor default. The
-  // FIELD is required only where nothing else supplies the endpoint — the group's settings fill
-  // a blank one, so there it may stay blank. Shared by validation and the label's required "*"
-  // mark.
+  // `openai-official` pin (an official client has its vendor's default endpoint). The FIELD is
+  // required only where nothing else supplies the endpoint — the group's settings fill a blank
+  // one, so there it may stay blank. Shared by validation and the label's required "*" mark.
   const openAiLike =
     OPENAI_COMPATIBLE_CLIENT_TYPES.has(effectiveClientType.toLowerCase()) ||
     form.provider === "custom" ||
     providerInfo(form.provider) === undefined;
-  const baseUrlRequired =
-    (form.provider === PENGUIN_GO_PROVIDER_ID || (!preset && openAiLike)) &&
-    !inherited.baseUrl?.trim();
+  const baseUrlRequired = !preset && openAiLike && !inherited.baseUrl?.trim();
   // Custom-like groups (custom + user-defined) pick among the protocol clients the picker
   // offers (PROTOCOL_CLIENT_TYPES): the base URL field's suffix becomes the protocol picker
   // there, unless the entry is pinned to a client outside them — that keeps the read-only note
@@ -4099,8 +4062,8 @@ function ModelDialog({
         {/* Identity on a saved model: model id (renamable) + display name and group. */}
         {!isNew && identityFields}
         {/* An entry pinned to a protocol the dialog cannot edit — a pin outside a custom-like
-            group or a client outside the picker's (a Penguin Go row the platform added, a
-            vLLM-adapter row in a custom group), or a pin from an older config: read-only
+            group or a client outside the picker's (a vLLM-adapter row in a custom
+            group), or a pin from an older config: read-only
             display. Compared canonically so the deprecated bare "openai" spelling (pre-0.4.2
             configs) is not flagged either, skipped when the protocol selector above already
             represents it (the picker's protocols in custom-like groups are editable there), and

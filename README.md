@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="packages/landing/public/wafh-logo.svg" alt="WAF Harness logo" width="88" />
+  <img src="packages/web/public/wafh-logo.svg" alt="WAF Harness logo" width="88" />
 </p>
 
 <h1 align="center">WAF Harness</h1>
@@ -7,7 +7,7 @@
 <p align="center"><strong>Unified and Stable RSI Framework</strong><br />Fully automatic optimization: <strong>any model, any algorithm, any benchmark</strong></p>
 
 <p align="center">
-  <a href="https://penguin.ooo/download">
+  <a href="https://github.com/nicolaepocroianu/waf-harness/releases">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/readme/download-en-dark.svg" />
       <img src="assets/readme/download-en-light.svg" alt="Download App" height="44" />
@@ -17,16 +17,13 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@waterford/waf-harness-core"><img src="https://img.shields.io/npm/v/@waterford/waf-harness-core" alt="npm version" /></a>
-  <a href="https://github.com/Prism-Shadow/penguin-harness/actions/workflows/ci.yml"><img src="https://github.com/Prism-Shadow/penguin-harness/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/Prism-Shadow/penguin-harness/actions/workflows/pages.yml"><img src="https://github.com/Prism-Shadow/penguin-harness/actions/workflows/pages.yml/badge.svg" alt="Deploy Site" /></a>
+  <a href="https://github.com/nicolaepocroianu/waf-harness/actions/workflows/ci.yml"><img src="https://github.com/nicolaepocroianu/waf-harness/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0" /></a>
   <img src="https://img.shields.io/badge/node-%E2%89%A5%2024-brightgreen" alt="Node >= 24" />
 </p>
 
 <p align="center">
-  <a href="https://penguin.ooo/"><img src="https://img.shields.io/badge/Website-penguin.ooo-1f6feb?logo=googlechrome&logoColor=white" alt="Website" /></a>
-  <a href="https://penguin.ooo/docs/"><img src="https://img.shields.io/badge/Docs-penguin.ooo%2Fdocs-1f6feb?logo=readthedocs&logoColor=white" alt="Docs" /></a>
-  <a href="https://penguin.ooo/blog"><img src="https://img.shields.io/badge/Blog-penguin.ooo%2Fblog-1f6feb?logo=rss&logoColor=white" alt="Blog" /></a>
+  <a href="https://github.com/nicolaepocroianu/waf-harness/tree/main/packages/docs/content"><img src="https://img.shields.io/badge/Docs-packages%2Fdocs-1f6feb?logo=readthedocs&logoColor=white" alt="Docs" /></a>
 </p>
 
 <p align="center">
@@ -90,30 +87,30 @@ https://github.com/user-attachments/assets/28c0ef95-1dfa-47be-bad0-7326ccdf4e7c
   <tr>
     <td width="50%" valign="top">
       <b>Browser automation</b><br />
-      Agents drive your own Chrome through the WAF Harness Browser extension, or the desktop app's built-in browser. They read pages as text and act through short scripts, so a step costs few tokens. <a href="https://penguin.ooo/blog/let-agents-use-the-browser">Tutorial</a><br /><br />
+      Agents drive your own Chrome through the WAF Harness Browser extension, or the desktop app's built-in browser. They read pages as text and act through short scripts, so a step costs few tokens.<br /><br />
       <img src="https://raw.githubusercontent.com/Prism-Shadow/penguin-harness-community/main/blog-assets/penguinharness-0-2-14-browser-en.png" alt="An agent reads the WAF Harness blog in the Browser panel" />
     </td>
     <td width="50%" valign="top">
       <b>Workbenches</b><br />
-      Every agent can have its own hot-reloaded workbench: ask for one and the agent writes the page and its server code. The workbench appears as a tab beside the agent's chat. <a href="https://penguin.ooo/blog/build-agent-apps-with-workflows">Tutorial</a><br /><br />
+      Every agent can have its own hot-reloaded workbench: ask for one and the agent writes the page and its server code. The workbench appears as a tab beside the agent's chat.<br /><br />
       <img src="https://raw.githubusercontent.com/Prism-Shadow/penguin-harness-community/main/blog-assets/penguinharness-0-2-14-workflow-en.png" alt="A legal agent's Contract desk page" />
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <b>Remote machines</b><br />
-      Add a machine the server reaches over ssh. Conversations in a Workspace on that machine run on it, in the same window. <a href="https://penguin.ooo/blog/run-agents-on-remote-machines">Tutorial</a><br /><br />
+      Add a machine the server reaches over ssh. Conversations in a Workspace on that machine run on it, in the same window.<br /><br />
       <img src="https://raw.githubusercontent.com/Prism-Shadow/penguin-harness-community/main/blog-assets/penguinharness-0-2-14-machines-en.png" alt="A conversation running on the machine devbox" />
     </td>
     <td width="50%" valign="top">
       <b>Agent API</b><br />
-      One unified API connects any agent to any external app: send input over HTTP and read the run back as a stream of AMSP events. <a href="https://penguin.ooo/blog/call-agents-with-the-agent-api">Tutorial</a><br /><br />
+      One unified API connects any agent to any external app: send input over HTTP and read the run back as a stream of AMSP events.<br /><br />
       <img src="https://raw.githubusercontent.com/Prism-Shadow/penguin-harness-community/main/blog-assets/penguinharness-0-2-14-agent-api-en.png" alt="An agent's Try it panel after one run" />
     </td>
   </tr>
 </table>
 
-Replies can also carry UI: choices, forms, steps, Mermaid diagrams and live widgets ([A2UI](https://penguin.ooo/blog/penguinharness-0-2-15)).
+Replies can also carry UI: choices, forms, steps, Mermaid diagrams and live widgets (A2UI).
 
 ## Results
 
@@ -128,7 +125,7 @@ Each harness on the model it is usually paired with, on the same tasks:
 
 ## Built-in plugins
 
-Agents can also write and optimize their own Skills ([docs](https://penguin.ooo/docs/skills)).
+Agents can also write and optimize their own Skills ([docs](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/skills.en.md)).
 
 | Category             | Plugins                                                                       |
 | -------------------- | ----------------------------------------------------------------------------- |
@@ -169,31 +166,35 @@ Custom OpenAI-protocol endpoints also work, covering 1000+ online and local mode
 
 ### Desktop app
 
-Download the installer from [penguin.ooo/download](https://penguin.ooo/download): macOS 11+ (dmg), Windows 10+ (exe) or Linux x64 (AppImage, deb). The app opens signed in and needs no terminal.
+Download the installer from the [GitHub Releases](https://github.com/nicolaepocroianu/waf-harness/releases) page: macOS 11+ (dmg), Windows 10+ (exe) or Linux x64 (AppImage, deb). The app opens signed in and needs no terminal.
 
 ### CLI and server
 
 | Platform | Install command |
 | --- | --- |
-| Linux / macOS | `curl -fsSL https://penguin.ooo/install.sh \| sh` |
-| Windows (PowerShell) | `irm https://penguin.ooo/install.ps1 \| iex` |
+| Linux / macOS | `curl -fsSL https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.sh \| sh` |
+| Windows (PowerShell) | `irm https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.ps1 \| iex` |
 | npm (Node >= 24) | `npm install -g @waterford/waf-harness-cli` |
 
 Then run `wafh web`. It serves the Web App at `http://127.0.0.1:7364` and prints a first-login link until a password is set; models are configured on the **Models** page. The desktop app and the CLI share `~/.waf-harness/data`.
 
 ### Docker
 
+No image is published; build it from a checkout:
+
 ```bash
-docker run -d --name wafh -p 127.0.0.1:7364:7364 -v wafh-data:/data hiyouga/penguinharness:0.2.16
+git clone https://github.com/nicolaepocroianu/waf-harness && cd waf-harness
+docker build -t waf-harness:local .
+docker run -d --name wafh -p 127.0.0.1:7364:7364 -v wafh-data:/data waf-harness:local
 docker logs wafh       # the first-login link, openable as it stands on this machine
 ```
 
-The image serves on port 7364 with its data on the `/data` volume, for `linux/amd64` and `linux/arm64`; `latest` follows changes to the image's runtime or build inputs on `main`, and each release is also tagged with its version. The example listens on loopback only. For a network-facing deployment, Compose and upgrades, see the [Docker quickstart](https://penguin.ooo/docs/quickstart-docker).
+The image serves on port 7364 with its data on the `/data` volume. The example listens on loopback only. For a network-facing deployment, Compose and upgrades, see the [Docker quickstart](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/quickstart-docker.en.md).
 
 <details>
 <summary><b>Offline install (air-gapped machines)</b></summary>
 
-Every <a href="https://github.com/Prism-Shadow/penguin-harness/releases">GitHub Release</a> attaches exactly one package per target — Linux and macOS in x64 / arm64, Windows in x64, plus a runtime-less universal package. The same file serves online and offline installation. Each package seals the program payload, its SHA256 checksum and the platform's installer. Download the one file on a networked machine, copy it to the target, extract once and run the bundled installer — no network, no separate checksum file to carry (the sealed SHA256 is always verified).
+Every <a href="https://github.com/nicolaepocroianu/waf-harness/releases">GitHub Release</a> attaches exactly one package per target — Linux and macOS in x64 / arm64, Windows in x64, plus a runtime-less universal package. The same file serves online and offline installation. Each package seals the program payload, its SHA256 checksum and the platform's installer. Download the one file on a networked machine, copy it to the target, extract once and run the bundled installer — no network, no separate checksum file to carry (the sealed SHA256 is always verified).
 
 **Linux (on arm64, use `wafh-linux-arm64.tar.gz`):**
 

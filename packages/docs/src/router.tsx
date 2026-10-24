@@ -11,7 +11,7 @@ import { Nav } from "./components/nav";
 import { Sidebar } from "./components/sidebar";
 import { DocSearch } from "./components/doc-search";
 import { S } from "./lib/strings";
-import { LICENSE_URL, REPO_URL, SITE_URL } from "./lib/links";
+import { LICENSE_URL, REPO_URL } from "./lib/links";
 import { DocPage } from "./pages/doc-page";
 
 function Layout() {
@@ -70,7 +70,6 @@ function Layout() {
       <SiteFooter
         copyright={S.footer.copyright}
         links={[
-          { id: "site", href: SITE_URL, label: S.footer.site },
           { id: "repo", href: REPO_URL, label: S.footer.repo, external: true },
           { id: "license", href: LICENSE_URL, label: S.footer.license, external: true },
         ]}

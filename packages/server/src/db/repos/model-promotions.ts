@@ -2,9 +2,8 @@
  * Per-Project model promotions: the fraction off a row's list price its seller is running.
  *
  * Not a cache. `.project_config.toml` keeps only the list price, so these rows are the one
- * record of each promotion: preset seeding, "sync presets" and Penguin Go authorization / sync
- * write them, cost reads them, and a row lost here prices that model at list until one of
- * those writers runs again. Both replace methods swap their whole set in one transaction, so
+ * record of each promotion: preset seeding and "sync presets" write them, cost reads them,
+ * and a row lost here prices that model at list until one of those writers runs again. Both replace methods swap their whole set in one transaction, so
  * a reader never sees half of one.
  */
 import { Component, Use } from "@waterford/waf-harness-core/kernel";

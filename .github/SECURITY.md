@@ -11,21 +11,19 @@ nothing is backported: a fix lands in the next release, and upgrading is the way
 | Any earlier release     | No        |
 
 The releases are listed in
-[CHANGELOG.md](https://github.com/Prism-Shadow/penguin-harness/blob/main/CHANGELOG.md);
+[CHANGELOG.md](https://github.com/nicolaepocroianu/waf-harness/blob/main/CHANGELOG.md);
 `wafh version` prints which build a machine is actually running.
 
 ## Reporting a vulnerability
 
 Report privately, through GitHub's
-["Report a vulnerability"](https://github.com/Prism-Shadow/penguin-harness/security/advisories/new)
+["Report a vulnerability"](https://github.com/nicolaepocroianu/waf-harness/security/advisories/new)
 form. It opens a draft advisory only the maintainers can see, and it keeps the discussion,
 the fix and the eventual disclosure attached to one another.
 
-If that form is unavailable to you, say on [Discord](https://discord.gg/eFHKqqcU3D) that
-you have a security report — with none of the details — and a maintainer will open a
-private channel with you. Do not open a public issue, a discussion, or a pull request for
-a security problem, and do not post the details to Discord or the WeChat group — those are
-public.
+If that form is unavailable to you, contact a maintainer privately to say that you have a
+security report — with none of the details. Do not open a public issue, a discussion, or a
+pull request for a security problem.
 
 A report is most useful with the affected version, how WAF Harness was installed
 (desktop app, CLI, or a server run), the operating system, and the smallest sequence of
@@ -65,7 +63,7 @@ These are not, because they are the documented design rather than a defect:
 - The `[command_policy]` sandbox failing to stop a command it never claimed to cover. It is
   documented as a deny-list at the approval boundary and explicitly not a filesystem
   permission or a confinement layer — see
-  [Configuration → Command policy](https://penguin.ooo/docs/configuration). Real confinement
+  [Configuration → Command policy](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/configuration.en.md). Real confinement
   (bubblewrap, dsh) is a separate layer.
 - A server deliberately exposed to a network it should not be on. WAF Harness binds to
   `127.0.0.1` by default; putting it on a public address is a deployment decision.

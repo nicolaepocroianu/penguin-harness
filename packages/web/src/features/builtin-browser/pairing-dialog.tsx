@@ -47,7 +47,7 @@ export const EXTENSION_STORE_URL =
  * pinned key gives it the store listing's id, so either install pairs the same way.
  */
 export const EXTENSION_DOWNLOAD_URL =
-  "https://github.com/Prism-Shadow/penguin-harness/releases/latest/download/penguin-browser-extension.zip";
+  "https://github.com/nicolaepocroianu/waf-harness/releases/latest/download/penguin-browser-extension.zip";
 
 /** How long "Connected" shows before the dialog closes itself. */
 const CLOSE_AFTER_MS = 1200;

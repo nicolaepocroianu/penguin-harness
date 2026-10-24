@@ -1,11 +1,10 @@
 /**
  * Release packages this server fetches for machines that cannot download them themselves.
  *
- * An install normally has the machine download its release from GitHub or the OSS mirror
- * (install-server.ts). A machine that reaches neither — no route out, a network that blocks
- * both — gets the package from here instead, carried over the ssh session it is already
+ * An install normally has the machine download its release from GitHub (install-server.ts).
+ * A machine that does not reach it — no route out, a network that blocks it — gets the package from here instead, carried over the ssh session it is already
  * reached by. This module is the fetching half: the package for one target and version, from
- * the same two sources the installer uses, verified against the checksum published beside it,
+ * the same source the installer uses, verified against the checksum published beside it,
  * and kept under `<root>/machines/releases/v<version>/` so a batch and every later install of
  * that version fetch it once. Only the version in use is kept: fetching another one removes
  * the rest, since a server installs one release at a time.
@@ -58,40 +57,29 @@ async function fetchPackage(
 ): Promise<{ ok: true; file: string } | { ok: false; detail: string }> {
   const sumFile = `${file}.sha256`;
   if (await cachedAndWhole(file, sumFile)) return { ok: true, file };
-  const failures: string[] = [];
-  // The mirror first, as the installer's automatic choice usually lands: it is the source
-  // that answers where GitHub is slow, and both carry byte-identical packages.
-  for (const [label, base] of [
-    ["the mirror", RELEASE_SOURCES.oss],
-    ["GitHub", RELEASE_SOURCES.github],
-  ] as const) {
-    try {
-      const sum = (
-        await (await get(fetchImpl, `${base}/${rel}.sha256`, CHECKSUM_TIMEOUT_MS)).text()
-      )
-        .trim()
-        .split(/\s+/)[0]
-        ?.toLowerCase();
-      if (sum === undefined || !/^[0-9a-f]{64}$/.test(sum)) {
-        throw new Error("its checksum file holds no checksum");
-      }
-      const bytes = Buffer.from(
-        await (await get(fetchImpl, `${base}/${rel}`, PACKAGE_TIMEOUT_MS)).arrayBuffer(),
-      );
-      if (sha256(bytes) !== sum)
-        throw new Error("the package does not match its published checksum");
-      await fsp.mkdir(path.dirname(file), { recursive: true });
-      const tmp = `${file}.${process.pid}.tmp`;
-      await fsp.writeFile(tmp, bytes);
-      await fsp.rename(tmp, file);
-      await fsp.writeFile(sumFile, `${sum}  ${path.basename(file)}\n`);
-      await pruneOthers(dir, path.basename(path.dirname(file)));
-      return { ok: true, file };
-    } catch (err) {
-      failures.push(`${label}: ${err instanceof Error ? err.message : String(err)}`);
+  const base = RELEASE_SOURCES.github;
+  try {
+    const sum = (await (await get(fetchImpl, `${base}/${rel}.sha256`, CHECKSUM_TIMEOUT_MS)).text())
+      .trim()
+      .split(/\s+/)[0]
+      ?.toLowerCase();
+    if (sum === undefined || !/^[0-9a-f]{64}$/.test(sum)) {
+      throw new Error("its checksum file holds no checksum");
     }
+    const bytes = Buffer.from(
+      await (await get(fetchImpl, `${base}/${rel}`, PACKAGE_TIMEOUT_MS)).arrayBuffer(),
+    );
+    if (sha256(bytes) !== sum) throw new Error("the package does not match its published checksum");
+    await fsp.mkdir(path.dirname(file), { recursive: true });
+    const tmp = `${file}.${process.pid}.tmp`;
+    await fsp.writeFile(tmp, bytes);
+    await fsp.rename(tmp, file);
+    await fsp.writeFile(sumFile, `${sum}  ${path.basename(file)}\n`);
+    await pruneOthers(dir, path.basename(path.dirname(file)));
+    return { ok: true, file };
+  } catch (err) {
+    return { ok: false, detail: `GitHub: ${err instanceof Error ? err.message : String(err)}` };
   }
-  return { ok: false, detail: failures.join("; ") };
 }
 
 /** A GET that answered 2xx within `timeoutMs`, or the reason it did not. */

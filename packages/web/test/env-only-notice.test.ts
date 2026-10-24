@@ -52,8 +52,8 @@ const machine = (id: string, envOnly: MachineEnvOnly[]): MachineInfo => ({
     skipped: [
       {
         projectId: "p1",
-        provider: "penguin-go",
-        modelId: "gemini-3.7-flash",
+        provider: "deepseek",
+        modelId: "deepseek-v4-preview",
         code: "model_not_addable",
         reason: "cannot be added",
       },

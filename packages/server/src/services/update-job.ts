@@ -81,7 +81,7 @@ export interface UpdateProgress {
 
 export const INITIAL_PROGRESS: UpdateProgress = { phase: "resolving", percent: null };
 
-/** The installer's line right before its curl run (install.sh: `Downloading $ASSET from $drp_label ...`). */
+/** The installer's line right before its curl run (install.sh: `Downloading $ASSET from $drp_base ...`). */
 const DOWNLOAD_LINE = /\bDownloading \S+ from .+\.\.\./;
 /** The installer's line after the bundle verified (install.sh verify_sha256: `<layer> checksum OK.`). */
 const VERIFIED_LINE = /checksum OK\./;

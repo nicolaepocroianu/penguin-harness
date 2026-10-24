@@ -13,11 +13,7 @@
  * member sees what they can read — the balance with its menu, the connection status as plain
  * text — and the gear, whose menu holds the sort alone; every action that writes is the owner's.
  */
-import {
-  MODEL_PROVIDERS,
-  PENGUIN_GO_PROVIDER_ID,
-  isAddableGroup,
-} from "@waterford/waf-harness-server/model-catalog";
+import { MODEL_PROVIDERS, isAddableGroup } from "@waterford/waf-harness-server/model-catalog";
 import type { ModelProviderInfo } from "@waterford/waf-harness-server/model-catalog";
 import type { ProviderConnectionDto } from "@waterford/waf-harness-server/api";
 
@@ -37,7 +33,7 @@ export type GroupHeaderAction =
   "balance" | "connect" | "addModel" | "deleteGroup" | "speedTest" | "settings";
 
 /** What the "Connected" menu holds, in order. */
-export type ConnectedMenuItem = "syncModels" | "reconnect" | "disconnect";
+export type ConnectedMenuItem = "reconnect" | "disconnect";
 
 /** A row as far as the environment is concerned (GET /models' preview). */
 export interface EnvKeyedRowLike {
@@ -123,12 +119,7 @@ export function groupHeaderActions(
 }
 
 /**
- * The rows of a connected group's menu: Sync models on Penguin Go, whose platform catalog the
- * group key reads; then Reconnect (the group's flow again, for a fresh key or another account)
- * and Disconnect (clears the group key), on every group with a connect flow.
+ * The rows of a connected group's menu: Reconnect (the group's flow again, for a fresh key or
+ * another account) and Disconnect (clears the group key), on every group with a connect flow.
  */
-export function connectedMenuItems(provider: ModelProviderInfo): ConnectedMenuItem[] {
-  return provider.id === PENGUIN_GO_PROVIDER_ID
-    ? ["syncModels", "reconnect", "disconnect"]
-    : ["reconnect", "disconnect"];
-}
+export const CONNECTED_MENU_ITEMS: readonly ConnectedMenuItem[] = ["reconnect", "disconnect"];

@@ -2500,7 +2500,7 @@ export type Strings = {
       toolsPass: string;
       toolsNoCurl: string;
       toolsMissing: (tools: string) => string;
-      downloadFrom: (version: string, source: "both" | "github" | "oss") => string;
+      downloadFrom: (version: string) => string;
       downloadCarried: (version: string) => string;
       downloadMissing: (version: string) => string;
       diskPass: (free: string) => string;
@@ -3942,19 +3942,8 @@ export type Strings = {
       unreachable: string;
       apply_failed: string;
     };
-    platformKeyIntro: (n: number) => string;
-    platformKeyAppliedBody: (n: number) => string;
-    platformKeyStarting: string;
-    platformKeyApplying: string;
-    platformKeyErrors: {
-      unreachable: string;
-      upstream_failed: string;
-      invalid_key: string;
-      expired: string;
-      locked: string;
-      already_delivered: string;
-      apply_failed: string;
-    };
+    keyAuthStarting: string;
+    keyAuthApplying: string;
     providerEnvNotes: Record<string, string | undefined>;
     envBaseUrlNote: (envBaseUrlKey: string) => string;
     confirmVisionModelTitle: string;
@@ -4011,14 +4000,12 @@ export type Strings = {
     disconnectConfirm: (label: string) => string;
     disconnect: string;
     reconnect: string;
-    syncModels: string;
     notConnectedStatus: string;
     connectedStatus: string;
     keyFromGroup: string;
     details: string;
     keyNotReachedNote: string;
     inheritFromGroup: string;
-    protocolFixedHint: (group: string, protocol: string) => string;
     protocolFollowGroup: string;
     protocolEachModel: string;
     protocolRoutedById: string;
@@ -4039,8 +4026,6 @@ export type Strings = {
     pinGroup: string;
     /** The same icon button while its group's run is going: stops after the probe in flight. */
     speedTestStop: string;
-    platformUpToDate: string;
-    platformSyncAdded: (n: number) => string;
     restoredDefaults: string;
     restoreDefaultsBody: string;
     restoreDefaultsTitle: string;
@@ -6353,7 +6338,6 @@ export type Strings = {
       task_in_progress: string;
       compacting: string;
       shutting_down: string;
-      platform_rate_limited: string;
       compaction_not_configured: string;
       nothing_to_compact: string;
       already_compacted: string;
@@ -6408,7 +6392,6 @@ export type Strings = {
       dir_permission_denied: string;
       benchmark_busy: string;
       model_not_routable: string;
-      wafh_go_protocol_fixed: string;
       model_not_addable: string;
       modelscope_refresh_failed: string;
     };
@@ -6443,7 +6426,6 @@ export type Strings = {
   appInfo: {
     title: string;
     menuEntry: string;
-    homepage: string;
     repository: string;
     opensInNewTab: string;
     releaseNotes: string;

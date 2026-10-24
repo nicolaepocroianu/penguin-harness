@@ -12,8 +12,8 @@
  *   every other check is skipped, and no second command is sent.
  * - Given a machine without curl, the tools check names it as a caveat (the release is carried
  *   over ssh) and the download is not asked; without tar it fails.
- * - Given a machine that reaches neither GitHub nor the mirror, the download is a warning;
- *   given both answering without the release, it fails (not published).
+ * - Given a machine that does not reach GitHub, the download is a warning;
+ *   given GitHub answering without the release, it fails (not published).
  * - Given too little room in its home, the disk check fails; given room for one install but
  *   not two, it warns.
  * - Given the port taken by another program it fails; held by its own server it passes.
@@ -60,16 +60,14 @@ const said = (stdout: string, code = 0): ExecResult => ({
 
 /** A check command's answer: everything in place unless a test says otherwise. */
 function answer(
-  over: Partial<
-    Record<"missing" | "disk" | "libc" | "oss" | "github" | "lock" | "port", string>
-  > = {},
+  over: Partial<Record<"missing" | "disk" | "libc" | "github" | "lock" | "port", string>> = {},
 ) {
   const lines = ["@@who wafh box-1"];
   if (over.missing !== undefined)
     lines.push(...over.missing.split(" ").map((t) => `@@missing ${t}`));
   lines.push(`@@disk ${over.disk ?? String(50 * 1024 * 1024)}`);
   lines.push(`@@libc ${over.libc ?? "ldd (Debian GLIBC 2.36-9+deb12u4) 2.36"}`);
-  lines.push(`@@oss ${over.oss ?? "206 0"}`, `@@github ${over.github ?? "206 0"}`);
+  lines.push(`@@github ${over.github ?? "206 0"}`);
   if (over.lock !== undefined) lines.push(`@@lock ${over.lock}`);
   lines.push(`@@port ${over.port ?? "000 7"}`);
   return lines.join("\n") + "\n";
@@ -170,26 +168,20 @@ describe("the connection check", () => {
     expect(noTar.byId.tools).toMatchObject({ state: "fail", missing: ["tar"] });
   });
 
-  it("warns when neither source is in reach, and fails when both answer without the release", async () => {
+  it("warns when GitHub is out of reach, and fails when it answers without the release", async () => {
     const out = await checksOf((command) =>
-      command.includes("@@who")
-        ? said(answer({ oss: "000 28", github: "000 7" }))
-        : said(LINUX_PROBE),
+      command.includes("@@who") ? said(answer({ github: "000 7" })) : said(LINUX_PROBE),
     );
     expect(out.byId.download).toMatchObject({
       state: "warn",
       version: "0.2.13",
-      oss: "unreachable",
       github: "unreachable",
     });
     const missing = await checksOf((command) =>
-      command.includes("@@who")
-        ? said(answer({ oss: "404 0", github: "404 0" }))
-        : said(LINUX_PROBE),
+      command.includes("@@who") ? said(answer({ github: "404 0" })) : said(LINUX_PROBE),
     );
     expect(missing.byId.download).toMatchObject({
       state: "fail",
-      oss: "missing",
       github: "missing",
     });
   });
@@ -295,7 +287,6 @@ describe("the connection check", () => {
       );
     }
     expect(RELEASE_SOURCES).toEqual({
-      oss: vars.get("OSS_RELEASE_ROOT"),
       github: vars.get("GITHUB_RELEASE_ROOT"),
     });
   });

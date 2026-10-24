@@ -50,7 +50,7 @@ describe("advanceUpdateProgress", () => {
     expect(
       advanceUpdateProgress(
         INITIAL_PROGRESS,
-        "Downloading x.tar.gz from OSS mirror ...\n\r##     7.0%",
+        "Downloading x.tar.gz from GitHub ...\n\r##     7.0%",
       ),
     ).toEqual({ phase: "downloading", percent: 7 });
   });

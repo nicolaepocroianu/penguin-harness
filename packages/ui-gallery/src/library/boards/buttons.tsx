@@ -15,7 +15,7 @@ import {
 import { BoardGroup } from "../../foundations/shared";
 import { useGallery } from "../../state";
 
-const RELEASES_URL = "https://github.com/Prism-Shadow/penguin-harness/releases";
+const RELEASES_URL = "https://github.com/nicolaepocroianu/waf-harness/releases";
 
 /** The in-sentence link points nowhere real; following it would navigate the board's frame away. */
 const stay = (event: MouseEvent) => event.preventDefault();

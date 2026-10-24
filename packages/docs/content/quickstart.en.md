@@ -32,6 +32,6 @@ If you are unsure, take the [desktop app](/quickstart-desktop). It has the fewes
 
 - [Desktop app](/quickstart-desktop): a double-click install that opens already signed in.
 - [CLI and Web App](/quickstart-cli): one line installs `wafh`, with the full installation reference.
-- [Docker](/quickstart-docker): the official image, for a server you reach over the network.
+- [Docker](/quickstart-docker): the image you build from the repository, for a server you reach over the network.
 - [SDK](/quickstart-sdk): create agents and Sessions from your own program.
 - [Key concepts](/concepts): the terms used throughout these docs.

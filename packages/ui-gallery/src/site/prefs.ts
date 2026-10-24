@@ -1,10 +1,10 @@
 /**
- * The site navbar's theme, bound to the gallery's view: the same hook the landing page's toggle
+ * The site navbar's theme, bound to the gallery's view: the same hook the site's toggle
  * reads (`useTheme`), so the toggle here is its markup unchanged. The public site is English
  * only, so there is no language to bind.
  *
  * The gallery's `mode` is the site's light/dark: the toggle writes the site's shared key, which
- * the landing page and the docs read, and rewrites the view's URL, so the page and its frames
+ * the public site and the docs read, and rewrites the view's URL, so the page and its frames
  * switch with it.
  */
 import { useCallback, useEffect } from "react";

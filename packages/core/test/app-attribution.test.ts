@@ -14,7 +14,7 @@ import { attributionHeaders } from "../src/llm/app-attribution.js";
 describe("attributionHeaders (how the harness names itself to the gateways that read it)", () => {
   it("OpenRouter gets its three attribution headers, on the preset base URL and on any custom one", () => {
     const expected = {
-      "HTTP-Referer": "https://penguin.ooo/",
+      "HTTP-Referer": "https://github.com/nicolaepocroianu/waf-harness",
       "X-OpenRouter-Title": "WAF Harness",
       "X-OpenRouter-Categories": "cli-agent,personal-agent",
     };
@@ -30,7 +30,7 @@ describe("attributionHeaders (how the harness names itself to the gateways that 
 
   it("TokenDance gets the single X-App-URL header", () => {
     expect(attributionHeaders("https://tokendance.space/gateway/v1")).toEqual({
-      "X-App-URL": "https://penguin.ooo/",
+      "X-App-URL": "https://github.com/nicolaepocroianu/waf-harness",
     });
   });
 
@@ -61,12 +61,12 @@ describe("attributionHeaders (how the harness names itself to the gateways that 
   it("a session id leaves the app-attribution gateways exactly as they were", () => {
     const sessionId = "session-2026-09-14-10-30-00-a1b2c3d4";
     expect(attributionHeaders("https://openrouter.ai/api/v1", sessionId)).toEqual({
-      "HTTP-Referer": "https://penguin.ooo/",
+      "HTTP-Referer": "https://github.com/nicolaepocroianu/waf-harness",
       "X-OpenRouter-Title": "WAF Harness",
       "X-OpenRouter-Categories": "cli-agent,personal-agent",
     });
     expect(attributionHeaders("https://tokendance.space/gateway/v1", sessionId)).toEqual({
-      "X-App-URL": "https://penguin.ooo/",
+      "X-App-URL": "https://github.com/nicolaepocroianu/waf-harness",
     });
   });
 

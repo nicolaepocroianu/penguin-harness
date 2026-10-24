@@ -13,7 +13,7 @@
  */
 
 export const MODEL_PROMOTIONS_SQL = `
-CREATE TABLE IF NOT EXISTS model_promotions ( -- NOT a cache rebuildable from files: the only record of a Project row's running promotion (.project_config.toml keeps the list price), written by preset seeding at Project creation, "sync presets" and Penguin Go authorization / sync, and read by cost; lost rows price usage at list until the next sync writes them back
+CREATE TABLE IF NOT EXISTS model_promotions ( -- NOT a cache rebuildable from files: the only record of a Project row's running promotion (.project_config.toml keeps the list price), written by preset seeding at Project creation, and "sync presets", and read by cost; lost rows price usage at list until the next sync writes them back
   project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
   provider   TEXT NOT NULL,
   model_id   TEXT NOT NULL,

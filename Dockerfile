@@ -1,11 +1,10 @@
 # The official WAF Harness server image: `wafh server` on 0.0.0.0:7364, serving the
 # Web App, with the data root at /data.
 #
-#   docker build -t waf-harness:dev .
-#   docker run -d -p 127.0.0.1:7364:7364 -v wafh-data:/data waf-harness:dev
+#   docker build -t waf-harness:local .
+#   docker run -d -p 127.0.0.1:7364:7364 -v wafh-data:/data waf-harness:local
 #
-# Published from .github/workflows/docker.yml to Docker Hub as hiyouga/penguinharness.
-# The user-facing contract (first sign-in, volumes, upgrades, reverse proxies) is
+# No image is published: it is built from a checkout. The user-facing contract (first sign-in, volumes, upgrades, reverse proxies) is
 # documented in packages/docs/content/quickstart-docker.en.md.
 #
 # The program is built from this repository's source, by the recipe release.yml assembles
@@ -205,8 +204,8 @@ ARG WAFH_COMMIT
 
 LABEL org.opencontainers.image.title="WAF Harness" \
       org.opencontainers.image.description="WAF Harness server and Web App" \
-      org.opencontainers.image.url="https://penguin.ooo" \
-      org.opencontainers.image.source="https://github.com/Prism-Shadow/penguin-harness" \
+      org.opencontainers.image.url="https://github.com/nicolaepocroianu/waf-harness" \
+      org.opencontainers.image.source="https://github.com/nicolaepocroianu/waf-harness" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.version="${WAFH_VERSION}" \
       org.opencontainers.image.revision="${WAFH_COMMIT}"

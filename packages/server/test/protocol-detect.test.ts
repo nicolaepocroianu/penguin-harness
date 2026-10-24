@@ -22,8 +22,7 @@
  * - POST /api/projects/:p/models/detect validates the URL, falls back to the stored key of the
  *   paired reference unless clearApiKey says not to — the model's own key, else its group's —
  *   takes a group alone (the group settings dialog) and probes with the group's key unless
- *   clearApiKey clears it, never echoes the key, and never sends vendor environment keys to
- *   the Penguin Go relay.
+ *   clearApiKey clears it, and never echoes the key.
  *
  * No test reaches the network except against a loopback server of its own: the probed endpoint
  * is the suite's fetch fake.
@@ -836,44 +835,6 @@ describe("POST /api/projects/:p/models/detect", () => {
       // A model id still needs its group.
       expect((await api.post(detectUrl(), { baseUrl, modelId: "lab-model" })).status).toBe(400);
     } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    }
-  });
-
-  it("a Penguin Go probe sends no environment key to the relay endpoint, the retired relay variable included", async () => {
-    const seen: Array<{ path: string; auth?: string; xApiKey?: string }> = [];
-    const server = antOnlyServer(seen);
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const port = (server.address() as AddressInfo).port;
-    const saved = {
-      anthropic: process.env.ANTHROPIC_API_KEY,
-      openai: process.env.OPENAI_API_KEY,
-      wafh: process.env.PENGUIN_GO_API_KEY,
-    };
-    process.env.ANTHROPIC_API_KEY = "vendor-anthropic-must-not-cross";
-    process.env.OPENAI_API_KEY = "vendor-openai-must-not-cross";
-    // Penguin Go takes keys from the config alone: the variable it once read is ignored.
-    process.env.PENGUIN_GO_API_KEY = "relay-env-must-not-cross";
-    try {
-      const response = await api.post(detectUrl(), {
-        baseUrl: `http://127.0.0.1:${port}`,
-        provider: "penguin-go",
-        modelId: "deepseek-flash",
-      });
-      expect(response.status).toBe(200);
-      expect(((await response.json()) as ModelProtocolDetectResponse).detected).toBe(
-        "ant-messages",
-      );
-      expect(seen.length).toBeGreaterThan(0);
-      expect(seen.every((request) => request.auth === undefined)).toBe(true);
-      expect(seen.every((request) => request.xApiKey === undefined)).toBe(true);
-    } finally {
-      if (saved.anthropic === undefined) delete process.env.ANTHROPIC_API_KEY;
-      else process.env.ANTHROPIC_API_KEY = saved.anthropic;
-      if (saved.openai === undefined) delete process.env.OPENAI_API_KEY;
-      else process.env.OPENAI_API_KEY = saved.openai;
-      if (saved.wafh === undefined) delete process.env.PENGUIN_GO_API_KEY;
-      else process.env.PENGUIN_GO_API_KEY = saved.wafh;
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });

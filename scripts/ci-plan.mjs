@@ -70,7 +70,7 @@ export function planCI({ cwd = process.cwd(), base, full = false, crossPlatform 
     }
     if (file.startsWith("plugins/")) {
       // These tests enumerate the on-disk library, including plugins not imported by core.
-      for (const name of ["core", "docs", "landing"]) add(`${prefix}${name}`);
+      for (const name of ["core", "docs"]) add(`${prefix}${name}`);
     }
     if (file === "packages/web/index.html") add(`${prefix}ui`);
   }
@@ -89,11 +89,6 @@ export function planCI({ cwd = process.cwd(), base, full = false, crossPlatform 
     const implicit = new Set();
     // Electron carries web/dist via a file mapping, not an npm dependency.
     if (affected.has(`${prefix}web`)) implicit.add(`${prefix}desktop`);
-    // Landing imports gallery/UI helpers and docs navigation, and its tests read
-    // core's builtin benchmark catalog.
-    if (["core", "docs", "ui", "ui-gallery"].some((name) => affected.has(`${prefix}${name}`))) {
-      implicit.add(`${prefix}landing`);
-    }
     const added = [...implicit].filter((name) => byName.has(name) && !affected.has(name));
     if (!added.length) break;
     for (const project of list(added.flatMap((name) => ["--filter", `...${name}`]))) {
@@ -105,8 +100,7 @@ export function planCI({ cwd = process.cwd(), base, full = false, crossPlatform 
   // Site bundles: what `vite build` makes of each is a page for a browser, never a module another
   // package imports (they import one another's sources). A typecheck reads declarations only, so
   // it builds none of them.
-  const isBundle = (name) =>
-    ["web", "ui-gallery", "docs", "landing"].some((p) => name === `${prefix}${p}`);
+  const isBundle = (name) => ["web", "ui-gallery", "docs"].some((p) => name === `${prefix}${p}`);
   // The web's tests run from source too, so a shard testing it builds only what it imports; its
   // bundle is built by browser-smoke, which runs whenever the web is affected. The other bundles
   // are built where they are tested: that is the only place a pull request builds them.
@@ -158,7 +152,7 @@ export function planCI({ cwd = process.cwd(), base, full = false, crossPlatform 
   // sites in a shard of their own there: beside the native packages they made the longest job
   // of a full run (8 min on Windows).
   const isSite = (name) =>
-    ["web", "ui", "ui-gallery", "docs", "landing"].some((p) => name === `${prefix}${p}`);
+    ["web", "ui", "ui-gallery", "docs"].some((p) => name === `${prefix}${p}`);
   const nativeRest = rest.filter((name) => !isSite(name) && (full || nativeAffected.has(name)));
   const sites = full ? rest.filter(isSite) : [];
   // The web suite is the longest on Linux (over 300 files, each importing the app graph afresh),

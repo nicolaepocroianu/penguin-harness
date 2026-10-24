@@ -39,7 +39,7 @@ it("installs a plugin's runnable workbench and Skill on an ordinary Agent", asyn
   expect(await fs.readFile(path.join(dir(), "ui/index.html"), "utf8")).toContain("./app.js");
   expect(
     await fs.readFile(path.join(base(), "agent_state/skills/wafh-support/SKILL.md"), "utf8"),
-  ).toContain("https://penguin.ooo/docs/");
+  ).toContain("packages/docs/content/");
 });
 it("updates source and removes retired files while keeping state, history and local additions", async () => {
   const original = plugin();

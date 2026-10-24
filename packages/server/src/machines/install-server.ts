@@ -10,8 +10,8 @@
  * (harness.json + store/) is streamed across afterwards, so the remote's next boot runs the
  * same pushed platform, web and CLI this server runs (hmr/host.ts's restore).
  *
- * The remote therefore needs its own route to the release sources (GitHub or the OSS
- *  mirror); the ssh channel carries only the installer script and the store.
+ * The remote therefore needs its own route to the release source (GitHub); the ssh channel
+ * carries only the installer script and the store.
  *
  * The remote is left with exactly what a local install plus a push leaves: the program
  * directory, the `~/.local/bin/wafh` symlink on POSIX, and the data root's hmr/ state.
@@ -591,9 +591,8 @@ export async function installOnRemote(opts: {
       } else {
         where = { platform: identity.platform };
       }
-      // Where the release comes from. The machine downloads it itself when it reaches GitHub
-      // or the mirror; when it reaches neither — an air-gapped host, a network that blocks
-      // both — this side fetches the package and carries it over the session, and the
+      // Where the release comes from. The machine downloads it itself when it reaches GitHub;
+      // when it does not — an air-gapped host, a network that blocks it — this side fetches the package and carries it over the session, and the
       // installer installs that file (`--archive`) with no network at all.
       let release: string | { archive: string } = `v${plan.baseVersion}`;
       if (identity.platform !== "win32" && opts.carryRelease !== undefined) {
@@ -720,8 +719,8 @@ export async function installOnRemote(opts: {
 }
 
 /**
- * Settles where a POSIX machine's release comes from: nothing to carry when it reaches a
- * source (`archive: null`), a refusal when both sources answered and neither has the release,
+ * Settles where a POSIX machine's release comes from: nothing to carry when it reaches
+ * GitHub (`archive: null`), a refusal when GitHub answered without the release,
  * else the package fetched here and sent into a scratch directory there.
  */
 async function carryOver(
@@ -739,19 +738,19 @@ async function carryOver(
   const platform = `${identity.platform}-${identity.arch}`;
   const asked = await conn.exec(releaseReachCommand(version));
   const reach = parseReleaseReach(asked.stdout);
-  if (reach.oss === "ok" || reach.github === "ok") return { archive: null };
-  if (reach.oss === "missing" && reach.github === "missing") {
+  if (reach.github === "ok") return { archive: null };
+  if (reach.github === "missing") {
     return {
       failed: {
         step: "download the release",
         detail:
-          `release v${version} has no ${platform} package on GitHub or the mirror — it is not ` +
+          `release v${version} has no ${platform} package on GitHub — it is not ` +
           `published (yet). A source checkout installs the release its VERSION names.`,
       },
     };
   }
   say(
-    `${target.alias} cannot reach GitHub or the release mirror; fetching release ${version} ` +
+    `${target.alias} cannot reach GitHub; fetching release ${version} ` +
       `for ${platform} here to send it over ssh…`,
   );
   const fetched = await carryRelease(version, platform);
@@ -760,7 +759,7 @@ async function carryOver(
       failed: {
         step: "download the release",
         detail:
-          `${target.alias} cannot reach GitHub or the release mirror, and this computer could ` +
+          `${target.alias} cannot reach GitHub, and this computer could ` +
           `not fetch release ${version} for it either: ${fetched.detail}`,
       },
     };

@@ -1,4 +1,4 @@
-/* The public sites' page base, for the landing page and the docs: the `dark` variant on the
+/* The public sites' page base, for the docs and the gallery: the `dark` variant on the
    html.dark class, the brand scale, the neutral dark gray ramp the sites share with the Web App's
    Primer dark, the body and focus defaults, and the two entrance animations. A site imports it
    right after `@import "tailwindcss"`; it declares Tailwind theme values, so it is for a site's

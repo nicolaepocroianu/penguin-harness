@@ -2,10 +2,9 @@
  * Integration tests for the group form of `wafh config model` (run through commander's
  * parseAsync for the full command path): `model add --provider <group>` without `--model-id`
  * writes the group's connection to `[providers.<id>]` in the hidden .project_config.toml under
- * --root (mode 0600), sets and clears each field on its own, takes a protocol on any group but
- * Penguin Go (fixed to mmsp, for its models too), and never touches a model's own value; the
- * flags that describe one model, and a base URL that is not an absolute http(s) URL, are refused
- * there.
+ * --root (mode 0600), sets and clears each field on its own, takes a protocol on any group,
+ * and never touches a model's own value; the flags that describe one model, and a base URL
+ * that is not an absolute http(s) URL, are refused there.
  * `model remove --provider <group>` without `--model-id` drops the table and keeps the models.
  * The `--clear-*` flags clear a model's own value too. `model list` prints the groups' tables,
  * then what each model is used with, read from the file alone: a group value marked
@@ -215,21 +214,6 @@ describe("wafh config model add without --model-id: the group's connection", () 
     const messages = await listLine("opencode-go", "qwen3.8-max");
     expect(messages).toContain("client_type=ant-messages");
     expect(messages).not.toContain("client_type=ant-messages (provider)");
-  });
-
-  it("Penguin Go's protocol is fixed to mmsp: another one, or clearing the group's, is refused", async () => {
-    expect((await run(["add", "--provider", "penguin-go", "--client-type", "mmsp"])).code).toBe(0);
-    const before = await fs.readFile(configFile(), "utf8");
-    for (const args of [
-      ["--client-type", "openai-chat"],
-      ["--clear-client-type"],
-      ["--model-id", "gemini-3.8-flash", "--client-type", "google-genai"],
-    ]) {
-      const refused = await run(["add", "--provider", "penguin-go", ...args]);
-      expect(refused.code, args.join(" ")).toBe(1);
-      expect(refused.err, args.join(" ")).toContain("mmsp");
-    }
-    expect(await fs.readFile(configFile(), "utf8")).toBe(before);
   });
 
   it("a group of the user's own takes its connection first, and the models added to it follow", async () => {

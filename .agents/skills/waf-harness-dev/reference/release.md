@@ -97,11 +97,8 @@ and `check-publishable.mjs` fails if a published package depends on it.
 | `changelog/<version>/RELEASE.md` | New. The Release body, verbatim. Shape below. |
 | `CHANGELOG.md` | One line at the top, linking `changelog/<version>/`. |
 | `packages/web/src/lib/release-notes-data.ts` | One entry at the top: the version, the release line's date, and 2–5 short user-facing lines in English (App Store "What's New" register, no internal names). The App info dialog renders it; it is edited here and nowhere else. |
-| `README.md` | The Docker example pins the exact version (`hiyouga/penguinharness:<version>`). |
 | `package.json`, `packages/*/package.json`, `plugins/*/package.json` | Version, in lockstep. |
 | `packages/core/src/index.ts` | `export const VERSION`. |
-| `packages/landing/content/blog/waf-harness-<v-with-dashes>.en.md` | The English post. |
-| `packages/landing/test/blog.test.ts` | The new slug joins the expected list. |
 
 **Anything whose version already differs is a decision, not a sweep.** Bump what sits on the
 previous release's number without thinking about it. For the rest, decide and record the decision
@@ -130,23 +127,8 @@ One lead paragraph saying what this release is, then `## Install`, `## Highlight
 the previous release and change the version.
 
 Images here are **raw `raw.githubusercontent.com` URLs**, because a GitHub Release body has no
-renderer. This is the exact opposite of the blog rule below. Getting them the wrong way round
-produces a Release page of broken images or a blog of unrewritable links.
+renderer.
 
-## The blog post
-
-A pair under `packages/landing/content/blog/`, `title` / `date` / `category: news` / `excerpt`
-frontmatter, one lead paragraph, then a `##` section per highlight with its screenshot, then
-`## Also in this release` and `## Upgrading`. `## Upgrading` is the one section a reader acts on:
-migrations that need a restart, plugins that must be installed on existing Agents, renamed flags,
-routes that moved. Say what breaks and what to do, one bullet each.
-
-Images are written `/blog-assets/<name>` and resolved by `blogAssetUrl`; never paste the raw
-host. Screenshots are named `waf-harness-<v-with-dashes>-<feature>-<lang>.png` and **shot once
-in English** — the post references `-en.png`.
-
-The assets live in the sibling `Prism-Shadow/penguin-harness-community` repo under
-`blog-assets/`, not here.
 
 ## Screenshots
 
@@ -224,7 +206,7 @@ the last pass is a human one.
 ## Two traps
 
 **`format:check` cannot see any of this.** `.prettierignore` excludes `*.md` repo-wide, so prettier
-is silent on every changelog entry, every RELEASE.md and every blog post. Its passing says nothing
+is silent on every changelog entry, and every RELEASE.md. Its passing says nothing
 about the work you just did; check the Markdown by reading it.
 
 **Release prep is the last moment to fix a changelog entry's metadata**, because the folder freezes

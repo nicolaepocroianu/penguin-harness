@@ -1,7 +1,7 @@
 /**
  * Docs site styles: a Tailwind CSS 4 entry over the public sites' shared page base
  * (site-page.css) and components and article prose (site.css), both from
- * @waterford/waf-harness-ui — the landing page's visual language minus its marketing effects, so
+ * @waterford/waf-harness-ui — the public sites' visual language, so
  * doc pages stay calm and readable. Dark theme is toggled via the html.dark class.
  */
 @import "tailwindcss";

@@ -14,7 +14,6 @@ import path from "node:path";
 import { NIGHTLY_INDEX_URL } from "./plugin/registry.js";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_SERVER_PORT, resolveRoot } from "@waterford/waf-harness-core";
-import { PENGUIN_GO_BASE_URL } from "./model-catalog/catalog.js";
 import { resolveCliLaunch, type CliLaunch } from "./services/cli-shim.js";
 
 export interface ServerConfig {
@@ -42,21 +41,14 @@ export interface ServerConfig {
    */
   previewOrigin: string | null;
   /**
-   * Trusted Penguin Go origin (PENGUIN_GO_ORIGIN); never supplied by a browser request.
-   *
-   * OPTIONAL like cliEntry: a runtime older than this field publishes none, and a pushed
-   * platform must still boot there — authorization and balance consumers then use the
-   * default `normalizeWafHarnessGoOrigin(undefined)` returns.
-   */
-  wafHarnessGoOrigin?: string;
-  /**
    * Base URL of the ModelScope authorization bridge (MODELSCOPE_BRIDGE_URL), without a
    * trailing slash — e.g. `https://go.penguin.ooo/modelscope`. The harness sends the
    * start/poll exchange here and never to ModelScope itself: the bridge holds the OAuth
-   * client secret. Unlike `wafHarnessGoOrigin` this value carries a path prefix in production,
-   * because the bridge is mounted under one and strips it from the incoming request.
+   * client secret. This value carries a path prefix in production, because the bridge is
+   * mounted under one and strips it from the incoming request.
    *
-   * OPTIONAL for the same reason as wafHarnessGoOrigin; ModelScopeAuthProvider defaults it.
+   * OPTIONAL like cliEntry: a runtime older than this field publishes none, and a pushed
+   * platform must still boot there; ModelScopeAuthProvider defaults it.
    */
   modelscopeBridgeUrl?: string;
   /**
@@ -191,39 +183,10 @@ function normalizePreviewOrigin(raw: string | undefined): string | null {
   return url.origin;
 }
 
-/** HTTPS in production; plain HTTP is accepted only for an explicit loopback integration. */
-export function normalizeWafHarnessGoOrigin(raw: string | undefined): string {
-  const value = raw?.trim() || new URL(PENGUIN_GO_BASE_URL).origin;
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error(`Invalid PENGUIN_GO_ORIGIN=${value} (expected an absolute HTTP(S) origin)`);
-  }
-  if (
-    url.username !== "" ||
-    url.password !== "" ||
-    url.pathname !== "/" ||
-    url.search !== "" ||
-    url.hash !== ""
-  ) {
-    throw new Error(
-      `Invalid PENGUIN_GO_ORIGIN=${value} (paths, credentials, query and fragment are not allowed)`,
-    );
-  }
-  const loopback =
-    url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
-    throw new Error(`Invalid PENGUIN_GO_ORIGIN=${value} (HTTPS required except for loopback HTTP)`);
-  }
-  return url.origin;
-}
-
 /**
  * Validates MODELSCOPE_BRIDGE_URL into a base URL with no trailing slash, or throws.
  *
- * Deliberately looser than normalizeWafHarnessGoOrigin in exactly one place: a PATH PREFIX is
- * allowed, because the bridge is mounted under one in production
+ * A PATH PREFIX is allowed, because the bridge is mounted under one in production
  * (`https://go.penguin.ooo/modelscope`) and strips it from the request itself — so the
  * prefix is part of the address the client must call. Credentials, query, fragment and
  * plaintext HTTP stay rejected.
@@ -256,7 +219,7 @@ function resolvePluginIndexUrl(raw: string | undefined): string | null {
   return value.toLowerCase() === "off" ? null : value;
 }
 
-/** Parses server config from environment variables (PORT / HOST / WAFH_HOME / WAFH_WEB_DIST / WAFH_WEB_DB / WAFH_PREVIEW_ORIGIN / PENGUIN_GO_ORIGIN / MODELSCOPE_BRIDGE_URL / WAFH_SEED_ADMIN_PASSWORD / WAFH_DESKTOP_TOKEN / WAFH_PORT_FILE / WAFH_TRUST_PROXY / WAFH_CLI_ENTRY / WAFH_PLUGIN_INDEX). */
+/** Parses server config from environment variables (PORT / HOST / WAFH_HOME / WAFH_WEB_DIST / WAFH_WEB_DB / WAFH_PREVIEW_ORIGIN / MODELSCOPE_BRIDGE_URL / WAFH_SEED_ADMIN_PASSWORD / WAFH_DESKTOP_TOKEN / WAFH_PORT_FILE / WAFH_TRUST_PROXY / WAFH_CLI_ENTRY / WAFH_PLUGIN_INDEX). */
 export function resolveServerConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const root = env.WAFH_HOME ?? resolveRoot();
   // An empty PORT string is treated as unset (the common `.env` case of an empty
@@ -280,7 +243,6 @@ export function resolveServerConfig(env: NodeJS.ProcessEnv = process.env): Serve
     dbPath: env.WAFH_WEB_DB ?? path.join(root, "web.db"),
     webDist: env.WAFH_WEB_DIST ?? defaultWebDist(),
     previewOrigin: normalizePreviewOrigin(env.WAFH_PREVIEW_ORIGIN),
-    wafHarnessGoOrigin: normalizeWafHarnessGoOrigin(env.PENGUIN_GO_ORIGIN),
     modelscopeBridgeUrl: normalizeModelScopeBridgeUrl(env.MODELSCOPE_BRIDGE_URL),
     // An empty/whitespace value is treated as unset, which leaves the seed to generate one.
     seedAdminPassword: env.WAFH_SEED_ADMIN_PASSWORD?.trim() || null,

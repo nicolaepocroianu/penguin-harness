@@ -3,10 +3,7 @@ export type Strings = {
   siteName: string;
   nav: {
     home: string;
-    blog: string;
-    download: string;
     docs: string;
-    gallery: string;
     github: string;
     openMenu: string;
     closeMenu: string;
@@ -33,5 +30,5 @@ export type Strings = {
     close: string;
     keyboardHint: string;
   };
-  footer: { repo: string; license: string; site: string; copyright: string };
+  footer: { repo: string; license: string; copyright: string };
 };

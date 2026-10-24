@@ -117,8 +117,8 @@ export type WindowOpenAction = "window" | "external" | "deny";
  * handler is not told which frame asked. The Files panel previews Agent-written HTML in an
  * iframe that allows popups, so a blank window allowed for any purpose would be a hidden window
  * that HTML could own. The Web App therefore asks for none when it is drawn by this shell's
- * renderer (it reads `Electron/` in the user agent, whatever session it holds): it opens
- * Penguin Go's authorization URL directly, which this rule routes to the system browser.
+ * renderer (it reads `Electron/` in the user agent, whatever session it holds): it opens a
+ * key-authorization URL (ModelScope's) directly, which this rule routes to the system browser.
  */
 export function classifyWindowOpen(url: string, origin: string | null): WindowOpenAction {
   if (origin === null || !isExternalScheme(url)) return "deny";

@@ -103,7 +103,7 @@ describe("authorize URL", () => {
     expect(q.get("app_url")).toBe(APP_URL);
     expect(q.get("key_name")).toBe("WAF Harness");
     // The two URL-valued parameters travel escaped, never raw.
-    expect(url).toContain("app_url=https%3A%2F%2Fpenguin.ooo%2F");
+    expect(url).toContain("app_url=https%3A%2F%2Fgithub.com%2Fnicolaepocroianu%2Fwaf-harness");
     expect(url).toContain("callback_url=http%3A%2F%2F127.0.0.1%3A8123%2F");
     expect(url).not.toContain("?flow=abc-_1&code_challenge");
   });

@@ -1,5 +1,4 @@
 # CI selects changed packages and their dependents with pnpm.
-# Release calls the same workflow with full=true at the exact release ref.
 name: CI
 
 # Triggers are deliberately narrow: a push to main, and a pull request whose base is main.
@@ -41,18 +40,6 @@ on:
         description: "Run the complete cross-platform validation"
         type: boolean
         default: true
-  workflow_call:
-    inputs:
-      ref:
-        description: "Commit or tag to validate before publishing"
-        type: string
-        required: true
-      full:
-        type: boolean
-        default: true
-    secrets:
-      DEEPSEEK_API_KEY:
-        required: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ inputs.ref || github.ref }}
@@ -108,7 +95,7 @@ jobs:
           CI_BASE: ${{ steps.base.outcome == 'success' && steps.base.outputs.base || '' }}
           CI_FULL: ${{ inputs.full || false }}
           # The fork's load rule: a push to main and a draft pull request run the ubuntu jobs
-          # only; a ready pull request, a dispatch and a release's validation run all three OSes.
+          # only; a ready pull request and a dispatch run all three OSes.
           CI_CROSS_PLATFORM: ${{ github.event_name == 'workflow_dispatch' || inputs.full == true || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
         run: node scripts/ci-plan.mjs
 
@@ -177,7 +164,7 @@ jobs:
         run: node scripts/check-plugin-versions.mjs '${{ github.event.pull_request.base.sha }}'
 
   # The npm publishing path, walked without publishing. CI used to prove only that the sources
-  # typecheck and the tests pass, and the release workflow built a different, narrower set -- so a
+  # typecheck and the tests pass, and a release built a different, narrower set -- so a
   # packaging break first appeared after the tag, where it costs a version number. This job stamps,
   # builds and tests the way the release does (scripts/release-npm.sh) and packs what it would upload.
   npm-packaging:
@@ -208,8 +195,8 @@ jobs:
       # The release stages two things into the package directories before it publishes: the root
       # LICENSE, and the built web assets as the server's web-dist/. Neither exists in the repo, and
       # npm silently skips a `files` entry that is not on disk -- so packing without them proves the
-      # manifest is well formed and says nothing about what actually ships. Stage them the same way
-      # release.yml does, so the dry run lists the real tarball.
+      # manifest is well formed and says nothing about what actually ships. Stage them the way a
+      # release would, so the dry run lists the real tarball.
       - name: Stage what the release stages
         run: |
           for p in amsp core server cli; do cp LICENSE "packages/$p/LICENSE"; done
@@ -513,7 +500,7 @@ jobs:
         shell: pwsh
         run: |
           $failed = $false
-          foreach ($f in @("install.ps1", "packages/landing/public/install.ps1")) {
+          foreach ($f in @("install.ps1")) {
             $tokens = $null
             $errors = $null
             # .Path: hand ParseFile a plain string, not a PathInfo object.

@@ -1,12 +1,12 @@
 /**
  * CI selection against a real Git history and pnpm workspace, without installing dependencies.
  *
- * - Given a docs or landing edit, when planning CI, then only affected sites run, on Linux.
+ * - Given a docs edit, when planning CI, then only affected sites run, on Linux.
  * - Given a catalog README edit, when planning CI, then only the README catalog check runs.
- * - Given README and landing edits together, when planning CI, then each keeps its own checks.
+ * - Given README and docs edits together, when planning CI, then each keeps its own checks.
  * - Given README and core edits together, when planning CI, then core covers the catalog once.
  * - Given a core edit, when planning CI, then its transitive consumers and native OS tests run.
- * - Given a web edit, when planning CI, then the gallery, landing and desktop are checked too.
+ * - Given a web edit, when planning CI, then the gallery and desktop are checked too.
  * - Given a web edit, when planning CI, then the web suite runs in two Linux jobs that each run
  *   half of every package's files and build what the web imports, not the web's own bundle;
  *   without the web among them, ui and cli run whole in one job.
@@ -127,7 +127,6 @@ describe("affected CI", { concurrency: false }, () => {
       addPackage("web", ["ui", "server"]),
       addPackage("ui-gallery", ["web"]),
       addPackage("docs"),
-      addPackage("landing"),
       addPackage("sandbox-example", ["core"], "plugins"),
       addPackage("catalog-only", [], "plugins", false),
     ]);
@@ -142,10 +141,10 @@ describe("affected CI", { concurrency: false }, () => {
 
   after(() => rmSync(cwd, { recursive: true, force: true }));
 
-  for (const site of ["docs", "landing"]) {
+  for (const site of ["docs"]) {
     it(`a ${site} edit checks affected sites only, without native or packaging jobs`, () => {
       const plan = changed(`packages/${site}/src/index.js`);
-      const expected = site === "docs" ? names("docs", "landing") : names("landing");
+      const expected = names(site);
       assert.deepEqual(new Set(plan.packages), expected);
       assert.deepEqual(members(plan.linux), expected);
       assert.equal(plan.full, false);
@@ -186,14 +185,14 @@ describe("affected CI", { concurrency: false }, () => {
     });
   }
 
-  it("README, changelog and landing edits keep the catalog check separate from site checks", () => {
+  it("README, changelog and docs edits keep the catalog check separate from site checks", () => {
     write("README.md", "changed\n");
     write("changelog/unreleased/2026-10-14-fixture.md", "changed\n");
-    const plan = changed("packages/landing/content/blog/fixture.en.md");
+    const plan = changed("packages/docs/content/fixture.en.md");
     assert.equal(plan.readme, true);
     assert.equal(plan.full, false);
-    assert.deepEqual(new Set(plan.packages), names("landing"));
-    assert.deepEqual(members(plan.linux), names("landing"));
+    assert.deepEqual(new Set(plan.packages), names("docs"));
+    assert.deepEqual(members(plan.linux), names("docs"));
     assert.equal(plan.tests, true);
     assert.equal(plan.typecheck, true);
     for (const job of [
@@ -223,16 +222,7 @@ describe("affected CI", { concurrency: false }, () => {
 
   it("a core edit checks transitive consumers and native behavior on every OS", () => {
     const plan = changed("packages/core/src/index.js");
-    for (const consumer of [
-      "core",
-      "server",
-      "cli",
-      "desktop",
-      "ui",
-      "web",
-      "ui-gallery",
-      "landing",
-    ]) {
+    for (const consumer of ["core", "server", "cli", "desktop", "ui", "web", "ui-gallery"]) {
       assert.ok(plan.packages.includes(name(consumer)), `${consumer} consumes core`);
     }
     assert.ok(plan.packages.includes("@waf-harness/sandbox-example"));
@@ -252,7 +242,7 @@ describe("affected CI", { concurrency: false }, () => {
 
   it("a web edit checks its desktop assets and gallery consumers without testing backend code", () => {
     const plan = changed("packages/web/src/index.js");
-    assert.deepEqual(new Set(plan.packages), names("web", "ui-gallery", "desktop", "landing"));
+    assert.deepEqual(new Set(plan.packages), names("web", "ui-gallery", "desktop"));
     assert.equal(plan.macos_tests, false);
     assert.equal(plan.windows_tests, false);
     assert.equal(plan.runtime, false);
@@ -295,7 +285,7 @@ describe("affected CI", { concurrency: false }, () => {
     );
     assert.equal(withGallery.linux.include.filter((shard) => shard.gallery).length, 1);
     git("reset", "--hard", "--quiet", base);
-    const withoutGallery = changed("packages/landing/src/index.js");
+    const withoutGallery = changed("packages/docs/src/index.js");
     assert.ok(!withoutGallery.linux.include.some((shard) => shard.gallery));
   });
 
@@ -312,7 +302,7 @@ describe("affected CI", { concurrency: false }, () => {
     for (const dependency of ["core", "server", "ui", "cli"]) {
       assert.ok(selected.has(name(dependency)), `${dependency} is imported by a checked package`);
     }
-    for (const leaf of ["web", "ui-gallery", "docs", "landing", "desktop"]) {
+    for (const leaf of ["web", "ui-gallery", "docs", "desktop"]) {
       assert.ok(!selected.has(name(leaf)), `${leaf} is never built for a typecheck`);
     }
   });
@@ -323,7 +313,7 @@ describe("affected CI", { concurrency: false }, () => {
   });
 
   it("a new consumer of an implicit dependency is checked without adding another manual edge", () => {
-    addPackage("site-consumer", ["landing"]);
+    addPackage("site-consumer", ["desktop"]);
     const consumerBase = commit();
     write("packages/docs/src/index.js", "changed\n");
     commit();
@@ -335,24 +325,27 @@ describe("affected CI", { concurrency: false }, () => {
     const plan = changed("plugins/catalog-only/src/index.js");
     assert.equal(plan.plugins, true);
     assert.ok(plan.packages.includes("@waf-harness/catalog-only"));
-    for (const reader of ["core", "docs", "landing", "server", "ui-gallery"]) {
+    for (const reader of ["core", "docs", "server", "ui-gallery"]) {
       assert.ok(members(plan.linux).has(name(reader)), `${reader} reads plugin catalogs`);
     }
     assert.ok(!members(plan.linux).has("@waf-harness/catalog-only"), "content has no test script");
   });
 
   it("a rename between existing packages checks both the old and new owners", () => {
-    renameSync(join(cwd, "packages/landing/src/index.js"), join(cwd, "packages/docs/src/moved.js"));
+    renameSync(
+      join(cwd, "packages/ui-gallery/src/index.js"),
+      join(cwd, "packages/docs/src/moved.js"),
+    );
     commit();
-    assert.deepEqual(new Set(planCI({ cwd, base }).packages), names("landing", "docs"));
+    assert.deepEqual(new Set(planCI({ cwd, base }).packages), names("ui-gallery", "docs"));
   });
 
   it("a deleted source file still selects the package that owned it", () => {
-    rmSync(join(cwd, "packages/landing/src/index.js"));
+    rmSync(join(cwd, "packages/docs/src/index.js"));
     commit();
     const plan = planCI({ cwd, base });
     assert.equal(plan.full, false);
-    assert.deepEqual(new Set(plan.packages), names("landing"));
+    assert.deepEqual(new Set(plan.packages), names("docs"));
   });
 
   for (const operation of ["delete", "move"]) {
@@ -446,10 +439,7 @@ describe("affected CI", { concurrency: false }, () => {
         siteShards,
       );
       for (const shard of sites) {
-        assert.deepEqual(
-          new Set(shard.packages),
-          names("ui", "web", "ui-gallery", "docs", "landing"),
-        );
+        assert.deepEqual(new Set(shard.packages), names("ui", "web", "ui-gallery", "docs"));
       }
       const rest = matrix.include.find((shard) => shard.shard === "rest");
       assert.ok(

@@ -3,7 +3,7 @@ import { SiteGitHubLink, SiteHeader, SiteNavLinks } from "@waterford/waf-harness
 import { BASE } from "../lib/location";
 import { homeHref } from "../lib/routes";
 import { useGallery } from "../state";
-import { DOCS_URL, REPO_API_URL, REPO_URL, SITE_URL } from "./links";
+import { REPO_API_URL, REPO_URL } from "./links";
 import { ThemeToggle } from "./theme-toggle";
 
 /** The drawer button follows the link row or the section list's breakpoint. */
@@ -16,13 +16,7 @@ const MENU_BUTTON_HIDDEN: Record<MenuWidth, string> = {
 function useSiteLinks() {
   const { S: G, state } = useGallery();
   const S = G.sitebar;
-  return [
-    { id: "home", href: SITE_URL, label: S.nav.home },
-    { id: "blog", href: `${SITE_URL}blog`, label: S.nav.blog },
-    { id: "download", href: `${SITE_URL}download`, label: S.nav.download },
-    { id: "docs", href: DOCS_URL, label: S.nav.docs },
-    { id: "gallery", href: homeHref(BASE, state), label: S.nav.gallery, active: true },
-  ];
+  return [{ id: "gallery", href: homeHref(BASE, state), label: S.nav.gallery, active: true }];
 }
 
 export function SiteNav({

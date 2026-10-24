@@ -1,8 +1,8 @@
 ---
 name: waf-harness-frontend
 description: >-
-  Use when changing WAF Harness frontend code: the Web App (packages/web), landing
-  page (packages/landing), docs (packages/docs), component gallery (packages/ui-gallery),
+  Use when changing WAF Harness frontend code: the Web App (packages/web), docs
+  (packages/docs), component gallery (packages/ui-gallery),
   or shared UI package (packages/ui). Always inspect, reuse and extend shared UI first.
   Covers control behavior and cursors, theme tokens, icons, settings commits,
   user-facing copy, popups, layout, motion, gradients, navigation and responsive forms.
@@ -32,7 +32,7 @@ abstraction at the concrete behavior being shared; a one-off business rule stays
 During review, check for duplicated markup, page-local overrides and call sites that bypass the
 shared component. Verify the shared change in the gallery and in a representative host surface.
 
-### Landing, docs and gallery chrome
+### Docs and gallery chrome
 
 Use `@waterford/waf-harness-ui/site` for the shared `SiteHeader`, `SiteNavLinks`,
 `SiteLanguageMenu`, `SiteThemeToggle`, `SiteGitHubLink` and site icons, and for what the sites'
@@ -53,7 +53,7 @@ A site component is held to the package's de-slop rules like any other: its look
 dark ramp), never as palette utilities, `dark:` variants or literal font sizes in its markup.
 
 Public-site controls keep their fixed visual identity through the gallery's theme changes.
-Their shared recipes live in `packages/ui/src/site.css`; landing content, marketing sections and
+Their shared recipes live in `packages/ui/src/site.css`; article content and
 docs prose retain their own layout. Reuse app primitives underneath (the language picker uses
 `Dropdown` and `MenuRadioItem`, mobile disclosure uses `Fold`). Native title hints remain allowed
 on this public-site chrome, which does not mount the app's `TooltipLayer`. The app conventions

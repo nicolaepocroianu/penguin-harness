@@ -63,7 +63,7 @@ export interface FrameTarget {
   /** A dialog to open once the app is up. */
   open?: string;
   /**
-   * Framed by a page other than the gallery (the public landing page), which goes on scrolling
+   * Framed by a page other than the gallery (the public site), which goes on scrolling
    * around it. Until the reader clicks into the frame, the app takes no focus, scrolls nothing,
    * and hands the wheel to the page (app/main.tsx).
    */
@@ -85,7 +85,7 @@ export function appFrameSrc(base: string, prefs: FramePrefs, target: FrameTarget
 export type EmbeddedPrefs = Pick<FramePrefs, "theme" | "mode"> & { lang?: FrameLang };
 
 /**
- * The frame's URL for a page outside the gallery (the public landing page), embedded: only the
+ * The frame's URL for a page outside the gallery (the public site), embedded: only the
  * theme and the mode are named (and `lang=en` when given); the seeding script writes the two,
  * so the app boots on its own defaults for everything else, as for a first-time user.
  */

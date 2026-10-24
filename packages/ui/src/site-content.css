@@ -1,8 +1,8 @@
 /* Public-site content: the footer, the copy button, code cards, pills, the article's table of
    contents, the docs sidebar, the search and external-link dialogs, and article prose.
 
-   Plain CSS on the sites' own palette — Tailwind's values, with the landing page's neutral dark
-   ramp — so a component looks the same on the landing page, on the docs and in the gallery,
+   Plain CSS on the sites' own palette — Tailwind's values, with a neutral dark
+   ramp — so a component looks the same on the docs and in the gallery,
    whatever app theme the gallery is previewing. Components carry layout as utilities and their
    look as the classes here. The palette is declared on :root: these classes sit inside the
    sites' own text (a pill in a line of metadata, a code card in a section), which a scope class

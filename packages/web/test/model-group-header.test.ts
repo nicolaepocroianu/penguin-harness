@@ -4,9 +4,9 @@
  * order they stand, the connection of a group whose key comes from an authorization flow, the
  * balance's menu, and the gear's menu.
  *
- * - The matrix, per group kind: the balance where the catalog declares one (TokenDance, Penguin Go, DeepSeek)
+ * - The matrix, per group kind: the balance where the catalog declares one (TokenDance, DeepSeek)
  *   and the group holds a key (or the environment lends one, or it is pinned); the connection on
- *   the three groups with a flow; Add model only where hand-added models are taken (custom,
+ *   the groups with a flow; Add model only where hand-added models are taken (custom,
  *   vLLM, OpenRouter, TokenDance, SiliconFlow, Atlas Cloud, user-defined); Delete group only on
  *   a user-defined group; then the speed test and the gear on every group, the gear last. No
  *   group offers a separate "Enter key": the group key is set in the settings (or by Connect).
@@ -14,8 +14,7 @@
  * - "Connected" is the GROUP holding a key: a key set on one model is that model's alone.
  * - Not connected, the owner's status is one button: it shows "Not connected" and pressing it
  *   starts the connect flow (once per press; never while the page is busy). Connected, one
- *   "Connected" menu with Sync models (Penguin Go only), Reconnect and Disconnect in the danger
- *   tone. A member reads the status as plain text, with nothing to press.
+ *   "Connected" menu with Reconnect and Disconnect in the danger tone. A member reads the status as plain text, with nothing to press.
  * - The balance is one control whose menu is exactly three lines: pin to the bottom-left (or
  *   unpin), refresh, and — not a row to choose — when it was read, in local time; or, for a
  *   failed read, "Update failed" with the reason, the amount reading as a dash.
@@ -35,7 +34,7 @@ import type { ModelsResponse } from "@waterford/waf-harness-server/api";
 import { MODEL_PROVIDERS, providerInfo } from "@waterford/waf-harness-server/model-catalog";
 import type { ModelProviderInfo } from "@waterford/waf-harness-server/model-catalog";
 import {
-  connectedMenuItems,
+  CONNECTED_MENU_ITEMS,
   connectionStatus,
   groupHeaderActions,
   groupKeyFromEnv,
@@ -80,7 +79,7 @@ function renderedText(element: ReactElement): string {
     .trim();
 }
 
-const noActions = { onConnect: () => {}, onSyncModels: () => {}, onDisconnect: () => {} };
+const noActions = { onConnect: () => {}, onDisconnect: () => {} };
 
 describe("the group header's actions, in order, by group kind", () => {
   it("TokenDance: balance once a key is stored, the connection, Add model, speed test, settings", () => {
@@ -95,16 +94,13 @@ describe("the group header's actions, in order, by group kind", () => {
     expect(owner("tokendance", false)).toEqual(["connect", "addModel", "speedTest", "settings"]);
   });
 
-  it("Penguin Go shows its balance with a group key; ModelScope only connects", () => {
-    for (const id of ["penguin-go", "modelscope"]) {
-      for (const keyStored of [false, true]) {
-        expect(owner(id, keyStored), `${id} keyStored=${keyStored}`).toEqual([
-          ...(id === "penguin-go" && keyStored ? ["balance"] : []),
-          "connect",
-          "speedTest",
-          "settings",
-        ]);
-      }
+  it("ModelScope only connects", () => {
+    for (const keyStored of [false, true]) {
+      expect(owner("modelscope", keyStored), `keyStored=${keyStored}`).toEqual([
+        "connect",
+        "speedTest",
+        "settings",
+      ]);
     }
   });
 
@@ -152,7 +148,7 @@ describe("the group header's actions, in order, by group kind", () => {
   it("a member keeps the balance, the connection status and the gear, and nothing that writes", () => {
     // The gear stays for its sort, a view preference; its menu offers a member nothing else.
     expect(member("tokendance", true)).toEqual(["balance", "connect", "settings"]);
-    expect(member("penguin-go", true)).toEqual(["balance", "connect", "settings"]);
+    expect(member("modelscope", true)).toEqual(["connect", "settings"]);
     expect(member("deepseek", true)).toEqual(["balance", "settings"]);
     expect(member("vllm")).toEqual(["settings"]);
     expect(member("custom")).toEqual(["settings"]);
@@ -192,13 +188,7 @@ describe("a key lent by the server's environment", () => {
 describe("the connection status", () => {
   it("is exactly the groups with an authorization flow, the subscriptions' device sign-in included", () => {
     const connecting = MODEL_PROVIDERS.filter(hasConnectFlow).map((p) => p.id);
-    expect(connecting).toEqual([
-      "tokendance",
-      "penguin-go",
-      "modelscope",
-      "github-copilot",
-      "chatgpt-codex",
-    ]);
+    expect(connecting).toEqual(["tokendance", "modelscope", "github-copilot", "chatgpt-codex"]);
   });
 
   it("reads connected once the group holds a key of its own, however it got there", () => {
@@ -208,7 +198,7 @@ describe("the connection status", () => {
     expect(connectionStatus(group("tokendance"), keyedGroup)).toBe("connected");
     // A group table with an endpoint but no key, or none at all: models keyed one by one do
     // not connect the group.
-    expect(connectionStatus(group("penguin-go"), keylessGroup)).toBe("notConnected");
+    expect(connectionStatus(group("tokendance"), keylessGroup)).toBe("notConnected");
     expect(connectionStatus(group("modelscope"), undefined)).toBe("notConnected");
   });
 
@@ -231,7 +221,7 @@ describe("the connection control", () => {
     );
 
   it("not connected: the owner's status is the one button, named for what it shows and does", () => {
-    for (const id of ["tokendance", "penguin-go", "modelscope"]) {
+    for (const id of ["tokendance", "modelscope"]) {
       const html = render(id, false, true);
       expect(html.match(/<button/g), id).toHaveLength(1);
       expect(
@@ -266,8 +256,8 @@ describe("the connection control", () => {
   });
 
   it("connected: the owner gets one Connected trigger that opens a menu, and no Connect button", () => {
-    const html = render("penguin-go", true, true);
-    expect(html).toContain(`aria-label="${S.models.connectedStatus} Penguin Go"`);
+    const html = render("tokendance", true, true);
+    expect(html).toContain(`aria-label="${S.models.connectedStatus} ${group("tokendance").label}"`);
     expect(html).toContain('aria-haspopup="menu"');
     expect(html.match(/<button/g)).toHaveLength(1);
     expect(html).not.toContain(S.models.notConnectedStatus);
@@ -281,25 +271,14 @@ describe("the connection control", () => {
     }
   });
 
-  it("the Connected menu offers Sync models on Penguin Go only, then Reconnect and Disconnect", () => {
-    expect(connectedMenuItems(group("penguin-go"))).toEqual([
-      "syncModels",
-      "reconnect",
-      "disconnect",
-    ]);
-    for (const id of ["tokendance", "modelscope"]) {
-      expect(connectedMenuItems(group(id)), id).toEqual(["reconnect", "disconnect"]);
-    }
-    const menu = renderedText(
-      createElement(ConnectionMenu, { provider: group("penguin-go"), onSelect: () => {} }),
-    );
-    expect(menu).toBe(`${S.models.syncModels} ${S.models.reconnect} ${S.models.disconnect}`);
+  it("the Connected menu offers Reconnect, then Disconnect", () => {
+    expect(CONNECTED_MENU_ITEMS).toEqual(["reconnect", "disconnect"]);
+    const menu = renderedText(createElement(ConnectionMenu, { onSelect: () => {} }));
+    expect(menu).toBe(`${S.models.reconnect} ${S.models.disconnect}`);
   });
 
   it("Disconnect is the menu's one row in the danger tone", () => {
-    const html = renderToStaticMarkup(
-      createElement(ConnectionMenu, { provider: group("tokendance"), onSelect: () => {} }),
-    );
+    const html = renderToStaticMarkup(createElement(ConnectionMenu, { onSelect: () => {} }));
     const rows = html.split("<button").slice(1);
     expect(rows).toHaveLength(2);
     expect(rows[0]).not.toContain("tone-danger");

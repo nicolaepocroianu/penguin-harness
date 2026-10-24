@@ -15,7 +15,7 @@
  *   upstreams; `openai-embedding` serves the Embeddings shape.
  * - `google-official` (`@google/genai`; `gemini-official`, its name before MMSP 0.5.2, is
  *   kept as an alias): the Interactions API, {base}/v1beta/interactions. The compatible
- *   `google-genai` client (what the Penguin Go rows pin; `gemini-generate-content` is its
+ *   `google-genai` client (`gemini-generate-content` is its
  *   alias) speaks generateContent, {base}/v1beta/models/<id>:streamGenerateContent — the SDK
  *   joins base URL + API version (v1beta) + the resource path in both cases, and the suffix
  *   stops before the model id.

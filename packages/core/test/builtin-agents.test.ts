@@ -180,7 +180,7 @@ describe("support Agent provisioning", () => {
     const config = await loadAgentState({ agentId: SUPPORT_AGENT_ID });
     expect(config.agentsMd).toContain("wafh-support");
     expect(await fs.readFile(skillMdPath(SUPPORT_AGENT_ID, "wafh-support"), "utf8")).toContain(
-      "https://penguin.ooo/docs/",
+      "packages/docs/content/",
     );
     await fs.writeFile(file, "My support page");
     await provisionProjectAgents();

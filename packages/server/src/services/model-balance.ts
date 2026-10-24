@@ -110,36 +110,12 @@ function readDeepSeek(body: unknown): BalanceFigures | undefined {
   };
 }
 
-/** The ledger stays in CNY even when Penguin Go's display amount has been converted to USD. */
-function readWafHarnessGo(body: unknown): BalanceFigures | undefined {
-  const wallet = isRecord(body) ? body.balance : undefined;
-  if (
-    !isRecord(wallet) ||
-    wallet.currency !== "CNY" ||
-    typeof wallet.units !== "string" ||
-    !/^-?\d+$/.test(wallet.units)
-  ) {
-    return undefined;
-  }
-  const units = BigInt(wallet.units);
-  const absolute = units < 0n ? -units : units;
-  const fraction = String(absolute % 1_000_000_000_000n)
-    .padStart(12, "0")
-    .replace(/0+$/, "")
-    .padEnd(2, "0");
-  return {
-    amount: `${units < 0n ? "-" : ""}${absolute / 1_000_000_000_000n}.${fraction}`,
-    currency: "CNY",
-  };
-}
-
 const READERS: Record<
   ModelProviderBalance["format"],
   (body: unknown) => BalanceFigures | undefined
 > = {
   tokendance: readTokenDance,
   deepseek: readDeepSeek,
-  "penguin-go": readWafHarnessGo,
 };
 
 /** Reads one vendor reply; undefined when it carries no balance the reader can vouch for. */
@@ -160,8 +136,6 @@ interface CacheEntry {
 export interface ModelBalanceDeps {
   /** The group's own key, or its permitted environment fallback; never a model's own key. */
   groupKey(projectId: string, provider: string): Promise<string | undefined>;
-  /** The same trusted origin used by Penguin Go authorization, resolved by the route owner. */
-  wafHarnessGoOrigin?: string;
   /** Replaced in tests; defaults to the global fetch at call time, which carries the proxy settings. */
   fetchImpl?: typeof fetch;
   now?: () => number;
@@ -180,13 +154,6 @@ export class ModelBalances {
     if (info === undefined || published === undefined) {
       return this.failure(provider, "unsupported", `The ${provider} group publishes no balance.`);
     }
-    const descriptor =
-      published.format === "penguin-go"
-        ? {
-            ...published,
-            url: new URL("/api/me/by-key", this.deps.wafHarnessGoOrigin ?? published.url).href,
-          }
-        : published;
     const key = await this.deps.groupKey(projectId, provider);
     if (key === undefined) {
       return this.failure(
@@ -195,7 +162,7 @@ export class ModelBalances {
         `The ${info.label} group has no API key to ask with.`,
       );
     }
-    const slot = `${projectId}\u0000${provider}\u0000${descriptor.url}`;
+    const slot = `${projectId}\u0000${provider}\u0000${published.url}`;
     const keyDigest = createHash("sha256").update(key).digest("hex");
     const cached = this.cache.get(slot);
     if (
@@ -209,7 +176,7 @@ export class ModelBalances {
     const flight = `${slot}\u0000${keyDigest}`;
     const pending = this.inflight.get(flight);
     if (pending !== undefined) return pending;
-    const call = this.ask(provider, info.label, descriptor, key)
+    const call = this.ask(provider, info.label, published, key)
       .then((answer) => {
         this.cache.set(slot, { keyDigest, at: this.now(), answer });
         return answer;

@@ -17,26 +17,6 @@ fail_test() {
   exit 1
 }
 
-# The auto-mode rule lives in three implementations that cannot import from each other: the two
-# installers and the download page on penguin.ooo. Nothing but this check keeps their constants in
-# step, so a threshold edited in one place fails here instead of shipping three different rules.
-check_shared_constant() {
-  csc_label="$1"
-  csc_expected="$2"
-  shift 2
-  for csc_file in "$@"; do
-    grep -qF "$csc_expected" "$ROOT_DIR/$csc_file" \
-      || fail_test "$csc_file does not carry $csc_label as \"$csc_expected\""
-  done
-}
-
-LANDING_RULE="packages/landing/src/lib/download-source.ts"
-check_shared_constant "the GitHub minimum" "262144" install.sh install.ps1 "$LANDING_RULE"
-# The same 1.5, written as an integer percent in install.sh because a POSIX shell has no floats.
-check_shared_constant "the OSS switch ratio" "SPEED_PROBE_OSS_SWITCH_RATIO_PERCENT=150" install.sh
-check_shared_constant "the OSS switch ratio" '$SpeedProbeOssSwitchRatio = 1.5' install.ps1
-check_shared_constant "the OSS switch ratio" "SPEED_PROBE_OSS_SWITCH_RATIO = 1.5;" "$LANDING_RULE"
-
 # --- The launchers the release packages ship verbatim (scripts/launchers/). They are the only
 #     spelling of the payload layout, so moving where web/ or node/ sits fails here rather than
 #     shipping a package whose `wafh` cannot find its own web assets. ---
@@ -153,136 +133,7 @@ unzip -q "$PAYLOAD_DIR/win32-x64.zip" -d "$browser_dir"
 [ "$(cat "$browser_dir/wafh/browsers/chromium-0000/platform" 2>/dev/null)" = win64 ] \
   || fail_test "win32-x64 payload has no Windows test browser at wafh/browsers"
 
-# Exercise the exact release-workflow stamping block against new, legacy, and inconsistent tag
-# sources. The workflow must keep this logic inline because it checks out the requested tag, which
-# may predate any helper script added to the repository.
-STAMP_SCRIPT="$WORK_DIR/stamp-release-version.sh"
-awk '
-  /- name: Stamp release version/ && !found { found = 1; next }
-  found && /run: \|/ { in_run = 1; next }
-  in_run && /^      - name:/ { exit }
-  in_run { sub(/^          /, ""); print }
-' "$ROOT_DIR/.github/workflows/release.yml" > "$STAMP_SCRIPT"
-sed -i 's/^TAG=.*/TAG="${TEST_RELEASE_TAG:?}"/' "$STAMP_SCRIPT"
-grep -q 'SH_HAS_MARKER' "$STAMP_SCRIPT" \
-  || fail_test "release workflow stamping block could not be extracted"
-
-# Mirrors the three stamped constants of packages/core/src/index.ts. `make_stamp_case legacy`
-# drops BUILD_COMMIT, standing in for a tag cut before that constant existed.
-make_stamp_case() {
-  case_dir="$1"
-  mkdir -p "$case_dir/packages/core/src"
-  printf '%s\n' \
-    'export const VERSION = "0.0.0";' \
-    'export const BUILD_DATE: string | null = null;' \
-    > "$case_dir/packages/core/src/index.ts"
-  [ "${2:-}" = legacy ] || printf '%s\n' 'export const BUILD_COMMIT: string | null = null;' \
-    >> "$case_dir/packages/core/src/index.ts"
-}
-
-# GITHUB_SHA is exported to every step of a real Actions run, so each case below pins it
-# rather than inheriting whatever the host happens to have set.
-STAMP_SHA=0123456789abcdef0123456789abcdef01234567
-
-STAMP_NEW_DIR="$WORK_DIR/stamp-new"
-make_stamp_case "$STAMP_NEW_DIR"
-printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"' \
-  > "$STAMP_NEW_DIR/install.sh"
-printf '%s\n' '$EmbeddedReleaseVersion = "__WAFH_RELEASE_VERSION__"' \
-  > "$STAMP_NEW_DIR/install.ps1"
-(cd "$STAMP_NEW_DIR" && TEST_RELEASE_TAG=v9.8.7 GITHUB_SHA="$STAMP_SHA" sh -e "$STAMP_SCRIPT")
-grep -Fq 'EMBEDDED_RELEASE_VERSION="v9.8.7"' "$STAMP_NEW_DIR/install.sh" \
-  || fail_test "release workflow did not stamp the POSIX installer"
-grep -Fq '$EmbeddedReleaseVersion = "v9.8.7"' "$STAMP_NEW_DIR/install.ps1" \
-  || fail_test "release workflow did not stamp the PowerShell installer"
-grep -Fq 'export const VERSION = "9.8.7";' "$STAMP_NEW_DIR/packages/core/src/index.ts" \
-  || fail_test "release workflow did not stamp core's VERSION"
-grep -Eq 'export const BUILD_DATE: string \| null = "[0-9]{4}-[0-9]{2}-[0-9]{2}";' \
-  "$STAMP_NEW_DIR/packages/core/src/index.ts" \
-  || fail_test "release workflow did not stamp core's BUILD_DATE"
-grep -Fq "export const BUILD_COMMIT: string | null = \"$STAMP_SHA\";" \
-  "$STAMP_NEW_DIR/packages/core/src/index.ts" \
-  || fail_test "release workflow did not stamp core's BUILD_COMMIT"
-
-# Given a manual run dispatched from a different branch, the checked-out tag's
-# commit must be stamped even when GitHub supplies the dispatch branch's SHA.
-(
-  cd "$STAMP_NEW_DIR"
-  git init -q
-  git add .
-  git -c user.name='Installer test' -c user.email='installer@example.invalid' \
-    -c core.hooksPath=/dev/null commit -qm fixture --no-gpg-sign
-  git rev-parse HEAD > "$WORK_DIR/checkout-sha"
-  TEST_RELEASE_TAG=v9.8.7 GITHUB_SHA="$STAMP_SHA" sh -e "$STAMP_SCRIPT"
-)
-CHECKOUT_SHA="$(cat "$WORK_DIR/checkout-sha")"
-grep -Fq "export const BUILD_COMMIT: string | null = \"$CHECKOUT_SHA\";" \
-  "$STAMP_NEW_DIR/packages/core/src/index.ts" \
-  || fail_test "manual release stamped the dispatch branch instead of the checked-out tag"
-
-# Without GITHUB_SHA (a replay outside Actions) the commit stays null and the rest still stamps.
-STAMP_NOSHA_DIR="$WORK_DIR/stamp-no-sha"
-make_stamp_case "$STAMP_NOSHA_DIR"
-printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"' \
-  > "$STAMP_NOSHA_DIR/install.sh"
-printf '%s\n' '$EmbeddedReleaseVersion = "__WAFH_RELEASE_VERSION__"' \
-  > "$STAMP_NOSHA_DIR/install.ps1"
-(cd "$STAMP_NOSHA_DIR" && TEST_RELEASE_TAG=v9.8.7 GITHUB_SHA= sh -e "$STAMP_SCRIPT") \
-  > "$WORK_DIR/stamp-no-sha.output"
-grep -Fq 'GITHUB_SHA is unset' "$WORK_DIR/stamp-no-sha.output" \
-  || fail_test "release workflow did not report the unstamped commit"
-grep -Fq 'export const BUILD_COMMIT: string | null = null;' \
-  "$STAMP_NOSHA_DIR/packages/core/src/index.ts" \
-  || fail_test "release workflow stamped a commit without GITHUB_SHA"
-grep -Fq 'export const VERSION = "9.8.7";' "$STAMP_NOSHA_DIR/packages/core/src/index.ts" \
-  || fail_test "release workflow skipped the version stamp when GITHUB_SHA was unset"
-
-# A tag predating the BUILD_COMMIT constant must still rebuild.
-STAMP_NOCONST_DIR="$WORK_DIR/stamp-no-commit-const"
-make_stamp_case "$STAMP_NOCONST_DIR" legacy
-printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"' \
-  > "$STAMP_NOCONST_DIR/install.sh"
-printf '%s\n' '$EmbeddedReleaseVersion = "__WAFH_RELEASE_VERSION__"' \
-  > "$STAMP_NOCONST_DIR/install.ps1"
-(cd "$STAMP_NOCONST_DIR" && TEST_RELEASE_TAG=v9.8.7 GITHUB_SHA="$STAMP_SHA" sh -e "$STAMP_SCRIPT") \
-  > "$WORK_DIR/stamp-no-commit-const.output"
-grep -Fq 'Legacy tag without a BUILD_COMMIT constant' "$WORK_DIR/stamp-no-commit-const.output" \
-  || fail_test "release workflow did not use the legacy path for a missing BUILD_COMMIT"
-grep -Fq 'export const VERSION = "9.8.7";' "$STAMP_NOCONST_DIR/packages/core/src/index.ts" \
-  || fail_test "release workflow failed to stamp a tag without BUILD_COMMIT"
-
-STAMP_LEGACY_DIR="$WORK_DIR/stamp-legacy"
-make_stamp_case "$STAMP_LEGACY_DIR"
-printf '%s\n' 'legacy POSIX installer' > "$STAMP_LEGACY_DIR/install.sh"
-printf '%s\n' 'legacy PowerShell installer' > "$STAMP_LEGACY_DIR/install.ps1"
-(cd "$STAMP_LEGACY_DIR" && TEST_RELEASE_TAG=v9.8.7 GITHUB_SHA="$STAMP_SHA" sh -e "$STAMP_SCRIPT") \
-  > "$WORK_DIR/stamp-legacy.output"
-grep -Fq 'leaving installers unstamped' "$WORK_DIR/stamp-legacy.output" \
-  || fail_test "release workflow did not use the legacy installer path"
-grep -Fq 'legacy POSIX installer' "$STAMP_LEGACY_DIR/install.sh" \
-  || fail_test "release workflow changed the legacy POSIX installer"
-grep -Fq 'legacy PowerShell installer' "$STAMP_LEGACY_DIR/install.ps1" \
-  || fail_test "release workflow changed the legacy PowerShell installer"
-
-for inconsistent_side in posix powershell; do
-  STAMP_INCONSISTENT_DIR="$WORK_DIR/stamp-inconsistent-$inconsistent_side"
-  make_stamp_case "$STAMP_INCONSISTENT_DIR"
-  printf '%s\n' 'legacy POSIX installer' > "$STAMP_INCONSISTENT_DIR/install.sh"
-  printf '%s\n' 'legacy PowerShell installer' > "$STAMP_INCONSISTENT_DIR/install.ps1"
-  if [ "$inconsistent_side" = posix ]; then
-    printf '%s\n' 'EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"' \
-      > "$STAMP_INCONSISTENT_DIR/install.sh"
-  else
-    printf '%s\n' '$EmbeddedReleaseVersion = "__WAFH_RELEASE_VERSION__"' \
-      > "$STAMP_INCONSISTENT_DIR/install.ps1"
-  fi
-  if (cd "$STAMP_INCONSISTENT_DIR" && TEST_RELEASE_TAG=v9.8.7 GITHUB_SHA="$STAMP_SHA" \
-    sh -e "$STAMP_SCRIPT") > /dev/null 2>&1; then
-    fail_test "release workflow accepted inconsistent $inconsistent_side installer markers"
-  fi
-done
-
-# Model the release workflow's installer stamping without changing the source installer.
+# Model a release's installer stamping without changing the source installer.
 STAMPED_INSTALLER="$WORK_DIR/install-v0.0.0-test.sh"
 grep -q 'EMBEDDED_RELEASE_VERSION="__WAFH_RELEASE_VERSION__"' "$ROOT_DIR/install.sh" \
   || fail_test "POSIX installer release-version token is missing"
@@ -484,25 +335,17 @@ BAD_BUNDLE="$WORK_DIR/bad-bundle.tar.gz"
 tar -czf "$BAD_BUNDLE" -C "$BAD_DIR" .
 write_sha256 "$BAD_BUNDLE"
 
-PROBE64="$WORK_DIR/probe-64k.bin"
-PROBE1M="$WORK_DIR/probe-1m.bin"
-dd if=/dev/zero of="$PROBE64" bs=65536 count=1 2>/dev/null
-dd if=/dev/zero of="$PROBE1M" bs=1048576 count=1 2>/dev/null
-PROBE64_HASH="$(sha256sum "$PROBE64" | awk '{ print $1 }')"
-PROBE1M_HASH="$(sha256sum "$PROBE1M" | awk '{ print $1 }')"
-HOST_ASSET_HASH="$(sha256sum "$ARTIFACT_DIR/$HOST_ASSET" | awk '{ print $1 }')"
-SPEED_PROBE_ASSET_SIZE=104857600
+REPO_URL="https://github.com/nicolaepocroianu/waf-harness"
+SELF_HOSTED_BASE="https://downloads.example.test/wafh/v0.0.0-test"
 
 cat > "$STUB_BIN/curl" <<'EOF'
 #!/bin/sh
 set -eu
 output=""
 url=""
-writeout=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -o) output="$2"; shift 2 ;;
-    -w | --write-out) writeout="$2"; shift 2 ;;
     -H | --header | --connect-timeout | --max-time | --speed-limit | --speed-time) shift 2 ;;
     -*) shift ;;
     *) url="$1"; shift ;;
@@ -510,65 +353,22 @@ while [ $# -gt 0 ]; do
 done
 printf '%s\n' "$url" >> "$REQUEST_LOG"
 base="${url##*/}"
-case "$MODE:$url" in
-  primary-network:https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/*) exit 7 ;;
-  forced-oss-payload:https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/*/wafh-*) exit 7 ;;
-esac
 case "$MODE:$base" in
-  forwarder-auto-github:latest.json) exit 7 ;;
-  forwarder-invalid-metadata:latest.json)
-    printf '%s\n' '{"schemaVersion":1,"tag":"../invalid","releaseBaseUrl":"https://example.invalid"}' > "$output"
-    ;;
-  canonical:latest.json | outer-sha-mismatch:latest.json | inner-sha-mismatch:latest.json | forwarder-oss:latest.json | forced-oss-payload:latest.json)
-    printf '%s\n' '{"schemaVersion":1,"tag":"v0.0.0-test","releaseBaseUrl":"https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases/v0.0.0-test"}' > "$output"
-    ;;
-  speed-probe-missing-manifest:release-download-manifest.tsv) exit 22 ;;
-  speed-probe-*:release-download-manifest.tsv)
-    {
-      printf 'wafh-release-download-manifest\t1\tv0.0.0-test\n'
-      printf 'probe\tsmall\tprobe-64k.bin\t65536\t%s\n' "$PROBE64_HASH"
-      printf 'probe\tlarge\tprobe-1m.bin\t1048576\t%s\n' "$PROBE1M_HASH"
-      printf 'asset\t%s\t%s\t%s\n' "$HOST_ASSET" "$SPEED_PROBE_ASSET_SIZE" "$HOST_ASSET_HASH"
-    } > "$output"
-    ;;
-  speed-probe-*:probe-64k.bin) cp "$PROBE64" "$output" ;;
-  speed-probe-*:probe-1m.bin) cp "$PROBE1M" "$output" ;;
-  forwarder-oss:install.sh | forced-oss-payload:install.sh | forwarder-auto-github:install.sh | forwarder-invalid-metadata:install.sh | canonical:install.sh | speed-probe-*:install.sh) cp "$ROOT_DIR/install.sh" "$output" ;;
   404:wafh-*) exit 22 ;;
   network:wafh-*) exit 7 ;;
   outer-sha-mismatch:wafh-*.sha256) printf '%064d  %s\n' 0 "${base%.sha256}" > "$output" ;;
   outer-sha-mismatch:wafh-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
   inner-sha-mismatch:wafh-*.sha256) cp "$BAD_BUNDLE.sha256" "$output" ;;
   inner-sha-mismatch:wafh-*) cp "$BAD_BUNDLE" "$output" ;;
-  speed-probe-*:wafh-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  speed-probe-*:wafh-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  primary-network:wafh-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  primary-network:wafh-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  forced-oss-payload:wafh-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
-  forced-oss-payload:wafh-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
   legacy:wafh-*.sha256) cp "$LEGACY_ARCHIVE.sha256" "$output" ;;
   legacy:wafh-*) cp "$LEGACY_ARCHIVE" "$output" ;;
   canonical:wafh-*.sha256) cp "$ARTIFACT_DIR/$base" "$output" ;;
   canonical:wafh-*) cp "$ARTIFACT_DIR/$base" "$output" ;;
   *) echo "unexpected fixture request: $url" >&2; exit 2 ;;
 esac
-if [ -n "$writeout" ]; then
-  case "$MODE:$url" in
-    speed-probe-github-fast:https://github.com/*/probe-1m.bin) printf '%s' '0.020 0.120 8738133' ;;
-    speed-probe-github-fast:*aliyuncs.com*/probe-1m.bin) printf '%s' '0.100 2.100 499321' ;;
-    # GitHub under the 262144 minimum, mirror well past 1.5x it: worth paying for.
-    speed-probe-oss-clearly-faster:https://github.com/*/probe-1m.bin) printf '%s' '0.020 10.240 102400' ;;
-    speed-probe-oss-clearly-faster:*aliyuncs.com*/probe-1m.bin) printf '%s' '0.020 3.413 307200' ;;
-    # GitHub equally slow, mirror only 1.4x faster: not worth paying for, GitHub keeps it.
-    speed-probe-oss-not-worth-switching:https://github.com/*/probe-1m.bin) printf '%s' '0.020 10.240 102400' ;;
-    speed-probe-oss-not-worth-switching:*aliyuncs.com*/probe-1m.bin) printf '%s' '0.020 7.314 143360' ;;
-    speed-probe-github-fast:*) printf '%s' '0.020 0.060 1092266' ;;
-    *) printf '%s' '0.010 0.020 3276800' ;;
-  esac
-fi
 EOF
 chmod +x "$STUB_BIN/curl"
-export ARTIFACT_DIR BAD_BUNDLE LEGACY_ARCHIVE ROOT_DIR PROBE64 PROBE1M PROBE64_HASH PROBE1M_HASH HOST_ASSET HOST_ASSET_HASH SPEED_PROBE_ASSET_SIZE
+export ARTIFACT_DIR BAD_BUNDLE LEGACY_ARCHIVE ROOT_DIR HOST_ASSET
 
 run_online_case() {
   name="$1"
@@ -577,31 +377,16 @@ run_online_case() {
   expected="$4"
   expected_requests="$5"
   download_base_url="${6:-}"
-  download_fallback_base_url="${7:-}"
-  installer_path="${8:-$ROOT_DIR/install.sh}"
-  source_mode="${9:-auto}"
-  speed_probe="${10:-0}"
+  installer_path="${7:-$ROOT_DIR/install.sh}"
   CASE_LOG="$WORK_DIR/$name.log"
   CASE_OUTPUT="$WORK_DIR/$name.output"
   CASE_INSTALL="$WORK_DIR/$name-install"
   : > "$CASE_LOG"
   set +e
-  if [ "$speed_probe" = "__unset" ]; then
-    unset WAFH_DOWNLOAD_SPEED_PROBE
-    REQUEST_LOG="$CASE_LOG" MODE="$mode" PATH="$STUB_BIN:$PATH" \
-      HOME="$WORK_DIR/$name-home" WAFH_INSTALL_DIR="$CASE_INSTALL" \
-      WAFH_VERSION="$version" WAFH_DOWNLOAD_BASE_URL="$download_base_url" \
-      WAFH_DOWNLOAD_FALLBACK_BASE_URL="$download_fallback_base_url" \
-      WAFH_DOWNLOAD_SOURCE="$source_mode" \
-      sh "$installer_path" >"$CASE_OUTPUT" 2>&1
-  else
-    REQUEST_LOG="$CASE_LOG" MODE="$mode" PATH="$STUB_BIN:$PATH" \
-      HOME="$WORK_DIR/$name-home" WAFH_INSTALL_DIR="$CASE_INSTALL" \
-      WAFH_VERSION="$version" WAFH_DOWNLOAD_BASE_URL="$download_base_url" \
-      WAFH_DOWNLOAD_FALLBACK_BASE_URL="$download_fallback_base_url" \
-      WAFH_DOWNLOAD_SOURCE="$source_mode" WAFH_DOWNLOAD_SPEED_PROBE="$speed_probe" \
-      sh "$installer_path" >"$CASE_OUTPUT" 2>&1
-  fi
+  REQUEST_LOG="$CASE_LOG" MODE="$mode" PATH="$STUB_BIN:$PATH" \
+    HOME="$WORK_DIR/$name-home" WAFH_INSTALL_DIR="$CASE_INSTALL" \
+    WAFH_VERSION="$version" WAFH_DOWNLOAD_BASE_URL="$download_base_url" \
+    sh "$installer_path" >"$CASE_OUTPUT" 2>&1
   status=$?
   set -e
   if [ "$expected" = "success" ]; then
@@ -613,174 +398,30 @@ run_online_case() {
     || fail_test "$name made an unexpected number of requests"
 }
 
-run_online_case canonical canonical "" success 3
+# An unstamped source copy downloads from the latest GitHub Release of this repository.
+run_online_case canonical canonical "" success 2
 [ "$("$WORK_DIR/canonical-install/bin/wafh" --version)" = "fixture-old" ] \
   || fail_test "canonical online install did not produce a working command"
-grep -q "/latest.json\$" "$WORK_DIR/canonical.log" \
-  || fail_test "unstamped installer did not resolve the OSS latest metadata"
-grep -q "/releases/v0.0.0-test/$HOST_ASSET\$" "$WORK_DIR/canonical.log" \
-  || fail_test "unstamped installer did not lock the resolved OSS release"
+[ "$(sed -n '1p' "$WORK_DIR/canonical.log")" = "$REPO_URL/releases/latest/download/$HOST_ASSET" ] \
+  || fail_test "unstamped installer did not download the latest GitHub Release"
 
-run_online_case stamped canonical "" success 2 "" "" "$STAMPED_INSTALLER"
-[ "$(sed -n '1p' "$WORK_DIR/stamped.log")" = \
-  "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases/v0.0.0-test/$HOST_ASSET" ] \
-  || fail_test "stamped installer did not select its own immutable OSS release"
-! grep -q "/latest.json\$" "$WORK_DIR/stamped.log" \
-  || fail_test "stamped installer unexpectedly resolved latest metadata"
+# A stamped Release installer downloads its own immutable tag.
+run_online_case stamped canonical "" success 2 "" "$STAMPED_INSTALLER"
+[ "$(sed -n '1p' "$WORK_DIR/stamped.log")" = "$REPO_URL/releases/download/v0.0.0-test/$HOST_ASSET" ] \
+  || fail_test "stamped installer did not select its own immutable GitHub release"
 
-run_online_case stamped-fallback primary-network "" success 3 "" "" "$STAMPED_INSTALLER"
-[ "$(sed -n '1p' "$WORK_DIR/stamped-fallback.log")" = \
-  "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases/v0.0.0-test/$HOST_ASSET" ] \
-  || fail_test "stamped installer did not try its own OSS release first"
-grep -q "github.com/.*/releases/download/v0.0.0-test/$HOST_ASSET\$" "$WORK_DIR/stamped-fallback.log" \
-  || fail_test "stamped installer did not fall back to the same GitHub version"
+# An explicit https base wins over the GitHub Release; a non-https one is refused up front.
+run_online_case download-base-override canonical "" success 2 "$SELF_HOSTED_BASE"
+[ "$(sed -n '1p' "$WORK_DIR/download-base-override.log")" = "$SELF_HOSTED_BASE/$HOST_ASSET" ] \
+  || fail_test "download base override was not used"
+run_online_case download-base-insecure canonical "" failure 0 "http://downloads.example.test/wafh"
 
-run_online_case speed-probe-github-fast speed-probe-github-fast "" success 6 "" "" "$STAMPED_INSTALLER" auto 1
-[ "$(grep -c "/$HOST_ASSET\$" "$WORK_DIR/speed-probe-github-fast.log" | tr -d ' ')" -eq 1 ] \
-  || fail_test "speed probe selected more than one primary bundle download"
-grep -q "github.com/.*/releases/download/v0.0.0-test/$HOST_ASSET\$" "$WORK_DIR/speed-probe-github-fast.log" \
-  || fail_test "speed probe did not select GitHub when it met the minimum speed"
-run_online_case speed-probe-default-on speed-probe-github-fast "" success 6 "" "" "$STAMPED_INSTALLER" auto __unset
-grep -q "github.com/.*/releases/download/v0.0.0-test/$HOST_ASSET\$" "$WORK_DIR/speed-probe-default-on.log" \
-  || fail_test "speed probe was not enabled by default"
-# Below the minimum the mirror is measured too, which is the seventh request of these two cases.
-run_online_case speed-probe-oss-clearly-faster speed-probe-oss-clearly-faster "" success 7 "" "" "$STAMPED_INSTALLER" auto 1
-grep -q "aliyuncs.com/.*/probe-1m.bin\$" "$WORK_DIR/speed-probe-oss-clearly-faster.log" \
-  || fail_test "speed probe did not measure the OSS mirror once GitHub was below the minimum speed"
-grep -q "penguin-harness-releases.oss-cn-beijing.aliyuncs.com/.*/$HOST_ASSET\$" "$WORK_DIR/speed-probe-oss-clearly-faster.log" \
-  || fail_test "speed probe did not switch to OSS when it was clearly faster than a slow GitHub"
-
-run_online_case speed-probe-oss-not-worth-switching speed-probe-oss-not-worth-switching "" success 7 "" "" "$STAMPED_INSTALLER" auto 1
-grep -q "github.com/.*/releases/download/v0.0.0-test/$HOST_ASSET\$" "$WORK_DIR/speed-probe-oss-not-worth-switching.log" \
-  || fail_test "speed probe left GitHub even though OSS was not faster by the switch ratio"
-
-run_online_case speed-probe-missing-manifest speed-probe-missing-manifest "" success 4 "" "" "$STAMPED_INSTALLER" auto 1
-grep -q "Download source test was inconclusive" "$WORK_DIR/speed-probe-missing-manifest.output" \
-  || fail_test "missing speed probe manifest did not fall back to the compatible source policy"
-
-run_online_case stamped-github canonical "" success 2 "" "" "$STAMPED_INSTALLER" github
-grep -q "github.com/.*/releases/download/v0.0.0-test/$HOST_ASSET\$" "$WORK_DIR/stamped-github.log" \
-  || fail_test "stamped installer did not honor forced GitHub mode"
-run_online_case download-base-override canonical "" success 2 \
-  "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases/v0.0.0-test" ""
-grep -q "OSS mirror" "$WORK_DIR/download-base-override.output" \
-  || fail_test "download base override did not identify the OSS mirror"
-! grep -q "aliyuncs.com" "$WORK_DIR/download-base-override.output" \
-  || fail_test "download base override exposed the OSS URL in normal output"
-run_online_case download-fallback primary-network "" success 3 \
-  "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases/v0.0.0-test" \
-  "https://github.com/Prism-Shadow/penguin-harness/releases/download/v0.0.0-test"
-[ "$(sed -n '1p' "$WORK_DIR/download-fallback.log")" = \
-  "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases/v0.0.0-test/$HOST_ASSET" ] \
-  || fail_test "download fallback did not try the primary source first"
-grep -q "github.com/.*/releases/download/v0.0.0-test/$HOST_ASSET\$" "$WORK_DIR/download-fallback.log" \
-  || fail_test "download fallback did not use the same-version GitHub source"
-! grep -q "aliyuncs.com" "$WORK_DIR/download-fallback.output" \
-  || fail_test "download fallback exposed the OSS URL in normal output"
-run_online_case fallback-without-base primary-network "" success 3 "" \
-  "https://example.invalid/releases/v0.0.0-test" "$STAMPED_INSTALLER"
-! grep -q "example.invalid" "$WORK_DIR/fallback-without-base.log" \
-  || fail_test "fallback without base should not override auto/source fallback"
-grep -q "github.com/.*/releases/download/v0.0.0-test/$HOST_ASSET\$" "$WORK_DIR/fallback-without-base.log" \
-  || fail_test "fallback without base did not keep the internal same-version GitHub fallback"
-run_online_case outer-mismatch outer-sha-mismatch "" failure 3
-run_online_case inner-mismatch inner-sha-mismatch "" failure 3
-run_online_case latest-404 404 "" failure 2
-run_online_case pinned-network network v0.1.4 failure 2
+run_online_case outer-mismatch outer-sha-mismatch "" failure 2
+run_online_case inner-mismatch inner-sha-mismatch "" failure 2
+run_online_case latest-404 404 "" failure 1
+run_online_case pinned-network network v0.1.4 failure 1
 run_online_case pinned-legacy legacy v0.1.4 success 2
-grep -q "/releases/v0.1.4/$HOST_ASSET\$" "$WORK_DIR/pinned-legacy.log" \
-  || fail_test "pinned legacy did not prefer the pinned OSS asset"
-
-# --- Stable penguin.ooo forwarder: prefer a validated immutable OSS release, but fall back to
-#     GitHub when the metadata probe fails. The real installer uses a local fixture here so the
-#     test isolates bootstrap routing from bundle download behavior above. ---
-run_forwarder_case() {
-  name="$1"
-  mode="$2"
-  expected_requests="$3"
-  source="${4:-auto}"
-  version="${5:-}"
-  expected="${6:-success}"
-  speed_probe="${7:-0}"
-  CASE_LOG="$WORK_DIR/$name.log"
-  CASE_OUTPUT="$WORK_DIR/$name.output"
-  CASE_INSTALL="$WORK_DIR/$name-install"
-  : > "$CASE_LOG"
-  if [ -n "$version" ]; then
-    archive=""
-  else
-    archive="$ARTIFACT_DIR/$HOST_ASSET"
-  fi
-  set +e
-  if [ "$speed_probe" = "__unset" ]; then
-    unset WAFH_DOWNLOAD_SPEED_PROBE
-    REQUEST_LOG="$CASE_LOG" MODE="$mode" PATH="$STUB_BIN:$PATH" \
-      HOME="$WORK_DIR/$name-home" WAFH_INSTALL_DIR="$CASE_INSTALL" \
-      WAFH_ARCHIVE="$archive" WAFH_VERSION="$version" \
-      WAFH_DOWNLOAD_SOURCE="$source" WAFH_DOWNLOAD_BASE_URL="" \
-      WAFH_DOWNLOAD_FALLBACK_BASE_URL="" \
-      sh "$ROOT_DIR/packages/landing/public/install.sh" >"$CASE_OUTPUT" 2>&1
-  else
-    REQUEST_LOG="$CASE_LOG" MODE="$mode" PATH="$STUB_BIN:$PATH" \
-      HOME="$WORK_DIR/$name-home" WAFH_INSTALL_DIR="$CASE_INSTALL" \
-      WAFH_ARCHIVE="$archive" WAFH_VERSION="$version" \
-      WAFH_DOWNLOAD_SOURCE="$source" WAFH_DOWNLOAD_BASE_URL="" \
-      WAFH_DOWNLOAD_FALLBACK_BASE_URL="" WAFH_DOWNLOAD_SPEED_PROBE="$speed_probe" \
-      sh "$ROOT_DIR/packages/landing/public/install.sh" >"$CASE_OUTPUT" 2>&1
-  fi
-  status=$?
-  set -e
-  if [ "$expected" = "success" ]; then
-    [ "$status" -eq 0 ] || fail_test "$name unexpectedly failed"
-  else
-    [ "$status" -ne 0 ] || fail_test "$name unexpectedly succeeded"
-  fi
-  [ "$(wc -l < "$CASE_LOG" | tr -d ' ')" -eq "$expected_requests" ] \
-    || fail_test "$name made an unexpected number of requests"
-  ! grep -q "aliyuncs.com" "$CASE_OUTPUT" \
-    || fail_test "$name exposed the OSS URL in normal output"
-}
-
-run_forwarder_case forwarder-oss forwarder-oss 2
-grep -q "/latest.json\$" "$WORK_DIR/forwarder-oss.log" \
-  || fail_test "OSS forwarder did not request release metadata first"
-grep -q "/releases/v0.0.0-test/install.sh\$" "$WORK_DIR/forwarder-oss.log" \
-  || fail_test "OSS forwarder did not request the versioned installer"
-
-run_forwarder_case forwarder-auto-github forwarder-auto-github 2
-grep -q "github.com/.*/releases/latest/download/install.sh\$" "$WORK_DIR/forwarder-auto-github.log" \
-  || fail_test "forwarder did not fall back to the GitHub installer"
-
-run_forwarder_case forwarder-invalid-metadata forwarder-invalid-metadata 2
-grep -q "github.com/.*/releases/latest/download/install.sh\$" "$WORK_DIR/forwarder-invalid-metadata.log" \
-  || fail_test "invalid OSS metadata did not fall back to the GitHub installer"
-
-run_forwarder_case forwarder-github canonical 1 github
-grep -q "github.com/.*/releases/latest/download/install.sh\$" "$WORK_DIR/forwarder-github.log" \
-  || fail_test "forced GitHub mode did not request the GitHub installer"
-
-run_forwarder_case forwarder-forced-oss-no-fallback forced-oss-payload 2 oss v0.0.0-test failure
-! grep -q "github.com" "$WORK_DIR/forwarder-forced-oss-no-fallback.log" \
-  || fail_test "forced OSS mode unexpectedly fell back to GitHub"
-
-run_forwarder_case forwarder-pinned canonical 3 auto v0.0.0-test
-[ "$(sed -n '1p' "$WORK_DIR/forwarder-pinned.log")" = \
-  "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases/v0.0.0-test/install.sh" ] \
-  || fail_test "pinned forwarder did not request the versioned installer"
-[ "$(sed -n '2p' "$WORK_DIR/forwarder-pinned.log")" = \
-  "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases/v0.0.0-test/$HOST_ASSET" ] \
-  || fail_test "pinned installer did not keep the selected release version"
-
-run_forwarder_case forwarder-speed-probe-handoff speed-probe-github-fast 7 auto v0.0.0-test success 1
-[ "$(sed -n '1p' "$WORK_DIR/forwarder-speed-probe-handoff.log")" = \
-  "https://penguin-harness-releases.oss-cn-beijing.aliyuncs.com/releases/v0.0.0-test/install.sh" ] \
-  || fail_test "speed probe handoff forwarder did not fetch the versioned OSS installer"
-! grep -q "penguin-harness-releases.oss-cn-beijing.aliyuncs.com/.*/$HOST_ASSET\$" "$WORK_DIR/forwarder-speed-probe-handoff.log" \
-  || fail_test "forwarder locked the payload source to OSS instead of letting the installer speed probe"
-grep -q "github.com/.*/releases/download/v0.0.0-test/$HOST_ASSET\$" "$WORK_DIR/forwarder-speed-probe-handoff.log" \
-  || fail_test "forwarder locked the payload source instead of letting the installer speed probe"
-run_forwarder_case forwarder-speed-probe-default-handoff speed-probe-github-fast 7 auto v0.0.0-test success __unset
-grep -q "github.com/.*/releases/download/v0.0.0-test/$HOST_ASSET\$" "$WORK_DIR/forwarder-speed-probe-default-handoff.log" \
-  || fail_test "forwarder handoff did not leave speed probing enabled by default"
+grep -q "/releases/download/v0.1.4/$HOST_ASSET\$" "$WORK_DIR/pinned-legacy.log" \
+  || fail_test "pinned legacy did not download the pinned GitHub asset"
 
 echo "Installer bundle, offline, rollback and online tests passed."

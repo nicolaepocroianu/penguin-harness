@@ -216,7 +216,6 @@ describe("envHintFor (the dialog promises only what MMSP's routed client reads)"
       ["custom", "claude-sonnet-5", "ant-messages", "https://gw.example.com"],
       ["vllm", "Qwen/Qwen3.8-27B", "", "http://gpu-box:8000/v1"],
       ["my-group", "some-model", "", "https://gw.example.com/v1"],
-      ["penguin-go", "gemini-3.8-flash", "", ""],
     ] as const) {
       expect(
         envHintFor(provider, modelId, clientType, baseUrl, presetGroup(provider)),
@@ -398,7 +397,7 @@ describe("rowToEntry (the persistence funnel)", () => {
   });
 
   it("leaves the stored promotion to the server: it is never sent", () => {
-    expect(rowToEntry(row({ provider: "penguin-go", discount: 0.5 }))).not.toHaveProperty(
+    expect(rowToEntry(row({ provider: "tokendance", discount: 0.5 }))).not.toHaveProperty(
       "discount",
     );
   });

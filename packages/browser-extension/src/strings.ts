@@ -37,7 +37,8 @@ export const strings = {
     "Copy the server address and the pairing code it shows. The code works once, for 10 minutes.",
   step3: "Paste both here and choose Connect.",
   docsLink: "Using your own Chrome",
-  docsUrl: "https://penguin.ooo/docs/builtin-browser",
+  docsUrl:
+    "https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/builtin-browser.en.md",
   updateAvailable: (version: string) =>
     `The server runs ${version}; update this extension to match.`,
 

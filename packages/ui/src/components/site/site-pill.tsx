@@ -1,5 +1,5 @@
 /**
- * A small labelled pill for public-site metadata (a blog post's category, its pinned mark). The
+ * A small labelled pill for public-site metadata (an article's category, its pinned mark). The
  * tone is an identity, not a status: the host maps its categories onto these. The tones are
  * site-content.css's.
  */

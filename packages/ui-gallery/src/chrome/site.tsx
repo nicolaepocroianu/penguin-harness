@@ -1,5 +1,5 @@
 /**
- * The site frame every page renders inside: the site navbar (site/nav.tsx), the landing page's
+ * The site frame every page renders inside: the site navbar (site/nav.tsx), the site's
  * and the docs' own; the gallery's bar under it, with the gallery's pages and its view controls;
  * then the body — an optional left column with the section's navigation list, the content column,
  * and an optional right column ("on this page") — and the tooltip layer the chrome's
@@ -11,7 +11,7 @@
  * link, the button or Escape. The gallery's bar stays: its pages scroll sideways, its controls sit
  * in the popover.
  *
- * The navbar and its links in the drawer sit outside the `.g-chrome` subtree: they are the landing
+ * The navbar and its links in the drawer sit outside the `.g-chrome` subtree: they are the public
  * page's Tailwind markup, and the chrome's base rules would outrank its utilities.
  */
 import { useEffect, useState } from "react";

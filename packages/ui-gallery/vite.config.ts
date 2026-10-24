@@ -1,7 +1,7 @@
 /**
  * Vite config: the component gallery (React SPA + Tailwind CSS 4), plus the framed Web App as a
- * second page. A dev tool run locally with `pnpm dev:gallery`, it is also published on the public
- * site under `/gallery/` (scripts/build-site.mjs builds it with `BASE_PATH=<base>gallery/`).
+ * second page. A dev tool run locally with `pnpm dev:gallery`; `BASE_PATH` sets the base it is
+ * built for.
  *
  * Three documents come out of one build: `index.html`, the gallery site; `app.html`, the real
  * Web App mounted against an in-browser mock of its API (src/app); and `lib.html`, one component
@@ -84,7 +84,7 @@ function frameDocument(): Plugin {
 /**
  * A copy of the gallery's document at every page's address (`s/chat/index.html`, …). Every route
  * is a full page load, and a static host answers with files only: without these, a reload or a
- * quoted link would get the host's 404 page (on the public site, the landing page's).
+ * quoted link would get the host's 404 page (on the public site, the site's).
  */
 function pageShells(): Plugin {
   return {

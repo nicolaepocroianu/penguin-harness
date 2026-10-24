@@ -23,11 +23,11 @@ A single `run` drives a complete Task: streaming output, per-call approvals, con
 
 ## Documentation
 
-- [Architecture](https://penguin.ooo/docs/architecture)
-- [The OmniMessage Protocol](https://penguin.ooo/docs/omni-message)
-- [Core Interfaces](https://penguin.ooo/docs/interfaces)
-- [The Agent Loop](https://penguin.ooo/docs/agent-loop)
-- [Sessions & Traces](https://penguin.ooo/docs/sessions-and-traces)
+- [Architecture](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/architecture.en.md)
+- [The OmniMessage Protocol](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/omni-message.en.md)
+- [Core Interfaces](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/interfaces.en.md)
+- [The Agent Loop](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/agent-loop.en.md)
+- [Sessions & Traces](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/sessions-and-traces.en.md)
 
 ## Development
 
@@ -38,4 +38,4 @@ pnpm --filter @waterford/waf-harness-core test
 pnpm test:e2e                                       # live-model e2e (needs DEEPSEEK_API_KEY)
 ```
 
-Part of [WAF Harness](https://github.com/Prism-Shadow/penguin-harness) · Apache-2.0
+Part of [WAF Harness](https://github.com/nicolaepocroianu/waf-harness) · Apache-2.0

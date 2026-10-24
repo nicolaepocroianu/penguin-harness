@@ -1,13 +1,12 @@
 /**
  * A group's connection in its header (groups whose key comes from an authorization flow:
- * TokenDance, Penguin Go, ModelScope), as one control:
+ * TokenDance, ModelScope), as one control:
  *
  * - not connected, for the owner: one flat button — the muted dot and "Not connected" — that
  *   starts the group's connect flow, so the status is also the way to change it;
  * - connected, for the owner: one flat trigger — the success dot, "Connected" and a chevron —
- *   opening a menu with Sync models (Penguin Go only: it reads the platform's catalog with the
- *   group key), Reconnect (the group's flow again, for a fresh key or another account) and
- *   Disconnect, in the danger tone;
+ *   opening a menu with Reconnect (the group's flow again, for a fresh key or another account)
+ *   and Disconnect, in the danger tone;
  * - for a member, either way: the status as plain text, with nothing to press.
  *
  * "Connected" is the group holding a key of its own, however it got there (group-header.ts).
@@ -31,15 +30,13 @@ import * as api from "../../api/endpoints";
 import { apiErrorText } from "../../lib/api-error";
 import { S } from "../../lib/strings";
 import { toneDot } from "../../lib/tone";
-import { HEADER_TEXT, connectedMenuItems } from "./group-header";
+import { CONNECTED_MENU_ITEMS, HEADER_TEXT } from "./group-header";
 import type { ConnectedMenuItem } from "./group-header";
 
 /** What a menu row runs; the page supplies each. */
 export interface ConnectionActions {
   /** Starts the group's connect flow (the Not connected button, and Reconnect from the menu). */
   onConnect: () => void;
-  /** Penguin Go's platform sync. */
-  onSyncModels: () => void;
   /** Opens the Disconnect confirmation. */
   onDisconnect: () => void;
 }
@@ -64,22 +61,15 @@ function Status({ connected, keepWords = false }: { connected: boolean; keepWord
   );
 }
 
-/** The Connected menu's rows, in connectedMenuItems' order; Disconnect in the danger tone. */
-export function ConnectionMenu({
-  provider,
-  onSelect,
-}: {
-  provider: ModelProviderInfo;
-  onSelect: (item: ConnectedMenuItem) => void;
-}) {
+/** The Connected menu's rows, in CONNECTED_MENU_ITEMS' order; Disconnect in the danger tone. */
+export function ConnectionMenu({ onSelect }: { onSelect: (item: ConnectedMenuItem) => void }) {
   const label: Record<ConnectedMenuItem, string> = {
-    syncModels: S.models.syncModels,
     reconnect: S.models.reconnect,
     disconnect: S.models.disconnect,
   };
   return (
     <Menu density="sm">
-      {connectedMenuItems(provider).map((item) => (
+      {CONNECTED_MENU_ITEMS.map((item) => (
         <MenuItem
           key={item}
           label={label[item]}
@@ -156,7 +146,6 @@ export function GroupConnection({
   }
 
   const run: Record<ConnectedMenuItem, () => void> = {
-    syncModels: actions.onSyncModels,
     reconnect: actions.onConnect,
     disconnect: actions.onDisconnect,
   };
@@ -184,7 +173,6 @@ export function GroupConnection({
       }
     >
       <ConnectionMenu
-        provider={provider}
         onSelect={(item) => {
           setOpen(false);
           run[item]();

@@ -11,7 +11,7 @@
  * theme — only `.dark`, to pick its own light or dark palette; nor does the site navbar above it.
  *
  * The mode is the site's as well as the view's: a visit without one in its URL opens in the one
- * the landing page and the docs use, and the site navbar's toggle changes both the view and the
+ * the public site and the docs use, and the site navbar's toggle changes both the view and the
  * site's choice (site/prefs.ts).
  */
 import {

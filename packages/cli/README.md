@@ -19,13 +19,13 @@ wafh chat --resume                                          # resume the latest 
 
 Tool calls go through an approval gate — `--approve allow-all` (default) `| deny-all | read-only | always-ask`. Data lives under `~/.waf-harness/data` (`WAFH_HOME` or `--root` override); model credentials come from the Project config or provider env vars (e.g. `DEEPSEEK_API_KEY`).
 
-Prefer a one-line install with a bundled Node runtime? See [Quickstart → CLI and Web App](https://penguin.ooo/docs/quickstart-cli).
+Prefer a one-line install with a bundled Node runtime? See [Quickstart → CLI and Web App](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/quickstart-cli.en.md).
 
 ## Documentation
 
-- [Quickstart](https://penguin.ooo/docs/quickstart)
-- [CLI Reference](https://penguin.ooo/docs/cli)
-- [Configuration Reference](https://penguin.ooo/docs/configuration)
+- [Quickstart](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/quickstart.en.md)
+- [CLI Reference](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/cli.en.md)
+- [Configuration Reference](https://github.com/nicolaepocroianu/waf-harness/blob/main/packages/docs/content/configuration.en.md)
 
 ## Development
 
@@ -36,4 +36,4 @@ pnpm --filter @waterford/waf-harness-cli typecheck
 pnpm --filter @waterford/waf-harness-cli test
 ```
 
-Part of [WAF Harness](https://github.com/Prism-Shadow/penguin-harness) · Apache-2.0
+Part of [WAF Harness](https://github.com/nicolaepocroianu/waf-harness) · Apache-2.0

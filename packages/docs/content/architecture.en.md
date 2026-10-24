@@ -139,7 +139,6 @@ packages/
 ├── web/src                         # api client · state · lib/omni stream rendering · components · feature pages (layout below)
 ├── desktop/                        # the Electron shell
 ├── hmr/                            # the hot-update mechanism
-├── landing/                        # the product landing page (with the blog)
 └── docs/                           # this documentation site
 ```
 

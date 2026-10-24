@@ -91,12 +91,11 @@ describe("groupModelRows", () => {
     expect(groups[4]!.provider.envKey).toBe("OPENAI_API_KEY");
     expect(groups[4]!.rows.map((r) => r.modelId)).toEqual(["weird-model"]);
     // Group order matches MODEL_PROVIDERS, whose sequence is hand-curated (gateways and
-    // first-party vendors interleaved): the recommended TokenDance first, then Penguin Go,
+    // first-party vendors interleaved): the recommended TokenDance first, then
     // OpenCode Go and DeepSeek, with custom last. This is the page's DEFAULT — the
     // stored per-Project order applied below overrides it.
     expect(MODEL_PROVIDERS.map((p) => p.id)).toEqual([
       "tokendance",
-      "penguin-go",
       "opencode-go",
       "deepseek",
       "openrouter",
@@ -375,10 +374,9 @@ describe("discountedPrice", () => {
   const OFF_PEAK = new Date("2026-08-31T05:00:00Z");
 
   it("a promotion takes its rate off the stored list price, on any row", () => {
-    // Off the catalog on purpose: the promotion is the row's own, as a platform sync reports it
-    // for a model the built-in catalog has never heard of.
+    // Off the catalog on purpose: the promotion is the row's own, as it arrives for a model the built-in catalog has never heard of.
     const row = {
-      provider: "penguin-go",
+      provider: "tokendance",
       modelId: "gemini-future",
       cacheRead: "0.1",
       cacheWrite: "0.5",

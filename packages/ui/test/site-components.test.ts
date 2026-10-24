@@ -82,7 +82,10 @@ describe("an article", () => {
 describe("the site highlighter", () => {
   it("colours PowerShell and JSON Lines fences with both themes baked in", async () => {
     for (const [code, language] of [
-      ["irm https://penguin.ooo/install.ps1 | iex", "ps1"],
+      [
+        "irm https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.ps1 | iex",
+        "ps1",
+      ],
       ['{"type":"event"}', "jsonl"],
     ] as const) {
       const html = await highlightSiteCode(code, language);
@@ -184,7 +187,7 @@ describe("a code card", () => {
   it("mutes comment lines only, and its copy button names the action", () => {
     const html = renderStatic(
       h(SiteCodeCard, {
-        code: "# Linux\ncurl -fsSL https://penguin.ooo/install.sh | sh",
+        code: "# Linux\ncurl -fsSL https://raw.githubusercontent.com/nicolaepocroianu/waf-harness/main/install.sh | sh",
         copy: { label: "Copy", announcement: "Copied" },
       }),
     );

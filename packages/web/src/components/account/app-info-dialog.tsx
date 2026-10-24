@@ -61,7 +61,6 @@ import { CreditsList } from "./credits-list";
 import { ReleaseNotesList } from "./release-notes-list";
 import { VersionStamp } from "./version-stamp";
 
-const HOMEPAGE_URL = "https://penguin.ooo/";
 /** This build's own repository (core's RELEASE_IDENTITY), never another's. */
 const REPOSITORY_URL = `https://github.com/${RELEASE_IDENTITY.repository}`;
 
@@ -198,12 +197,6 @@ function Identity({
       </div>
       {/* Each pair's wrapper dissolves into the two-column grid above the phone breakpoint. */}
       <dl className="col-span-2 space-y-2 text-sm sm:col-span-1 sm:col-start-2 sm:grid sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-3 sm:gap-y-1 sm:space-y-0">
-        <div className="sm:contents">
-          <dt className="text-fg-muted">{S.appInfo.homepage}</dt>
-          <dd className="min-w-0">
-            <AddressLink href={HOMEPAGE_URL} />
-          </dd>
-        </div>
         <div className="sm:contents">
           <dt className="text-fg-muted">{S.appInfo.repository}</dt>
           <dd className="min-w-0">

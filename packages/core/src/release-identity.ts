@@ -9,7 +9,7 @@
  * repository. Its own entry point so the Web App can bundle it without the rest of the SDK.
  *
  * Turning `publishesReleases` on takes more than this constant: the desktop updater's GitHub
- * feed and download roots, the CLI's OSS mirror and electron-builder's `publish` block each
+ * feed, the CLI's and installers' download roots and electron-builder's `publish` block each
  * name their release channel separately.
  */
 export interface ReleaseIdentity {

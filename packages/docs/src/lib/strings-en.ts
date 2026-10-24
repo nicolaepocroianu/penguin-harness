@@ -6,10 +6,7 @@ export const en: Strings = {
 
   nav: {
     home: "Home",
-    blog: "Blog",
-    download: "Download",
     docs: "Docs",
-    gallery: "Gallery",
     github: "GitHub",
     openMenu: "Open navigation",
     closeMenu: "Close navigation",
@@ -55,7 +52,6 @@ export const en: Strings = {
   footer: {
     repo: "GitHub repository",
     license: "Apache-2.0 License",
-    site: "Website",
     copyright: "© 2026 Prism Shadow · Open source under Apache-2.0",
   },
 };

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Penguin Go uses the shared balance controls, against the real browser API wrappers.
+ * A balance group uses the shared balance controls (DeepSeek here), against the real browser API wrappers.
  *
  * - Given a group header, mounting reads once; time alone never refreshes it, while the
  *   menu's refresh forces a new read. Pinning reads once and refreshes every five minutes,
@@ -17,7 +17,7 @@ import { setActiveStrings } from "../src/lib/strings";
 import { apiError, json, stubFetch } from "./helpers/fetch";
 import { button, click, mount, unmountAll, waitFor } from "./helpers/dom";
 
-describe("Penguin Go balance refresh", () => {
+describe("Group balance refresh", () => {
   beforeEach(() => {
     setActiveStrings(en);
     localStorage.clear();
@@ -48,7 +48,7 @@ describe("Penguin Go balance refresh", () => {
         reads++;
         return json({
           ok: true,
-          provider: "penguin-go",
+          provider: "deepseek",
           amount: String(reads * 7),
           currency: "CNY",
           fetchedAt: "2026-10-13T00:00:00Z",
@@ -64,14 +64,14 @@ describe("Penguin Go balance refresh", () => {
         h(
           ProjectProvider,
           null,
-          h(GroupBalance, { projectId: "go-refresh", provider: providerInfo("penguin-go")! }),
+          h(GroupBalance, { projectId: "go-refresh", provider: providerInfo("deepseek")! }),
           h(PinnedBalanceBadge),
         ),
       ),
     );
     await waitFor(() => document.body.textContent?.includes("¥7") === true);
     expect(balances()).toHaveLength(1);
-    expect(balances()[0]!.query.get("provider")).toBe("penguin-go");
+    expect(balances()[0]!.query.get("provider")).toBe("deepseek");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(300_000);
     });
@@ -112,7 +112,7 @@ describe("Penguin Go balance refresh", () => {
     expect(reads).toBe(4);
     const pins = server.requests.filter((r) => r.path === "/api/me/prefs" && r.method === "PUT");
     expect(pins.map((r) => r.body)).toEqual([
-      { pinnedBalance: { projectId: "go-refresh", provider: "penguin-go" } },
+      { pinnedBalance: { projectId: "go-refresh", provider: "deepseek" } },
       { pinnedBalance: null },
     ]);
   });

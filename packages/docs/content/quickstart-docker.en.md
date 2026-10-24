@@ -1,23 +1,28 @@
 ---
 title: Docker
-description: Run the official WAF Harness image, with one container and one volume serving the full Web App on port 7364.
+description: Build the WAF Harness image from the repository, and run it with one container and one volume serving the full Web App on port 7364.
 ---
 
-The official image runs the same server that `wafh server` starts, with the Web App inside it. One container and one volume are the whole deployment, which makes Docker the shortest route onto a machine that is not your laptop.
+The image runs the same server that `wafh server` starts, with the Web App inside it. No image is published: you build it once from the repository's Dockerfile. One container and one volume are the whole deployment, which makes Docker the shortest route onto a machine that is not your laptop.
 
 ## Before you begin
 
 - Docker on the machine that will run WAF Harness. The examples below cover both Docker Compose and `docker run`.
+- A checkout of the repository, to build the image from: `git clone https://github.com/nicolaepocroianu/waf-harness && cd waf-harness`.
 - An API key for one model provider.
 
 ## Start the container
 
-Use either tab: save the compose file, or run the commands.
+Both examples run from the root of the checkout and build the image from its `Dockerfile`; the first build takes a few minutes. Use either tab.
 
 ```yaml tab="compose.yaml"
+# docker/compose.yaml in the repository
 services:
   wafh:
-    image: hiyouga/penguinharness:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: waf-harness:local
     restart: unless-stopped
     ports:
       - "127.0.0.1:7364:7364"
@@ -30,15 +35,16 @@ volumes:
 ```
 
 ```bash tab="docker run"
+docker build -t waf-harness:local .
 docker volume create wafh-data
 docker run -d --name wafh \
   -p 127.0.0.1:7364:7364 \
   -v wafh-data:/data \
   --restart unless-stopped \
-  hiyouga/penguinharness:latest
+  waf-harness:local
 ```
 
-With the compose file saved in the current directory, start it with `docker compose up -d`. Either way, the Web App is then at `http://localhost:7364` on the machine running Docker.
+With Compose, start it with `docker compose -f docker/compose.yaml up -d --build`. Either way, the Web App is then at `http://localhost:7364` on the machine running Docker.
 
 ### Reach it from another machine
 
@@ -53,7 +59,7 @@ Inside its own network namespace, the container always listens on `0.0.0.0`, whi
 A fresh data root has no password. Until one is set, the server prints a sign-in link in a framed notice every time it starts. Read it from the container's log:
 
 ```bash
-docker compose logs wafh        # or: docker logs wafh
+docker compose -f docker/compose.yaml logs wafh        # or: docker logs wafh
 ```
 
 The notice looks like this:
@@ -88,7 +94,7 @@ The server then creates the built-in `admin` with that password (at least 8 char
 WAF Harness ships with no model credentials. Add a model on the **Models** page of the Web App, or with the CLI inside the container:
 
 ```bash
-docker compose exec -u wafh wafh \
+docker compose -f docker/compose.yaml exec -u wafh wafh \
   wafh config model add --provider deepseek --model-id deepseek-flash --api-key sk-... --set-default
 ```
 
@@ -102,18 +108,7 @@ In the Web App's sidebar, click **New chat**, then send a first message, such as
 
 ## Choose an image tag
 
-The image is published as:
-
-```
-hiyouga/penguinharness
-```
-
-It has two kinds of tag:
-
-- `latest` follows changes to the image's runtime or build inputs on `main`. Docs, site and desktop-only source changes do not rebuild it.
-- `X.Y.Z` is a release, built from that tag's own source.
-
-There is no `main-<sha>`, `X.Y` or `stable` tag, so nothing moves under a second name. Every tag is a multi-platform manifest covering `linux/amd64` and `linux/arm64`, so the same reference works on an x86 VPS and an arm64 one alike. The examples on this page use `latest`. Pin a version for a deployment that should move only when a release ships.
+You name the image yourself when you build it; the examples on this page use `waf-harness:local`. It is built for the platform of the machine that runs `docker build`. To pin a version, check out that release's tag (`git checkout vX.Y.Z`) before building, and tag the image with it (`docker build -t waf-harness:X.Y.Z .`).
 
 ## What is in the image
 
@@ -134,10 +129,10 @@ To give the agent a Workspace, mount a directory, for example `-v /srv/project:/
 
 ### Add tools to the image
 
-The image carries no compiler and no language runtime besides Node. `apt-get install` inside the container works for a one-off, but the package is gone after the next `docker pull`. For anything you depend on, build a derived image:
+The image carries no compiler and no language runtime besides Node. `apt-get install` inside the container works for a one-off, but the package is gone after the next rebuild. For anything you depend on, build a derived image:
 
 ```dockerfile
-FROM hiyouga/penguinharness:latest
+FROM waf-harness:local
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends python3 ripgrep \
     && rm -rf /var/lib/apt/lists/*
@@ -170,10 +165,10 @@ Previews of the HTML a Task produces are served from a separate origin when ther
 
 ## Upgrade the container
 
-Pull a newer tag and recreate the container. The data root is on the volume and carries over:
+Update the checkout, rebuild the image and recreate the container. The data root is on the volume and carries over:
 
 ```bash
-docker compose pull && docker compose up -d
+git pull && docker compose -f docker/compose.yaml up -d --build
 ```
 
 > [!WARNING]
@@ -186,9 +181,9 @@ Stopping is graceful. On `SIGTERM` the server interrupts running Tasks, waits fo
 Stop the server first, because a data root only ever has one writer. Then reset the password and start the server again:
 
 ```bash
-docker compose stop wafh
-docker compose run --rm wafh wafh server reset-admin-password
-docker compose start wafh
+docker compose -f docker/compose.yaml stop wafh
+docker compose -f docker/compose.yaml run --rm wafh wafh server reset-admin-password
+docker compose -f docker/compose.yaml start wafh
 ```
 
 The reset needs no other authorization: the data root is the authorization, and anyone who can run this command already has the database. The `admin` account returns to the unclaimed state and its login sessions are revoked. Sign in again with the first-login link from the log, as in [Sign in for the first time](#sign-in-for-the-first-time).

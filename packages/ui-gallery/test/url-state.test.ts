@@ -4,12 +4,12 @@
  * - Given any view, its canonical query parses back to the same view, the six preferences always
  *   written out and the phone view only when set; unknown values fall back to the remembered
  *   value, then to the default.
- * - Given a `lang` param (the landing page's links name `lang=en`), it is accepted and ignored:
+ * - Given a `lang` param (the site's links name `lang=en`), it is accepted and ignored:
  *   the gallery is English only.
  * - Given the site's light/dark is stored (by any of the three sites), a visit restores it, over
  *   what the gallery stored itself before the sites shared it.
  * - Given only the gallery's own older `mode` is stored, a returning visit keeps it.
- * - Given nothing stored, a visit follows the system mode, as the landing page and the docs do.
+ * - Given nothing stored, a visit follows the system mode, as the public site and the docs do.
  * - The gallery's other preferences (theme, size, fonts, accent) stay its own.
  */
 import { describe, expect, it } from "vitest";
